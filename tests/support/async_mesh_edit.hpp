@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_document.hpp"
-#include "commands/editor_asset_edit.hpp"
+#include "documents/commands/editor_asset_edit.hpp"
 namespace gneiss::test_support {
 inline gneiss::error
 create_mesh_document(runtime::application& app, editor::scene_edit_session& doc,

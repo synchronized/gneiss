@@ -3,10 +3,10 @@
 
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
-#include "imgui_adapter.hpp"
+#include "ui/imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
-#include "asset_background_worker.hpp"
-#include "viewport/editor_camera.hpp"
+#include "assets/asset_background_worker.hpp"
+#include "ui/viewport/editor_camera.hpp"
 #include <atomic>
 #include <chrono>
 #include <future>

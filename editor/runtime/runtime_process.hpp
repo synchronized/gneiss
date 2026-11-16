@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
+#define GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
+
+#include <gneiss/engine/error.hpp>
+#include "runtime/runtime_launch.hpp"
+
+#include "inspection/console_model.hpp"
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/ipc_scene_protocol.hpp>
+#include <gneiss/protocol/ipc_statistics_protocol.hpp>
+#include "inspection/runtime_property_edits.hpp"
+#include "inspection/runtime_scene_mirror.hpp"
+
+#include <gneiss/project/project_description.hpp>
+
+#include <cstdint>
+#include <memory>
+#include <span>
+#include <string>
+
+namespace gneiss::host {
+
+enum class runtime_control_state : std::uint8_t {
+  stopped,
+  connecting,
+  running,
+  paused,
+  stopping,
+  failed,
+};
+
+enum class runtime_asset_reload_state : std::uint8_t {
+  idle,
+  waiting,
+  applying,
+  applied,
+  failed,
+  restart_required,
+};
+
+struct runtime_asset_reload_status final {
+  runtime_asset_reload_state state{runtime_asset_reload_state::idle};
+  std::uint64_t revision = 0U;
+  std::string message;
+  gneiss::error publish_result = gneiss::error::success;
+  bool can_cancel = false;
+  std::uint32_t completed_assets = 0U;
+  std::uint32_t total_assets = 0U;
+  std::vector<ipc_asset_item_result> items{};
+};
+
+class runtime_process final {
+public:
+  /** 非空 Console 由调用方拥有，必须覆盖本对象寿命。 */
+  explicit runtime_process(gneiss::editor::console_model* console = nullptr);
+  ~runtime_process();
+
+  runtime_process(const runtime_process&) = delete;
+  runtime_process& operator=(const runtime_process&) = delete;
+
+  [[nodiscard]] gneiss::error start(const std::filesystem::path& executable,
+                                    const gneiss::editor::runtime_launch_request& request);
+  [[nodiscard]] gneiss::error request_stop();
+  [[nodiscard]] gneiss::error request_pause();
+  [[nodiscard]] gneiss::error request_resume();
+  [[nodiscard]] gneiss::error request_property_write(gneiss::editor::runtime_property_key key,
+                                                     std::uint64_t expected_revision,
+                                                     gneiss::value value);
+  /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
+  [[nodiscard]] gneiss::error publish_asset_revision(std::span<const std::string> output_uris);
+  /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
+  [[nodiscard]] gneiss::error cancel_asset_reload() noexcept;
+  [[nodiscard]] gneiss::error retry_asset_reload();
+  [[nodiscard]] gneiss::error load_scene(std::string_view uri);
+  [[nodiscard]] gneiss::error cancel_scene_load() noexcept;
+  [[nodiscard]] gneiss::error retry_scene_load() noexcept;
+  [[nodiscard]] bool supports_scene_loading() const noexcept;
+  [[nodiscard]] const ipc_scene_progress& scene_load_status() const noexcept;
+  void update();
+
+  [[nodiscard]] bool is_running() const noexcept;
+  [[nodiscard]] bool is_busy() const noexcept;
+  [[nodiscard]] runtime_control_state control_state() const noexcept;
+  [[nodiscard]] bool received_shutdown_complete() const noexcept;
+  [[nodiscard]] bool has_started() const noexcept;
+  [[nodiscard]] int exit_code() const noexcept;
+  [[nodiscard]] const std::string& output() const noexcept;
+  [[nodiscard]] const gneiss::editor::console_model& console() const noexcept;
+  [[nodiscard]] const gneiss::editor::runtime_scene_mirror& scene_mirror() const noexcept;
+  [[nodiscard]] const ipc_runtime_statistics& statistics() const noexcept;
+  [[nodiscard]] const gneiss::editor::runtime_property_edit*
+  property_edit(const gneiss::editor::runtime_property_key& key) const noexcept;
+  [[nodiscard]] bool supports_property_editing() const noexcept;
+  [[nodiscard]] const runtime_asset_reload_status& asset_reload_status() const noexcept;
+  [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
+  [[nodiscard]] gneiss::error last_result() const noexcept;
+  void clear_output() noexcept;
+
+private:
+  struct implementation;
+  std::unique_ptr<implementation> implementation_;
+};
+
+} // namespace gneiss::host
+
+#endif

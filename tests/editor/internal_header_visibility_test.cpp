@@ -8,7 +8,7 @@
     defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
 #error "Application 重新传递包含了具体服务"
 #endif
-#include "commands/author_property_edit.hpp"
+#include "documents/commands/author_property_edit.hpp"
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 

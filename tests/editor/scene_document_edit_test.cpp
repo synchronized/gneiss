@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
-#include "commands/prefab_authoring.hpp"
+#include "documents/commands/prefab_authoring.hpp"
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>

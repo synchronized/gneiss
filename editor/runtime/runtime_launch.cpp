@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "runtime/runtime_launch.hpp"
+#include <gneiss/engine/error.hpp>
+
+namespace gneiss::editor {
+
+runtime_launch_state inspect_runtime_launch(const scene_edit_session& session,
+                                            const std::filesystem::path& project_root,
+                                            runtime_launch_request& output) {
+  output = {};
+  if (!session.is_open() || project_root.empty()) {
+    return runtime_launch_state::blocked;
+  }
+  if (session.is_dirty() || session.uri().empty()) {
+    return runtime_launch_state::requires_save;
+  }
+  {
+    output.project_root = project_root.lexically_normal();
+    return runtime_launch_state::ready;
+  }
+}
+
+} // namespace gneiss::editor

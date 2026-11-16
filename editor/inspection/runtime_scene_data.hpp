@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#pragma once
+
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/resource/scene/component_description.hpp>
+#include "inspection/runtime_object_id.hpp"
+
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+
+#include <string>
+#include <vector>
+
+namespace gneiss::editor {
+
+/** 检查增量的会话与顺序标记。序号从 1 开始并在会话内严格递增。 */
+struct runtime_scene_stamp final {
+  std::uint64_t session_id = 0U;
+  std::uint64_t sequence = 0U;
+};
+
+enum class runtime_scene_sequence_result : std::uint8_t {
+  accepted,
+  duplicate,
+  gap,
+  stale_session,
+  invalid,
+};
+
+/** Editor 侧检查消息顺序跟踪器；发现缺口后由上层请求完整快照。 */
+class runtime_scene_sequence_tracker final {
+public:
+  [[nodiscard]] gneiss::error begin(std::uint64_t session_id,
+                                            std::uint64_t first_sequence = 1U);
+  void reset() noexcept;
+  [[nodiscard]] runtime_scene_sequence_result observe(runtime_scene_stamp stamp);
+  [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }
+  [[nodiscard]] std::uint64_t next_sequence() const noexcept { return next_sequence_; }
+
+private:
+  std::uint64_t session_id_ = 0U;
+  std::uint64_t next_sequence_ = 0U;
+};
+
+enum class runtime_scene_change_type : std::uint8_t { upsert, remove };
+
+struct runtime_scene_node final {
+  runtime_object_id id;
+  runtime_object_id parent;
+  gneiss::guid uuid;
+  gneiss::guid prefab_instance_uuid;
+  gneiss::guid prefab_source_node_uuid;
+  std::string name;
+  gneiss::math::transform local_transform;
+  gneiss::component_descriptions components{};
+};
+
+struct runtime_scene_change final {
+  runtime_scene_change_type type = runtime_scene_change_type::upsert;
+  runtime_object_id id;
+  runtime_scene_node node;
+};
+
+struct runtime_scene_batch final {
+  runtime_scene_stamp stamp;
+  bool is_full = false;
+  std::uint32_t chunk_index = 0U;
+  std::uint32_t chunk_count = 1U;
+  std::vector<runtime_scene_change> changes;
+};
+
+} // namespace gneiss::editor

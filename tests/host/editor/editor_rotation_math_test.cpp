@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include "viewport/editor_rotation_math.hpp"
+#include "ui/viewport/editor_rotation_math.hpp"
 
 #include <array>
 #include <cmath>

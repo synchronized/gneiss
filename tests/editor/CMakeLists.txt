@@ -172,3 +172,5 @@ target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_
 target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_fatal)
 
 target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_fatal)
+
+include(host_targets.cmake)

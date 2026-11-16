@@ -5,7 +5,7 @@
 #include "platform/files/memory_file_backend.hpp"
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include "panels/material_editor_panel.hpp"
+#include "ui/panels/material_editor_panel.hpp"
 #include <cstdio>
 #include <imgui.h>
 #include <stdexcept>

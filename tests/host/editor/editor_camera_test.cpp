@@ -7,7 +7,7 @@
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "viewport/editor_camera.hpp"
+#include "ui/viewport/editor_camera.hpp"
 
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/types/rid.hpp>

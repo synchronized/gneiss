@@ -5,7 +5,7 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/editor_prefab_edit.hpp"
+#include "documents/commands/editor_prefab_edit.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>

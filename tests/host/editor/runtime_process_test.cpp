@@ -6,10 +6,10 @@
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-#include "runtime_log_adapter.hpp"
-#include "runtime_process.hpp"
-#include "runtime_property_adapter.hpp"
-#include "runtime_scene_adapter.hpp"
+#include "runtime/runtime_log_adapter.hpp"
+#include "runtime/runtime_process.hpp"
+#include "runtime/runtime_property_adapter.hpp"
+#include "runtime/runtime_scene_adapter.hpp"
 
 #include <gneiss/engine/core/types/rid.hpp>
 

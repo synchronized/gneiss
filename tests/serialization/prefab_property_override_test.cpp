@@ -3,7 +3,7 @@
 
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
-#include "editor/documents/prefab_edit.hpp"
+#include "documents/prefab_edit.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>

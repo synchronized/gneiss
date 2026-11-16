@@ -5,7 +5,7 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/editor_asset_edit.hpp"
+#include "documents/commands/editor_asset_edit.hpp"
 #include "documents/scene_document_snapshot.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>

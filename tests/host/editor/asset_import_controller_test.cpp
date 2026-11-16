@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_import_controller.hpp"
+#include "assets/asset_import_controller.hpp"
 
 #include <gneiss/tooling/import/asset_index.hpp>
 

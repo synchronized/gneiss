@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "commands/editor_command_history.hpp"
+#include "documents/commands/editor_command_history.hpp"
 #include <gneiss/engine/error.hpp>
 
 #include <string>

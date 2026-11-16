@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
 #include "../support/movement_editor.hpp"
-#include "commands/editor_command_history.hpp"
-#include "commands/prefab_authoring.hpp"
-#include "components/component_registration.hpp"
+#include "documents/commands/editor_command_history.hpp"
+#include "documents/commands/prefab_authoring.hpp"
+#include "documents/components/component_registration.hpp"
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>

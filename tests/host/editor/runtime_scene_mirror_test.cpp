@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
-#include "runtime_scene_mirror.hpp"
+#include "inspection/runtime_scene_mirror.hpp"
 
 #include <limits>
 

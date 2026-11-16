@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_document.hpp"
-#include "commands/author_file_save.hpp"
+#include "documents/commands/author_file_save.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "scene_query.hpp"
 #include "value_result.hpp"

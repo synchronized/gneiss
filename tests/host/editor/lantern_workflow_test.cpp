@@ -7,11 +7,11 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "asset_browser_model.hpp"
-#include "asset_import_controller.hpp"
-#include "commands/editor_command_history.hpp"
+#include "assets/asset_browser_model.hpp"
+#include "assets/asset_import_controller.hpp"
+#include "documents/commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "editor_project.hpp"
+#include "project/editor_project.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>

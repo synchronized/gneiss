@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
-#include "runtime_process.hpp"
+#include "runtime/runtime_process.hpp"
 
 #include <chrono>
 #include <cstdio>

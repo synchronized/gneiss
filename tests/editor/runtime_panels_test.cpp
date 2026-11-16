@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/core/types/guid.hpp>
-#include "panels/runtime_panels.hpp"
+#include "ui/panels/runtime_panels.hpp"
 
 #include <imgui.h>
 

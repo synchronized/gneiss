@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_document.hpp"
-#include "commands/editor_prefab_edit.hpp"
+#include "documents/commands/editor_prefab_edit.hpp"
 namespace gneiss::test_support {
 inline gneiss::error drive_prefab_edit(runtime::application& app, editor::editor_prefab_edit& edit,
                                        gneiss::tasks::task_scheduler& tasks) {

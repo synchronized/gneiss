@@ -6,7 +6,7 @@
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/author_property_edit.hpp"
+#include "documents/commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>

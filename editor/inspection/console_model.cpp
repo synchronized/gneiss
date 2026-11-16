@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "inspection/console_model.hpp"
+#include <gneiss/engine/error.hpp>
+
+#include <limits>
+#include <utility>
+
+namespace gneiss::editor {
+
+console_model::console_model(std::size_t capacity) : capacity_(capacity) {}
+
+std::uint64_t console_model::begin_session() {
+  if (current_session_id_ == std::numeric_limits<std::uint64_t>::max()) {
+    clear();
+    current_session_id_ = 1U;
+  } else {
+    ++current_session_id_;
+  }
+  changed_.publish();
+  return current_session_id_;
+}
+
+gneiss::error console_model::append_event(std::uint64_t session_id, console_event event) {
+  if (session_id == 0)
+    return error::invalid_argument;
+  return append_event_impl(session_id, std::move(event));
+}
+error console_model::append_local_event(console_event event) {
+  return append_event_impl(0, std::move(event));
+}
+error console_model::append_event_impl(std::uint64_t session_id, console_event event) {
+  if (capacity_ == 0U) {
+    return gneiss::error::invalid_argument;
+  }
+  {
+    make_room();
+    console_entry entry;
+    entry.id = next_entry_id_++;
+    entry.kind = console_entry_kind::structured;
+    entry.session_id = session_id;
+    entry.event = std::move(event);
+    entries_.push_back(std::move(entry));
+    changed_.publish();
+    return gneiss::error::success;
+  }
+}
+
+gneiss::error console_model::append_raw(std::uint64_t session_id, std::string_view text,
+                                        bool was_truncated) {
+  if (capacity_ == 0U || session_id == 0U) {
+    return gneiss::error::invalid_argument;
+  }
+  {
+    make_room();
+    console_entry entry;
+    entry.id = next_entry_id_++;
+    entry.kind = console_entry_kind::raw;
+    entry.session_id = session_id;
+    entry.raw_text = text;
+    entry.was_truncated = was_truncated;
+    entries_.push_back(std::move(entry));
+    changed_.publish();
+    return gneiss::error::success;
+  }
+}
+
+void console_model::clear() {
+  entries_.clear();
+  dropped_count_ = 0U;
+  changed_.publish();
+}
+
+std::uint64_t console_model::current_session_id() const noexcept { return current_session_id_; }
+
+std::uint64_t console_model::dropped_count() const noexcept { return dropped_count_; }
+
+const std::deque<console_entry>& console_model::entries() const noexcept { return entries_; }
+
+bool console_model::matches(const console_entry& entry,
+                            const console_filter& filter) const noexcept {
+  if (filter.current_session_only && entry.session_id != current_session_id_) {
+    return false;
+  }
+  if (entry.kind == console_entry_kind::raw) {
+    return filter.include_raw && filter.source.empty() && filter.category.empty() &&
+           (filter.search.empty() || entry.raw_text.find(filter.search) != std::string::npos);
+  }
+  if (!filter.include_structured || entry.event.severity > 31U ||
+      (filter.severity_mask & (UINT32_C(1) << entry.event.severity)) == 0U ||
+      (!filter.source.empty() && entry.event.source != filter.source) ||
+      (!filter.category.empty() && entry.event.category != filter.category)) {
+    return false;
+  }
+  return filter.search.empty() || entry.event.message.find(filter.search) != std::string::npos ||
+         entry.event.source.find(filter.search) != std::string::npos ||
+         entry.event.category.find(filter.search) != std::string::npos;
+}
+
+gneiss::error console_model::visible_indices(const console_filter& filter,
+                                             std::vector<std::size_t>& output) const {
+  output.clear();
+  {
+    output.reserve(entries_.size());
+    for (std::size_t index = 0U; index < entries_.size(); ++index) {
+      if (matches(entries_[index], filter)) {
+        output.push_back(index);
+      }
+    }
+    return gneiss::error::success;
+  }
+}
+
+void console_model::make_room() noexcept {
+  if (entries_.size() < capacity_) {
+    return;
+  }
+  entries_.pop_front();
+  ++dropped_count_;
+}
+
+} // namespace gneiss::editor

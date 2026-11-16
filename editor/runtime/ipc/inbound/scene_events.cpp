@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "runtime/ipc/editor_ipc_event.hpp"
+#include <gneiss/engine/error.hpp>
+#include "runtime/ipc/inbound/event_decode.hpp"
+
+namespace gneiss::host {
+gneiss::error decode_runtime_scene_event(const gneiss::ipc_envelope& envelope,
+                                                 runtime_ipc_event& output) noexcept {
+  return gneiss::host::detail::decode_value<runtime_scene_progress_event>(
+      envelope, output, [&](auto& value) { return decode_ipc_scene_progress(envelope, value); });
+}
+} // namespace gneiss::host

@@ -6,8 +6,8 @@
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/author_property_edit.hpp"
-#include "editor/documents/prefab_edit.hpp"
+#include "documents/commands/author_property_edit.hpp"
+#include "documents/prefab_edit.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
@@ -18,7 +18,7 @@
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
-#include "panels/reflected_property_editor.hpp"
+#include "ui/panels/reflected_property_editor.hpp"
 #include <cstdio>
 #include <imgui.h>
 #include <imgui_internal.h>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_file_watcher.hpp"
+#include "assets/asset_file_watcher.hpp"
 #include <gneiss/engine/error.hpp>
 
 #include <algorithm>

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include "package_archive.hpp"
-#include "project_workspace.hpp"
+#include "project/package_archive.hpp"
+#include "project/project_workspace.hpp"
 
 #include <chrono>
 #include <filesystem>

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "console_log_buffer.hpp"
-#include "console_model.hpp"
+#include "inspection/console_log_buffer.hpp"
+#include "inspection/console_model.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/logging/service.hpp>
 #include <thread>

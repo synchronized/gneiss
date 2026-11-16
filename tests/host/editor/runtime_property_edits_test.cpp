@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include "runtime_property_edits.hpp"
+#include "inspection/runtime_property_edits.hpp"
 
 #include <array>
 #include <chrono>

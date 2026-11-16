@@ -297,6 +297,18 @@ Windows Clang Debug：10 项配置/协议回归通过；Editor 宿主、Runtime 
 工程 CLI 构建通过。Runtime 日志头的旧包含路径同步修正；未启动图形界面或验证跨平台安装。
 旧 core-boundary 文本规则仍待 P5 整体更新，本批不以旧规则扫描作为验收依据。
 
+Editor 源码与入口已归入根 editor：documents 下收纳文档、编辑命令与组件编辑注册；
+assets 为导入协调，inspection 为运行对象镜像与日志模型，ui 下分 panels/viewport/dialogs；
+project 包含工作区、项目选择界面与 cli，runtime 包含子进程与编辑器侧 IPC，字体与声明归 resources。
+Editor main 和 application 就近放置；工程 CLI main 归 editor/project/cli，仍输出 gneiss_project。
+editor/CMakeLists.txt 定义宿主与可执行目标，libraries.cmake 保留现有编辑模型等内部库；
+原宿主测试定义移至 tests/editor/host_targets.cmake，测试源码暂保留 tests/host/editor，后续 P4 合并。
+所有生产和测试包含路径已按迁移更新；旧 Prefab 白盒测试显式申请 editor/engine 私有根，
+其重复编译生产源码仍待 P3 处理，不因目录移动视为已解决。
+Windows Clang Debug：完整 Editor 与工程 CLI 构建通过；8 项定向回归通过，覆盖运行面板、
+文档编辑、工作区、保存、相机、资产导入、IPC 事件与 Prefab 覆盖；未运行 GUI/GPU smoke。
+本批修复 Editor 的旧 console_sink 包含路径，未改变编辑操作、协议或资源所有权。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

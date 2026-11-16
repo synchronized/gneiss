@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_ROUTER_H_
+#define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_ROUTER_H_
+
+#include "runtime/ipc/editor_ipc_event.hpp"
+#include <gneiss/engine/error.hpp>
+
+#include <gneiss/protocol/ipc_protocol_domains.hpp>
+#include <gneiss/protocol/ipc_router.hpp>
+
+#include <vector>
+
+namespace gneiss::host {
+
+/** 组合 Runtime 到 Editor 的协议域，并输出强类型事件。 */
+class editor_ipc_router final {
+public:
+  editor_ipc_router() noexcept;
+
+  editor_ipc_router(const editor_ipc_router&) = delete;
+  editor_ipc_router& operator=(const editor_ipc_router&) = delete;
+
+  [[nodiscard]] gneiss::error
+  dispatch(const gneiss::ipc_envelope& envelope, bool is_authenticated,
+           const std::vector<gneiss::ipc_domain_capability>& negotiated_domains,
+           runtime_ipc_event& output);
+  [[nodiscard]] bool is_ready() const noexcept;
+
+private:
+  ipc_router<runtime_ipc_event> router_;
+  bool is_ready_ = false;
+};
+
+} // namespace gneiss::host
+
+#endif

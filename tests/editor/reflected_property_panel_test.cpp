@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-#include "panels/reflected_property_editor.hpp"
+#include "ui/panels/reflected_property_editor.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>

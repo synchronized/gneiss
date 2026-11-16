@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_event.hpp"
+#include "runtime/ipc/editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
 
 using namespace gneiss::host;

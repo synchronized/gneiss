@@ -3,7 +3,7 @@
 
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "editor_ui.hpp"
+#include "ui/editor_ui.hpp"
 #include <gneiss/engine/error.hpp>
 #include <chrono>
 #include <thread>

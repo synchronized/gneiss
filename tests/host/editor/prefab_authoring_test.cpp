@@ -5,7 +5,7 @@
 #include "../../support/async_editor_save.hpp"
 #include "../../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/prefab_authoring.hpp"
+#include "documents/commands/prefab_authoring.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>

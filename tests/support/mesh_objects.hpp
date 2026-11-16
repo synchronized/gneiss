@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "editor/documents/mesh_binding.hpp"
+#include "documents/mesh_binding.hpp"
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>

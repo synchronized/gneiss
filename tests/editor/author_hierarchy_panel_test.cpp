@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/core/types/guid.hpp>
-#include "panels/author_hierarchy_panel.hpp"
+#include "ui/panels/author_hierarchy_panel.hpp"
 
 #include <imgui.h>
 

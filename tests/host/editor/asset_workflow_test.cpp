@@ -6,14 +6,14 @@
 #include "../../support/async_mesh_edit.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "asset_reimport_queue.hpp"
+#include "assets/asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "package_archive.hpp"
-#include "project_workspace.hpp"
-#include "runtime_process.hpp"
+#include "project/package_archive.hpp"
+#include "project/project_workspace.hpp"
+#include "runtime/runtime_process.hpp"
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>

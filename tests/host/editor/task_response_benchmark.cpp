@@ -4,8 +4,8 @@
 #include "../../support/async_document.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "asset_background_worker.hpp"
-#include "author_asset_service.hpp"
+#include "assets/asset_background_worker.hpp"
+#include "assets/author_asset_service.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>

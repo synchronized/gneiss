@@ -573,12 +573,12 @@ add_test(NAME gneiss.prefab_description COMMAND gneiss_prefab_description_test)
 add_executable(
   gneiss_prefab_property_override_test
   serialization/prefab_property_override_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/editor/documents/prefab_edit.cpp"
+  "${PROJECT_SOURCE_DIR}/editor/documents/prefab_edit.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
 )
-target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/editor" "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_prefab_property_override_test PRIVATE gneiss::engine gneiss_yyjson EnTT::EnTT)
 target_compile_features(gneiss_prefab_property_override_test PRIVATE cxx_std_20)

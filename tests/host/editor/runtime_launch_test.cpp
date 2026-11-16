@@ -6,13 +6,13 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/runtime_author_apply.hpp"
+#include "documents/commands/runtime_author_apply.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "project_workspace.hpp"
-#include "runtime_launch.hpp"
+#include "project/project_workspace.hpp"
+#include "runtime/runtime_launch.hpp"
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>

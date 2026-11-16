@@ -6,7 +6,7 @@
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include "commands/runtime_author_apply.hpp"
+#include "documents/commands/runtime_author_apply.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>

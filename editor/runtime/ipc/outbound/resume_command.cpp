@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "runtime/ipc/outbound/editor_ipc_outbound.hpp"
+#include <gneiss/engine/error.hpp>
+
+#include <gneiss/protocol/ipc_control_protocol.hpp>
+
+namespace gneiss::host {
+
+gneiss::error make_resume_command(std::uint32_t request_id,
+                                          gneiss::ipc_envelope& output) noexcept {
+  return encode_ipc_control_request(ipc_control_operation::resume, request_id, output);
+}
+
+} // namespace gneiss::host
