@@ -5,10 +5,10 @@
 #define GNEISS_APPS_EDITOR_PREFAB_AUTHORING_H_
 
 #include "commands/author_document_change.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/resource/scene/prefab_description.hpp"
-#include "engine/resource/scene/scene_description.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
 
 #include <span>
 #include <string>

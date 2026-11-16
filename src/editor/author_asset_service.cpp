@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_asset_service.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <algorithm>
 #include <deque>

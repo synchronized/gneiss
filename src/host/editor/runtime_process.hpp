@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "runtime_launch.hpp"
 
 #include "console_model.hpp"

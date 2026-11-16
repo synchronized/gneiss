@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "engine/core/error.hpp"
-#include "engine/function/asset/asset_batch_request.hpp"
-#include "engine/function/asset/asset_request.hpp"
-#include "engine/function/scene/scene_update.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/asset/asset_batch_request.hpp>
+#include <gneiss/engine/function/asset/asset_request.hpp>
+#include <gneiss/engine/function/scene/scene_update.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 #include "ipc_scene_protocol.hpp"
 #include <atomic>
 

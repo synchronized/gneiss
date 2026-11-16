@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/core/rid_table.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid_table.hpp>
 
 #include <cstdint>
 #include <stdexcept>

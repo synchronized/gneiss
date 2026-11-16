@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_ASSET_IPC_ASSET_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_ASSET_IPC_ASSET_PROTOCOL_H_
 
-#include "engine/core/error.hpp"
-#include "ipc_dispatcher.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
 
 #include <cstdint>
 #include <span>

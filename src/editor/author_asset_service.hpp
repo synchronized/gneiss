@@ -4,9 +4,9 @@
 #pragma once
 
 #include "author_asset_monitor.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/platform/files/file_service.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/platform/files/file_service.hpp>
 
 #include <memory>
 

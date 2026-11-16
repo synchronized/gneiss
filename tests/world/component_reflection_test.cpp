@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/serialization/builtin_registration.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <cmath>
 #include <thread>
 
@@ -29,10 +29,11 @@ int main() {
   auto object_scene = first->create_scene();
   if (!object_scene)
     return 1;
-  auto object = object_scene->create_object({"object", {}});
-  if (!object)
+  auto object_state = object_scene->create_object({"object", {}});
+  if (!object_state)
     return 1;
-  entity = object->entity();
+  auto object = *object_state;
+  entity = object.entity();
   node = gneiss::entity_id{entity.get()};
   const auto transform_type = gneiss::math::transform::type_guid;
   const auto camera_type = gneiss::camera_description::type_guid;
@@ -59,7 +60,7 @@ int main() {
           .failed())
     return 4;
   gneiss::math::transform transform;
-  if (gneiss::test_support::assign_value(first->find(entity).local_transform(), transform)
+  if (gneiss::test_support::assign_value(object.local_transform(), transform)
           .failed() ||
       std::abs(transform.translation[0] - 2) > 0.0001F ||
       gneiss::test_support::assign_value(
@@ -75,15 +76,12 @@ int main() {
   if (gneiss::write_component_property(*first, entity.get(), transform_type,
                                        gneiss::meta::property_id{3},
                                        value) != error::invalid_argument ||
-      gneiss::test_support::assign_value(first->find(entity).local_transform(), transform)
+      gneiss::test_support::assign_value(object.local_transform(), transform)
           .failed() ||
       std::abs(transform.scale[0] - 1) > 0.0001F)
     return 6;
   gneiss::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
-  if (first->find(entity)
-          .add_component<gneiss::camera_component>(
-              *gneiss::camera_component::create(camera, true))
-          .failed() ||
+  if (object.add_component<gneiss::camera_component>(camera, true).failed() ||
       gneiss::set_active_camera(*first, entity).failed() ||
       gneiss::test_support::assign_value(
           gneiss::read_component_property(*first, entity.get(), camera_type,
@@ -112,15 +110,15 @@ int main() {
   };
   if (change_near(0.5F).failed() ||
       gneiss::test_support::read_component_value(
-          first->find(entity).try_component<gneiss::camera_component>(), camera)
+          object.try_component<gneiss::camera_component>(), camera)
           .failed() ||
-      std::abs(camera.near - 0.5F) > 0.0001F)
+      std::abs(camera.near_plane - 0.5F) > 0.0001F)
     return 8;
-  if (change_near(camera.far + 1) != error::invalid_argument ||
+  if (change_near(camera.far_plane + 1) != error::invalid_argument ||
       gneiss::test_support::read_component_value(
-          first->find(entity).try_component<gneiss::camera_component>(), camera)
+          object.try_component<gneiss::camera_component>(), camera)
           .failed() ||
-      std::abs(camera.near - 0.5F) > 0.0001F)
+      std::abs(camera.near_plane - 0.5F) > 0.0001F)
     return 9;
   error foreign_read{}, foreign_write{};
   std::thread worker([&] {
@@ -135,7 +133,7 @@ int main() {
   });
   worker.join();
   if (foreign_read != error::invalid_state || foreign_write != error::invalid_state ||
-      gneiss::test_support::assign_value(first->find(entity).local_transform(), transform)
+      gneiss::test_support::assign_value(object.local_transform(), transform)
           .failed() ||
       transform.translation.x != 2)
     return 11;
@@ -144,7 +142,7 @@ int main() {
                                        gneiss::meta::property_id{4},
                                        value) != error::unsupported)
     return 12;
-  if (first->find(entity).destroy().failed() ||
+  if (object.destroy().failed() ||
       gneiss::test_support::assign_value(
           gneiss::read_component_property(*first, entity.get(), camera_type,
                                           gneiss::meta::property_id{2}),

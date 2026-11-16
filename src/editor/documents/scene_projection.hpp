@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "documents/scene_document.hpp"
-#include "engine/function/scene/scene_update.hpp"
+#include <gneiss/engine/function/scene/scene_update.hpp>
 namespace gneiss::editor {
 /** 投影回执只保留轻量版本标识，不保活旧文档；失败后不能冒充已同步。 */
 class scene_projection final {

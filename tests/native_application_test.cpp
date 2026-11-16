@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/asset/render_resource.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/asset/render_resource.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 #include "support/logging.hpp"
 #include "support/scene_access.hpp"
 #include "support/value_result.hpp"

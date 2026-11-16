@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 
-#include "ipc_dispatcher.hpp"
+#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <cstdint>
 #include <span>

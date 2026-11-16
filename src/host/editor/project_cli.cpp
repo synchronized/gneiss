@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "project_cli.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 
-#include "child_process.hpp"
+#include <gneiss/engine/platform/process/child_process.hpp>
 
 #include <gneiss/app/project_description.hpp>
 

@@ -4,7 +4,7 @@
 #pragma once
 
 #include "console_model.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <array>
 

@@ -4,13 +4,13 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_PROPERTY_IPC_PROPERTY_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_PROPERTY_IPC_PROPERTY_PROTOCOL_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "ipc_inspection_protocol.hpp"
 
-#include "ipc_dispatcher.hpp"
+#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
 
-#include "engine/core/guid.hpp"
-#include "engine/core/value.hpp"
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/value.hpp>
 
 #include <array>
 #include <cstdint>

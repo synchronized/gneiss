@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "transform_gizmo_math.hpp"
-#include "engine/core/math/camera.hpp"
+#include <gneiss/engine/core/math/camera.hpp>
 #include <algorithm>
 #include <cmath>
 #include <numbers>

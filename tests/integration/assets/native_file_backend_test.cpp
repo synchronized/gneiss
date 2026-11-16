@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/platform/files/file_service.hpp"
-#include "engine/platform/files/native_file_backend.hpp"
-#include "engine/platform/io/uv/uv_loop_executor.hpp"
+#include <gneiss/engine/platform/files/file_service.hpp>
+#include "platform/files/native/native_file_backend.hpp"
+#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cstdio>

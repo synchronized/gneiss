@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/fatal.hpp"
-#include "engine/core/logging/detail/async_queue.hpp"
+#include <gneiss/engine/error.hpp>
+#include "core/logging/detail/async_queue.hpp"
 #include <new>
 #include <string_view>
 

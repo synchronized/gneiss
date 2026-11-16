@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "ipc_asset_protocol.hpp"
 #include "ipc_control_protocol.hpp"
 #include "ipc_inspection_protocol.hpp"

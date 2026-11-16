@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/diagnostics/loop_timing.hpp"
+#include <gneiss/engine/core/diagnostics/loop_timing.hpp>
 
 #include <cstdio>
 #include <cstdlib>

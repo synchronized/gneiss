@@ -91,12 +91,12 @@ function(gneiss_enable_asset_libuv target)
   target_link_libraries(${target} PRIVATE $<BUILD_INTERFACE:gneiss_fatal>)
   get_target_property(uv_system_libraries uv_a LINK_LIBRARIES)
   target_sources(${target} PRIVATE
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/native_file_backend.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_file_reader.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_async_file.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_path_resolver.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_loop_executor.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_result.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/native/native_file_backend.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_file_reader.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_async_file.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_path_resolver.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_loop_executor.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_result.cpp"
     $<TARGET_OBJECTS:gneiss_libuv_objects>)
   target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:uv_a,INTERFACE_INCLUDE_DIRECTORIES>)
   target_compile_definitions(${target} PRIVATE GNEISS_ASSET_LIBUV)

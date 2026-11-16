@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/core/serialization/serialization.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/scene/prefab_description.hpp"
+#include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/serialization/serialization.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <string>
 namespace e = gneiss;
 struct reflected_description
@@ -298,8 +298,8 @@ int main() try {
   if (!supported)
     return 11;
   const auto* description = supported->objects.front().components.get<e::camera_description>();
-  if (!description || description->settings.fov != 1.0F || description->settings.near != 0.1F ||
-      description->settings.far != 100.0F)
+  if (!description || description->settings.fov != 1.0F || description->settings.near_plane != 0.1F ||
+      description->settings.far_plane != 100.0F)
     return 17;
   if (supported->objects.front()
           .components
@@ -313,10 +313,10 @@ int main() try {
   auto& components = supported->objects.front().components;
   const auto retained_camera = *components.find(e::camera_description::type_guid);
   auto rejected = components.update<e::camera_description>(
-      [](auto& value) { value.settings.near = value.settings.far + 1.0F; });
+      [](auto& value) { value.settings.near_plane = value.settings.far_plane + 1.0F; });
   if (rejected != e::error::invalid_argument ||
       *components.find(e::camera_description::type_guid) != retained_camera ||
-      components.get<e::camera_description>()->settings.near != 0.2F)
+      components.get<e::camera_description>()->settings.near_plane != 0.2F)
     return 63;
   auto rejected_camera_identity =
       components.update<e::camera_description>([](auto& value) { value.uuid = {}; });
@@ -331,8 +331,8 @@ int main() try {
   if (!camera_roundtrip)
     return 19;
   const auto* restored = camera_roundtrip->objects.front().components.get<e::camera_description>();
-  if (!restored || restored->settings.fov != 0.8F || restored->settings.near != 0.2F ||
-      restored->settings.far != 250.0F || !restored->is_primary)
+  if (!restored || restored->settings.fov != 0.8F || restored->settings.near_plane != 0.2F ||
+      restored->settings.far_plane != 250.0F || !restored->is_primary)
     return 20;
   auto node = create(*supported);
   if (!node)

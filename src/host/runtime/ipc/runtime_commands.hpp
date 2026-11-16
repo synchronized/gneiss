@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "ipc_router.hpp"
 #include "runtime_command_context.hpp"
 

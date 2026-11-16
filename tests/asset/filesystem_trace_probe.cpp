@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/diagnostics/profiling.hpp"
+#include <gneiss/engine/core/diagnostics/profiling.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX

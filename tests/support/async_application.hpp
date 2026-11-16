@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "application/application.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 #include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 #include "value_result.hpp"

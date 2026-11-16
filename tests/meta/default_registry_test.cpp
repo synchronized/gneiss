@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/fatal.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/input/action_map.hpp"
-#include "engine/resource/material/material_description.hpp"
-#include "engine/resource/mesh/mesh_description.hpp"
-#include "engine/resource/scene/scene_description.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/input/action_map.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/mesh/mesh_description.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
 #include <array>
 #ifdef GNEISS_TEST_THREADS
 #include <atomic>

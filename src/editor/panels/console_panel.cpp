@@ -3,7 +3,7 @@
 
 #include "panels/console_panel.hpp"
 #include "editor_theme.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <imgui.h>
 

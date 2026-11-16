@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
-#include "engine/core/meta/instance.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/serialization/builtin_registration.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/asset/detail/asset_decode.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/material/material_description.hpp"
+#include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include "function/asset/detail/asset_decode.hpp"
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>

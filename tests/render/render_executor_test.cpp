@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include "application/detail/main_loop_wakeup.hpp"
-#include "engine/core/error.hpp"
-#include "engine/function/render/detail/executor.hpp"
-#include "engine/function/render/detail/resource_identity.hpp"
+#include <gneiss/engine/function/application/main_loop_wakeup.hpp>
+#include <gneiss/engine/error.hpp>
+#include "function/render/detail/executor.hpp"
+#include "function/render/detail/resource_identity.hpp"
 
 #include <atomic>
 #include <condition_variable>

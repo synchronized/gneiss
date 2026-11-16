@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/camera.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/camera.hpp>
 
 #include <array>
 #include <cmath>
@@ -51,14 +51,14 @@ int main() {
 
   gneiss::math::camera_settings camera;
   camera.fov = 1.57079633F;
-  camera.near = 0.1F;
-  camera.far = 100.0F;
+  camera.near_plane = 0.1F;
+  camera.far_plane = 100.0F;
   matrix4 projection;
   if (perspective_rh_zo(camera, 2.0F, projection) != gneiss::error::success) {
     return 5;
   }
-  const auto near_point = projection * vector4{0.0F, 0.0F, -camera.near, 1.0F};
-  const auto far_point = projection * vector4{0.0F, 0.0F, -camera.far, 1.0F};
+  const auto near_point = projection * vector4{0.0F, 0.0F, -camera.near_plane, 1.0F};
+  const auto far_point = projection * vector4{0.0F, 0.0F, -camera.far_plane, 1.0F};
   const auto upper_point = projection * vector4{0.0F, 1.0F, -1.0F, 1.0F};
   const auto lower_point = projection * vector4{0.0F, -1.0F, -1.0F, 1.0F};
   if (!nearly_equal(near_point[2] / near_point[3], 0.0F) ||
@@ -79,7 +79,7 @@ int main() {
       view != previous_view || projection != previous_projection) {
     return 7;
   }
-  camera.far = std::numeric_limits<float>::infinity();
+  camera.far_plane = std::numeric_limits<float>::infinity();
   return perspective_rh_zo(camera, 1.0F, projection) == gneiss::error::invalid_argument ? 0
                                                                                                 : 8;
 }

@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_IPC_INBOUND_EVENT_DECODE_H_
 
 #include "editor_ipc_event.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <utility>
 

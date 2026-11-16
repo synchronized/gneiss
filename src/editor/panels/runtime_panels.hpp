@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "runtime_property_edits.hpp"
 #include "runtime_scene_mirror.hpp"
 

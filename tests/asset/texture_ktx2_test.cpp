@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/codec_result.hpp"
-#include "engine/resource/texture/texture_ktx2.hpp"
+#include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 
 #include <algorithm>
 #include <cstddef>

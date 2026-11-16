@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/throws.hpp"
-#include "engine/core/meta/instance.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/detail/json_adapter.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/core/serialization/serialization.hpp"
-#include "engine/core/serialization/value.hpp"
-#include "engine/resource/asset_decoder.hpp"
+#include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/serialization/serialization.hpp>
+#include <gneiss/engine/core/serialization/value.hpp>
+#include <gneiss/engine/resource/asset_decoder.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <future>

@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_process.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
-#include "child_process.hpp"
+#include <gneiss/engine/platform/process/child_process.hpp>
 #include "editor_ipc_event.hpp"
 #include "editor_ipc_session.hpp"
 #include "ipc_asset_protocol.hpp"

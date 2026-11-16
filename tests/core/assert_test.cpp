@@ -7,7 +7,7 @@
 #else
 #undef NDEBUG
 #endif
-#include "engine/core/assert.hpp"
+#include <gneiss/engine/assert.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <string_view>

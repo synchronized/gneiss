@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include "engine/function/render/render_resource_data.hpp"
-#include "engine/function/asset/detail/asset_construction.hpp"
-#include "engine/function/asset/detail/asset_decode.hpp"
-#include "engine/resource/material/material_description.hpp"
-#include "engine/resource/texture/texture_decoder.hpp"
+#include <gneiss/engine/function/render/render_resource_data.hpp>
+#include "function/asset/detail/asset_construction.hpp"
+#include "function/asset/detail/asset_decode.hpp"
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/texture/texture_decoder.hpp>
 #include "value_result.hpp"
 #include <algorithm>
 #include <set>

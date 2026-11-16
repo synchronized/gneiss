@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/detail/system_scheduler.hpp"
-#include "engine/function/scene/detail/world_component_access.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include "function/scene/detail/system_scheduler.hpp"
+#include "function/scene/detail/world_component_access.hpp"
 
 #include <array>
 #include <cstddef>

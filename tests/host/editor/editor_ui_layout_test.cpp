@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "editor_ui.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include <chrono>
 #include <thread>
 

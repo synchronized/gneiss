@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include "support/value_result.hpp"
 #include <thread>
 

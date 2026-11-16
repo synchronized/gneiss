@@ -5,16 +5,16 @@
 #include "../../support/value_result.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_edit.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
 
 #include "../../support/scene_access.hpp"
-#include "application/application.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 #include <chrono>
 #include <cstdio>
@@ -121,7 +121,7 @@ void run(gneiss::tasks::execution_mode mode) {
   std::uint64_t count{};
   // World 保持不变，旧场景对象由文档关闭时卸载。
   check(!world->object(node));
-  check(gneiss::test_support::assign_value(world->entity_count(), count).ok());
+
   check(loader.request(*app, editing, "asset://scenes/prefab.scene.json") ==
         gneiss::error::success);
   drain();

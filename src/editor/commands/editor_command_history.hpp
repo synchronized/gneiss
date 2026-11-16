@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_COMMAND_HISTORY_H_
 #define GNEISS_APPS_EDITOR_EDITOR_COMMAND_HISTORY_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <cstddef>
 #include <cstdint>

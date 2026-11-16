@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_loader.hpp"
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/logging/logger.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/instantiation.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/logging/logger.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
 
 namespace gneiss::host {
 namespace {

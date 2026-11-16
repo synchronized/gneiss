@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/logging/service.hpp"
-#include "engine/platform/logging/file_sink.hpp"
+#include <gneiss/engine/core/logging/service.hpp>
+#include "core/logging/file_sink.hpp"
 #include "runtime_logging.hpp"
 #include <filesystem>
 #include <fstream>

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/events/signal.hpp"
+#include <gneiss/engine/core/events/signal.hpp>
 
 #include <iostream>
 #include <stdexcept>

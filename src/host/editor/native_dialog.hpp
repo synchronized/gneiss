@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_NATIVE_DIALOG_H_
 #define GNEISS_APPS_EDITOR_NATIVE_DIALOG_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <filesystem>
 

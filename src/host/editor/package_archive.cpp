@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "package_archive.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
-#include "engine/core/version.hpp"
+#include <gneiss/engine/core/version.hpp>
 
 #include <yyjson.h>
 

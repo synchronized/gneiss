@@ -7,15 +7,15 @@
 #include "documents/document_patch.hpp"
 #include "documents/scene_document.hpp"
 #include "documents/scene_projection.hpp"
-#include "engine/core/entity_id.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/math/transform.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/platform/files/file_service.hpp"
-#include "engine/resource/scene/scene_description.hpp"
+#include <gneiss/engine/core/types/entity_id.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
 #include <functional>
 namespace gneiss::runtime {
 class application;

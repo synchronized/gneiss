@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 namespace gneiss::editor {
 enum class document_action { none, new_scene, open_scene, exit_editor };

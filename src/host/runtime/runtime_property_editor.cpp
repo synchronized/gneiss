@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_property_editor.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/property_edit_policy.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
 #include <limits>

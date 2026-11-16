@@ -8,7 +8,7 @@
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
-#include "engine/resource/mesh/mesh_binary.hpp"
+#include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 
 #include <filesystem>
 #include <fstream>

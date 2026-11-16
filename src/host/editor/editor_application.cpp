@@ -3,14 +3,14 @@
 
 #include "editor_application.hpp"
 #include "components/component_registration.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/scene_types.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
-#include "child_process.hpp"
+#include <gneiss/engine/platform/process/child_process.hpp>
 #include "commands/author_file_save.hpp"
 #include "commands/author_property_edit.hpp"
 #include "commands/editor_asset_edit.hpp"
@@ -25,11 +25,11 @@
 #include "editor_project.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
-#include "engine/core/logging/default_service.hpp"
-#include "engine/core/logging/service.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/platform/logging/console_sink.hpp"
+#include <gneiss/engine/core/logging/default_service.hpp>
+#include <gneiss/engine/core/logging/service.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include "core/logging/console_sink.hpp"
 #include "imgui_adapter.hpp"
 #include "native_dialog.hpp"
 #include "panels/author_hierarchy_panel.hpp"
@@ -57,8 +57,8 @@
 #include "panels/asset_browser_panel.hpp"
 #endif
 
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <imgui.h>
 
@@ -267,7 +267,7 @@ gneiss::error submit_editor_ui(editor_state& state) {
   const auto& settings = state.camera.settings();
   const auto& transform = state.camera.current_transform();
   const gneiss::view_camera view{
-      .camera = {settings.fov, settings.near, settings.far},
+      .camera = {settings.fov, settings.near_plane, settings.far_plane},
       .transform = {transform.translation, transform.rotation, transform.scale}};
   const auto operation = state.application->set_view_camera(&view);
   return operation == gneiss::error::success ? state.ui.submit(*state.application) : operation;

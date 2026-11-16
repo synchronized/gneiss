@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include <granit/renderer/texture_asset.hpp>
+
+#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/core/sha256.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/texture/png_decoder.hpp>
+#include <gneiss/engine/resource/texture/texture_binary.hpp>
+#include <gneiss/engine/resource/texture/texture_ktx2.hpp>
+
+namespace gneiss::detail {
+namespace {
+asset_diagnostic convert(serialization::diagnostic d) {
+  return {d.error, d.byte_offset, std::move(d.path), std::move(d.message)};
+}
+}
+result<texture_description, asset_diagnostic> parse_texture(const std::vector<std::byte>& bytes) {
+  auto decoded = asset_file::deserialize<texture_description>(bytes);
+  if (!decoded)
+    return convert(std::move(decoded).error());
+  return std::move(*decoded);
+}
+
+result<std::vector<std::byte>, asset_diagnostic> encode_texture(const texture_description& source) {
+  auto encoded = asset_file::serialize_bytes(source);
+  if (!encoded)
+    return convert(std::move(encoded).error());
+  return std::move(*encoded);
+}
+
+result<texture_data, asset_diagnostic>
+decode_texture_payload(const texture_description& source, const std::vector<std::byte>& image_bytes,
+                       texture_prepare_profile profile) {
+  auto validation = validate_texture_description(source);
+  if (validation.error.failed())
+    return convert(std::move(validation));
+  texture_data output;
+  asset_diagnostic diagnostic;
+  const auto failure = [&](error status) {
+    if (diagnostic.error.ok())
+      diagnostic.error = status;
+    return std::move(diagnostic);
+  };
+
+  auto result = gneiss::error::success;
+  [[maybe_unused]] const bool selected =
+      profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
+  if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
+    auto binary = gneiss::decode_texture_binary(image_bytes);
+    if (!binary) {
+      const auto& decode_message = binary.error().message;
+      const auto status = binary.error().error == texture_binary_error::out_of_memory
+                              ? gneiss::error::out_of_memory
+                              : gneiss::error::invalid_argument;
+      fail(diagnostic, status, "/source",
+           decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
+      return failure(status);
+    }
+    granit::texture_asset_info info;
+    if (granit::inspect_texture_asset(binary->manifest, info) != granit::result::success ||
+        info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
+        info.array_layers != 1U) {
+      fail(diagnostic, gneiss::error::invalid_argument, "/source",
+           "Granit Texture Asset Manifest 无效或不是二维单层纹理");
+      return failure(gneiss::error::invalid_argument);
+    }
+    const auto srgb = source.color_space == texture_color_space::srgb;
+    const auto matches_color_space = [srgb](const auto& variant) {
+      return srgb ? variant.format == granit::texture_format::bc7_rgba_srgb ||
+                        variant.format == granit::texture_format::rgba8_srgb
+                  : variant.format == granit::texture_format::bc7_rgba_unorm ||
+                        variant.format == granit::texture_format::rgba8_unorm;
+    };
+    const auto payload_size = binary->payload.size();
+    const auto payload_in_bounds = [payload_size](const auto& variant) {
+      return variant.payload_offset <= payload_size &&
+             variant.payload_size <= payload_size - variant.payload_offset;
+    };
+    const auto fallback_format =
+        srgb ? granit::texture_format::rgba8_srgb : granit::texture_format::rgba8_unorm;
+    const auto has_fallback =
+        std::ranges::any_of(info.variants, [fallback_format](const auto& variant) {
+          return variant.format == fallback_format;
+        });
+    if (!std::ranges::all_of(info.variants, matches_color_space) ||
+        !std::ranges::all_of(info.variants, payload_in_bounds) || !has_fallback) {
+      fail(diagnostic, gneiss::error::invalid_argument, "/source",
+           "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
+      return failure(gneiss::error::invalid_argument);
+    }
+    output = {
+        .width = info.width,
+        .height = info.height,
+        .format = texture_format::rgba8_unorm,
+        .color_space = source.color_space,
+        .levels = {},
+        .manifest = std::vector<std::byte>(binary->manifest.begin(), binary->manifest.end()),
+        .payload = selected
+                       ? std::vector<std::byte>{}
+                       : std::vector<std::byte>(binary->payload.begin(), binary->payload.end()),
+    };
+    if (selected) {
+      constexpr std::array formats{
+          granit::texture_format::rgba8_unorm, granit::texture_format::rgba8_srgb,
+          granit::texture_format::bc7_rgba_unorm, granit::texture_format::bc7_rgba_srgb};
+      constexpr auto usage = static_cast<std::uint32_t>(
+          granit::texture_usage::sampled | granit::texture_usage::transfer_destination);
+      for (std::size_t index = 0U; index < info.variants.size(); ++index) {
+        const auto& variant = info.variants[index];
+        const auto format = std::ranges::find(formats, variant.format);
+        if (format == formats.end() ||
+            !profile.sampled_transfer_formats[static_cast<std::size_t>(format - formats.begin())] ||
+            (static_cast<std::uint32_t>(variant.usage) & usage) != usage) {
+          continue;
+        }
+        output.payload.resize(static_cast<std::size_t>(variant.payload_size));
+        const auto selected_bytes = binary->payload.subspan(
+            static_cast<std::size_t>(variant.payload_offset), output.payload.size());
+        std::copy(selected_bytes.begin(), selected_bytes.end(), output.payload.begin());
+        if (result == gneiss::error::success &&
+            gneiss::sha256(output.payload) != variant.payload_digest) {
+          result = gneiss::error::invalid_argument;
+        }
+        if (result != gneiss::error::success) {
+
+          fail(diagnostic, result, "/source", "选中纹理变体读取或摘要校验失败");
+          return failure(result);
+        }
+        output.profile = profile;
+        output.selected_variant = static_cast<std::uint32_t>(index);
+        break;
+      }
+      if (output.profile.generation == 0U) {
+
+        fail(diagnostic, gneiss::error::unsupported, "/source", "设备不支持运行纹理的任何变体");
+        return failure(gneiss::error::unsupported);
+      }
+    }
+  } else if (std::string_view(source.uri).ends_with(".ktx2")) {
+    auto decoded = gneiss::decode_texture_ktx2(image_bytes);
+    if (!decoded) {
+      const auto code = decoded.error().error == texture_ktx2_error::out_of_memory
+                            ? gneiss::error::out_of_memory
+                            : gneiss::error::invalid_argument;
+      fail(diagnostic, code, "/source",
+           decoded.error().message.empty() ? "KTX2 解码失败" : decoded.error().message);
+      return diagnostic;
+    }
+    auto texture = std::move(*decoded);
+    const auto expected_transfer = source.color_space == texture_color_space::srgb
+                                       ? texture_transfer::srgb
+                                       : texture_transfer::linear;
+    if (texture.transfer != expected_transfer) {
+      fail(diagnostic, gneiss::error::invalid_argument, "/color_space",
+           "Texture 描述与 KTX2 传递函数不一致");
+      return failure(gneiss::error::invalid_argument);
+    }
+    auto levels = std::move(texture.levels);
+    const auto width = levels.front().width;
+    const auto height = levels.front().height;
+    output = {.width = width,
+              .height = height,
+              .format = texture_format::rgba8_unorm,
+              .color_space = source.color_space,
+              .levels = std::move(levels),
+              .manifest = {},
+              .payload = {}};
+  } else {
+    auto decoded = gneiss::decode_png(image_bytes);
+    if (!decoded) {
+      auto decode_failure = std::move(decoded).error();
+      fail(diagnostic, decode_failure.error, "/source",
+           decode_failure.message.empty() ? "PNG 解码失败" : decode_failure.message);
+      return diagnostic;
+    }
+    auto image = std::move(*decoded);
+    output = {.width = image.width,
+              .height = image.height,
+              .format = texture_format::rgba8_unorm,
+              .color_space = source.color_space,
+              .levels = {},
+              .manifest = {},
+              .payload = {}};
+    output.levels.push_back(
+        {.width = image.width, .height = image.height, .pixels = std::move(image.pixels)});
+  }
+
+  return output;
+}
+}

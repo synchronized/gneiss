@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 #define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 
-#include "engine/core/error.hpp"
-#include "engine/core/events/signal.hpp"
-#include "engine/core/logging/record.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/events/signal.hpp>
+#include <gneiss/engine/core/logging/record.hpp>
 
 #include <cstddef>
 #include <cstdint>

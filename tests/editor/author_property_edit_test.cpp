@@ -5,23 +5,23 @@
 #include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/composition.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/composition.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 
-#include "engine/core/error.hpp"
-#include "engine/core/meta/type.hpp"
-#include "engine/core/rid.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/type.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -53,8 +53,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return camera;
   };
 
-  if (read(session.find_node(ordinary_uuid)->entity).near != 2.0F || history.undo().failed() ||
-      read(session.find_node(ordinary_uuid)->entity).near != 0.1F || history.redo().failed())
+  if (read(session.find_node(ordinary_uuid)->entity).near_plane != 2.0F || history.undo().failed() ||
+      read(session.find_node(ordinary_uuid)->entity).near_plane != 0.1F || history.redo().failed())
     return 33;
   if (session.find_node(ordinary_uuid)->entity != stable_entity ||
       session.find_node(ordinary_uuid)->node != ordinary)
@@ -62,7 +62,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   edit.data = e::value{200.0F};
   if (ed::edit_component_description(session, history, world, target, edit, 2) !=
           e::error::invalid_argument ||
-      read(session.find_node(ordinary_uuid)->entity).near != 2.0F || history.size() != 1)
+      read(session.find_node(ordinary_uuid)->entity).near_plane != 2.0F || history.size() != 1)
     return 34;
   edit.path = {p{4}};
   edit.data = e::value{true};
@@ -75,14 +75,14 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   edit.object =
       e::make_ref<e::math::camera_settings>(e::math::camera_settings{1.2F, 200.0F, 400.0F});
   if (ed::edit_component_description(session, history, world, target, edit, 4).failed() ||
-      read(session.find_node(ordinary_uuid)->entity).far != 400.0F)
+      read(session.find_node(ordinary_uuid)->entity).far_plane != 400.0F)
     return 36;
 
   edit.object_type = e::runtime_type_of<e::camera_description>();
   edit.object = gneiss::make_ref<e::camera_description>();
   if (ed::edit_component_description(session, history, world, target, edit, 4) !=
           e::error::invalid_argument ||
-      read(session.find_node(ordinary_uuid)->entity).far != 400.0F)
+      read(session.find_node(ordinary_uuid)->entity).far_plane != 400.0F)
     return 49;
   gneiss::entity_id other_camera;
   if (session.create_node("active", {}, other_camera).failed() ||
@@ -240,7 +240,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     } else if (address->object == ordinary_uuid) {
       const auto camera = read(node.entity);
       found_ordinary =
-          camera.near == 200.0F && camera.far == 400.0F && node.local_transform.translation.x == 6;
+          camera.near_plane == 200.0F && camera.far_plane == 400.0F && node.local_transform.translation.x == 6;
     }
   }
   if (gneiss::test_support::scene_access{app}->unload(loaded).failed() || !found_ordinary ||

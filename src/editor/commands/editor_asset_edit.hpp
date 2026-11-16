@@ -4,13 +4,13 @@
 #include "commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/asset/asset_batch_request.hpp"
-#include "engine/function/asset/asset_batch_types.hpp"
-#include "engine/function/asset/render_resource.hpp"
-#include "engine/function/scene/scene_instance.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/asset/asset_batch_request.hpp>
+#include <gneiss/engine/function/asset/asset_batch_types.hpp>
+#include <gneiss/engine/function/asset/render_resource.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
 
 namespace gneiss::editor {
 /** 提交期间借用的资源地址；请求接收后自行复制 URI。 */

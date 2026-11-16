@@ -4,16 +4,16 @@
 #include "../support/async_asset.hpp"
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/input/action_map.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
+#include <gneiss/engine/resource/input/action_map.hpp>
 #include <cstring>
 
 namespace {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/result.hpp"
+#include <gneiss/engine/result.hpp>
 #include <optional>
 #include <string>
 namespace gneiss::test_support {

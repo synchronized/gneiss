@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "ipc_inspection_protocol.hpp"
 #include "runtime_scene_data.hpp"
 

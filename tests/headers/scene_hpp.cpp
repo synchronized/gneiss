@@ -1,4 +1,4 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/core/math/transform.hpp>

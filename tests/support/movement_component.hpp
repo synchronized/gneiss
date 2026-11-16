@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/detail/world_component_access.hpp"
+#include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include "function/scene/detail/world_component_access.hpp"
 #include "value_result.hpp"
 #include <stdexcept>
 namespace gneiss::test_support {

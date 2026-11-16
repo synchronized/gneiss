@@ -4,18 +4,18 @@
 #include "../support/async_asset.hpp"
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/scene/scene_description.hpp"
-#include "engine/resource/scene/scene_record.hpp"
-#include "engine/resource/scene/scene_validation.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
+#include <gneiss/engine/resource/scene/scene_record.hpp>
+#include <gneiss/engine/resource/scene/scene_validation.hpp>
 
 #include <array>
 #include <cstddef>
@@ -155,7 +155,7 @@ bool save_validation_contract() {
       !rejects([](auto& scene) { scene.objects[0].transform.scale.y = 0.0F; }) ||
       !rejects([](auto& scene) {
         auto camera = *scene.objects[0].components.template get<e::camera_description>();
-        camera.settings.near = camera.settings.far;
+        camera.settings.near_plane = camera.settings.far_plane;
         scene.objects[0].components.set(std::move(camera));
       }) ||
       !rejects([](auto& scene) {

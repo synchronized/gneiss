@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "console_model.hpp"
-#include "engine/core/logging/sink.hpp"
+#include <gneiss/engine/core/logging/sink.hpp>
 #include <deque>
 #include <memory>
 #include <mutex>

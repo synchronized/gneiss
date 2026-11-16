@@ -119,7 +119,7 @@ add_test(NAME gneiss.diagnostic_log COMMAND gneiss_diagnostic_log_test)
 add_executable(
   gneiss_log_queue_test
   log/async_queue_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/detail/async_queue.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
 )
 target_include_directories(gneiss_log_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_log_queue_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
@@ -130,9 +130,9 @@ set_target_properties(gneiss_log_queue_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.log-queue COMMAND gneiss_log_queue_test)
 
 add_executable(gneiss_logging_service_test log/logging_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/logging/detail/async_queue.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/string_name.cpp")
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/types/string_name.cpp")
 target_include_directories(gneiss_logging_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_logging_service_test PRIVATE GNEISS_STATIC_DEFINE)
 target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
@@ -194,7 +194,7 @@ add_test(NAME gneiss.pbr-material-resource COMMAND gneiss_pbr_material_resource_
 add_executable(
   gneiss_ui_draw_list_test
   render/ui_draw_list_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/ui_draw_list.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/ui_draw_list.cpp"
 )
 target_include_directories(gneiss_ui_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_ui_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -208,7 +208,7 @@ add_test(NAME gneiss.ui_draw_list COMMAND gneiss_ui_draw_list_test)
 add_executable(
   gneiss_debug_draw_list_test
   render/debug_draw_list_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/debug_draw_list.cpp"
 )
 target_include_directories(gneiss_debug_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_debug_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -222,7 +222,7 @@ add_test(NAME gneiss.debug_draw_list COMMAND gneiss_debug_draw_list_test)
 add_executable(
   gneiss_png_decoder_test
   asset/png_decoder_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
 # 分配失败注入依赖可执行文件内的 operator new，保留本地编译的解码实现。
 target_compile_definitions(gneiss_png_decoder_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -265,7 +265,7 @@ add_test(NAME gneiss.rid_table COMMAND gneiss_rid_table_test)
 add_executable(
   gneiss_service_registry_test
   core/service_registry_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/service_registry.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.cpp"
 )
 target_include_directories(gneiss_service_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_service_registry_test PRIVATE gneiss::engine)
@@ -278,8 +278,8 @@ add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
 add_executable(
   gneiss_input_service_test
   input/input_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/input_service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/input/input_service.cpp"
 )
 target_include_directories(gneiss_input_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_input_service_test PRIVATE gneiss::engine)
@@ -292,8 +292,8 @@ add_test(NAME gneiss.input_service COMMAND gneiss_input_service_test)
 add_executable(
   gneiss_action_map_test
   input/action_map_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
 )
 target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_action_map_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -370,7 +370,7 @@ add_test(NAME gneiss.cpp_input COMMAND gneiss_cpp_input_test)
 add_executable(
   gneiss_render_executor_test
   render/render_executor_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/executor.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/executor.cpp"
 )
 target_include_directories(gneiss_render_executor_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -383,11 +383,11 @@ add_test(NAME gneiss.render_executor COMMAND gneiss_render_executor_test)
 add_executable(
   gneiss_render_frame_packet_test
   render/render_frame_packet_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/ui_draw_list.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/scene.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/debug_draw_list.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/frame_packet.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/ui_draw_list.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/debug_draw_list.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/frame_packet.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
 target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -400,7 +400,7 @@ add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test
 add_executable(
   gneiss_pbr_shader_resolver_test
   render/pbr_shader_resolver_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/backend/granit/pbr_shader_resolver.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/backend/granit/pbr_shader_resolver.cpp"
 )
 target_include_directories(
   gneiss_pbr_shader_resolver_test
@@ -434,8 +434,8 @@ set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
 add_executable(
   gneiss_world_state_test
   world/world_state_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/system_scheduler.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/system_scheduler.cpp"
 )
 target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_world_state_test PRIVATE gneiss::engine EnTT::EnTT)
@@ -481,7 +481,7 @@ add_test(NAME gneiss.camera_math COMMAND gneiss_camera_math_test)
 add_executable(
   gneiss_normal_math_test
   render/normal_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
 target_include_directories(gneiss_normal_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_normal_math_test PRIVATE gneiss::engine)
@@ -510,9 +510,9 @@ add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_applicatio
 add_executable(gneiss_scene_load_preparation_test
   scene/scene_load_preparation_test.cpp
 
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
 )
 target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_load_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -536,8 +536,8 @@ add_test(NAME gneiss.prefab-preparation COMMAND gneiss_prefab_preparation_test)
 add_executable(
   gneiss_scene_description_test
   serialization/scene_description_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
 )
 target_include_directories(gneiss_scene_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -551,10 +551,10 @@ add_test(NAME gneiss.scene_description COMMAND gneiss_scene_description_test)
 add_executable(
   gneiss_prefab_description_test
   serialization/prefab_description_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
 )
 target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -569,9 +569,9 @@ add_executable(
   gneiss_prefab_property_override_test
   serialization/prefab_property_override_test.cpp
   "${PROJECT_SOURCE_DIR}/src/editor/documents/prefab_edit.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
 )
 target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -585,8 +585,8 @@ add_test(NAME gneiss.prefab_property_override COMMAND gneiss_prefab_property_ove
 add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
 )
 target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -611,7 +611,7 @@ add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
 add_executable(
   gneiss_mesh_binary_test
   asset/mesh_binary_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
 )
 target_include_directories(gneiss_mesh_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math_dependency)
@@ -625,7 +625,7 @@ add_test(NAME gneiss.mesh_binary COMMAND gneiss_mesh_binary_test)
 add_executable(
   gneiss_texture_ktx2_test
   asset/texture_ktx2_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
 )
 target_include_directories(gneiss_texture_ktx2_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_texture_ktx2_test PRIVATE cxx_std_20)
@@ -638,7 +638,7 @@ add_test(NAME gneiss.texture_ktx2 COMMAND gneiss_texture_ktx2_test)
 add_executable(
   gneiss_texture_binary_test
   asset/texture_binary_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
 )
 target_include_directories(gneiss_texture_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_texture_binary_test PRIVATE cxx_std_20)
@@ -652,7 +652,7 @@ add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
 add_executable(
   gneiss_scene_projection_math_test
   render/scene_projection_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/core/math/transform.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
 target_include_directories(
   gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
@@ -667,9 +667,9 @@ add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_
 # CPU 准备复用 Engine 的反射描述 codec，不创建 Application 或 GPU。
 add_executable(gneiss_render_asset_preparation_test
   asset/asset_preparation_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp")
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp")
 target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
@@ -683,16 +683,16 @@ add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_prepar
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -710,16 +710,16 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -798,18 +798,18 @@ add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
 add_executable(
   gneiss_prefab_runtime_instance_test
   scene/prefab_runtime_instance_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
 )
 target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_runtime_instance_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -827,16 +827,16 @@ get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_
 list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
 add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cpp
   ${gneiss_scene_fixture_sources}
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/instantiation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/composition.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/scene_instance.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/instantiation.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/composition.cpp"
 )
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_instantiation_test PRIVATE
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/detail/hierarchy.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/scene/scene_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/asset_manager.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/input/action_map_validation.cpp")
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/scene_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/asset_manager.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp")
 target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit EnTT::EnTT)
@@ -908,6 +908,10 @@ gneiss_target_compile_warnings(gneiss_world_service_test)
 gneiss_target_output_directories(gneiss_world_service_test)
 set_target_properties(gneiss_world_service_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.world-service-boundary COMMAND gneiss_world_service_test)
+add_test(NAME gneiss.world-thread-contract
+  COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_world_service_test>
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/world/check_thread_contract.cmake)
+set_tests_properties(gneiss.world-thread-contract PROPERTIES LABELS "cpu;death")
 
 add_executable(gneiss_reflection_boundary_test meta/type_registry_boundary_test.cpp)
 target_link_libraries(gneiss_reflection_boundary_test PRIVATE gneiss::engine)
@@ -1191,9 +1195,9 @@ add_test(NAME gneiss.value_edit COMMAND gneiss_value_edit_test)
 # 本地替换分配器只用于故障注入，不影响 Engine 或其他测试进程。
 if(NOT EMSCRIPTEN)
   add_executable(gneiss_value_allocation_test core/value_allocation_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/core/value.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/core/value_edit.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/core/guid.cpp")
+    "${PROJECT_SOURCE_DIR}/engine/src/core/types/value.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/value_edit.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/types/guid.cpp")
   target_link_libraries(gneiss_value_allocation_test PRIVATE gneiss_native_interface gneiss_fatal)
   target_compile_definitions(gneiss_value_allocation_test PRIVATE GNEISS_STATIC_DEFINE)
   target_compile_features(gneiss_value_allocation_test PRIVATE cxx_std_20)
@@ -1242,8 +1246,8 @@ target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss_fatal)
 
 add_executable(gneiss_render_scene_test
   render/render_scene_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/executor.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/render/detail/scene.cpp")
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/executor.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp")
 target_include_directories(gneiss_render_scene_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_fatal)

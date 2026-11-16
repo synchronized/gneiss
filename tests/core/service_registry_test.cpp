@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/service_registry.hpp"
+#include <gneiss/engine/error.hpp>
+#include "core/service_registry.hpp"
 
 #include <algorithm>
 #include <array>

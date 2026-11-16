@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/resource/prefab.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/resource/prefab.hpp>
 #include <chrono>
 #include <thread>
 

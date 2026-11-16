@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engine/core/error.hpp"
-#include "engine/core/logging/record.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/logging/record.hpp>
 
 #include <cstdint>
 #include <string>

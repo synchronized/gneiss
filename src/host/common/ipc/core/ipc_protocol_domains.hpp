@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_COMMON_IPC_CORE_IPC_PROTOCOL_DOMAINS_H_
 #define GNEISS_APPS_COMMON_IPC_CORE_IPC_PROTOCOL_DOMAINS_H_
 
-#include "engine/core/error.hpp"
-#include "ipc_dispatcher.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
 
 #include <array>
 

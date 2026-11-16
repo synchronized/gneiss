@@ -5,18 +5,18 @@
 #include "../../support/movement_component.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
 #include "runtime_property_editor.hpp"
 #include "runtime_scene_inspection.hpp"
 
 #include "../../support/scene_access.hpp"
-#include "application/application.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 #include <string_view>
 #include <thread>
@@ -69,7 +69,7 @@ bool test_full_and_incremental_snapshot() {
       snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
       snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed" ||
-      snapshot.changes[0].node.components.get<gneiss::camera_description>()->settings.near !=
+      snapshot.changes[0].node.components.get<gneiss::camera_description>()->settings.near_plane !=
           0.25F ||
       snapshot.changes[0].node.components.get<gneiss::mesh_component_description>()->mesh_uri !=
           nodes[1].components.get<gneiss::mesh_component_description>()->mesh_uri ||

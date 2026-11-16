@@ -4,16 +4,16 @@
 #include "../support/async_editor_save.hpp"
 #include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <fstream>
 #include <iterator>
 

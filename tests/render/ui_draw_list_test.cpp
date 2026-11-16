@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/function/asset/detail/asset_construction.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/render/ui_draw_list.hpp"
+#include <gneiss/engine/error.hpp>
+#include "function/asset/detail/asset_construction.hpp"
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/render/ui_draw_list.hpp>
 
 #include <array>
 #include <cstdint>

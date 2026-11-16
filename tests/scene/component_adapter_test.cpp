@@ -5,21 +5,21 @@
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/property_edit_policy.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/composition.hpp"
-#include "engine/function/scene/detail/world_component_access.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/composition.hpp>
+#include "function/scene/detail/world_component_access.hpp"
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -428,14 +428,14 @@ int main() try {
   failing_object.uuid = e::guid::generate();
   failing_object.components.set(movement_description{13});
   broken_scene.objects.push_back(failing_object);
-  const auto entities_before_failure = *world.entity_count();
+  const auto entities_before_failure = world.entity_count();
   auto failed_creation =
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(broken_scene), {});
   check(!failed_creation && failed_creation.error() == e::error::invalid_state);
   gneiss::entity_id camera_after_failure;
   check(gneiss::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
-  check(*world.entity_count() == entities_before_failure);
+  check(world.entity_count() == entities_before_failure);
   // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
   auto destination = e::scene_instance::borrow(world, (camera_instance->instance).id());
   check(destination.has_value());
@@ -459,12 +459,12 @@ int main() try {
   check(*appended->roots[0].parent() == *existing_parent);
   auto child_object = world.object(appended->objects.front().entity);
   check(child_object && *child_object->parent() == appended->roots[0]);
-  const auto before_append_failure = *world.entity_count();
+  const auto before_append_failure = world.entity_count();
   auto broken_composed = e::compose_scene(broken_scene, {});
   check(broken_composed.has_value());
   auto failed_append = e::instantiate(*destination, *broken_composed, {}, *existing_parent);
   check(!failed_append && failed_append.error() == e::error::invalid_state);
-  check(*world.entity_count() == before_append_failure && *destination->size() == 5);
+  check(world.entity_count() == before_append_failure && *destination->size() == 5);
   check(existing_parent->is_valid() && appended->roots[0].is_valid());
   check(gneiss::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
@@ -485,15 +485,15 @@ int main() try {
   auto missing_link = *link_composed;
   missing_link.objects.pop_back();
   missing_link.objects.front().parent = {};
-  const auto before_missing_link = *world.entity_count();
+  const auto before_missing_link = world.entity_count();
   auto failed_link = e::instantiate(*destination, missing_link, {});
   check(!failed_link && failed_link.error() == e::error::not_found);
-  check(*world.entity_count() == before_missing_link);
+  check(world.entity_count() == before_missing_link);
   check(link_one->roots.front().destroy().ok() && link_two->roots.front().destroy().ok());
   auto malformed = *append_composed;
   malformed.objects.back().parent = malformed.objects.front().address;
   check(!e::instantiate(*destination, malformed, {}));
-  check(*world.entity_count() == before_append_failure);
+  check(world.entity_count() == before_append_failure);
   check(!e::instantiate(e::scene_instance{}, *append_composed, {}));
   auto foreign_scene_id = scenes.create_empty(e::guid::generate());
   check(foreign_scene_id.has_value());

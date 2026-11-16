@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include "support/value_result.hpp"
 #include <tracy/Tracy.hpp>
 

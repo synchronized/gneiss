@@ -36,7 +36,7 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT E
 endif()
 include(glm)
 include(internal_interfaces)
-add_subdirectory(src)
+add_subdirectory(engine)
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_subdirectory(tests/integration/assets)
 endif()
@@ -76,7 +76,7 @@ endif()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 if(EMSCRIPTEN)
-  install(FILES "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.js"
+  install(FILES "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.js"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/js")
   target_link_options(gneiss_engine INTERFACE
     "$<INSTALL_INTERFACE:SHELL:--js-library \"$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/gneiss/js/fetch_stream.js\">")

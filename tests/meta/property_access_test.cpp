@@ -3,7 +3,7 @@
 
 #include "../support/throws.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/meta/registration.hpp"
+#include <gneiss/engine/core/meta/registration.hpp>
 #include <array>
 #include <cmath>
 #include <limits>

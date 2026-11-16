@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/instance.hpp"
+#include <gneiss/engine/core/meta/instance.hpp>
 #include "panels/property_path.hpp"
 #include <optional>
 namespace gneiss::editor {

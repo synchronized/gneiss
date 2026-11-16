@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "ipc/runtime_command_context.hpp"
 
 #include "ipc_inspection_protocol.hpp"
@@ -13,9 +13,9 @@
 #include "ipc_router.hpp"
 #include "ipc_session_protocol.hpp"
 #include "ipc_statistics_protocol.hpp"
-#include "ipc_transport.hpp"
+#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
 
-#include "engine/core/logging/record.hpp"
+#include <gneiss/engine/core/logging/record.hpp>
 #include <chrono>
 #include <memory>
 #include <string>

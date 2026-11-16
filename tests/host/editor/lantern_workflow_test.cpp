@@ -6,20 +6,20 @@
 #include "../../support/async_prefab_edit.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
 #include "editor_project.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_types.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <algorithm>
 #include <array>

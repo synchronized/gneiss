@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "engine/core/math/types.hpp"
-#include "engine/resource/material/material_description.hpp"
-#include "engine/resource/texture/texture_description.hpp"
+#include <gneiss/engine/core/math/types.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/texture/texture_description.hpp>
 
 #include <array>
 #include <cstddef>

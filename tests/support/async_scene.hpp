@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/platform/files/file_service.hpp"
-#include "engine/resource/scene.hpp"
-#include "engine/resource/scene/scene_validation.hpp"
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/resource/scene.hpp>
+#include <gneiss/engine/resource/scene/scene_validation.hpp>
 #include <chrono>
 namespace gneiss::test_support {
 inline gneiss::error load_scene_content(gneiss::asset_manager& assets,

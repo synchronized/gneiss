@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "application/application.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <cstdio>
 namespace example {
 /** 示例持有的装配回执与视觉批次；场景由 World 拥有，调用方决定何时卸载。 */

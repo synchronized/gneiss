@@ -2,15 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include "viewport/editor_camera.hpp"
 
-#include "engine/core/meta/type.hpp"
-#include "engine/core/rid.hpp"
+#include <gneiss/engine/core/meta/type.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
 
 #include <cmath>
 
@@ -37,26 +37,20 @@ int main() {
       active_camera != gneiss::entity_id{}) {
     return 1;
   }
-  std::uint64_t entity_count{};
-  if (gneiss::error{gneiss::test_support::assign_value(
-          owner->entity_count(), entity_count)} != gneiss::error::success ||
-      entity_count != 0U) {
+  if (owner->entity_count() != 0U) {
     return 8;
   }
   auto scene = owner->create_scene();
   if (!scene)
     return 9;
-  auto object = scene->create_object();
-  if (!object)
+  auto create_state = scene->create_object();
+  if (!create_state)
     return 9;
-  auto scene_camera = object->entity();
+  auto object = *create_state;
+  auto scene_camera = object.entity();
   const gneiss::math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
-  if (gneiss::error{owner->find(scene_camera)
-                                .add_component<gneiss::camera_component>(
-                                    *gneiss::camera_component::create(settings))} !=
-          gneiss::error::success ||
-      gneiss::error{gneiss::set_active_camera(*owner, scene_camera)} !=
-          gneiss::error::success) {
+  if (object.add_component<gneiss::camera_component>(settings, false).failed() ||
+      gneiss::set_active_camera(*owner, scene_camera).failed()) {
     return 9;
   }
   const auto initial = camera.current_transform();

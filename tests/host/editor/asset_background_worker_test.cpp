@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_background_worker.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include "tooling/asset_import/asset_index.hpp"
 
 #include <atomic>

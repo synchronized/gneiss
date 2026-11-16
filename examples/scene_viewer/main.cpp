@@ -3,14 +3,14 @@
 
 #include "../support/scene_activation.hpp"
 #include "../support/scope_exit.hpp"
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
 #include <array>

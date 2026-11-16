@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_inspection.hpp"
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
 #include <array>

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/scene_update.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/function/scene/scene_update.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 namespace gneiss::test_support {
 inline std::map<gneiss::object_address, gneiss::scene_object_association>
 associations(std::span<const gneiss::scene_object_binding> objects) {

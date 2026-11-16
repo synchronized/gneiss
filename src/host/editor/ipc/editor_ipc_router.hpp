@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_ROUTER_H_
 
 #include "editor_ipc_event.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include "ipc_protocol_domains.hpp"
 #include "ipc_router.hpp"

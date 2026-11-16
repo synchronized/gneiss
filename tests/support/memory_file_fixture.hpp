@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/platform/files/file_backend.hpp"
-#include "engine/platform/files/file_service.hpp"
-#include "engine/resource/asset_identity.hpp"
-#include "engine/resource/asset_uri.hpp"
+#include <gneiss/engine/platform/files/file_backend.hpp>
+#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/resource/asset_identity.hpp>
+#include <gneiss/engine/resource/asset_uri.hpp>
 #include <limits>
 namespace gneiss::test_support {
 // 可变内存测试数据：子类提供内存拷贝，不允许磁盘或网络读取。

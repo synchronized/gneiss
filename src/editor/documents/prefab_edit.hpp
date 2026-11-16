@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/scene/prefab_replay.hpp"
+#include <gneiss/engine/function/scene/prefab_replay.hpp>
 namespace gneiss::editor {
 struct prefab_edit_candidate {
   gneiss::prefab_reference_description reference;

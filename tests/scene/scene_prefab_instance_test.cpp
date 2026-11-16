@@ -5,9 +5,9 @@
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -75,7 +75,7 @@ int main() try {
   check(app->native_world()->object(second_mapping.at(member->address).entity).has_value());
   check(gneiss::test_support::scene_access{*app}->unload(created->instance).ok());
   check(gneiss::test_support::scene_access{*app}->unload(second->instance).ok());
-  check(*app->native_world()->entity_count() == 0);
+  check(app->native_world()->entity_count() == 0);
   e::scene_content missing;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/missing-prefab.scene.json",
                                             missing, assets)

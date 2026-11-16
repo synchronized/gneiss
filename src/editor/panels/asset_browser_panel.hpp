@@ -5,7 +5,7 @@
 
 #include "asset_browser_model.hpp"
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <array>
 #include <cstddef>

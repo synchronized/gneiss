@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/resource/texture/png_decoder.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/resource/texture/png_decoder.hpp>
 
 #include <array>
 #include <cstddef>

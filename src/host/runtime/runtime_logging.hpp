@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/logging/sink.hpp"
+#include <gneiss/engine/core/logging/sink.hpp>
 #include <filesystem>
 #include <memory>
 namespace gneiss::host {

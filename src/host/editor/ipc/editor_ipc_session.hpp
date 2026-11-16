@@ -5,9 +5,9 @@
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_SESSION_H_
 
 #include "editor_ipc_event.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
-#include "ipc_transport.hpp"
+#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
 
 #include <chrono>
 #include <cstdint>

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/throws.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/math/camera.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/builtin_registration.hpp"
-#include "engine/core/serialization/json.hpp"
+#include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
 #include <array>
 #include <cstdint>
 #include <stdexcept>
@@ -132,8 +132,8 @@ bool math_registration() {
   if (!encoded)
     return false;
   auto decoded = e::serialization::json::decode<e::math::camera_settings>(read_context, *encoded);
-  if (!decoded || decoded->fov != settings.fov || decoded->near != settings.near ||
-      decoded->far != settings.far)
+  if (!decoded || decoded->fov != settings.fov || decoded->near_plane != settings.near_plane ||
+      decoded->far_plane != settings.far_plane)
     return false;
   const std::string invalid = R"({"fov":1,"near":10,"far":1})";
   auto unchecked = e::serialization::json::decode<e::math::camera_settings>(
@@ -142,7 +142,7 @@ bool math_registration() {
   auto status = m::write_property(*registry, e::math::transform::type_guid, m::property_id{3},
                                   &value, e::value{e::math::vector3{0, 1, 1}});
   // 通用解码只恢复字段；相机采用边界显式检查透视范围。
-  return unchecked && !e::math::is_valid_camera(*unchecked) &&
+  return unchecked && !unchecked->valid() &&
          status == e::error::invalid_argument && value.scale.x == 1;
 }
 bool frozen_lookup() {

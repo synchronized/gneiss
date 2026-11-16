@@ -2,15 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "commands/prefab_authoring.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/meta/registry.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/resource/asset_file.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 
-#include "engine/function/scene/prefab_property_override.hpp"
-#include "engine/resource/asset_uri.hpp"
-#include "engine/resource/scene/prefab_description.hpp"
+#include <gneiss/engine/function/scene/prefab_property_override.hpp>
+#include <gneiss/engine/resource/asset_uri.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <unordered_map>
 
 #include <yyjson.h>

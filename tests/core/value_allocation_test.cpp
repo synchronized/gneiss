@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/fatal.hpp"
-#include "engine/core/value_edit.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/value_edit.hpp>
 #include <array>
 #include <cstdlib>
 #include <new>

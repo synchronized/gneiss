@@ -4,7 +4,7 @@
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_document.hpp"
 #include "documents/scene_document_snapshot.hpp"
-#include "engine/function/scene/scene_instance.hpp"
+#include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <functional>
 #include <memory>
 namespace gneiss::runtime {

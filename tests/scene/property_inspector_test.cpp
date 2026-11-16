@@ -2,19 +2,19 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../examples/support/scene_activation.hpp"
 #include "../../examples/support/scope_exit.hpp"
-#include "application/application.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/registry.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/asset_file.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -188,7 +188,7 @@ int main() try {
     return 6;
   auto runtime_camera =
       app->native_world()->find(target).try_component<gneiss::camera_component>();
-  if (!runtime_camera || std::abs(runtime_camera->settings().near - 0.25F) > 0.0001F)
+  if (!runtime_camera || std::abs(runtime_camera->settings.near_plane - 0.25F) > 0.0001F)
     return 6;
   if (!scene.is_valid() || scene.unload().failed())
     return 6;

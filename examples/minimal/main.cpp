@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "application/application.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/function/scene/game_object.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/scene/game_object.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <cstdio>
 int main() try {
   gneiss::install_fatal_handler();

@@ -3,17 +3,17 @@
 
 #include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/material/material_description.hpp"
-#include "engine/resource/texture/texture_decoder.hpp"
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/texture/texture_decoder.hpp>
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
 #include "../support/scene_access.hpp"
-#include "application/application.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -120,17 +120,12 @@ int main() { // NOLINT(bugprone-exception-escape)
   description.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance scene = {};
-  std::uint64_t entity_count = 0;
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
                                          application) != gneiss::error::success ||
-      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::error::success ||
-      gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::error::success ||
-      entity_count != 1U ||
-      gneiss::test_support::scene_access{*application}->unload(scene) !=
-          gneiss::error::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene) != gneiss::error::success ||
+      application->native_world()->entity_count() != 1U ||
+      gneiss::test_support::scene_access{*application}->unload(scene) != gneiss::error::success ||
       application->shutdown() != gneiss::error::success) {
     return 6;
   }
@@ -148,16 +143,11 @@ int main() { // NOLINT(bugprone-exception-escape)
   description.asset_root = multi_asset_root;
   application.reset();
   scene = gneiss::scene_instance{};
-  entity_count = 0;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
                                          application) != gneiss::error::success ||
-      gneiss::test_support::load_scene(*application, scene_uri, &scene) !=
-          gneiss::error::success ||
-      gneiss::test_support::assign_value(application->native_world()->entity_count(),
-                                         entity_count) != gneiss::error::success ||
-      entity_count != 3U ||
-      gneiss::test_support::scene_access{*application}->unload(scene) !=
-          gneiss::error::success ||
+      gneiss::test_support::load_scene(*application, scene_uri, &scene) != gneiss::error::success ||
+      application->native_world()->entity_count() != 3U ||
+      gneiss::test_support::scene_access{*application}->unload(scene) != gneiss::error::success ||
       application->shutdown() != gneiss::error::success) {
     return 8;
   }

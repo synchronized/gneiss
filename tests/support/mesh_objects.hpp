@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "editor/documents/mesh_binding.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/components.hpp"
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
 namespace gneiss::test_support {
 inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner, scene_instance scene,
                                                        entity_id id) {

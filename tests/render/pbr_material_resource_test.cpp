@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/function/render/service.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/render/service.hpp>
 
 #include <array>
 #include <cstddef>

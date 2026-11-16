@@ -1,0 +1,521 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "function/render/detail/executor.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <limits>
+#include <map>
+#include <mutex>
+#include <new>
+#include <ranges>
+#include <thread>
+#include <utility>
+
+namespace gneiss::render::detail {
+
+void render_command_reporter::report(render_command_stage stage, std::uint64_t completed_work,
+                                     std::uint64_t total_work) const {
+  if (publish_) {
+    publish_(stage, completed_work, total_work);
+  }
+}
+
+inline_render_executor::inline_render_executor(render_frame_callback callback)
+    : callback_(std::move(callback)) {}
+
+gneiss::error inline_render_executor::submit(frame_packet packet, execution_result& output) {
+  output = {};
+  packet.sequence = next_sequence_++;
+  return callback_ ? callback_(packet, output) : gneiss::error::invalid_argument;
+}
+
+struct threaded_render_executor::state final {
+  enum class task_kind { frame, command };
+
+  struct queued_task final {
+    task_kind kind{task_kind::frame};
+    std::uint64_t sequence{};
+    frame_policy frame_policy{frame_policy::replaceable};
+    frame_packet packet;
+    render_frame_prepare prepare;
+    render_command_callback command;
+    render_command_policy command_policy{render_command_policy::once};
+    double execution_ms{};
+    std::size_t payload_bytes{};
+    std::size_t input_bytes{};
+    std::weak_ptr<const void> payload{};
+    bool shared_payload{};
+    std::chrono::steady_clock::time_point enqueued_at;
+  };
+
+  std::mutex mutex;
+  std::condition_variable work_ready;
+  std::condition_variable idle;
+  std::shared_ptr<wakeup_signal> notification;
+  std::deque<queued_task> pending;
+  std::deque<frame_completion> completed_frames;
+  std::deque<render_command_completion> completed_commands;
+  std::thread worker;
+  render_frame_callback frame_callback;
+  queue_options options;
+  std::size_t outstanding_commands{};
+  std::size_t retiring_frames{};
+  struct payload_usage {
+    std::size_t bytes{};
+    std::size_t commands{};
+  };
+  std::map<std::weak_ptr<const void>, payload_usage, std::owner_less<>> payloads;
+  std::uint64_t next_sequence{1U};
+  bool executing{};
+  bool stopping{};
+  queue_stats stats;
+  render_command_status command_status;
+  bool has_command_status{};
+  std::chrono::steady_clock::time_point previous_frame_completed{};
+
+  void run() noexcept;
+};
+
+void threaded_render_executor::state::run() noexcept try {
+  for (;;) {
+    queued_task task;
+    {
+      std::unique_lock lock(mutex);
+      work_ready.wait(lock, [&] { return stopping || !pending.empty(); });
+      if (stopping && pending.empty()) {
+        break;
+      }
+      task = std::move(pending.front());
+      pending.pop_front();
+      executing = true;
+    }
+
+    frame_completion frame_completion;
+    render_command_completion command_completion;
+    if (task.kind == task_kind::frame) {
+      frame_completion.sequence = task.sequence;
+      frame_completion.policy = task.frame_policy;
+      const auto preparation_started = std::chrono::steady_clock::now();
+      frame_completion.execution.queue_wait_ms =
+          std::chrono::duration<float, std::milli>(preparation_started - task.enqueued_at).count();
+      error prepared_status = error::success;
+      if (task.prepare) {
+        auto prepared = task.prepare();
+        if (prepared) {
+          task.packet = std::move(*prepared);
+          task.packet.sequence = task.sequence;
+        } else {
+          prepared_status = prepared.error();
+        }
+        task.packet.capture.capture_ms = std::chrono::duration<float, std::milli>(
+                                             std::chrono::steady_clock::now() - preparation_started)
+                                             .count();
+        task.prepare = {};
+      }
+      frame_completion.execution.frame_capture_ms = task.packet.capture.capture_ms;
+      frame_completion.execution.copied_payload_bytes = task.packet.capture.copied_payload_bytes;
+      const auto execution_started = std::chrono::steady_clock::now();
+      frame_completion.status = prepared_status.failed()
+                                    ? prepared_status
+                                    : frame_callback(task.packet, frame_completion.execution);
+      frame_completion.execution.render_thread_ms =
+          std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
+                                                   execution_started)
+              .count();
+      // 完成队列只保存结果；在发布完成及 idle 前释放帧的 CPU 内容引用。
+      task.packet = {};
+    } else {
+      command_completion.sequence = task.sequence;
+      command_completion.progress.stage = render_command_stage::preparing;
+      const render_command_reporter reporter{
+          [this, sequence = task.sequence](render_command_stage stage, std::uint64_t completed_work,
+                                           std::uint64_t total_work) {
+            std::lock_guard lock(mutex);
+            command_status = {.sequence = sequence,
+                              .progress = {.stage = stage,
+                                           .completed_work = completed_work,
+                                           .total_work = total_work},
+                              .active = true};
+            has_command_status = true;
+          }};
+      reporter.report(render_command_stage::preparing, 0U, 0U);
+      const auto command_started = std::chrono::steady_clock::now();
+      command_completion.status = task.command(reporter);
+      command_completion.execution_ms = std::chrono::duration<double, std::milli>(
+                                            std::chrono::steady_clock::now() - command_started)
+                                            .count();
+      task.execution_ms += command_completion.execution_ms;
+      command_completion.execution_ms = task.execution_ms;
+      if (task.command_policy == render_command_policy::resumable &&
+          command_completion.status == gneiss::error::not_ready) {
+        // 只有显式可恢复命令才能让出执行权；不会产生中间完成回执。
+        std::unique_lock lock(mutex);
+        pending.push_back(std::move(task));
+        executing = false;
+        // 没有其他工作时限制轮询频率；新帧到达会唤醒，不占用渲染线程忙等。
+        if (pending.size() == 1U) {
+          work_ready.wait_for(lock, std::chrono::milliseconds(1),
+                              [&] { return pending.size() > 1U; });
+        }
+        continue;
+      }
+      // 捕获数据在执行线程、锁外释放；完成回执和容量回收必须晚于此次释放。
+      // 可恢复命令的中间 NOT_READY 已在上方重新入队，继续持有原捕获数据。
+      task.command = {};
+      {
+        std::lock_guard lock(mutex);
+        command_completion.progress = command_status.progress;
+        command_completion.progress.stage = render_command_stage::completed;
+        command_status = {
+            .sequence = task.sequence, .progress = command_completion.progress, .active = false};
+      }
+    }
+    {
+      std::lock_guard lock(mutex);
+      if (task.kind == task_kind::frame) {
+        if (frame_completion.execution.presented) {
+          const auto completed_at = std::chrono::steady_clock::now();
+          if (stats.presented_frames != 0U) {
+            stats.latest_frame_interval_ms =
+                std::chrono::duration<double, std::milli>(completed_at - previous_frame_completed)
+                    .count();
+            stats.maximum_frame_interval_ms =
+                std::max(stats.maximum_frame_interval_ms, stats.latest_frame_interval_ms);
+          }
+          previous_frame_completed = completed_at;
+          ++stats.presented_frames;
+        }
+        stats.frame_input_bytes -= task.input_bytes;
+        ++stats.executed_frames;
+        if (frame_completion.policy == frame_policy::required) {
+          ++stats.executed_required_frames;
+        }
+        stats.latest_frame_queue_wait_ms = frame_completion.execution.queue_wait_ms;
+        stats.latest_frame_capture_ms = frame_completion.execution.frame_capture_ms;
+        stats.latest_copied_payload_bytes = frame_completion.execution.copied_payload_bytes;
+        stats.gpu_timing_supported = frame_completion.execution.gpu_timing_supported;
+        stats.environment_asset_requested = frame_completion.execution.environment_asset_requested;
+        stats.environment_fallback = frame_completion.execution.environment_fallback;
+        stats.environment_intensity = frame_completion.execution.environment_intensity;
+        stats.environment_rotation_radians =
+            frame_completion.execution.environment_rotation_radians;
+        if (frame_completion.execution.gpu_timing_valid) {
+          stats.latest_gpu_timing_valid = true;
+          stats.latest_gpu_timing_sample_sequence =
+              frame_completion.execution.gpu_timing_sample_sequence;
+          stats.latest_gpu_frame_ms = frame_completion.execution.gpu_frame_ms;
+          stats.latest_gpu_shadow_ms = frame_completion.execution.gpu_shadow_ms;
+          stats.latest_gpu_opaque_ms = frame_completion.execution.gpu_opaque_ms;
+          stats.latest_gpu_tone_mapping_ms = frame_completion.execution.gpu_tone_mapping_ms;
+          ++stats.gpu_timing_sample_count;
+        } else if (frame_completion.execution.gpu_timing_supported) {
+          ++stats.gpu_timing_unavailable_count;
+        }
+        stats.maximum_frame_queue_wait_ms =
+            std::max(stats.maximum_frame_queue_wait_ms, frame_completion.execution.queue_wait_ms);
+        completed_frames.push_back(std::move(frame_completion));
+      } else {
+        ++stats.executed_commands;
+        --outstanding_commands;
+        if (task.shared_payload) {
+          auto item = payloads.find(task.payload);
+          if (--item->second.commands == 0) {
+            stats.command_payload_bytes -= item->second.bytes;
+            payloads.erase(item);
+          }
+        } else {
+          stats.command_payload_bytes -= task.payload_bytes;
+        }
+        completed_commands.push_back(std::move(command_completion));
+      }
+      executing = false;
+      if (notification) {
+        notification->notify();
+      }
+      if (pending.empty()) {
+        idle.notify_all();
+      }
+    }
+  }
+} catch (...) {
+  fatal_current_exception();
+}
+
+void threaded_render_executor::set_completion_wakeup(
+    std::shared_ptr<wakeup_signal> notification) noexcept {
+  if (state_) {
+    const std::scoped_lock lock(state_->mutex);
+    state_->notification = std::move(notification);
+  }
+}
+
+threaded_render_executor::threaded_render_executor() = default;
+
+threaded_render_executor::~threaded_render_executor() { stop(); }
+
+gneiss::error threaded_render_executor::initialize(render_frame_callback callback,
+                                                   queue_options options) {
+  if (!callback || (options.pending_frames == 0U || options.commands == 0U) || state_) {
+    return gneiss::error::invalid_argument;
+  }
+  {
+    auto candidate = std::make_unique<state>();
+    candidate->frame_callback = std::move(callback);
+    candidate->options = options;
+    candidate->worker = std::thread(&state::run, candidate.get());
+    state_ = std::move(candidate);
+    return gneiss::error::success;
+  }
+}
+
+result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet,
+                                                             frame_policy policy,
+                                                             render_frame_prepare prepare,
+                                                             std::size_t input_bytes) {
+  if (!state_) {
+    return gneiss::error::not_ready;
+  }
+  std::optional<state::queued_task> retired;
+  std::optional<frame_completion> dropped;
+  std::uint64_t sequence{};
+  {
+    std::lock_guard lock(state_->mutex);
+    if (state_->stopping) {
+      return gneiss::error::not_ready;
+    }
+    const auto limit = state_->options.frame_input_bytes;
+    if (limit && input_bytes > limit)
+      return error::out_of_memory;
+    const auto ceiling = limit ? limit : std::numeric_limits<std::size_t>::max();
+    // 旧帧尚未释放时不能提前归还额度；拒绝保持原排队帧不变。
+    if (input_bytes > ceiling - state_->stats.frame_input_bytes) {
+      if (policy == frame_policy::required)
+        ++state_->stats.rejected_required_frames;
+      return error::not_ready;
+    }
+    const auto frame_count = static_cast<std::size_t>(std::ranges::count_if(
+        state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
+    if (frame_count >= state_->options.pending_frames) {
+      const auto replace = std::ranges::find_if(state_->pending, [](const auto& task) {
+        return task.kind == state::task_kind::frame &&
+               task.frame_policy == frame_policy::replaceable;
+      });
+      if (policy == frame_policy::required || replace == state_->pending.end()) {
+        if (policy == frame_policy::required) {
+          ++state_->stats.rejected_required_frames;
+        }
+        return gneiss::error::not_ready;
+      }
+      const auto dropped_sequence = replace->sequence;
+      frame_completion dropped_completion{.sequence = dropped_sequence,
+                                          .status = gneiss::error::not_ready,
+                                          .execution = {},
+                                          .dropped = true,
+                                          .policy = replace->frame_policy};
+      retired.emplace(std::move(*replace));
+      state_->pending.erase(replace);
+      dropped = std::move(dropped_completion);
+      ++state_->retiring_frames;
+      ++state_->stats.replaced_frames;
+    }
+    sequence = state_->next_sequence++;
+    packet.sequence = sequence;
+    ++state_->stats.submitted_frames;
+    state_->stats.frame_input_bytes += input_bytes;
+    state_->stats.frame_input_high_watermark =
+        std::max(state_->stats.frame_input_high_watermark, state_->stats.frame_input_bytes);
+    if (policy == frame_policy::required) {
+      ++state_->stats.submitted_required_frames;
+    }
+    state_->pending.push_back({.kind = state::task_kind::frame,
+                               .sequence = sequence,
+                               .frame_policy = policy,
+                               .packet = std::move(packet),
+                               .prepare = std::move(prepare),
+                               .command = {},
+                               .input_bytes = input_bytes,
+                               .enqueued_at = std::chrono::steady_clock::now()});
+    state_->stats.pending_high_watermark =
+        std::max(state_->stats.pending_high_watermark, state_->pending.size());
+    state_->work_ready.notify_one();
+  }
+  if (retired) {
+    // 任意捕获数据的析构不能发生在队列锁内；先释放，再公布丢帧完成。
+    const auto retired_bytes = retired->input_bytes;
+    retired.reset();
+    std::lock_guard lock(state_->mutex);
+    state_->completed_frames.push_back(std::move(*dropped));
+    state_->stats.frame_input_bytes -= retired_bytes;
+    --state_->retiring_frames;
+    if (state_->notification)
+      state_->notification->notify();
+    if (state_->pending.empty() && !state_->executing && state_->retiring_frames == 0)
+      state_->idle.notify_all();
+  }
+  return sequence;
+}
+
+result<std::uint64_t> threaded_render_executor::submit_command(render_command_callback command,
+                                                               render_command_policy policy,
+                                                               std::size_t payload_bytes,
+                                                               std::weak_ptr<const void> payload) {
+  if (!state_) {
+    return gneiss::error::not_ready;
+  }
+  if (!command) {
+    return gneiss::error::invalid_argument;
+  }
+  {
+    std::lock_guard lock(state_->mutex);
+    const std::weak_ptr<const void> empty;
+    const bool shared = payload.owner_before(empty) || empty.owner_before(payload);
+    auto existing = state_->payloads.find(payload);
+    if (shared && (payload.expired() ||
+                   (existing != state_->payloads.end() && existing->second.bytes != payload_bytes)))
+      return error::invalid_argument;
+    const auto limit = state_->options.command_payload_bytes;
+    if (limit && payload_bytes > limit) {
+      ++state_->stats.rejected_commands;
+      return error::out_of_memory; // 单份数据永远无法进入该预算，不能要求调用方无限重试。
+    }
+    const auto additional = shared && existing != state_->payloads.end() ? 0U : payload_bytes;
+    const auto ceiling = limit ? limit : std::numeric_limits<std::size_t>::max();
+    if (additional > ceiling - state_->stats.command_payload_bytes) {
+      ++state_->stats.rejected_commands;
+      return error::not_ready;
+    }
+    if (state_->stopping || state_->outstanding_commands >= state_->options.commands) {
+      ++state_->stats.rejected_commands;
+      return gneiss::error::not_ready;
+    }
+    const auto sequence = state_->next_sequence++;
+    ++state_->stats.submitted_commands;
+    ++state_->outstanding_commands;
+    if (shared) {
+      auto& usage = state_->payloads[payload];
+      usage.bytes = payload_bytes;
+      ++usage.commands;
+    }
+    state_->stats.command_payload_bytes += additional;
+    state_->stats.command_payload_high_watermark =
+        std::max(state_->stats.command_payload_high_watermark, state_->stats.command_payload_bytes);
+    state_->pending.push_back({.kind = state::task_kind::command,
+                               .sequence = sequence,
+                               .frame_policy = frame_policy::replaceable,
+                               .packet = {},
+                               .prepare = {},
+                               .command = std::move(command),
+                               .command_policy = policy,
+                               .payload_bytes = payload_bytes,
+                               .payload = std::move(payload),
+                               .shared_payload = shared,
+                               .enqueued_at = std::chrono::steady_clock::now()});
+    state_->stats.pending_high_watermark =
+        std::max(state_->stats.pending_high_watermark, state_->pending.size());
+    state_->work_ready.notify_one();
+    return sequence;
+  }
+}
+
+std::optional<frame_completion> threaded_render_executor::try_take_frame_completion() noexcept {
+  if (!state_) {
+    return std::nullopt;
+  }
+  std::lock_guard lock(state_->mutex);
+  if (state_->completed_frames.empty()) {
+    return std::nullopt;
+  }
+  auto output = std::move(state_->completed_frames.front());
+  state_->completed_frames.pop_front();
+  return output;
+}
+
+std::optional<render_command_completion>
+threaded_render_executor::try_take_command_completion() noexcept {
+  if (!state_) {
+    return std::nullopt;
+  }
+  std::lock_guard lock(state_->mutex);
+  if (state_->completed_commands.empty()) {
+    return std::nullopt;
+  }
+  auto output = std::move(state_->completed_commands.front());
+  state_->completed_commands.pop_front();
+  return output;
+}
+
+std::optional<render_command_status>
+threaded_render_executor::query_command_status() const noexcept {
+  if (!state_) {
+    return std::nullopt;
+  }
+  std::lock_guard lock(state_->mutex);
+  if (!state_->has_command_status) {
+    return std::nullopt;
+  }
+  return state_->command_status;
+}
+
+queue_stats threaded_render_executor::query_stats() const noexcept {
+  if (!state_) {
+    return {};
+  }
+  std::lock_guard lock(state_->mutex);
+  auto result = state_->stats;
+  result.pending_tasks = state_->pending.size();
+  result.pending_frames = static_cast<std::size_t>(std::ranges::count_if(
+      state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
+  result.pending_commands = result.pending_tasks - result.pending_frames;
+  return result;
+}
+
+void threaded_render_executor::record_skipped_frame_build() noexcept {
+  if (!state_) {
+    return;
+  }
+  std::lock_guard lock(state_->mutex);
+  ++state_->stats.skipped_frame_builds;
+}
+
+gneiss::error threaded_render_executor::flush() noexcept {
+  if (!state_) {
+    return gneiss::error::not_ready;
+  }
+  std::unique_lock lock(state_->mutex);
+  state_->idle.wait(lock, [&] {
+    return state_->pending.empty() && !state_->executing && state_->retiring_frames == 0;
+  });
+  return gneiss::error::success;
+}
+
+void threaded_render_executor::stop() noexcept {
+  if (!state_) {
+    return;
+  }
+  static_cast<void>(flush());
+  {
+    std::lock_guard lock(state_->mutex);
+    state_->stopping = true;
+    state_->work_ready.notify_all();
+  }
+  if (state_->worker.joinable()) {
+    state_->worker.join();
+  }
+  state_.reset();
+}
+
+bool threaded_render_executor::is_running() const noexcept {
+  if (!state_) {
+    return false;
+  }
+  std::lock_guard lock(state_->mutex);
+  return !state_->stopping;
+}
+
+} // namespace gneiss

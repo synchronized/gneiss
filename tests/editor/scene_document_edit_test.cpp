@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
 #include "commands/prefab_authoring.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/scene/prefab_description.hpp"
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <cstdio>
 #include <fstream>
 #include <source_location>

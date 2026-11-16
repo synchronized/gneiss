@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "application/application.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include "host/runtime/runtime_scene_loader.hpp"
 #include <chrono>
 #include <thread>

@@ -2,19 +2,19 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_application.hpp"
-#include "engine/core/fatal.hpp"
-#include "engine/core/logging/default_service.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_instance.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/logging/default_service.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <deque>
 
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/app/project_description.hpp>
 
-#include "engine/platform/logging/file_sink.hpp"
+#include "core/logging/file_sink.hpp"
 #include "runtime_asset_reloader.hpp"
 #include "runtime_ipc_session.hpp"
 #include "runtime_logging.hpp"
@@ -425,11 +425,7 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
       scene_node_count = std::move(*scenes_result);
     }
     if (operation == gneiss::error::success) {
-      auto count = context.application->native_world()->entity_count();
-      if (!count)
-        operation = count.error();
-      else
-        entity_count = *count;
+      entity_count = context.application->native_world()->entity_count();
     }
     if (operation != gneiss::error::success) {
       context.ipc_failure = operation;

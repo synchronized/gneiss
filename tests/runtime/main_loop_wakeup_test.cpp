@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/detail/main_loop_wakeup.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
+#include <gneiss/engine/function/application/main_loop_wakeup.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
 #include <algorithm>
 #include <barrier>

@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_PROJECT_DESCRIPTION_H_
 #define GNEISS_APPS_COMMON_PROJECT_DESCRIPTION_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <array>
 #include <cstdint>

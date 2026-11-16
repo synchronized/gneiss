@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "uv_loop_executor.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
 
-#include "engine/core/fatal.hpp"
+#include <gneiss/engine/error.hpp>
 #include <atomic>
 #include <chrono>
 #include <future>

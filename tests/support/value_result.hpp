@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/result.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/function/asset/asset_loading.hpp"
-#include "engine/function/scene/instantiation.hpp"
+#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/function/asset/asset_loading.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
 namespace gneiss::test_support {
 inline gneiss::error take_value(gneiss::result<gneiss::scene_instantiation_result> value,
                                 scene_instance& output) {
@@ -82,8 +82,8 @@ namespace gneiss::test_support {
 template <class T, class U> gneiss::error read_component_value(const T* value, U& out) {
   if (!value)
     return gneiss::error::not_found;
-  if constexpr (requires { value->settings(); })
-    out = value->settings();
+  if constexpr (requires { value->settings; })
+    out = value->settings;
   else
     out = value->value;
   return gneiss::error::success;

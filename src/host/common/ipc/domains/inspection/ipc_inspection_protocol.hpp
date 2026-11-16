@@ -4,13 +4,13 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 
-#include "engine/core/guid.hpp"
-#include "engine/resource/scene/component_description.hpp"
-#include "ipc_dispatcher.hpp"
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/resource/scene/component_description.hpp>
+#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/camera.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <cstdint>
 #include <span>

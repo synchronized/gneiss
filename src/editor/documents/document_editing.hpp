@@ -5,9 +5,9 @@
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 namespace gneiss::editor {
 /** 单个文档的编辑所有者；全部调用限宿主线程。

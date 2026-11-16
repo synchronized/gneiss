@@ -4,15 +4,15 @@
 #include "../support/movement_component.hpp"
 #include "../support/value_result.hpp"
 #include "editor/documents/prefab_edit.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/prefab_property_override.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/prefab_property_override.hpp>
 
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/value.hpp"
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/value.hpp>
 
 #include <algorithm>
 #include <array>

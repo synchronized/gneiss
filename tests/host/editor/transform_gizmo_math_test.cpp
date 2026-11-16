@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "viewport/transform_gizmo_math.hpp"
 
 #include <array>

@@ -5,18 +5,18 @@
 #include "../../support/async_editor_save.hpp"
 #include "../../support/async_mesh_edit.hpp"
 #include "../../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 #include "runtime_process.hpp"
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <algorithm>
 #include <chrono>

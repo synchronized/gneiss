@@ -4,13 +4,13 @@
 #include "../../support/scene_access.hpp"
 #include "../../support/scene_query.hpp"
 #include "../../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "commands/editor_prefab_edit.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -229,9 +229,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(bool(session.find_prefab_source(first_uuid, removed_uuid).failed()));
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U &&
         session.is_dirty());
-  std::uint64_t count{};
-  check(gneiss::test_support::assign_value(app->native_world()->entity_count(), count).ok() &&
-        count == 298U);
+  check(app->native_world()->entity_count() == 298U);
   gneiss::math::transform invalidated;
   check(gneiss::test_support::assign_value(
             app->native_world()->find(gneiss::entity_id{(second_node).get()}).local_transform(),
@@ -516,7 +514,7 @@ void run_mixed_subtree() {
   auto invalid = snapshot;
   invalid.resources.erase(first_uuid);
   check(document.restore_subtree(invalid, restored) == gneiss::error::not_found);
-  check(!restored && *app->native_world()->entity_count() == 0U);
+  check(!restored && app->native_world()->entity_count() == 0U);
   check(document.restore_subtree(snapshot, restored).ok() && restored != parent);
   check(document.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] == 31);
   const auto new_first = document.find_prefab_root(first_uuid)->node;
@@ -549,9 +547,9 @@ void run_mixed_subtree() {
     check(std::ranges::find(original_description->objects, object.uuid,
                             &gneiss::game_object_description::uuid) ==
           original_description->objects.end());
-  check(*app->native_world()->entity_count() == 604U);
+  check(app->native_world()->entity_count() == 604U);
   check(document.restore_subtree(snapshot, parent) == gneiss::error::invalid_argument);
-  check(*app->native_world()->entity_count() == 604U);
+  check(app->native_world()->entity_count() == 604U);
   document.close();
   check(app->shutdown().ok());
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "dynamic_library.hpp"
+#include <gneiss/engine/platform/dynamic_library/dynamic_library.hpp>
 
 int main(int argc, char** argv) try {
   if (argc != 2) {

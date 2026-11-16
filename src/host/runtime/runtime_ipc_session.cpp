@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_ipc_session.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include "ipc/outbound/runtime_ipc_outbound.hpp"
 #include "ipc/runtime_commands.hpp"

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/diagnostics/profiling.hpp"
+#include <gneiss/engine/core/diagnostics/profiling.hpp>
 
 // 本目标不接入 profiling。关闭宏必须不求值，也不要求参数引用的对象存在。
 int main() {

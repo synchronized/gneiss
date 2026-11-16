@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/scene/scene_description.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.hpp"
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"
 
-#include "engine/core/rid.hpp"
+#include <gneiss/engine/core/types/rid.hpp>
 
 #include <algorithm>
 #include <array>
@@ -79,7 +79,7 @@ bool test_scene_adapter() {
           *gneiss::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6") ||
       node.name != std::string(512U, 's') || node.local_transform.translation[1] != 7.0F ||
       node.components.size() != 2U ||
-      node.components.get<gneiss::camera_description>()->settings.near != 0.75F ||
+      node.components.get<gneiss::camera_description>()->settings.near_plane != 0.75F ||
       node.components.get<gneiss::mesh_component_description>()->mesh_uri != "asset://mesh" ||
       node.components.get<gneiss::mesh_component_description>()->material_uri !=
           "asset://material" ||

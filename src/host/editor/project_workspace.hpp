@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_PROJECT_WORKSPACE_H_
 
 #include "editor_project.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <filesystem>
 #include <functional>

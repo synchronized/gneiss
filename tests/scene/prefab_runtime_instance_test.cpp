@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/scene_application.hpp"
 #include "../support/value_result.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -111,7 +111,7 @@ int main() try {
   check(world.find(gneiss::entity_id{(root_node).get()}).destroy().ok());
   applied = e::apply_scene(*instance, mapping, removed, removed, {});
   check(applied && !*applied);
-  check(instance->unload().ok() && *world.entity_count() == 0);
+  check(instance->unload().ok() && world.entity_count() == 0);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

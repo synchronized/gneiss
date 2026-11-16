@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/builtin_registration.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/core/serialization/serialization.hpp"
+#include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/serialization/serialization.hpp>
 #include <cstdio>
 #include <deque>
 #include <map>

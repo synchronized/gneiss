@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/platform/files/browser/browser_file_backend.hpp"
-#include "engine/platform/files/browser/fetch_file_backend.hpp"
-#include "engine/platform/files/file_read_stream.hpp"
+#include "platform/files/web/browser_file_backend.hpp"
+#include "platform/files/web/fetch_file_backend.hpp"
+#include <gneiss/engine/platform/files/file_read_stream.hpp>
 #include <cstdlib>
 #include <emscripten.h>
 #include <memory>

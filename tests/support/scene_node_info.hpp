@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/core/guid.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
-#include "engine/resource/scene/component_description.hpp"
+#include <gneiss/engine/resource/scene/component_description.hpp>
 
-#include "engine/core/entity_id.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include <gneiss/engine/core/types/entity_id.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
 
 #include <string>
 

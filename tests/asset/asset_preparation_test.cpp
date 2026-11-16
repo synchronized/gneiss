@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
-#include "engine/function/asset/detail/asset_decode.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/material/material_description.hpp"
-#include "engine/resource/mesh/mesh_description.hpp"
-#include "engine/resource/texture/texture_decoder.hpp"
+#include "function/asset/detail/asset_decode.hpp"
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/mesh/mesh_description.hpp>
+#include <gneiss/engine/resource/texture/texture_decoder.hpp>
 #include <cstring>
 #include <limits>
 #include <stdexcept>

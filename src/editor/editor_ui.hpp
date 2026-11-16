@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_UI_H_
 #define GNEISS_APPS_EDITOR_EDITOR_UI_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
-#include "engine/platform/files/file_service.hpp"
+#include <gneiss/engine/platform/files/file_service.hpp>
 
 namespace gneiss::editor {
 

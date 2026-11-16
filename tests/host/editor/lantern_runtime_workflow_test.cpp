@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/transform_properties.hpp"
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include "runtime_process.hpp"
 
-#include "engine/core/rid.hpp"
+#include <gneiss/engine/core/types/rid.hpp>
 
 #include <algorithm>
 #include <array>

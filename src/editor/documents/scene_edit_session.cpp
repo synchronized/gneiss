@@ -2,20 +2,20 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_edit_session.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "components/component_registration.hpp"
 #include "documents/scene_projection.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/meta/registry.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/asset_file.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 
-#include "engine/core/meta/transform_properties.hpp"
+#include <gneiss/engine/core/meta/transform_properties.hpp>
 
-#include "engine/resource/asset_uri.hpp"
+#include <gneiss/engine/resource/asset_uri.hpp>
 
 #include "prefab_edit.hpp"
 #include <algorithm>

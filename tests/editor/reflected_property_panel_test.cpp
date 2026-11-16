@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/scene/scene_description.hpp"
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
 #include "panels/reflected_property_editor.hpp"
 
 #include <imgui.h>
@@ -101,9 +101,9 @@ int main() try {
   if (!restore(changed_transform, transform, e::meta::property_id{3}, e::value{transform.scale}))
     return 10;
   auto changed_camera = camera.settings;
-  changed_camera.far = 200;
+  changed_camera.far_plane = 200;
   if (!restore(changed_camera, camera.settings, e::meta::property_id{3},
-               e::value{camera.settings.far}))
+               e::value{camera.settings.far_plane}))
     return 11;
   auto changed_mesh = mesh;
   changed_mesh.material_uri = "asset://changed.json";

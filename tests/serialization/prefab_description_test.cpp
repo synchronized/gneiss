@@ -4,16 +4,16 @@
 #include "../support/async_asset.hpp"
 #include "../support/memory_file_fixture.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/asset/resource_cache.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/scene/prefab_description.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 
 #include <cstddef>
 #include <memory>

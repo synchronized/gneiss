@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "panels/material_editor_model.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/asset_uri.hpp"
-#include "engine/resource/material/material_description.hpp"
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/asset_uri.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 namespace gneiss::editor {
 using namespace gneiss;
 error material_editor_model::open(std::string uri, std::string content) {

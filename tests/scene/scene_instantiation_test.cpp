@@ -10,20 +10,20 @@
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/type_id.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/asset/detail/asset_construction.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/composition.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/function/scene/scene_update.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/scene.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include "function/asset/detail/asset_construction.hpp"
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/composition.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/function/scene/scene_update.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 #include <algorithm>
 #include <thread>
 
@@ -361,16 +361,13 @@ void run() {
     check(gneiss::test_support::scene_access{*candidate}->unload(rebuilt->instance).ok());
     check(files->reads == reads);
   }
-  std::uint64_t unchanged_count{};
-  check(gneiss::error{gneiss::test_support::assign_value(
-            active.get()->entity_count(), unchanged_count)} == gneiss::error::success &&
-        unchanged_count == 1U);
+  check(active.get()->entity_count() == 1U);
   check(resources.get_material(gneiss::resource_rid(old_material))->parameters.color[0] ==
         1.0F);
   check(files->reads == reads);
   // 同步创建不读文件；失败清理新建成员，不影响已有场景。
   {
-    const auto baseline_count = *candidate.get()->entity_count();
+    const auto baseline_count = candidate.get()->entity_count();
     gneiss::error foreign;
     std::thread worker([&] {
       auto result = gneiss::test_support::scene_fixture::instantiate_scene(
@@ -385,7 +382,7 @@ void run() {
     broken.description = std::move(broken_description);
     check(!gneiss::test_support::scene_fixture::instantiate_scene(*candidate.get(),
                                                                   std::move(broken), bindings));
-    check(*candidate.get()->entity_count() == baseline_count);
+    check(candidate.get()->entity_count() == baseline_count);
     check(files->reads == reads);
   }
   const auto selected_material = gneiss::resource_rid(material);
@@ -498,9 +495,7 @@ void run() {
   check(files->reads == snapshot_reads);
   active.swap(candidate);
   std::uint64_t count{};
-  check(gneiss::error{gneiss::test_support::assign_value(
-            active.get()->entity_count(), count)} == gneiss::error::success &&
-        count == 2U);
+  check(active.get()->entity_count() == 2U);
   check(gneiss::test_support::take_value(
             gneiss::test_support::scene_access{*active}->get_node_count(old_scene), count) ==
         gneiss::error::invalid_handle);
@@ -542,12 +537,8 @@ void run() {
         gneiss::error::invalid_argument);
   check(failed_instance == gneiss::scene_instance{});
   check(files->reads == failure_reads);
-  check(gneiss::error{gneiss::test_support::assign_value(
-            candidate.get()->entity_count(), count)} == gneiss::error::success &&
-        count == 0U);
-  check(gneiss::error{gneiss::test_support::assign_value(
-            active.get()->entity_count(), count)} == gneiss::error::success &&
-        count == 2U);
+  check(candidate.get()->entity_count() == 0U);
+  check(active.get()->entity_count() == 2U);
 }
 } // namespace
 

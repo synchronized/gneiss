@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/platform/files/file_read_stream.hpp"
-#include "engine/platform/files/file_service.hpp"
-#include "engine/platform/files/memory_file_backend.hpp"
+#include <gneiss/engine/platform/files/file_read_stream.hpp>
+#include <gneiss/engine/platform/files/file_service.hpp>
+#include "platform/files/memory_file_backend.hpp"
 
 #include <algorithm>
 #include <cstdio>

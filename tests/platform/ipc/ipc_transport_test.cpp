@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "ipc_transport.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
 
 #include <chrono>
 #include <cstdint>

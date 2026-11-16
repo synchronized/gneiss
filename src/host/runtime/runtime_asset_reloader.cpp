@@ -3,7 +3,7 @@
 
 #include "runtime_asset_reloader.hpp"
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <algorithm>
 #include <utility>

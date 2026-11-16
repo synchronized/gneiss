@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "child_process.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/platform/process/child_process.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <chrono>
 #include <filesystem>

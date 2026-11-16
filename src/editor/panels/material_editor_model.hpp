@@ -3,8 +3,8 @@
 #pragma once
 #include "commands/author_file_save.hpp"
 #include "commands/editor_command_history.hpp"
-#include "engine/core/meta/instance.hpp"
-#include "engine/resource/material/material_description.hpp"
+#include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 #include "panels/property_path.hpp"
 namespace gneiss::editor {
 using material_property_path = property_path;

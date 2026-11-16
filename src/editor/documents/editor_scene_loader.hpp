@@ -4,11 +4,11 @@
 #pragma once
 
 #include "documents/document_editing.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/asset/asset_batch_request.hpp"
-#include "engine/function/asset/asset_request.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/asset/asset_batch_request.hpp>
+#include <gneiss/engine/function/asset/asset_request.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include "viewport/editor_camera.hpp"
 #include <atomic>
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "uv_async_file.hpp"
-#include "uv_loop_executor.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/io/uv/uv_async_file.hpp>
+#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
 
 #include <chrono>
 #include <cstdio>

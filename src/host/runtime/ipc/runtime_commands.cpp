@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_commands.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 namespace gneiss::host {
 

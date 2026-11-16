@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application.hpp"
-#include "engine/function/scene/instantiation.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
 // 只包含 Application 不应引入具体 Scene 服务或输入服务。
 #if defined(GNEISS_SCENE_SCENE_INSTANCES_HPP_) || defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) ||      \
     defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
 #error "Application 重新传递包含了具体服务"
 #endif
 #include "commands/author_property_edit.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。
 #if __has_include("engine/resource/texture/detail/texture_resource_access.hpp") ||                 \
@@ -55,7 +55,7 @@
 #if __has_include("engine/function/scene/scene_instance_state.hpp")
 #error "宿主获得了场景实例的私有实现头"
 #endif
-#include "engine/resource/scene/prefab_description.hpp"
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <type_traits>
 static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::entity_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::entity_id>);
@@ -80,7 +80,7 @@ static_assert(!exposes_resource_factory<gneiss::runtime::application>);
 static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().assets()),
                              gneiss::asset_manager&>);
 // Render 服务是允许的 RID 边界，具体资源表和引用关联仍不可见。
-#include "engine/function/render/service.hpp"
+#include <gneiss/engine/function/render/service.hpp>
 template <typename T>
 concept exposes_resource_table = requires(T& value) { value.assets(); };
 static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().assets()),

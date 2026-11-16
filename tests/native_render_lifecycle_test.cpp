@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/resource/texture/texture_view.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/resource/texture/texture_view.hpp>
 #include "support/value_result.hpp"
 
 #include <array>
@@ -31,7 +31,7 @@ int main() try {
     return 33;
   auto invalid = views;
   invalid[1].camera.emplace();
-  invalid[1].camera->camera.near = -1.0F;
+  invalid[1].camera->camera.near_plane = -1.0F;
   if (first->set_views(invalid).error() != native::error::invalid_argument ||
       !first->set_views({}) || !resources.destroy_target(*target))
     return 34;

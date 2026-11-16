@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "viewport/editor_camera.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -38,7 +38,7 @@ void editor_camera::shutdown() noexcept {
 }
 
 gneiss::math::camera_settings editor_camera::settings() const noexcept {
-  return {.fov = 1.04719755F, .near = 0.05F, .far = 2000.0F};
+  return {.fov = 1.04719755F, .near_plane = 0.05F, .far_plane = 2000.0F};
 }
 
 void editor_camera::update_rotation() noexcept {

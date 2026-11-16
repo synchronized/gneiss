@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_inspection_protocol.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/serialization/detail/json_adapter.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
 
 #include <yyjson.h>
 

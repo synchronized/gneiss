@@ -4,21 +4,21 @@
 #include "../support/document_prefab.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "commands/editor_asset_edit.hpp"
 #include "commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/component_registration.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <chrono>
 #include <cstdio>
 #include <thread>
 
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <stdexcept>
 #include <string>

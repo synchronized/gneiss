@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/function/meta_registration.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include "runtime_process.hpp"
 
 #include <chrono>

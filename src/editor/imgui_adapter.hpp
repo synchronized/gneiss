@@ -4,11 +4,11 @@
 #ifndef GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
-#include "engine/core/error.hpp"
-#include "engine/core/frame_time.hpp"
-#include "engine/core/input/input_types.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/render/draw_types.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/frame_time.hpp>
+#include <gneiss/engine/core/input/input_types.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/render/draw_types.hpp>
 
 #include <imgui.h>
 

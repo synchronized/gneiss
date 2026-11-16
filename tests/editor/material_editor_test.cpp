@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/platform/files/memory_file_backend.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/material/material_description.hpp"
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include "platform/files/memory_file_backend.hpp"
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 #include "panels/material_editor_panel.hpp"
 #include <cstdio>
 #include <imgui.h>

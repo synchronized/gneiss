@@ -6,9 +6,9 @@
 
 #include "runtime_object_id.hpp"
 
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/value.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/value.hpp>
 
 #include <array>
 #include <chrono>

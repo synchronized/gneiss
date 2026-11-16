@@ -1,4 +1,4 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/logging/record.hpp"
+#include <gneiss/engine/core/logging/record.hpp>

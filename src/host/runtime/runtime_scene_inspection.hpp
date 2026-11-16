@@ -4,16 +4,16 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/math/camera.hpp"
-#include "engine/core/math/transform.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/scene_instance.hpp"
-#include "engine/resource/scene/component_description.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/resource/scene/component_description.hpp>
 #include "ipc_inspection_protocol.hpp"
 
-#include "engine/core/rid.hpp"
+#include <gneiss/engine/core/types/rid.hpp>
 
 #include <array>
 #include <cstdint>

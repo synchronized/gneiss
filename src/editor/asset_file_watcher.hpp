@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <cstddef>
 #include <cstdint>

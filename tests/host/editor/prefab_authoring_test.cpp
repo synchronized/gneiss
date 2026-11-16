@@ -4,17 +4,17 @@
 #include "../../support/async_application.hpp"
 #include "../../support/async_editor_save.hpp"
 #include "../../support/scene_access.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "commands/prefab_authoring.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_types.hpp"
-#include "engine/resource/asset_file.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <yyjson.h>
 

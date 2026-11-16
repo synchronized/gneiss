@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "panels/reflected_property_editor.hpp"
-#include "engine/core/property_edit_policy.hpp"
-#include "engine/core/serialization/json.hpp"
+#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
 #include "viewport/editor_rotation_math.hpp"
 #include <cstring>
 #include <imgui.h>

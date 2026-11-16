@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/asset/detail/resource_load_group.hpp"
-#include "engine/platform/files/file_service.hpp"
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include "function/asset/detail/resource_load_group.hpp"
+#include <gneiss/engine/platform/files/file_service.hpp>
 #include "value_result.hpp"
 #include <chrono>
 #include <stdexcept>

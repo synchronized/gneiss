@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include <gneiss/app/project_description.hpp>
 
-#include "engine/resource/asset_uri.hpp"
+#include <gneiss/engine/resource/asset_uri.hpp>
 
 #include <yyjson.h>
 

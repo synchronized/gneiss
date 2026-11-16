@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/logging/default_service.hpp"
+#include <gneiss/engine/core/logging/default_service.hpp>
 namespace gneiss::test_support {
 class log_capture {
   class output final : public gneiss::logging::sink {

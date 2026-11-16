@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_file_watcher.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/fatal.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
 
-#include "uv_loop_access.hpp"
-#include "uv_loop_executor.hpp"
-#include "uv_result.hpp"
+#include "platform/io/uv/uv_loop_access.hpp"
+#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
+#include "platform/io/uv/uv_result.hpp"
 
 #include <uv.h>
 

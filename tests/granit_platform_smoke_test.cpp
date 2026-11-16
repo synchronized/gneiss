@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application.hpp"
-#include "engine/function/asset/asset_manager.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/components.hpp"
-#include "engine/function/scene/world.hpp"
-#include "engine/resource/texture/texture_view.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/texture/texture_view.hpp>
 #include "support/value_result.hpp"
 #include <memory>
 
@@ -178,23 +178,13 @@ int main() {
   camera_node = entity_id{camera_entity.get()};
   mesh_node = entity_id{mesh_entity.get()};
   plain_mesh_node = entity_id{plain_mesh_entity.get()};
-  if (world.find(gneiss::entity_id{(camera_node).get()})
-          .set_local_transform(camera_transform)
-          .failed() ||
-      world.find(gneiss::entity_id{(mesh_node).get()})
-          .set_local_transform(near_transform)
-          .failed() ||
-      world.find(gneiss::entity_id{(plain_mesh_node).get()})
-          .set_local_transform(plain_transform)
-          .failed() ||
-      world.find(camera_entity)
-          .add_component<gneiss::camera_component>(*gneiss::camera_component::create(camera, true))
-          .failed() ||
+  if (camera_object->set_local_transform(camera_transform).failed() ||
+      mesh_object->set_local_transform(near_transform).failed() ||
+      plain_object->set_local_transform(plain_transform).failed() ||
+      camera_object->add_component<gneiss::camera_component>(camera, true).failed() ||
       gneiss::set_active_camera(world, camera_entity).failed() ||
-      world.find(mesh_entity).add_component<gneiss::mesh_component>(component).failed() ||
-      world.find(plain_mesh_entity)
-          .add_component<gneiss::mesh_component>(plain_component)
-          .failed()) {
+      mesh_object->add_component<gneiss::mesh_component>(component).failed() ||
+      plain_object->add_component<gneiss::mesh_component>(plain_component).failed()) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }

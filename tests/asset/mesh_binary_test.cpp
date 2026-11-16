@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/codec_result.hpp"
-#include "engine/resource/mesh/mesh_binary.hpp"
+#include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 
 #include <array>
 #include <bit>

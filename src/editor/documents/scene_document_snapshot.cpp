@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/scene_document_snapshot.hpp"
-#include "engine/resource/asset_file.hpp"
+#include <gneiss/engine/resource/asset_file.hpp>
 #include <algorithm>
 namespace gneiss::editor {
 gneiss::result<gneiss::prefab_asset_ref> scene_object_resources::prefab_source() const {

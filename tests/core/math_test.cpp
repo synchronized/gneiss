@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/math/aabb3.hpp"
-#include "engine/core/math/transform.hpp"
-#include "engine/core/meta/type.hpp"
+#include <gneiss/engine/core/math/aabb3.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/core/meta/type.hpp>
 #include <cmath>
 #include <limits>
 #include <type_traits>

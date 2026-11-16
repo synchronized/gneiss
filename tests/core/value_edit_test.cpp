@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/value_edit.hpp"
+#include <gneiss/engine/core/value_edit.hpp>
 #include <algorithm>
 #include <array>
 #include <iostream>

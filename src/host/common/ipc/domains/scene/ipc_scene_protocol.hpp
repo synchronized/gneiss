@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "engine/core/error.hpp"
-#include "ipc_dispatcher.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
 
 #include <optional>
 #include <string>

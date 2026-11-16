@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/serialization/builtin_registration.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include "ipc_property_protocol.hpp"
 
 #include <array>

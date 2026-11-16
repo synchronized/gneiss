@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_reimport_queue.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/fatal.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <algorithm>
 #include <chrono>

@@ -3,8 +3,8 @@
 
 #include "console_log_buffer.hpp"
 #include "console_model.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/logging/service.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/logging/service.hpp>
 #include <thread>
 
 #include <utility>

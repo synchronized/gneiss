@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/core/tasks/task_scheduler.hpp"
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
 #include <stdexcept>
 

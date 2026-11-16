@@ -3,15 +3,15 @@
 
 #include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/render/detail/frame_packet.hpp"
-#include "engine/function/render/service.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include "function/render/detail/frame_packet.hpp"
+#include <gneiss/engine/function/render/service.hpp>
 
 #include "../support/scene_access.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/scene/world.hpp>
 #include <algorithm>
 #include <array>
 #include <chrono>

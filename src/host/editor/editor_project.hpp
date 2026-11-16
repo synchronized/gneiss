@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_PROJECT_H_
 #define GNEISS_APPS_EDITOR_EDITOR_PROJECT_H_
 
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include <gneiss/app/project_description.hpp>
 
 namespace gneiss::host {

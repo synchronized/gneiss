@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "application/application.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/resource/asset_file.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 #include "runtime_scene_loader.hpp"
 #include <algorithm>
 #include <chrono>

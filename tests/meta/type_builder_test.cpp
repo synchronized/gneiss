@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/value_result.hpp"
-#include "engine/core/meta/object_type.hpp"
-#include "engine/core/meta/registration.hpp"
-#include "engine/core/meta/views/sequence_view.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/core/serialization/policy.hpp"
-#include "engine/core/serialization/value.hpp"
-#include "engine/core/string_name.hpp"
+#include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/views/sequence_view.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/serialization/value.hpp>
+#include <gneiss/engine/core/types/string_name.hpp>
 #include <stdexcept>
 namespace e = gneiss;
 struct sample {

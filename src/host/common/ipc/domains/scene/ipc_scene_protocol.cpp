@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ipc_scene_protocol.hpp"
-#include "engine/core/error.hpp"
+#include <gneiss/engine/error.hpp>
 #include "ipc_asset_protocol.hpp"
 
 #include <array>

@@ -5,9 +5,9 @@
 
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include "panels/property_path.hpp"
 
 namespace gneiss::editor {

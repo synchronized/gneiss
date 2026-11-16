@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/binary_reader.hpp"
-#include "engine/core/binary_writer.hpp"
+#include "core/binary_reader.hpp"
+#include "core/binary_writer.hpp"
 #include <algorithm>
 #include <array>
 #include <bit>

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/meta/property_path.hpp"
-#include "engine/core/ref.hpp"
+#include <gneiss/engine/core/meta/property_path.hpp>
+#include <gneiss/engine/core/types/ref.hpp>
 #include <variant>
 namespace gneiss::editor {
 using gneiss::meta::property_path;

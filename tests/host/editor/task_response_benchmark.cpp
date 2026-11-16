@@ -3,16 +3,16 @@
 
 #include "../../support/async_document.hpp"
 #include "../../support/value_result.hpp"
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <algorithm>
 #include <chrono>

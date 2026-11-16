@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "application/application.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include "support/logging.hpp"
 #include <iostream>
 #include <stdexcept>

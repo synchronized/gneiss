@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/render/detail/scene.hpp"
-#include "engine/function/render/service.hpp"
+#include "function/render/detail/scene.hpp"
+#include <gneiss/engine/function/render/service.hpp>
 #include <array>
 #include <iostream>
 #define CHECK(x)                                                                                   \

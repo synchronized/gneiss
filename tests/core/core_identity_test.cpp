@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/guid.hpp"
-#include "engine/core/string_name.hpp"
-#include "engine/core/traits/type_identity.hpp"
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/string_name.hpp>
+#include <gneiss/engine/core/traits/type_identity.hpp>
 
 #include <array>
 #include <string>

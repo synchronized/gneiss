@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "prefab_edit.hpp"
-#include "engine/core/property_edit_policy.hpp"
-#include "engine/core/serialization/value.hpp"
-#include "engine/function/scene/component_registration.hpp"
+#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/core/serialization/value.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
 #include <algorithm>
 #include <array>
 namespace gneiss::editor {

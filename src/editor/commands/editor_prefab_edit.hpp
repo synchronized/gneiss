@@ -3,8 +3,8 @@
 #pragma once
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <memory>
 namespace gneiss::editor {
 enum class prefab_edit_phase { preparing, assets, constructing, cleanup, finished };

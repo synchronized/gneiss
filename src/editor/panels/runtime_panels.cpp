@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "panels/runtime_panels.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/meta/transform_properties.hpp"
-#include "engine/core/property_edit_policy.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/scene/scene_types.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
 #include "panels/reflected_property_editor.hpp"
 
 #include "viewport/editor_rotation_math.hpp"

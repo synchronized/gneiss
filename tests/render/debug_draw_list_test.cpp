@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/function/render/debug_draw_list.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/render/debug_draw_list.hpp>
 
 #include <limits>
 

@@ -6,8 +6,8 @@
 
 #include "commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
 #include <string_view>
 
 namespace gneiss::editor {

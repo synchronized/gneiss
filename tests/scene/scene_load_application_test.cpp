@@ -5,21 +5,21 @@
 #include "../support/codec_result.hpp"
 #include "../support/mesh_objects.hpp"
 #include "../support/value_result.hpp"
-#include "application/application.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/identifier_conversion.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/render/service.hpp"
-#include "engine/function/scene/camera_selection.hpp"
-#include "engine/function/scene/instantiation.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/mesh/mesh_binary.hpp"
-#include "engine/resource/texture/texture_ktx2.hpp"
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include "core/identifier_conversion.hpp"
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/mesh/mesh_binary.hpp>
+#include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 
 #include "../support/scene_access.hpp"
-#include "engine/function/scene/world.hpp"
+#include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
 #include <cstdio>
@@ -243,7 +243,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   check(bool(content));
   request->cancel();
   check(original->is_valid() && object->is_valid());
-  check(*world->entity_count() == 1);
+  check(world->entity_count() == 1);
   std::ofstream(files.root / "scene.json") << "broken";
   auto activated = gneiss::test_support::activate_scene(*app, *content);
   check(bool(activated));

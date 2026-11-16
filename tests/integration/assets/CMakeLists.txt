@@ -40,9 +40,9 @@ add_test(NAME gneiss.assets.manager COMMAND gneiss_asset_manager_test)
 set_tests_properties(gneiss.assets.manager PROPERTIES TIMEOUT 30)
 
 add_executable(gneiss_file_service_test file_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_read_stream.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/platform/files/memory_file_backend.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_read_stream.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/memory_file_backend.cpp"
 )
 set_target_properties(gneiss_file_service_test PROPERTIES FOLDER "Tests")
 target_include_directories(gneiss_file_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -59,18 +59,18 @@ add_test(NAME gneiss.files.service COMMAND gneiss_file_service_test)
 
 if(EMSCRIPTEN)
   add_executable(gneiss_browser_file_backend_test browser_file_backend_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_read_stream.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/browser_file_backend.cpp"
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_file_backend.cpp")
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_read_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/browser_file_backend.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_file_backend.cpp")
   set_target_properties(gneiss_browser_file_backend_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_browser_file_backend_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_compile_features(gneiss_browser_file_backend_test PRIVATE cxx_std_20)
   target_link_options(gneiss_browser_file_backend_test PRIVATE "-sFETCH=1" "-lidbfs.js" "-sEXIT_RUNTIME=0"
-    "SHELL:--js-library \"${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.js\"")
+    "SHELL:--js-library \"${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.js\"")
   set_property(TARGET gneiss_browser_file_backend_test APPEND PROPERTY LINK_DEPENDS
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.js")
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.js")
   gneiss_target_compile_warnings(gneiss_browser_file_backend_test)
 endif()
 
@@ -79,14 +79,14 @@ if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
 endif()
 # 使用正式资源注册入口，验证 CPU 描述与保活契约；不创建 GPU 设备。
 add_executable(gneiss_asset_material_test material_description_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture/png_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp")
 set_target_properties(gneiss_asset_material_test PROPERTIES FOLDER "Tests")
 target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -99,7 +99,7 @@ set_tests_properties(gneiss.assets.material PROPERTIES TIMEOUT 30)
 
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   add_executable(gneiss_native_file_backend_test native_file_backend_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/platform/files/file_service.cpp")
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp")
   set_target_properties(gneiss_native_file_backend_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_native_file_backend_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_native_file_backend_test PRIVATE gneiss_core_values)

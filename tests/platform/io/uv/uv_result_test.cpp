@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "uv_result.hpp"
+#include <gneiss/engine/error.hpp>
+#include "platform/io/uv/uv_result.hpp"
 
 #include <uv.h>
 

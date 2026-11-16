@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/render/detail/executor.hpp"
-#include "engine/function/render/detail/scene.hpp"
-#include "engine/function/render/service.hpp"
+#include "function/render/detail/executor.hpp"
+#include "function/render/detail/scene.hpp"
+#include <gneiss/engine/function/render/service.hpp>
 #include <barrier>
 #include <iostream>
 #include <latch>

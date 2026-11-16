@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_import/asset_writer.hpp"
-#include "engine/core/serialization/json.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/asset_file.hpp"
-#include "engine/resource/material/material_description.hpp"
-#include "engine/resource/scene/scene_description.hpp"
-#include "engine/resource/texture/texture_decoder.hpp"
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
+#include <gneiss/engine/resource/texture/texture_decoder.hpp>
 
-#include "engine/resource/mesh/mesh_binary.hpp"
+#include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 
 #include <fstream>
 #include <iomanip>

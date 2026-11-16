@@ -3,7 +3,7 @@
 #pragma once
 #include "async_application.hpp"
 #include "documents/scene_edit_session.hpp"
-#include "engine/function/scene/instantiation.hpp"
+#include <gneiss/engine/function/scene/instantiation.hpp>
 #include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 namespace gneiss::test_support {
