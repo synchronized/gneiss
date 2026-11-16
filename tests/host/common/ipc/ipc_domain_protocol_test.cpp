@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/scene/game_object_description.hpp>
 #include "ipc_inspection_protocol.hpp"
 #include "ipc_log_protocol.hpp"
 #include "ipc_property_protocol.hpp"
@@ -88,11 +90,20 @@ namespace {
   auto& change = batch.changes.emplace_back();
   change.id = change.node.id = {1U, 1U};
   change.node.uuid = id;
+  const gneiss::camera_description camera{{1.0F, 0.25F, 500.0F}, true};
+  change.node.components.set(camera);
   std::vector<std::uint8_t> bytes;
   ipc_inspection_batch decoded;
   if (encode_ipc_inspection_batch(batch, bytes).failed() ||
       decode_ipc_inspection_batch(bytes, decoded).failed() || decoded.changes.size() != 1U ||
       decoded.changes[0].node.uuid != id || decoded.changes[0].node.prefab_instance_uuid)
+    return false;
+  const auto* restored_camera = decoded.changes[0].node.components.get<gneiss::camera_description>();
+  if (!restored_camera || restored_camera->uuid != camera.uuid ||
+      restored_camera->settings.fov != camera.settings.fov ||
+      restored_camera->settings.near_plane != camera.settings.near_plane ||
+      restored_camera->settings.far_plane != camera.settings.far_plane ||
+      !restored_camera->is_primary)
     return false;
   const std::string text(bytes.begin(), bytes.end());
   if (text.find(id.string()) == std::string::npos)
@@ -178,6 +189,8 @@ namespace {
 
 int main() {
   try {
+    if (gneiss::initialize_meta().failed())
+      return 2;
     return test_log_and_statistics() && test_inspection() && test_inspection_guid_boundary() &&
                    test_property_request_and_response() && test_rules_and_rejections()
                ? 0

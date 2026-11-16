@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
-#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
+#include "core/serialization/detail/json_adapter.hpp"
 #include "core/serialization/detail/traversal.hpp"
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <algorithm>

@@ -3,7 +3,7 @@
 #include "../support/throws.hpp"
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
+#include "core/serialization/detail/json_adapter.hpp"
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>

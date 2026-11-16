@@ -115,7 +115,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/builtin_registration.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/builtin_registration.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/math_registration.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/detail/json_adapter.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/detail/json_adapter.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/detail/context_access.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/diagnostic.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/policy.hpp"

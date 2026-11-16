@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/resource/asset_file.hpp>
-#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
+#include "core/serialization/detail/json_adapter.hpp"
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>

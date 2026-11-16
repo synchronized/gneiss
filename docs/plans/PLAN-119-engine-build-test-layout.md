@@ -184,8 +184,13 @@ P2 序列化内部头已收拢：context_access、traversal 移至 engine/src/co
 生产包含与 CMake 清单同步；公共模板所需 typed_decode 仍保留 include。普通消费者边界测试
 同时包含 JSON 与通用序列化接口，检查这两个内部头不可见。Windows Clang Debug 构建及
 serialization、serialization-archive、reflection-json、engine-header-boundary 共 4 项测试通过。
-json_adapter 仍被 Host IPC 的 property/inspection 编解码及 JSON 测试直接使用，暂未迁移；
-下一步应先收敛这些消费者到格式接口，不以开放整个 engine/src 作为解决方案。
+json_adapter 也已移至 engine/src：Host IPC 的 property/inspection 改用公开 JSON 编解码入口，
+Host 自身负责嵌入已编码片段；读取 DOM 片段时转为文本再解码，不改变协议字段格式。
+该边界有局部转码与临时缓冲开销，尚未做性能测量；不为免除转码向普通消费者暴露 yyjson 后端类型。
+原 JSON 分配失败测试保留局部 PRIVATE engine/src，nested_json 移除不必要的内部头依赖。
+修复独立 IPC 库的私有包含根，并停止传播其实现目录。Windows Clang Debug 下 IPC 属性协议、
+领域协议（含非空多态相机组件）、IPC transport、reflection-json、engine-header-boundary 共 5 项通过。
+此次配置启用 Runtime 以构建真实 Host IPC 消费者；未验证完整 Runtime/Editor 程序及其他平台。
 
 
 - Windows Clang Debug，离线配置成功；Engine、minimal、world_service、reflection_boundary 构建通过。

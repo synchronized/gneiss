@@ -1062,7 +1062,7 @@ set_target_properties(gneiss_serialization_archive_test PROPERTIES FOLDER "Tests
 add_test(NAME gneiss.serialization-archive COMMAND gneiss_serialization_archive_test)
 
 add_executable(gneiss_reflection_json_test meta/reflection_json_test.cpp meta/nested_json_test.cpp)
-target_include_directories(gneiss_reflection_json_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_reflection_json_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_reflection_json_test PRIVATE gneiss::engine gneiss_yyjson)
 target_compile_features(gneiss_reflection_json_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_reflection_json_test)

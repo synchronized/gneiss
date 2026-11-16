@@ -3,7 +3,7 @@
 
 #include "ipc_property_protocol.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
+#include "reflected_json.hpp"
 
 #include <yyjson.h>
 
@@ -47,14 +47,14 @@ bool add_property_value(yyjson_mut_doc* doc, yyjson_mut_val* root,
   if (const auto* text = std::get_if<std::string>(&value.payload);
       text && text->size() > max_property_string_size)
     return false;
-  auto node = gneiss::serialization::json::detail::write_value(doc, value);
+  auto node = gneiss::host::detail::write_reflected_json(doc, value);
   if (!node)
     return false;
-  return yyjson_mut_obj_add_val(doc, root, "value", *node);
+  return yyjson_mut_obj_add_val(doc, root, "value", node);
 }
 bool parse_property_value(yyjson_val* root, gneiss::value& output) {
   using namespace gneiss;
-  auto decoded = serialization::json::detail::read_value(root);
+  auto decoded = host::detail::read_reflected_json<gneiss::value>(root);
   if (!decoded)
     return false;
   if (const auto* text = std::get_if<std::string>(&decoded->payload);

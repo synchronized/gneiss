@@ -15,7 +15,7 @@ target_link_libraries(
   PUBLIC gneiss_core_values
   PRIVATE gneiss_fatal gneiss_io_uv gneiss::libuv
 )
-target_include_directories(gneiss_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(gneiss_ipc PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_features(gneiss_ipc PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_ipc)
 gneiss_target_output_directories(gneiss_ipc)

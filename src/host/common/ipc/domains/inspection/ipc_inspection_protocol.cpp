@@ -3,7 +3,7 @@
 
 #include "ipc_inspection_protocol.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/serialization/detail/json_adapter.hpp>
+#include "reflected_json.hpp"
 
 #include <yyjson.h>
 
@@ -108,17 +108,16 @@ bool parse_uuid(yyjson_val* value, bool optional, gneiss::guid& output) {
 // Scene 和 IPC 共用组件数组反射编解码与业务校验。
 bool add_components(yyjson_mut_doc* doc, yyjson_mut_val* node,
                     const gneiss::component_descriptions& components) {
-  auto view = gneiss::meta::view(std::as_const(components));
-  if (!view)
-    return false;
-  auto array = gneiss::serialization::json::detail::write(doc, *view);
-  return array && yyjson_mut_obj_add_val(doc, node, "components", *array);
+  auto* array = gneiss::host::detail::write_reflected_json(doc, components);
+  return array && yyjson_mut_obj_add_val(doc, node, "components", array);
 }
 bool parse_components(yyjson_val* node, gneiss::component_descriptions& output) {
-  auto view = gneiss::meta::view(output);
-  return view && gneiss::serialization::json::detail::read(
-                     yyjson_obj_get(node, "components"), *view)
-                     .error.ok();
+  auto decoded = gneiss::host::detail::read_reflected_json<gneiss::component_descriptions>(
+      yyjson_obj_get(node, "components"));
+  if (!decoded)
+    return false;
+  output = std::move(*decoded);
+  return true;
 }
 
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,

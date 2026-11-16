@@ -22,6 +22,7 @@ add_library(
   ipc/core/ipc_protocol_domains.cpp
   ipc/core/ipc_protocol_domains.hpp
   ipc/core/ipc_router.hpp
+  ipc/core/reflected_json.hpp
   ipc/domains/asset/ipc_asset_protocol.cpp
   ipc/domains/asset/ipc_asset_protocol.hpp
   ipc/domains/scene/ipc_scene_protocol.cpp
