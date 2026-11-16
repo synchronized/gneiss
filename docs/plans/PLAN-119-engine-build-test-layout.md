@@ -13,7 +13,7 @@
 使目标依赖与代码所有权一致，降低测试对实现布局的耦合。
 非目标：重新设计 World/Render/资产协议、恢复稳定 C++ SDK、全仓改命名空间、引入测试框架、
 为目录各建一个库、修改第三方仓库。本计划暂时优先于 PLAN-118 的接口继续迁移。
-此前未提交的 PLAN-118 查询与线程测试修改须保留，在目录恢复可构建后独立验证、独立提交。
+此前 PLAN-118 查询与线程测试修改已随构建恢复验证，文档状态已在 8a570c1d 同步。
 
 ## 当前核查事实
 
@@ -171,6 +171,15 @@ P3/P5 验证共享与静态构建及现有 package/install smoke；不把“可�
 未恢复已删除的相机 setter。
 
 ## 当前验证与过渡项
+
+P2 首批完成：resource_cache、main_loop_wakeup、rid_table 已从 include 移到 src；
+生产调用者全部位于 Engine，6 个相关内部测试目标显式获得 PRIVATE engine/src。
+新增普通 Engine 消费者边界测试，检查三个头的原公开路径与当前私有路径均不可见，
+同时包含 Application、AssetManager、World 契约确认正常使用不需要实现目录。
+Windows Clang Debug 构建通过；main-loop-wakeup、rid_table、render_executor、prefab_description、
+asset_manager、render_asset_loader、engine-header-boundary 共 7 项回归通过。
+本批未删除既有行为测试，未解决测试重复编译生产源码，P2/P3 均仍未完成。
+
 
 - Windows Clang Debug，离线配置成功；Engine、minimal、world_service、reflection_boundary 构建通过。
 - gneiss.minimal-example、gneiss.world-service-boundary、gneiss.world-thread-contract、

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/main_loop_wakeup.hpp>
+#include "function/application/main_loop_wakeup.hpp"
 #include <gneiss/engine/error.hpp>
 #include "function/render/detail/executor.hpp"
 #include "function/render/detail/resource_identity.hpp"

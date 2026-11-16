@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid_table.hpp>
+#include "core/rid_table.hpp"
 
 #include <cstdint>
 #include <stdexcept>

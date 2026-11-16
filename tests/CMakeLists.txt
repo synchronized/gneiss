@@ -65,7 +65,8 @@ if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   set_tests_properties(gneiss.resource-retirement-queue PROPERTIES TIMEOUT 30)
 
   add_executable(gneiss_main_loop_wakeup_test runtime/main_loop_wakeup_test.cpp)
-  target_include_directories(gneiss_main_loop_wakeup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_include_directories(gneiss_main_loop_wakeup_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
   target_link_libraries(gneiss_main_loop_wakeup_test PRIVATE gneiss_tasks Threads::Threads)
   gneiss_target_compile_warnings(gneiss_main_loop_wakeup_test)
   gneiss_target_output_directories(gneiss_main_loop_wakeup_test)
@@ -254,7 +255,8 @@ gneiss_target_compile_warnings(gneiss_cpp_header_test)
 set_target_properties(gneiss_cpp_header_test PROPERTIES FOLDER "Tests")
 
 add_executable(gneiss_rid_table_test core/rid_table_test.cpp)
-target_include_directories(gneiss_rid_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_rid_table_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_rid_table_test PRIVATE gneiss::engine gneiss_fatal)
 target_compile_features(gneiss_rid_table_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_rid_table_test)
@@ -372,7 +374,8 @@ add_executable(
   render/render_executor_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/executor.cpp"
 )
-target_include_directories(gneiss_render_executor_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_render_executor_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
@@ -557,7 +560,8 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
 )
-target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_prefab_description_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_prefab_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_prefab_description_test PRIVATE gneiss::engine gneiss_yyjson EnTT::EnTT)
 target_compile_features(gneiss_prefab_description_test PRIVATE cxx_std_20)
@@ -589,7 +593,8 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
 )
-target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_resource_service_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_resource_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_resource_service_test PRIVATE cxx_std_20)
@@ -695,7 +700,8 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
-target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_render_asset_loader_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
   gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
@@ -1280,3 +1286,11 @@ if(NOT EMSCRIPTEN)
     set_tests_properties(gneiss.assert-${mode} PROPERTIES LABELS "cpu" TIMEOUT 90)
   endforeach()
 endif()
+
+# 普通消费者只链接 Engine，不能继承实现目录。
+add_executable(gneiss_engine_header_boundary_test core/engine_header_boundary_test.cpp)
+target_link_libraries(gneiss_engine_header_boundary_test PRIVATE gneiss::engine)
+gneiss_target_compile_warnings(gneiss_engine_header_boundary_test)
+gneiss_target_output_directories(gneiss_engine_header_boundary_test)
+add_test(NAME gneiss.engine-header-boundary COMMAND gneiss_engine_header_boundary_test)
+set_tests_properties(gneiss.engine-header-boundary PROPERTIES LABELS cpu)

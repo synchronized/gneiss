@@ -13,7 +13,7 @@
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/asset/asset_reference_context.hpp>
 #include "function/asset/detail/asset_construction.hpp"
-#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include "function/asset/resource_cache.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/platform/files/file_service.hpp>

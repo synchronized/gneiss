@@ -48,7 +48,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/sha256.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/rid_table.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/rid_table.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/identifier_conversion.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/types/guid.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/guid.hpp"
@@ -241,7 +241,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/asset/asset_manager.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/function/asset/asset_manager.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/asset/resource_cache.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/function/asset/asset_batch_request.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/asset/asset_batch_request.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/scene/scene_types.hpp"
@@ -286,7 +286,7 @@ target_sources(
   PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src/function/application/application.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/application/application.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/application/main_loop_wakeup.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/function/application/main_loop_wakeup.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/application/configuration.hpp"
 )
 

@@ -24,7 +24,7 @@
 #include <thread>
 #include <tuple>
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-#include <gneiss/engine/function/application/main_loop_wakeup.hpp>
+#include "function/application/main_loop_wakeup.hpp"
 #endif
 
 #include <gneiss/engine/resource/asset_uri.hpp>

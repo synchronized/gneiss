@@ -5,7 +5,7 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include "function/asset/resource_cache.hpp"
 #include "resource/material/detail/material_resource_access.hpp"
 #include "resource/mesh/detail/mesh_resource_access.hpp"
 #include "resource/texture/detail/texture_resource_access.hpp"

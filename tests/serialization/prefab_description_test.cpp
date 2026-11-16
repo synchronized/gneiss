@@ -9,7 +9,7 @@
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include "function/asset/resource_cache.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>

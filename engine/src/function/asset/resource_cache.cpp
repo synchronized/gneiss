@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include "function/asset/resource_cache.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
 #include <gneiss/engine/resource/asset.hpp>

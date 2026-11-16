@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include "function/asset/resource_cache.hpp"
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/resource_retirement_queue.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/types/rid_table.hpp>
+#include "core/rid_table.hpp"
 #include "function/render/detail/resource_identity.hpp"
 #include <memory>
 #include <vector>

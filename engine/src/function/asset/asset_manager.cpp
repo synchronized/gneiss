@@ -24,7 +24,7 @@
 #include "resource/texture/detail/texture_resource_access.hpp"
 #include <gneiss/engine/resource/texture/texture_decoder.hpp>
 
-#include <gneiss/engine/function/asset/resource_cache.hpp>
+#include "function/asset/resource_cache.hpp"
 #include <algorithm>
 #include <atomic>
 #include <limits>
