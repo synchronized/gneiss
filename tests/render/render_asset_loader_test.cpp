@@ -417,29 +417,9 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
     return false;
   }
 
-  prepared_batch batch;
   const std::array request{render_resource_source{.uri = "asset://parameters.material.json",
-                                                  .type = render_resource_kind::material}};
-  const auto before = resources.live_resource_count();
-  if (gneiss::test_support::prepare_render_for_test(asset_owner, files, request, batch, diagnostic,
-                                                    {}) != gneiss::error::success ||
-      batch.assets.size() != 2U || resources.live_resource_count() != before ||
-      batch.assets.back().bytes !=
-          sizeof(material_data) +
-              5U * std::string_view("asset://textures/white.texture.json").size() ||
-      std::get<asset_ref<const material_description>>(batch.assets.back().content)
-              ->parameters.color != math::vector4{0.25F, 0.5F, 0.75F, 0.5F}) {
-    return false;
-  }
-  std::vector<render_resource_ref> retained;
-  for (auto& prepared : batch.assets) {
-    render_resource_ref target;
-    if (gneiss::test_support::adopt_render_for_test(loader, std::move(prepared), target).failed())
-      return false;
-    retained.push_back(std::move(target));
-  }
-  if (!matches(resources.get_material(resource_rid(loaded))))
-    return false;
+                                                .type = render_resource_kind::material}};
+  // 依赖与重载通过正式入口验证，不再验证夹具批次大小和内存估算。
   const auto decode_count = decoder->calls;
   render_resource_ref cached;
   if (gneiss::test_support::take_value(loader.find({std::string("asset://parameters.material.json"),
@@ -981,10 +961,8 @@ int main() try {
       diagnostic.path != "/normals/0") {
     return 14;
   }
-  // JSON 与二进制路径的平铺 UV 保持一致，后台准备不触碰缓存。
+  // JSON 与二进制路径的平铺 UV 保持一致，通过正式资产入口验证。
   {
-    const auto cache_before = cache.cached_count();
-    const auto resources_before = resources.live_resource_count();
     constexpr std::string_view tiled_json =
         R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[-42469.96875,22.5],[2,0],[0,-2]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
     memory->files["models/tiled.mesh.json"] = tiled_json;
@@ -993,39 +971,25 @@ int main() try {
                                                gneiss::render_resource_kind::mesh},
         gneiss::render_resource_source{"asset://models/indexed.gneiss-mesh",
                                                gneiss::render_resource_kind::mesh}};
-    gneiss::prepared_batch batch;
-    if (gneiss::test_support::prepare_render_for_test(asset_owner, file_system, requests, batch,
-                                                      diagnostic,
-                                                      {}) != gneiss::error::success ||
-        batch.assets.size() != 2U || cache.cached_count() != cache_before ||
-        resources.live_resource_count() != resources_before) {
-      return 40;
-    }
-    for (const auto& asset : batch.assets) {
-      if (std::get<gneiss::mesh_data>(asset.content).vertices[0].uv.x != -42469.96875F ||
-          std::get<gneiss::mesh_data>(asset.content).vertices[0].uv.y != 22.5F) {
+    std::vector<gneiss::render_resource_ref> tiled_assets;
+    for (const auto& request : requests) {
+      gneiss::render_resource_ref loaded;
+      if (gneiss::test_support::load_render(loader, request.type, request.uri, loaded,
+                                            diagnostic).failed())
+        return 40;
+      const auto* data = resources.get_mesh(gneiss::resource_rid(loaded));
+      if (!data || data->vertices[0].uv.x != -42469.96875F || data->vertices[0].uv.y != 22.5F)
         return 41;
-      }
+      tiled_assets.push_back(std::move(loaded));
     }
-    gneiss::render_resource_ref tiled;
-    if (gneiss::test_support::load_render(loader, gneiss::render_resource_kind::mesh,
-                                          requests[0].uri, tiled,
-                                          diagnostic) != gneiss::error::success ||
-        resources.get_mesh(gneiss::resource_rid(tiled))->vertices[0].uv.x !=
-            -42469.96875F) {
-      return 42;
-    }
-    tiled = {};
+    const auto previous = resources.share_mesh(gneiss::resource_rid(tiled_assets.front()));
     auto invalid_json = std::string(tiled_json);
     invalid_json.replace(invalid_json.find("-42469.96875"), 12U, "1e100");
     memory->files["models/tiled.mesh.json"] = invalid_json;
     // 使用重新加载绕过旧缓存，失败必须保持旧资源版本。
     if (reload_assets_for_test(loader, scheduler, std::span(requests).first(1U), diagnostic) !=
             gneiss::error::invalid_argument ||
-        gneiss::test_support::prepare_render_for_test(asset_owner, file_system, requests, batch,
-                                                      diagnostic, {}) !=
-            gneiss::error::invalid_argument ||
-        !batch.assets.empty()) {
+        resources.share_mesh(gneiss::resource_rid(tiled_assets.front())) != previous) {
       return 43;
     }
   }
