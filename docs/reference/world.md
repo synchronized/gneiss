@@ -67,7 +67,9 @@ Prefab 展开的成员同样可以作为动态对象的父节点；运行结构�
 对失效或其他 World 的实体执行销毁、读写组件等操作返回 `error::invalid_handle`。
 
 
-`world::entity_count()` 返回 `result<std::uint64_t>`；成功的零值与跨线程访问失败分别表达。
+`world::entity_count()` 直接返回 `std::uint64_t`，包含纯 ECS 辅助实体；空 World 返回零。
+数量查询与 `flush_changes()` 必须在所属线程调用，错线程在 Debug/Release 均触发断言终止。
+外部实体查找等尚有真实拒绝原因的操作仍返回错误。
 
 ## Game Object 借用
 
@@ -97,9 +99,7 @@ try_component<T>() 返回借用指针，缺失组件返回 nullptr；要求对�
 组件增删或替换、对象销毁、场景卸载后必须重新获取指针，不能把指针跨结构修改保存。
 指针写入本身不发送通知；完成修改后调用 notify_component_modified<T>()。
 该函数校验所属线程、对象存活和组件存在；不存在返回 not_found。增删组件自动记录变化。
-相机的 settings() 只读，set_settings() 校验参数并在失败时保留原值。
-默认构造的相机有效；create(settings, primary_hint) 返回 result<camera_component>。
-删除 read_component/set_component，不保留副本读取或安装/替换包装。
+相机 settings 为公开数据；赋值不自动校验，采用前调用 settings.valid()，修改后同样需要通知。
 普通组件需要复制时使用 auto copy = *component；已有普通组件通过 *component = copy 更新并通知。
 
 

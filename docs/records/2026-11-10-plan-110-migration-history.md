@@ -10,6 +10,10 @@
 
 ---
 
+2026-11-16 后续变更：相机组件改为公开 settings 数据，移除 create/set_settings；
+由 camera_settings::valid() 提供显式校验。以下仍保留 11 月 10 日的历史设计，
+当前用法见 [Render 参考](../reference/render.md#ecs-组件)。
+
 ## 状态与范围
 
 2026-11-10：四项收尾代码已落地，Windows Clang Debug 默认目标编译和分层静态检查通过；尚未执行本轮运行期回归。

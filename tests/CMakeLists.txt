@@ -458,7 +458,8 @@ add_executable(
   gneiss_render_camera_test
   world/render_camera_test.cpp
 )
-target_include_directories(gneiss_render_camera_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+# 该测试验证内部相机选取，不向普通 Engine 消费者公开实现目录。
+target_include_directories(gneiss_render_camera_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_render_camera_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_camera_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_camera_test)

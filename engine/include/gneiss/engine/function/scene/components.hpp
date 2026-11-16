@@ -4,13 +4,14 @@
 #pragma once
 
 #include <gneiss/engine/core/math/camera.hpp>
-#include <gneiss/engine/result.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/resource/material.hpp>
 #include <gneiss/engine/resource/mesh.hpp>
+#include <gneiss/engine/result.hpp>
 
 namespace gneiss {
-/** 相机参数由组件校验；默认构造为有效透视相机，选择独立于组件。 */
+/** 相机参数为普通数据；调用方使用 settings.valid() 校验，修改后显式通知对象。
+ * 默认构造为有效透视相机，活动相机选择独立于组件。 */
 struct camera_component {
   math::camera_settings settings{1.04719755F, 0.1F, 1000.0F};
   bool primary_hint{}; // 默认相机选择提示，不自动激活。

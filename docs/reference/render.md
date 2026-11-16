@@ -118,9 +118,11 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 
 ## ECS 组件
 
-通过 camera_component::create(settings, primary_hint) 校验构造，再用 add_component<camera_component> 新增。
-已有相机通过借用对象的 set_settings() 更新，非法输入保留原值。settings() 为只读访问。透视参数
-必须满足`0 < fov < π`、`near > 0` 且 `far > near`。活动 Camera 通过
+通过 `object.add_component<camera_component>(settings, primary_hint)` 新增。
+`settings` 是公开数据，赋值不会自动校验或回滚；调用方应先检查 `settings.valid()`，
+再赋值并调用 `object.notify_component_modified<camera_component>()`。透视参数必须为有限值，
+满足 `0 < fov < π`、`near_plane > 0` 且 `far_plane > near_plane`。
+投影计算入口仍拒绝非法参数，且失败时不修改输出矩阵。活动 Camera 通过
 `set_active_camera(world&, entity_id)` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，相机选择查询
 进入无活动 Camera 状态。primary_hint 仅是默认相机选择提示，安装组件不会激活相机。
 

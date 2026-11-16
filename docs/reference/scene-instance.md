@@ -82,7 +82,8 @@ removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_co
 适配器自行决定引用是否必需，必需目标缺失返回错误，可选缺失可保存为空。
 增量投影也在组件更新后重新解析引用；失败会使投影失去同步状态，不承诺回滚既有编辑。
 
-相机参数通过借用的 camera_component::set_settings 修改，再调用对象的组件修改通知；
+相机参数先通过 camera_settings::valid() 校验，再赋给借用的 camera_component::settings，
+最后调用对象的组件修改通知；
 相机和网格组件的增删使用 game_object 的通用组件接口，World 不提供对应业务转发。
 
 ## 编辑入口边界
