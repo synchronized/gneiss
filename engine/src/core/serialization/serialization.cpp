@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/core/serialization/serialization.hpp>
-#include <gneiss/engine/core/serialization/detail/traversal.hpp>
+#include "core/serialization/detail/traversal.hpp"
 namespace gneiss::serialization {
 result<void, diagnostic> write(const write_context& ctx, const meta::const_instance& view,
                                writer& output) {

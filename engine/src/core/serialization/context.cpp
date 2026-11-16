@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/core/serialization/context.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/core/serialization/detail/context_access.hpp>
+#include "core/serialization/detail/context_access.hpp"
 namespace gneiss::serialization {
 std::string_view detail::context_base::property_path() const noexcept {
   return state_ ? std::string_view{state_->path} : std::string_view{};

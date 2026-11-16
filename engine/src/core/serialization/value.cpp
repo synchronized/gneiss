@@ -6,8 +6,8 @@
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
 #include <gneiss/engine/core/meta/views/sequence_view.hpp>
 #include <gneiss/engine/core/meta/views/variant_view.hpp>
-#include <gneiss/engine/core/serialization/detail/context_access.hpp>
-#include <gneiss/engine/core/serialization/detail/traversal.hpp>
+#include "core/serialization/detail/context_access.hpp"
+#include "core/serialization/detail/traversal.hpp"
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <algorithm>
 #include <unordered_set>

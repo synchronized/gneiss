@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/serialization.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -10,7 +12,11 @@
     __has_include(<gneiss/engine/function/application/main_loop_wakeup.hpp>) || \
     __has_include("function/application/main_loop_wakeup.hpp") || \
     __has_include(<gneiss/engine/core/types/rid_table.hpp>) || \
-    __has_include("core/rid_table.hpp")
+    __has_include("core/rid_table.hpp") || \
+    __has_include(<gneiss/engine/core/serialization/detail/context_access.hpp>) || \
+    __has_include("core/serialization/detail/context_access.hpp") || \
+    __has_include(<gneiss/engine/core/serialization/detail/traversal.hpp>) || \
+    __has_include("core/serialization/detail/traversal.hpp")
 #error "Engine 向普通消费者泄漏了私有实现头"
 #endif
 int main() { return 0; }

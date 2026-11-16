@@ -3,7 +3,7 @@
 #pragma once
 
 #include <gneiss/engine/core/meta/instance.hpp>
-#include <gneiss/engine/core/serialization/detail/context_access.hpp>
+#include "core/serialization/detail/context_access.hpp"
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/reader.hpp>
 #include <gneiss/engine/core/serialization/writer.hpp>

@@ -180,6 +180,13 @@ Windows Clang Debug 构建通过；main-loop-wakeup、rid_table、render_executo
 asset_manager、render_asset_loader、engine-header-boundary 共 7 项回归通过。
 本批未删除既有行为测试，未解决测试重复编译生产源码，P2/P3 均仍未完成。
 
+P2 序列化内部头已收拢：context_access、traversal 移至 engine/src/core/serialization/detail，
+生产包含与 CMake 清单同步；公共模板所需 typed_decode 仍保留 include。普通消费者边界测试
+同时包含 JSON 与通用序列化接口，检查这两个内部头不可见。Windows Clang Debug 构建及
+serialization、serialization-archive、reflection-json、engine-header-boundary 共 4 项测试通过。
+json_adapter 仍被 Host IPC 的 property/inspection 编解码及 JSON 测试直接使用，暂未迁移；
+下一步应先收敛这些消费者到格式接口，不以开放整个 engine/src 作为解决方案。
+
 
 - Windows Clang Debug，离线配置成功；Engine、minimal、world_service、reflection_boundary 构建通过。
 - gneiss.minimal-example、gneiss.world-service-boundary、gneiss.world-thread-contract、
