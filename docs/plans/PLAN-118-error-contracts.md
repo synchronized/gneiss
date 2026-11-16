@@ -5,11 +5,18 @@
 
 ## 状态与范围
 
-2026-11-12：P1 进行中。已将 World::flush_changes 改为 void，并以全配置断言检查所属线程；
-Application 与增量同步测试已迁移，变化合并、回调异常边界和渲染重试语义不变。
-entity_count、内部访问及 GameObject 查询尚未迁移，P1 未完成。
-本组 Windows Clang Debug 构建通过；World 服务、增量同步、minimal 示例与断言 Debug/Release
-探针共 5 项通过。未单独执行 World 错线程终止分支及其他平台验证。
+2026-11-12：P1 进行中。World::flush_changes 已改为 void，entity_count 已改为直接返回
+std::uint64_t 的 const 查询；两者以全配置断言检查所属线程。Application、Runtime 统计及
+Scene/Prefab/Editor 测试调用已迁移，变化合并、回调异常边界和渲染重试语义不变。
+内部访问及 GameObject 查询尚未迁移，P1 未完成。
+
+数量查询原有的错线程错误返回测试改为子进程终止测试，同时覆盖变化派发；
+外部实体查找的错线程拒绝仍独立验证。删除 Editor 中只检查数量查询成功、未检查数量的断言，
+其余对象数量、失败后不残留实体和失效句柄行为断言保留。
+
+2026-11-16 验证：World 服务与错线程子进程测试通过，数量查询和变化派发的终止分支均已执行；
+本轮同时通过相机数学与相机选取回归。仅验证 Windows Clang Debug 构建，未执行其他平台和完整 Release 构建。
+
 权威规则见[代码规范](../guides/coding-style.md#返回值契约与终止的选择)。
 本计划延续已完成的 [PLAN-109](PLAN-109-exception-boundaries.md) 与
 [ADR-114](../decisions/ADR-114-exception-boundaries.md)，不重新实施异常捕获清理。
