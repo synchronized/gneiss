@@ -2,12 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/platform/ipc/transport.hpp>
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
 
-#include "platform/io/detail/uv_loop_access.hpp"
-#include <gneiss/engine/platform/io/executor.hpp>
 #include "platform/io/detail/uv_error.hpp"
+#include "platform/io/detail/uv_loop_access.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/io/executor.hpp>
 
 #include <uv.h>
 
