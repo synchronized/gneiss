@@ -13,7 +13,6 @@ add_executable(
   gneiss_render_resource_service_test
   render_resource_service_test.cpp
 )
-target_include_directories(gneiss_render_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_render_resource_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_resource_service_test PRIVATE cxx_std_20)
@@ -26,7 +25,6 @@ add_executable(
   gneiss_pbr_material_resource_test
   pbr_material_resource_test.cpp
 )
-target_include_directories(gneiss_pbr_material_resource_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_pbr_material_resource_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_pbr_material_resource_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_pbr_material_resource_test PRIVATE cxx_std_20)
@@ -40,7 +38,7 @@ add_executable(
   ui_draw_list_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/ui_draw_list.cpp"
 )
-target_include_directories(gneiss_ui_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_ui_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_ui_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_ui_draw_list_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_ui_draw_list_test PRIVATE cxx_std_20)
@@ -54,7 +52,6 @@ add_executable(
   debug_draw_list_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/debug_draw_list.cpp"
 )
-target_include_directories(gneiss_debug_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_debug_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_debug_draw_list_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_debug_draw_list_test PRIVATE cxx_std_20)
@@ -69,7 +66,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/executor.cpp"
 )
 target_include_directories(gneiss_render_executor_test PRIVATE
-    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
+    "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
@@ -86,7 +83,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/frame_packet.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_render_frame_packet_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_frame_packet_test PRIVATE cxx_std_20)
@@ -101,7 +98,7 @@ add_executable(
 )
 target_include_directories(
   gneiss_pbr_shader_resolver_test
-  PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_BINARY_DIR}/src/generated/pbr"
+  PRIVATE "${PROJECT_SOURCE_DIR}/engine/src" "${PROJECT_BINARY_DIR}/engine/generated/pbr"
 )
 target_compile_definitions(
   gneiss_pbr_shader_resolver_test
@@ -121,7 +118,6 @@ add_executable(
   gneiss_camera_math_test
   camera_math_test.cpp
 )
-target_include_directories(gneiss_camera_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_camera_math_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_camera_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_camera_math_test)
@@ -134,7 +130,6 @@ add_executable(
   normal_math_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_include_directories(gneiss_normal_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_normal_math_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_normal_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_normal_math_test)
@@ -147,10 +142,7 @@ add_executable(
   scene_projection_math_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_include_directories(
-  gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
-)
-target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_math_dependency)
+target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_value_interface)
 target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
@@ -172,7 +164,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE
-    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
+    "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
   gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
@@ -211,7 +203,7 @@ set_target_properties(gneiss_texture_load_service_test PROPERTIES FOLDER "Tests"
 add_test(NAME gneiss.texture-load-service COMMAND gneiss_texture_load_service_test)
 
 add_executable(gneiss_asset_pixel_test asset_pixel_test.cpp)
-target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks granit::asset_tools granit::granit)
 gneiss_target_compile_warnings(gneiss_asset_pixel_test)
 gneiss_target_output_directories(gneiss_asset_pixel_test)
@@ -221,8 +213,7 @@ add_test(NAME gneiss.pbr-negative-scale COMMAND gneiss_asset_pixel_test --probe-
 set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
 if(WIN32 AND GNEISS_TASK_THREADS)
   add_executable(gneiss_main_loop_response main_loop_response.cpp)
-  target_include_directories(gneiss_main_loop_response PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_main_loop_response PRIVATE gneiss::engine gneiss_tasks user32)
+    target_link_libraries(gneiss_main_loop_response PRIVATE gneiss::engine gneiss_tasks user32)
   gneiss_target_compile_warnings(gneiss_main_loop_response)
   gneiss_target_output_directories(gneiss_main_loop_response)
   set_target_properties(gneiss_main_loop_response PROPERTIES FOLDER "Tests")
@@ -230,7 +221,7 @@ if(WIN32 AND GNEISS_TASK_THREADS)
   set_tests_properties(gneiss.main-loop-response PROPERTIES TIMEOUT 30 LABELS "gpu")
 endif()
 add_executable(gneiss_scene_load_baseline scene_load_baseline.cpp)
-target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_scene_load_baseline PRIVATE gneiss::engine gneiss_tasks)
 if(WIN32)
   target_link_libraries(gneiss_scene_load_baseline PRIVATE psapi)
@@ -240,7 +231,6 @@ gneiss_target_output_directories(gneiss_scene_load_baseline)
 set_target_properties(gneiss_scene_load_baseline PROPERTIES FOLDER "Benchmarks")
 
 add_executable(gneiss_texture_load_window_benchmark texture_load_window_benchmark.cpp)
-target_include_directories(gneiss_texture_load_window_benchmark PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)
 if(WIN32)
   target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE user32)
@@ -260,7 +250,6 @@ add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submissio
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。
 add_library(gneiss_render_service_header_check OBJECT render_service_header_check.cpp)
-target_include_directories(gneiss_render_service_header_check PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_value_interface)
 target_compile_features(gneiss_render_service_header_check PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_service_header_check)

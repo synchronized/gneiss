@@ -21,7 +21,6 @@ add_executable(
   gneiss_scene_tree_transform_test
   scene_tree_transform_test.cpp
 )
-target_include_directories(gneiss_scene_tree_transform_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::engine EnTT::EnTT)
 target_compile_features(gneiss_scene_tree_transform_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_tree_transform_test)
@@ -35,7 +34,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/hierarchy.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/system_scheduler.cpp"
 )
-target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_world_state_test PRIVATE gneiss::engine EnTT::EnTT)
 target_compile_features(gneiss_world_state_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_world_state_test)
@@ -44,7 +43,6 @@ set_target_properties(gneiss_world_state_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 
 add_executable(gneiss_component_reflection_test component_reflection_test.cpp)
-target_include_directories(gneiss_component_reflection_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_component_reflection_test PRIVATE gneiss::engine Threads::Threads)
 target_compile_features(gneiss_component_reflection_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_component_reflection_test)
@@ -80,7 +78,7 @@ add_executable(gneiss_scene_load_preparation_test
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
 )
-target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_scene_load_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_load_preparation_test PRIVATE gneiss::engine gneiss_yyjson gneiss_tasks)
 target_compile_features(gneiss_scene_load_preparation_test PRIVATE cxx_std_20)
@@ -90,7 +88,6 @@ set_target_properties(gneiss_scene_load_preparation_test PROPERTIES FOLDER "Test
 add_test(NAME gneiss.scene-load-preparation COMMAND gneiss_scene_load_preparation_test)
 
 add_executable(gneiss_prefab_preparation_test prefab_preparation_test.cpp)
-target_include_directories(gneiss_prefab_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_preparation_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
 target_link_libraries(gneiss_prefab_preparation_test PRIVATE gneiss::engine gneiss_tasks)
 target_compile_features(gneiss_prefab_preparation_test PRIVATE cxx_std_20)
@@ -165,7 +162,6 @@ add_test(NAME gneiss.world_render_binding COMMAND gneiss_world_render_binding_te
 
 add_executable(gneiss_world_service_test world_service_test.cpp)
 target_link_libraries(gneiss_world_service_test PRIVATE gneiss::engine)
-target_include_directories(gneiss_world_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_world_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_world_service_test)
 gneiss_target_output_directories(gneiss_world_service_test)
@@ -177,7 +173,6 @@ add_test(NAME gneiss.world-thread-contract
 set_tests_properties(gneiss.world-thread-contract PROPERTIES LABELS "cpu;death")
 
 add_executable(gneiss_component_description_test component_description_test.cpp)
-target_include_directories(gneiss_component_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_component_description_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_component_description_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_component_description_test)

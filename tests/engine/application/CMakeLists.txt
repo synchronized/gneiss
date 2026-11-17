@@ -23,8 +23,7 @@ add_test(NAME gneiss.native-application-flow COMMAND gneiss_native_application_f
 # 原生模块接口不依赖 Engine 的平台私有布局开关。
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   add_executable(gneiss_native_application_test native_application_test.cpp)
-  target_include_directories(gneiss_native_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_compile_definitions(gneiss_native_application_test PRIVATE
+    target_compile_definitions(gneiss_native_application_test PRIVATE
     GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   target_link_libraries(gneiss_native_application_test PRIVATE gneiss::engine gneiss_tasks Threads::Threads)
   gneiss_target_compile_warnings(gneiss_native_application_test)
@@ -34,8 +33,8 @@ if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   set_tests_properties(gneiss.native-application PROPERTIES LABELS "cpu;integration")
 endif()
 add_executable(gneiss_loop_timing_test loop_timing_test.cpp)
-target_include_directories(gneiss_loop_timing_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_loop_timing_test PRIVATE Threads::Threads)
+target_link_libraries(gneiss_loop_timing_test PRIVATE gneiss_value_interface)
 target_compile_features(gneiss_loop_timing_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_loop_timing_test)
 gneiss_target_output_directories(gneiss_loop_timing_test)
@@ -45,7 +44,7 @@ add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   add_executable(gneiss_main_loop_wakeup_test main_loop_wakeup_test.cpp)
   target_include_directories(gneiss_main_loop_wakeup_test PRIVATE
-    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
+    "${PROJECT_SOURCE_DIR}/engine/src")
   target_link_libraries(gneiss_main_loop_wakeup_test PRIVATE gneiss_tasks Threads::Threads)
   gneiss_target_compile_warnings(gneiss_main_loop_wakeup_test)
   gneiss_target_output_directories(gneiss_main_loop_wakeup_test)

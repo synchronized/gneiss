@@ -14,7 +14,7 @@ add_executable(
   async_queue_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
 )
-target_include_directories(gneiss_log_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_log_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_log_queue_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
 target_compile_features(gneiss_log_queue_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_log_queue_test)
@@ -26,7 +26,6 @@ add_executable(gneiss_logging_service_test logging_service_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/core/types/string_name.cpp")
-target_include_directories(gneiss_logging_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_logging_service_test PRIVATE GNEISS_STATIC_DEFINE)
 target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_core_values Threads::Threads gneiss_fatal)
 gneiss_target_compile_warnings(gneiss_logging_service_test)

@@ -7,7 +7,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/input/input_service.cpp"
 )
-target_include_directories(gneiss_input_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_input_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_input_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_input_service_test)
@@ -21,7 +20,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/input/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
 )
-target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_action_map_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_action_map_test PRIVATE gneiss::engine gneiss_yyjson gneiss_tasks)
 target_compile_features(gneiss_action_map_test PRIVATE cxx_std_20)
