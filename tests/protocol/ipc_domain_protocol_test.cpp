@@ -140,22 +140,11 @@ namespace {
       .field_id = 7U,
       .expected_revision = 11U,
       .value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
-  gneiss::ipc::envelope envelope;
-  gneiss::host::ipc_property_write decoded_command;
-  if (gneiss::host::encode_ipc_property_write_v2(command, 21U, envelope) !=
-          gneiss::error::success ||
-      gneiss::host::decode_ipc_property_write_v2(envelope, decoded_command) !=
-          gneiss::error::success ||
-      decoded_command.command_id != envelope.request_id) {
+  auto envelope = gneiss::protocol::encode(property_write, command, 21U);
+  if (!envelope) return false;
+  auto decoded_command = gneiss::protocol::decode(property_write, *envelope);
+  if (!decoded_command || decoded_command->command_id != 0 || envelope->request_id != 21U)
     return false;
-  }
-  auto mismatched = envelope;
-  ++mismatched.request_id;
-  if (gneiss::host::decode_ipc_property_write_v2(mismatched, decoded_command) !=
-          gneiss::error::success ||
-      decoded_command.command_id != mismatched.request_id) {
-    return false;
-  }
   const gneiss::host::ipc_property_write_result response{
       .session_id = 9U,
       .command_id = 21U,
@@ -163,13 +152,10 @@ namespace {
       .revision = 12U,
       .message = "已应用",
       .canonical_value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
-  gneiss::host::ipc_property_write_result decoded_response;
-  return gneiss::host::encode_ipc_property_result_v2(response, 21U, envelope) ==
-             gneiss::error::success &&
-         gneiss::host::decode_ipc_property_result_v2(envelope, decoded_response) ==
-             gneiss::error::success &&
-         decoded_response.command_id == envelope.request_id &&
-         decoded_response.revision == response.revision;
+  auto result = gneiss::protocol::encode(property_result, response, 21U);
+  if (!result) return false;
+  auto decoded = gneiss::protocol::decode(property_result, *result);
+  return decoded && decoded->revision == response.revision && result->request_id == 21U;
 }
 
 [[nodiscard]] bool test_reflected_statistics() {
@@ -198,8 +184,7 @@ namespace {
   gneiss::host::ipc_property_write command;
   command.session_id = 1U;
   command.command_id = 2U;
-  return gneiss::host::encode_ipc_property_write_v2(command, 3U, envelope) ==
-             gneiss::error::invalid_argument &&
+  return !gneiss::protocol::encode(property_write, command, 3U) &&
          gneiss::host::encode_ipc_inspection_resync(0U, envelope) ==
              gneiss::error::invalid_argument &&
          gneiss::host::ipc_log_operations().size() == 1U &&

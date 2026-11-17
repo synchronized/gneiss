@@ -5,6 +5,7 @@
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/protocol/ipc_asset_protocol.hpp>
 #include <gneiss/protocol/ipc_control_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
 #include <gneiss/protocol/registration.hpp>
@@ -184,6 +185,47 @@ error register_types() {
               meta::property_id{7}, "total_assets")(serialization::field_policy{.required = true})
           .property<&host::ipc_asset_reload_result::items>(meta::property_id{8}, "items")(
               serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_property_write>()
+          .name("gneiss.protocol.ipc_property_write")
+          .guid(guid::literal("20930a84-d37e-49ad-94bc-f1accaea65ad"))
+          .property<&host::ipc_property_write::session_id>(meta::property_id{1}, "session_id")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write::type_id>(meta::property_id{2}, "type_id")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write::field_id>(meta::property_id{3}, "field_id")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write::expected_revision>(meta::property_id{4},
+                                                                  "expected_revision")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write::value>(meta::property_id{5}, "value")(
+              serialization::field_policy{.required = true})
+          .property<[](const host::ipc_property_write& v) { return v.object.value; },
+                    [](host::ipc_property_write& v, std::uint64_t n) { v.object.value = n; }>(
+              meta::property_id{6}, "object_id")(serialization::field_policy{.required = true})
+          .property<[](const host::ipc_property_write& v) { return v.object.generation; },
+                    [](host::ipc_property_write& v, std::uint32_t n) { v.object.generation = n; }>(
+              meta::property_id{7}, "generation")(serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_property_write_result>()
+          .name("gneiss.protocol.ipc_property_write_result")
+          .guid(guid::literal("c7efae25-8eda-460b-86bc-400306e20c9f"))
+          .property<&host::ipc_property_write_result::session_id>(
+              meta::property_id{1}, "session_id")(serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write_result::code>(meta::property_id{2}, "code")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write_result::revision>(meta::property_id{3}, "revision")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write_result::message>(meta::property_id{4}, "message")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_property_write_result::canonical_value>(
+              meta::property_id{5}, "value")(serialization::field_policy{.required = true})
           .commit();
   if (status.failed())
     return status;

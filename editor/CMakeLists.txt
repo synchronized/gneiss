@@ -25,7 +25,6 @@ add_library(
   runtime/ipc/outbound/heartbeat_command.cpp
   runtime/ipc/outbound/inspection_resync_command.cpp
   runtime/ipc/outbound/pause_command.cpp
-  runtime/ipc/outbound/property_write_command.cpp
   runtime/ipc/outbound/resume_command.cpp
   runtime/ipc/outbound/stop_command.cpp
   project/package_archive.cpp

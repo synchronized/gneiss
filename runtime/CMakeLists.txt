@@ -12,7 +12,6 @@ add_library(
   ipc/outbound/heartbeat_response.cpp
   ipc/outbound/inspection_events.cpp
   ipc/outbound/log_events.cpp
-  ipc/outbound/property_events.cpp
   ipc/outbound/protocol_error_response.cpp
   ipc/outbound/ready_event.cpp
   ipc/outbound/runtime_ipc_outbound.hpp

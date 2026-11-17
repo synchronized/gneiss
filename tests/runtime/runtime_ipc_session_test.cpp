@@ -119,12 +119,9 @@ bool test_property_write_round_trip() {
       .field_id = 4U,
       .expected_revision = 1U,
       .value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
+  auto encoded = gneiss::protocol::encode(gneiss::host::property_write, command, 11U);
+  if (!encoded || server.send(*encoded).failed()) return false;
   gneiss::ipc::envelope frame;
-  if (gneiss::host::encode_ipc_property_write_v2(command, 11U, frame) !=
-          gneiss::error::success ||
-      server.send(frame) != gneiss::error::success) {
-    return false;
-  }
   gneiss::host::runtime_ipc_actions actions;
   const auto command_deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < command_deadline && actions.property_writes.empty()) {
@@ -151,10 +148,8 @@ bool test_property_write_round_trip() {
   const auto response_deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < response_deadline) {
     if (poll_envelope(server, frame)) {
-      gneiss::host::ipc_property_write_result decoded;
-      if (gneiss::host::decode_ipc_property_result_v2(frame, decoded) ==
-              gneiss::error::success &&
-          decoded.command_id == 11U && decoded.revision == 2U) {
+      auto decoded = gneiss::protocol::decode(gneiss::host::property_result, frame);
+      if (decoded && frame.request_id == 11U && decoded->revision == 2U) {
         return session.stop() == gneiss::error::success &&
                server.stop() == gneiss::error::success;
       }
@@ -186,12 +181,9 @@ bool test_property_flood_does_not_block_stop() {
                                                    .field_id = 4U,
                                                    .expected_revision = 1U,
                                                    .value = {true}};
-    gneiss::ipc::envelope frame;
-    if (gneiss::host::encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(index),
-                                                   frame) != gneiss::error::success ||
-        server.send(frame) != gneiss::error::success) {
-      return false;
-    }
+    auto frame = gneiss::protocol::encode(gneiss::host::property_write, command,
+                                          static_cast<std::uint32_t>(index));
+    if (!frame || server.send(*frame).failed()) return false;
   }
   if (!send_control(server, gneiss::host::ipc_control_operation::stop, 100U)) {
     return false;

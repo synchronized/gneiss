@@ -43,10 +43,6 @@ make_log_event(const gneiss::logging::record_view& event,
 make_scene_snapshot_events(const ipc_inspection_batch& batch,
                            std::vector<gneiss::ipc::envelope>& output);
 [[nodiscard]] gneiss::error
-make_property_write_result_event(const ipc_property_write_result& response,
-                                 std::uint32_t request_id,
-                                 gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error
 make_statistics_event(const ipc_runtime_statistics& statistics,
                       gneiss::ipc::envelope& output) noexcept;
 

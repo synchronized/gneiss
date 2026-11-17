@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/registration.hpp>
 
 #include <array>
 #include <cstdint>
@@ -29,7 +30,7 @@ bool test_object_value() {
           .property<&wire_object::count>(m::property_id{1}, "count")
           .commit()
           .failed() ||
-      m::freeze().failed())
+      gneiss::protocol::register_types().failed() || m::freeze().failed())
     return false;
   ipc_property_write command{.session_id = 1,
                              .object = {1, 1},
@@ -37,19 +38,23 @@ bool test_object_value() {
                              .field_id = 1,
                              .expected_revision = 1,
                              .value = {e::ref<m::object>{e::make_ref<wire_object>()}}};
-  std::vector<std::uint8_t> bytes;
-  ipc_property_write restored;
-  if (encode_ipc_property_write(command, bytes).failed() ||
-      decode_ipc_property_write(bytes, restored).failed())
+  auto bytes = e::protocol::encode(property_write, command, 1);
+  if (!bytes)
+    return false;
+  auto restored = e::protocol::decode(property_write, *bytes);
+  if (!restored)
     return false;
   auto original = std::get<e::ref<m::object>>(command.value.payload);
-  auto decoded = std::get<e::ref<m::object>>(restored.value.payload);
+  auto decoded = std::get<e::ref<m::object>>(restored->value.payload);
   auto* object = dynamic_cast<wire_object*>(decoded.get());
   if (!object || object->count != 9 || original == decoded)
     return false;
   command.value = e::value{e::ref<m::object>{}};
-  if (encode_ipc_property_write(command, bytes).failed() ||
-      decode_ipc_property_write(bytes, restored).failed() || restored.value != command.value)
+  bytes = e::protocol::encode(property_write, command, 1);
+  if (!bytes)
+    return false;
+  restored = e::protocol::decode(property_write, *bytes);
+  if (!restored || restored->value != command.value)
     return false;
   return true;
 }
@@ -70,20 +75,16 @@ bool round_trip_value(const gneiss::value& value) {
                                                 .field_id = 7U,
                                                 .expected_revision = 11U,
                                                 .value = value};
-  std::vector<std::uint8_t> payload;
-  gneiss::host::ipc_property_write decoded;
-  return gneiss::host::encode_ipc_property_write(source, payload) ==
-             gneiss::error::success &&
-         std::string(payload.begin(), payload.end()).find("command_id") == std::string::npos &&
-         std::string(payload.begin(), payload.end()).find(source.type_id.string()) !=
-             std::string::npos &&
-         gneiss::host::decode_ipc_property_write(payload, decoded) ==
-             gneiss::error::success &&
-         decoded.session_id == source.session_id && decoded.command_id == 0U &&
-         decoded.object == source.object && decoded.type_id == source.type_id &&
-         decoded.field_id == source.field_id &&
-         decoded.expected_revision == source.expected_revision &&
-         decoded.value.payload == value.payload;
+  auto payload = e::protocol::encode(property_write, source, 21);
+  if (!payload)
+    return false;
+  auto decoded = e::protocol::decode(property_write, *payload);
+  return decoded && decoded->command_id == 0 && decoded->object == source.object &&
+         decoded->type_id == source.type_id && decoded->session_id == source.session_id &&
+         decoded->field_id == source.field_id &&
+         decoded->expected_revision == source.expected_revision && decoded->value == value &&
+         std::string(payload->payload.begin(), payload->payload.end()).find("command_id") ==
+             std::string::npos;
 }
 
 bool test_all_value_types() {
@@ -132,82 +133,72 @@ bool test_structured_values() {
 }
 
 bool test_results() {
-  gneiss::host::ipc_property_write_result success{
-      .session_id = 9U,
-      .command_id = 21U,
-      .code = 0,
-      .revision = 12U,
-      .message = "已应用",
-      .canonical_value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
-  std::vector<std::uint8_t> payload;
-  gneiss::host::ipc_property_write_result decoded;
-  if (gneiss::host::encode_ipc_property_write_result(success, payload) !=
-          gneiss::error::success ||
-      std::string(payload.begin(), payload.end()).find("command_id") != std::string::npos ||
-      gneiss::host::decode_ipc_property_write_result(payload, decoded) !=
-          gneiss::error::success ||
-      decoded.session_id != success.session_id || decoded.command_id != 0U || decoded.code != 0 ||
-      decoded.revision != success.revision || decoded.message != success.message ||
-      decoded.canonical_value.payload != success.canonical_value.payload) {
+  ipc_property_write_result response{.session_id = 9,
+                                     .command_id = 21,
+                                     .revision = 12,
+                                     .message = "已应用",
+                                     .canonical_value = {true}};
+  auto envelope = e::protocol::encode(property_result, response, 21);
+  if (!envelope)
     return false;
-  }
-
-  const gneiss::host::ipc_property_write_result rejected{.session_id = 9U,
-                                                         .command_id = 22U,
-                                                         .code = -2,
-                                                         .revision = 12U,
-                                                         .message = "修订冲突",
-                                                         .canonical_value = {}};
-  decoded = {};
-  return gneiss::host::encode_ipc_property_write_result(rejected, payload) ==
-             gneiss::error::success &&
-         gneiss::host::decode_ipc_property_write_result(payload, decoded) ==
-             gneiss::error::success &&
-         decoded.code == rejected.code && decoded.revision == rejected.revision &&
-         std::holds_alternative<std::monostate>(decoded.canonical_value.payload);
+  auto decoded = e::protocol::decode(property_result, *envelope);
+  if (!decoded || decoded->canonical_value != response.canonical_value || decoded->revision != 12)
+    return false;
+  response.canonical_value = {};
+  if (e::protocol::encode(property_result, response, 21))
+    return false;
+  response.code = e::error::invalid_state.code();
+  response.revision = 0;
+  envelope = e::protocol::encode(property_result, response, 21);
+  if (!envelope)
+    return false;
+  decoded = e::protocol::decode(property_result, *envelope);
+  return decoded && decoded->code == response.code && decoded->revision == 0;
 }
 
 bool test_invalid_messages() {
-  gneiss::host::ipc_property_write invalid;
-  std::vector<std::uint8_t> payload;
-  if (gneiss::host::encode_ipc_property_write(invalid, payload) !=
-      gneiss::error::invalid_argument) {
+  ipc_property_write command{.session_id = 1,
+                             .object = {1, 1},
+                             .type_id = test_type_id(),
+                             .field_id = 1,
+                             .expected_revision = 1,
+                             .value = {true}};
+  if (e::protocol::encode(property_write, command, 0))
     return false;
-  }
-
-  invalid = {.session_id = 1U,
-             .command_id = 1U,
-             .object = {1U, 1U},
-             .type_id = test_type_id(),
-             .field_id = 1U,
-             .expected_revision = 1U,
-             .value = {std::numeric_limits<float>::infinity()}};
-  if (gneiss::host::encode_ipc_property_write(invalid, payload) !=
-      gneiss::error::invalid_argument) {
+  auto envelope = e::protocol::encode(property_write, command, 1);
+  if (!envelope)
     return false;
-  }
-
-  payload = {'{', '}'};
-  gneiss::host::ipc_property_write decoded;
-  if (gneiss::host::decode_ipc_property_write(payload, decoded) !=
-      gneiss::error::invalid_argument) {
+  auto invalid = *envelope;
+  invalid.kind = e::ipc::message_kind::response;
+  if (e::protocol::decode(property_write, invalid))
     return false;
+  for (const std::string text : {"{}", "{"}) {
+    invalid = *envelope;
+    invalid.payload.assign(text.begin(), text.end());
+    if (e::protocol::decode(property_write, invalid))
+      return false;
   }
-  payload = {'{'};
-  if (gneiss::host::decode_ipc_property_write(payload, decoded) !=
-      gneiss::error::invalid_argument) {
+  invalid.payload.resize(65537);
+  if (e::protocol::decode(property_write, invalid))
     return false;
-  }
-  return true;
+  command.value = {std::numeric_limits<float>::infinity()};
+  if (e::protocol::encode(property_write, command, 1))
+    return false;
+  command.value = {std::string(16385, 'a')};
+  if (e::protocol::encode(property_write, command, 1))
+    return false;
+  command.value = {true};
+  command.object.generation = 0;
+  return !e::protocol::encode(property_write, command, 1);
 }
 
 } // namespace
 
 int main() {
-  // 标量协议不要求初始化/冻结 Meta；对象传输随后显式初始化。
-  if (!test_all_value_types())
-    return 91;
+  // 与宿主一致，在编解码前完成协议与对象类型注册。
   if (!test_object_value())
     return 90;
+  if (!test_all_value_types())
+    return 91;
   return test_structured_values() && test_results() && test_invalid_messages() ? 0 : 1;
 }

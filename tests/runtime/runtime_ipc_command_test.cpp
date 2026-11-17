@@ -47,7 +47,7 @@ int main() {
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::inspection,
                                             .version = 1U},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::property,
-                                            .version = 1U},
+                                            .version = ipc_property_domain_version},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::asset,
                                             .version = ipc_asset_domain_version}};
   const gneiss::protocol::dispatch_context dispatch_context{
@@ -87,8 +87,11 @@ int main() {
                                     .field_id = 5U,
                                     .expected_revision = 6U,
                                     .value = {true}};
-  if (encode_ipc_property_write_v2(property, 9U, envelope) != gneiss::error::success ||
-      !router.dispatch(envelope, dispatch_context, context).accepted() ||
+  auto encoded_property = protocol::encode(property_write, property, 9U);
+  if (!encoded_property)
+    return 3;
+  envelope = std::move(*encoded_property);
+  if (!router.dispatch(envelope, dispatch_context, context).accepted() ||
       actions.property_writes.size() != 1U || actions.property_writes.front().command_id != 9U) {
     return 3;
   }

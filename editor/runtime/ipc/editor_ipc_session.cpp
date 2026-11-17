@@ -257,10 +257,10 @@ gneiss::error editor_ipc_session::send_property_write(const ipc_property_write& 
   if (!is_authenticated() || !supports_property_editing()) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc::envelope command;
-  auto operation = make_property_write_command(value, command);
-  return operation == gneiss::error::success ? implementation_->send(std::move(command))
-                                                     : operation;
+  if (value.command_id > UINT32_MAX)
+    return error::invalid_argument;
+  auto command = protocol::encode(property_write, value, static_cast<std::uint32_t>(value.command_id));
+  return command ? implementation_->send(std::move(*command)) : command.error().error;
 }
 
 gneiss::error editor_ipc_session::send_asset_cancel(std::uint64_t session, std::uint64_t revision) {

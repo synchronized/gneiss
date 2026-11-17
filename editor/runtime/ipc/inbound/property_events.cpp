@@ -9,10 +9,13 @@
 namespace gneiss::host {
 
 gneiss::error decode_runtime_property_event(const gneiss::ipc::envelope& envelope,
-                                                    runtime_ipc_event& output) noexcept {
-  return gneiss::host::detail::decode_value<runtime_property_result_event>(
-      envelope, output,
-      [&](auto& value) { return decode_ipc_property_result_v2(envelope, value); });
+                                            runtime_ipc_event& output) noexcept {
+  auto decoded = protocol::decode(property_result, envelope);
+  if (!decoded)
+    return decoded.error().error;
+  decoded->command_id = envelope.request_id;
+  output = runtime_property_result_event{envelope.request_id, std::move(*decoded)};
+  return error::success;
 }
 
 } // namespace gneiss::host

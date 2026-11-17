@@ -138,3 +138,16 @@ Property 接入评估：value 已复用反射，外层字段仍手写 JSON，并
 expected_revision 冲突检查、请求关联及成功结果的 canonical_value；这些属于业务规则，
 不能用通用反射替代。失败结果不要求规范值，需先明确消息字段策略再调整域版本。
 本轮仅完成评估，尚未迁移 Property，不扩展通用框架来模拟属性编辑业务。
+
+## Property 收发链迁移验收
+
+- [x] 注册写入与结果字段，复用 value 反射，移除手写 JSON。
+- [x] 以 property_write/property_result 驱动编解码、域规则和 Runtime 类型化绑定。
+- [x] Editor/Runtime 实际发送和接收迁移，删除八个旧 codec 入口及两个转发源文件。
+- [x] 请求 ID 只保留在帧头；保留队满回复、停止命令、修订冲突和规范值业务语义。
+- [x] Windows Clang Debug 共享构建及 20 项相关测试通过，含真实会话属性往返、队列洪泛
+  后停止和 Runtime 属性编辑器；未执行静态、Linux/Web 或远端验证。
+
+Property 域升为 v2，失败结果也携带 value；GUID 文本遵循通用解析规则。格式及职责以
+[IPC 参考](../reference/platform-ipc.md#property-类型化消息)为准。此前 Property 接入评估已落实。
+Inspection/Session/Log 仍未完成类型化迁移，整体计划保持进行中。

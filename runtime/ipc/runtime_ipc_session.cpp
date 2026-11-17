@@ -304,11 +304,11 @@ runtime_ipc_session::notify_property_write_result(const ipc_property_write_resul
        implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc::envelope envelope;
-  const auto operation = make_property_write_result_event(
-      response, static_cast<std::uint32_t>(response.command_id), envelope);
-  return operation == gneiss::error::success ? implementation_->transport.send(envelope)
-                                                     : operation;
+  if (response.command_id > UINT32_MAX)
+    return error::invalid_argument;
+  auto envelope = protocol::encode(property_result, response,
+                                   static_cast<std::uint32_t>(response.command_id));
+  return envelope ? implementation_->transport.send(*envelope) : envelope.error().error;
 }
 
 gneiss::error

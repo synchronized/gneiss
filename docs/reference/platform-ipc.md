@@ -90,3 +90,21 @@ Editor 的场景发送使用 `send_scene_load(request)` 和 `send_scene_cancel(r
 资产发送保留批次的 reload/resync operation：它来自待处理批次，执行结果须回应同一种操作。
 Runtime 资产通知另允许 progress 事件。这里的 operation 有业务来源和响应关联用途；不为了
 消除参数增加逐层同义转发接口。Scene/Asset 共用消息编解码和路由机制，各自保留业务校验。
+
+## Property 类型化消息
+
+Property v2 使用 `property_write` 和 `property_result` 描述。外层字段与 value 均走反射 JSON，
+Runtime 处理器接收校验后的写入对象，将帧头 request_id 恢复为业务 command_id；Editor 接收
+结果时同样恢复。command_id 不注册为序列化字段，也不在正文重复保存。Session 拒绝超过
+32 位范围的业务命令 ID，零值由通用帧校验拒绝。
+
+请求保持 session_id、object_id、generation、type_id、field_id、expected_revision 和 value。
+结果包含 session_id、code、revision、message、value；v2 在失败结果中也要求 value 字段，
+现有业务发送空值。只有成功结果的 value 是权威规范值，且必须非空并携带非零修订号。
+域上限 64 KiB、消息文本上限 1 KiB、顶层字符串属性上限 16 KiB；不是递归内存分配预算。
+GUID 的文本解析使用通用序列化规则，不再额外要求输入文本与重新格式化后的字符串逐字相同。
+
+对象存在性、实际 generation 与 expected_revision 冲突、字段可写性由 Runtime 属性编辑器
+检查；消息校验只验证身份字段及负载约束。写入队列仍最多 32 条，队满返回关联原请求的
+not_ready 结果，不阻塞停止命令。对象值按既有反射规则传输独立数据，不跨进程共享引用。
+旧 Property 编解码函数及仅转发的发送包装已删除。v1/v2 不兼容，同版本宿主须配套升级。
