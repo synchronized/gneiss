@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/platform/files/file_types.hpp>
+#include <gneiss/engine/platform/files/types.hpp>
 
 #include <memory>
 #include <string_view>
@@ -26,6 +26,13 @@ public:
 class backend {
 public:
   virtual ~backend() = default;
+  /** 一个服务初始化并驱动一个后端。接受后完成一次，可内联；拒绝不回调。 */
+  virtual error initialize(completion_callback callback) {
+    if (!callback)
+      return error::invalid_argument;
+    callback(error::success);
+    return error::success;
+  }
   virtual error open_stream(std::string_view, files::callback<std::shared_ptr<backend_stream>>) {
     return error::unsupported;
   }

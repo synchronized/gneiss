@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "assets/author_asset_service.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/files/file_backend.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/platform/files/backend.hpp>
 
 #include <chrono>
 #include <cstdio>
@@ -51,9 +51,8 @@ public:
   gneiss::files::callback<gneiss::files::bytes> pending;
   gneiss::files::callback<gneiss::files::directory_page> pending_list;
   bool delay_list{};
-  gneiss::error
-  list(std::string_view, gneiss::files::list_options,
-       gneiss::files::callback<gneiss::files::directory_page> callback) override {
+  gneiss::error list(std::string_view, gneiss::files::list_options,
+                     gneiss::files::callback<gneiss::files::directory_page> callback) override {
     if (delay_list)
       pending_list = std::move(callback);
     else
@@ -61,9 +60,8 @@ public:
                 {{{"main.scene.json", {gneiss::files::kind::regular, {}}}}, {}}});
     return gneiss::error::success;
   }
-  gneiss::error
-  read(std::string_view, gneiss::files::read_options,
-       gneiss::files::callback<gneiss::files::bytes> callback) override {
+  gneiss::error read(std::string_view, gneiss::files::read_options,
+                     gneiss::files::callback<gneiss::files::bytes> callback) override {
     require(!pending, "指纹读取不得并发积压");
     pending = std::move(callback);
     return gneiss::error::success;
@@ -72,10 +70,17 @@ public:
 void pending_shutdown(bool destroy, bool list = false) {
   fixture disk;
   write(disk.root / "main.scene.json", "initial");
-  gneiss::tasks::task_scheduler scheduler({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   auto files = std::make_shared<gneiss::files::service>();
   auto backend = std::make_shared<delayed_backend>();
   require(files->mount({"asset://", {backend}, {}}).ok(), "测试挂载失败");
+  {
+    error initialized = error::not_ready;
+    if (files->initialize([&](error status) { initialized = status; }).failed() ||
+        files->dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   backend->delay_list = list;
   auto service = std::make_unique<author_asset_service>(scheduler);
   require(service->initialize(files).ok(), "延迟服务初始化失败");
@@ -112,11 +117,18 @@ void pending_shutdown(bool destroy, bool list = false) {
   (void)files->dispatch_completions(64);
 }
 void scan_failure_retry() {
-  gneiss::tasks::task_scheduler scheduler({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   auto files = std::make_shared<gneiss::files::service>();
   auto backend = std::make_shared<delayed_backend>();
   backend->delay_list = true;
   require(files->mount({"asset://", {backend}, {}}).ok(), "扫描测试挂载失败");
+  {
+    error initialized = error::not_ready;
+    if (files->initialize([&](error status) { initialized = status; }).failed() ||
+        files->dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   author_asset_service service(scheduler);
   require(service.initialize(files).ok() && backend->pending_list, "首个目录请求未提交");
   auto complete = std::move(backend->pending_list);
@@ -237,8 +249,7 @@ void run(std::size_t workers,
     }
     return found.state == author_asset_change_state::changed;
   });
-  require(found.uri == uri && found.operation == gneiss::error::success,
-          "自身保存吞掉外部修改");
+  require(found.uri == uri && found.operation == gneiss::error::success, "自身保存吞掉外部修改");
   service.mark_applied(uri);
   drain();
   std::filesystem::remove(path);

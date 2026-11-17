@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/files/file_path.hpp>
+#include <platform/files/detail/path.hpp>
 
 namespace {
 

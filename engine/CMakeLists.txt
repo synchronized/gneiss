@@ -33,9 +33,9 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_read_stream.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/memory_file_backend.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/read_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/service.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/memory.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/window/service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/service.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/native_handle.hpp"
@@ -417,11 +417,11 @@ if(EMSCRIPTEN)
   target_compile_options(gneiss_engine PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
   target_link_options(gneiss_engine PUBLIC -fexceptions)
   target_sources(gneiss_engine PRIVATE
-    src/platform/files/browser/fetch_stream.cpp
-    src/platform/files/browser/fetch_file_backend.cpp
-    src/platform/files/browser/browser_file_backend.cpp)
+    src/platform/files/backends/detail/fetch_stream.cpp
+    src/platform/files/backends/fetch.cpp
+    src/platform/files/backends/browser.cpp)
   target_link_options(gneiss_engine PUBLIC "-sFETCH=1" "-lidbfs.js"
-    "$<BUILD_INTERFACE:SHELL:--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/platform/files/browser/fetch_stream.js\">")
+    "$<BUILD_INTERFACE:SHELL:--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/platform/files/backends/detail/fetch_stream.js\">")
   set_property(TARGET gneiss_engine APPEND PROPERTY INTERFACE_LINK_DEPENDS
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/platform/files/browser/fetch_stream.js>")
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/platform/files/backends/detail/fetch_stream.js>")
 endif()

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/serialization/json.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include "platform/files/memory_file_backend.hpp"
-#include <gneiss/engine/resource/asset_file.hpp>
-#include <gneiss/engine/resource/material/material_description.hpp>
+#include "gneiss/engine/platform/files/backends/memory.hpp"
 #include "ui/panels/material_editor_panel.hpp"
 #include <cstdio>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 #include <imgui.h>
 #include <stdexcept>
 namespace e = gneiss;
@@ -21,8 +21,14 @@ std::string text(const std::vector<std::byte>& bytes) {
 int main() try {
   check(e::initialize_meta().ok(), "initialize");
   e::files::service files;
-  auto backend = std::make_shared<e::files::memory_backend>();
+  auto backend = e::files::create_backend_memory();
   check(files.mount({.prefix = "asset://", .readers = {backend}, .writer = backend}).ok(), "mount");
+  {
+    e::error initialized = e::error::not_ready;
+    if (files.initialize([&](e::error status) { initialized = status; }).failed() ||
+        files.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   auto encoded = gneiss::asset_file::serialize_bytes(e::material_description{});
   check(bool(encoded), "encode fixture");
   const auto original = text(*encoded);

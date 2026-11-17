@@ -91,7 +91,7 @@ function(gneiss_enable_asset_libuv target)
   target_link_libraries(${target} PRIVATE $<BUILD_INTERFACE:gneiss_core>)
   get_target_property(uv_system_libraries uv_a LINK_LIBRARIES)
   target_sources(${target} PRIVATE
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/native/native_file_backend.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/native.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_file_reader.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_async_file.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/io/uv/uv_path_resolver.cpp"

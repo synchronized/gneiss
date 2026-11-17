@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/platform/files/file_backend.hpp>
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/backend.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <limits>
@@ -10,8 +10,7 @@ namespace gneiss::test_support {
 // 可变内存测试数据：子类提供内存拷贝，不允许磁盘或网络读取。
 class memory_file_fixture : public gneiss::files::backend {
 public:
-  virtual gneiss::error read(std::string_view path,
-                             gneiss::files::bytes& bytes) const noexcept = 0;
+  virtual gneiss::error read(std::string_view path, gneiss::files::bytes& bytes) const noexcept = 0;
   virtual gneiss::error read_bounded(std::string_view path, std::size_t limit,
                                      gneiss::files::bytes& bytes) const noexcept {
     gneiss::files::bytes data;
@@ -48,9 +47,8 @@ private:
 };
 // 单挂载的测试装配；真正的路由、来源身份与完成分发全部由 file_service 实现。
 struct fixture_files {
-  std::shared_ptr<gneiss::files::service> service =
-      std::make_shared<gneiss::files::service>(
-          gneiss::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
+  std::shared_ptr<gneiss::files::service> service = std::make_shared<gneiss::files::service>(
+      gneiss::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
   std::shared_ptr<memory_file_fixture> memory;
   std::string prefix;
   gneiss::error mount(std::string_view point, std::shared_ptr<memory_file_fixture> backend) {
@@ -60,6 +58,13 @@ struct fixture_files {
     if (status.ok()) {
       prefix = point;
       memory = std::move(backend);
+      gneiss::error initialized = gneiss::error::not_ready;
+      status = service->initialize([&](gneiss::error value) { initialized = value; });
+      if (status.failed())
+        return status;
+      status = service->dispatch_completions(64);
+      if (status.ok())
+        status = initialized;
     }
     return status;
   }

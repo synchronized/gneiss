@@ -3,7 +3,7 @@
 #pragma once
 #include "async_asset.hpp"
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 #include "value_result.hpp"
 #include <chrono>
 #include <stdexcept>

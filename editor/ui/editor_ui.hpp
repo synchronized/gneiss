@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/error.hpp>
 
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 
 namespace gneiss::editor {
 

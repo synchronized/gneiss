@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/files/file_read_stream.hpp>
-#include <gneiss/engine/platform/files/file_service.hpp>
-#include "platform/files/memory_file_backend.hpp"
+#include "gneiss/engine/platform/files/backends/memory.hpp"
+#include <gneiss/engine/platform/files/read_stream.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 
 #include <algorithm>
 #include <cstdio>
@@ -19,8 +19,7 @@ void check(bool value, const char* message) {
 void pump(gneiss::files::service& service, std::size_t budget = 64) {
   check(service.dispatch_completions(budget) == error::success, "dispatch");
 }
-void seed(gneiss::files::memory_backend& backend, std::string_view path,
-          unsigned char value) {
+void seed(gneiss::files::backend& backend, std::string_view path, unsigned char value) {
   bool completed = false;
   check(backend.write(path, {std::byte{value}}, {},
                       [&](error status) {
@@ -49,12 +48,147 @@ public:
   }
 };
 
+class initializing_backend final : public files::backend {
+public:
+  files::completion_callback completion;
+  std::size_t starts{};
+  error accepted{error::success};
+  error initialize(files::completion_callback callback) override {
+    ++starts;
+    if (accepted.failed())
+      return accepted;
+    completion = std::move(callback);
+    return error::success;
+  }
+  void finish(error status) {
+    auto callback = std::move(completion);
+    callback(status);
+  }
+};
+
+void initialization_lifecycle() {
+  auto delayed = std::make_shared<initializing_backend>();
+  auto immediate = files::create_backend_memory();
+  files::service service;
+  check(service.mount({"asset://", {delayed, immediate}, delayed}).ok(), "initialization mount");
+  check(service.mount({"user://", {delayed}, delayed}).ok(), "shared backend mount");
+  unsigned notifications = 0;
+  error initialized = error::unknown;
+  check(service
+            .initialize([&](error status) {
+              initialized = status;
+              ++notifications;
+            })
+            .ok(),
+        "initialize accepted");
+  check(delayed->starts == 1 && notifications == 0, "deduplicate and defer");
+  check(service.initialize([](error) {}) == error::invalid_state, "single initialization");
+  check(service.mount({"late://", {immediate}, {}}) == error::invalid_state,
+        "freeze at initialize");
+  files::request_id request{9};
+  check(service.read(
+            "asset://data", [](auto) {}, request) == error::invalid_state &&
+            !request.value,
+        "no IO before ready");
+  pump(service);
+  check(notifications == 0, "wait for all backends");
+#if GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
+  std::thread worker([&] { delayed->finish(error::success); });
+  worker.join();
+#else
+  delayed->finish(error::success);
+#endif
+  check(notifications == 0, "backend completion does not invoke user code");
+  pump(service);
+  check(initialized.ok() && notifications == 1, "initialized once");
+  bool read_done = false;
+  check(service
+            .read(
+                "user://data", [&](auto value) { read_done = value.status == error::unsupported; },
+                request)
+            .ok(),
+        "accept IO after ready");
+  pump(service);
+  check(read_done, "ready service dispatches IO");
+
+  // 立即拒绝和异步失败都要等待所有已接受工作收尾。
+  auto rejected = std::make_shared<initializing_backend>();
+  rejected->accepted = error::io;
+  auto pending = std::make_shared<initializing_backend>();
+  files::service failed;
+  check(failed.mount({"asset://", {rejected, pending}, {}}).ok(), "failure mount");
+  unsigned failures = 0;
+  check(failed
+            .initialize([&](error status) {
+              check(status == error::io, "preserve initialization failure");
+              ++failures;
+            })
+            .ok(),
+        "failure accepted");
+  pump(failed);
+  check(failures == 0, "rejection waits for in-flight initialization");
+  pending->finish(error::invalid_argument);
+  pump(failed);
+  check(failures == 1, "aggregate failure once");
+  check(failed.read(
+            "asset://data", [](auto) {}, request) == error::invalid_state,
+        "failed service rejects IO");
+
+  auto closing_backend = std::make_shared<initializing_backend>();
+  files::service closing;
+  check(closing.mount({"asset://", {closing_backend}, {}}).ok(), "closing mount");
+  std::vector<int> order;
+  check(closing
+            .initialize([&](error status) {
+              check(status == error::cancelled, "initialization cancelled");
+              order.push_back(1);
+            })
+            .ok(),
+        "closing initialize");
+  check(closing
+            .shutdown([&](error status) {
+              check(status.ok(), "shutdown");
+              order.push_back(2);
+            })
+            .ok(),
+        "shutdown accepted");
+  pump(closing);
+  check(order.empty(), "shutdown waits for initialization");
+  closing_backend->finish(error::success);
+  pump(closing, 1);
+  check(order == std::vector<int>{1}, "initialization notification respects budget");
+  pump(closing, 1);
+  check(order == std::vector<int>({1, 2}), "shutdown after initialization");
+
+  files::service empty;
+  bool ready = false;
+  check(empty.initialize([&](error status) { ready = status.ok(); }).ok() && !ready,
+        "empty service completion deferred");
+  pump(empty);
+  check(ready, "empty service ready");
+
+  auto abandoned = std::make_shared<initializing_backend>();
+  {
+    files::service dying;
+    check(dying.mount({"asset://", {abandoned}, {}}).ok(), "abandoned initialize mount");
+    check(dying.initialize([](error) { check(false, "no callback after destruction"); }).ok(),
+          "abandoned initialize");
+  }
+  abandoned->finish(error::success);
+}
+
 void completion_queue_order() {
   auto first = std::make_shared<controlled_backend>();
   auto second = std::make_shared<controlled_backend>();
   files::service service;
   check(service.mount({"first://", {first}, {}}).ok(), "first mount");
   check(service.mount({"second://", {second}, {}}).ok(), "second mount");
+  {
+    error initialized = error::not_ready;
+    if (service.initialize([&](error status) { initialized = status; }).failed() ||
+        service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   std::vector<int> delivered;
   files::request_id request;
   check(service
@@ -95,9 +229,9 @@ void completion_queue_order() {
 }
 
 void memory_and_routes() {
-  auto memory = std::make_shared<gneiss::files::memory_backend>();
-  auto lower = std::make_shared<gneiss::files::memory_backend>();
-  auto special = std::make_shared<gneiss::files::memory_backend>();
+  auto memory = gneiss::files::create_backend_memory();
+  auto lower = gneiss::files::create_backend_memory();
+  auto special = gneiss::files::create_backend_memory();
   seed(*lower, "only", 2);
   seed(*lower, "same", 3);
   seed(*memory, "same", 4);
@@ -108,6 +242,12 @@ void memory_and_routes() {
   check(service.mount({"user://", {memory}, memory}) == error::success, "write mount");
   check(service.mount({"user://", {memory}, {}}) == error::invalid_state, "duplicate mount");
   check(service.mount({"asset://../", {memory}, {}}) == error::invalid_argument, "invalid mount");
+  {
+    error initialized = error::not_ready;
+    if (service.initialize([&](error status) { initialized = status; }).failed() ||
+        service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   gneiss::files::request_id request;
   unsigned called = 0;
   check(service.read(
@@ -138,8 +278,7 @@ void memory_and_routes() {
   check(service.read(
             "asset://same", {16},
             [&](auto completed) {
-              check(completed.data == gneiss::files::bytes{std::byte{4}},
-                    "overlay priority");
+              check(completed.data == gneiss::files::bytes{std::byte{4}}, "overlay priority");
               ++called;
             },
             request) == error::success,
@@ -266,12 +405,18 @@ void memory_and_routes() {
 }
 
 void pagination_and_reentry() {
-  auto upper = std::make_shared<gneiss::files::memory_backend>();
-  auto lower = std::make_shared<gneiss::files::memory_backend>();
+  auto upper = gneiss::files::create_backend_memory();
+  auto lower = gneiss::files::create_backend_memory();
   seed(*lower, "dir/a-x", 1);
   seed(*lower, "dir/a/child", 2);
   gneiss::files::service service;
   check(service.mount({"asset://", {upper, lower}, {}}) == error::success, "paged overlay");
+  {
+    error initialized = error::not_ready;
+    if (service.initialize([&](error status) { initialized = status; }).failed() ||
+        service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   gneiss::files::request_id id;
   std::string cursor;
   check(service.list(
@@ -336,6 +481,12 @@ void byte_budget() {
   auto backend = std::make_shared<controlled_backend>();
   gneiss::files::service service({8, 64, 16});
   check(service.mount({"asset://", {backend}, {}}).ok(), "budget mount");
+  {
+    error initialized = error::not_ready;
+    if (service.initialize([&](error status) { initialized = status; }).failed() ||
+        service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   gneiss::files::request_id first, rejected;
   check(service.read(
             "asset://a", {17}, [](auto) {}, rejected) == error::invalid_argument &&
@@ -377,13 +528,18 @@ void byte_budget() {
 }
 
 void stream_blocks() {
-  auto memory = std::make_shared<gneiss::files::memory_backend>();
+  auto memory = gneiss::files::create_backend_memory();
   const gneiss::files::bytes bytes{std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4},
-                                           std::byte{5}};
+                                   std::byte{5}};
   check(memory->write("data", bytes, {}, [](auto) {}).ok(), "stream seed");
-  auto service = std::make_shared<gneiss::files::service>(
-      gneiss::files::service_options{8, 8, 2});
+  auto service = std::make_shared<gneiss::files::service>(gneiss::files::service_options{8, 8, 2});
   check(service->mount({"asset://", {memory}, {}}).ok(), "stream mount");
+  {
+    error initialized = error::not_ready;
+    if (service->initialize([&](error status) { initialized = status; }).failed() ||
+        service->dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   gneiss::files::read_stream stream(service, "asset://data", 5, 2);
   gneiss::files::bytes output;
   bool eof{};
@@ -432,6 +588,12 @@ void lifetime() {
   gneiss::files::service service({1, 64});
   gneiss::files::service other;
   check(service.mount({"asset://", {backend}, {}}) == error::success, "delayed mount");
+  {
+    error initialized = error::not_ready;
+    if (service.initialize([&](error status) { initialized = status; }).failed() ||
+        service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   gneiss::files::request_id id, rejected;
   bool called = false, closed = false;
   check(service.read(
@@ -471,6 +633,12 @@ void lifetime() {
   failure->immediate = error::io;
   gneiss::files::service errors;
   check(errors.mount({"asset://", {failure, fallback}, {}}) == error::success, "error mount");
+  {
+    error initialized = error::not_ready;
+    if (errors.initialize([&](error status) { initialized = status; }).failed() ||
+        errors.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   check(errors.read(
             "asset://a", {16},
             [](auto completed) { check(completed.status == error::io, "io preserved"); },
@@ -493,6 +661,12 @@ void lifetime() {
   auto threaded = std::make_shared<controlled_backend>();
   gneiss::files::service threaded_service;
   check(threaded_service.mount({"asset://", {threaded}, {}}) == error::success, "thread mount");
+  {
+    error initialized = error::not_ready;
+    if (threaded_service.initialize([&](error status) { initialized = status; }).failed() ||
+        threaded_service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   const auto owner = std::this_thread::get_id();
   bool delivered = false;
   check(threaded_service.read(
@@ -519,6 +693,12 @@ void lifetime() {
     auto abandoned = std::make_shared<controlled_backend>();
     gneiss::files::service dying;
     check(dying.mount({"asset://", {abandoned}, {}}) == error::success, "abandon mount");
+    {
+      error initialized = error::not_ready;
+      if (dying.initialize([&](error status) { initialized = status; }).failed() ||
+          dying.dispatch_completions(64).failed() || initialized.failed())
+        throw std::runtime_error("文件服务初始化失败");
+    }
     check(dying.read(
               "asset://a", {16}, [](auto) { check(false, "destroyed owner callback"); }, id) ==
               error::success,
@@ -564,8 +744,7 @@ public:
   gneiss::files::callback<std::shared_ptr<gneiss::files::backend_stream>> opening;
   error open_stream(
       std::string_view,
-      gneiss::files::callback<std::shared_ptr<gneiss::files::backend_stream>> done)
-      override {
+      gneiss::files::callback<std::shared_ptr<gneiss::files::backend_stream>> done) override {
     ++opens;
     if (missing)
       return error::not_found;
@@ -584,8 +763,14 @@ void sequential_streams() {
   missing->missing = true;
   auto backend = std::make_shared<streaming_backend>();
   check(files->mount({"asset://", {missing, backend}, {}}).ok(), "stream mount");
-  auto stream = std::make_unique<gneiss::files::read_stream>(files, "asset://unknown",
-                                                                     std::nullopt, 8);
+  {
+    error initialized = error::not_ready;
+    if (files->initialize([&](error status) { initialized = status; }).failed() ||
+        files->dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
+  auto stream =
+      std::make_unique<gneiss::files::read_stream>(files, "asset://unknown", std::nullopt, 8);
   unsigned received = 0;
   check(stream->read_next([&](auto value) {
                 check(value.status.ok() && value.data.offset == 0 && value.data.bytes.size() == 3 &&
@@ -623,8 +808,7 @@ void sequential_streams() {
   check(received == 2 && backend->stream->closed &&
             stream->read_next([](auto) {}) == error::invalid_state,
         "EOF closes source");
-  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://cancel",
-                                                                std::nullopt, 8);
+  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://cancel", std::nullopt, 8);
   error cancelled;
   check(stream->read_next([&](auto value) { cancelled = value.status; }).ok(),
         "cancel stream open");
@@ -634,8 +818,7 @@ void sequential_streams() {
         "cancel aborts source");
   pump(*files);
   check(cancelled == error::cancelled, "cancel delivered once");
-  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://invalid",
-                                                                std::nullopt, 8);
+  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://invalid", std::nullopt, 8);
   error oversized;
   check(stream->read_next([&](auto value) { oversized = value.status; }).ok(),
         "invalid stream open");
@@ -644,8 +827,7 @@ void sequential_streams() {
   backend->stream->complete(9);
   pump(*files);
   check(oversized == error::io && backend->stream->closed, "backend block violation closes source");
-  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://destroy",
-                                                                std::nullopt, 8);
+  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://destroy", std::nullopt, 8);
   check(
       stream->read_next([](auto) { check(false, "destroyed consumer must not be notified"); }).ok(),
       "destruction stream open");
@@ -655,8 +837,7 @@ void sequential_streams() {
   stream.reset();
   check(abandoned->closed, "destruction aborts pending read");
   pump(*files);
-  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://unopened",
-                                                                std::nullopt, 8);
+  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://unopened", std::nullopt, 8);
   check(stream->read_next([](auto) { check(false, "destroyed opening consumer"); }).ok(),
         "late open");
   stream.reset();
@@ -664,8 +845,8 @@ void sequential_streams() {
     pump(*files);
   check(backend->stream->closed, "late open closes source");
   backend->deferred = true;
-  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://late-cancel",
-                                                                std::nullopt, 8);
+  stream =
+      std::make_unique<gneiss::files::read_stream>(files, "asset://late-cancel", std::nullopt, 8);
   error late_status;
   check(stream->read_next([&](auto value) { late_status = value.status; }).ok(), "deferred open");
   pump(*files);
@@ -677,8 +858,7 @@ void sequential_streams() {
   check(late_status == error::cancelled && late_source->closed && late_source->reads == 0,
         "cancelled opening closes retained source without reading");
   backend->deferred = false;
-  stream =
-      std::make_unique<gneiss::files::read_stream>(files, "asset://close", std::nullopt, 8);
+  stream = std::make_unique<gneiss::files::read_stream>(files, "asset://close", std::nullopt, 8);
   check(stream
             ->read_next([](auto value) {
               check(value.status == error::cancelled, "shutdown cancels stream");
@@ -702,7 +882,7 @@ void sequential_streams() {
 
 // 来源标记属于挂载；共享后端不意味着共享资产命名域。
 void source_identity() {
-  auto backend = std::make_shared<gneiss::files::memory_backend>();
+  auto backend = gneiss::files::create_backend_memory();
   auto first = std::make_unique<gneiss::files::service>();
   auto second = std::make_unique<gneiss::files::service>();
   std::shared_ptr<const gneiss::files::source_domain> original, independent, nested;
@@ -728,6 +908,7 @@ void source_identity() {
 } // namespace
 int main() {
   try {
+    initialization_lifecycle();
     completion_queue_order();
     sequential_streams();
     source_identity();

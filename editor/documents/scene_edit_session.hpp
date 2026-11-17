@@ -14,7 +14,7 @@
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
 #include <functional>
 namespace gneiss::runtime {

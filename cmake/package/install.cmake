@@ -4,7 +4,7 @@
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 if(EMSCRIPTEN)
-  install(FILES "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.js"
+  install(FILES "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/detail/fetch_stream.js"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/js")
   target_link_options(gneiss_engine INTERFACE
     "$<INSTALL_INTERFACE:SHELL:--js-library \"$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/gneiss/js/fetch_stream.js\">")

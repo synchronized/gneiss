@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/platform/files/file_service.hpp>
-#include "platform/files/native/native_file_backend.hpp"
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
+#include "gneiss/engine/platform/files/backends/native.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
 #include <stdexcept>
 #include <thread>
 using namespace gneiss;
@@ -18,9 +18,15 @@ int main(int argc, char** argv) {
     return 1;
   uv_loop_executor executor;
   check(executor.start().ok());
-  auto backend = std::make_shared<gneiss::files::native_backend>(executor, argv[1]);
+  auto backend = gneiss::files::create_backend_native({executor, argv[1]});
   gneiss::files::service service;
   check(service.mount({"test://", {backend}, backend}).ok());
+  {
+    error initialized = error::not_ready;
+    if (service.initialize([&](error status) { initialized = status; }).failed() ||
+        service.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
   gneiss::files::request_id request;
   bool done{};
   error status;
@@ -66,8 +72,8 @@ int main(int argc, char** argv) {
   pump();
   check(status == error::not_found);
   check(service
-            .write("test://native.bin", {std::byte{9}},
-                   {gneiss::files::write_mode::create_new}, complete, request)
+            .write("test://native.bin", {std::byte{9}}, {gneiss::files::write_mode::create_new},
+                   complete, request)
             .ok());
   pump();
   check(status == error::invalid_state);
@@ -96,17 +102,16 @@ int main(int argc, char** argv) {
   pump();
   check(status.ok() && info.size == 3);
   gneiss::files::directory_page page;
-  check(
-      service
-          .list(
-              "test://", {1, {}},
-              [&](gneiss::files::completion<gneiss::files::directory_page> value) {
-                status = value.status;
-                page = std::move(value.data);
-                done = true;
-              },
-              request)
-          .ok());
+  check(service
+            .list(
+                "test://", {1, {}},
+                [&](gneiss::files::completion<gneiss::files::directory_page> value) {
+                  status = value.status;
+                  page = std::move(value.data);
+                  done = true;
+                },
+                request)
+            .ok());
   pump();
   check(status.ok() && page.entries.size() == 1);
   check(service.flush("test://", complete, request).ok());

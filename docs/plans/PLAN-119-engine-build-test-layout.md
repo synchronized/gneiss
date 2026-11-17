@@ -771,3 +771,21 @@ render_frame_packet、render_scene、ui_draw_list、真实窗口 smoke、原生�
 Windows Clang Debug 完整构建通过；7 项相关测试通过，包括 input_service、action_map、
 cpp_input、granit_platform_smoke、native-application-flow、assets.application-native-window
 及 runtime.installed-smoke。本轮未验证静态构建、Linux 或 Web。
+
+### Files 后端封装与初始化（已完成桌面迁移）
+
+- 同步工厂仅构造并保存配置，外层只引用 backend 与配置；具体类隐藏在 cpp。
+- 先配置挂载，再由 service.initialize 去重初始化所有后端；冻结挂载。
+- 后端初始化允许内联或异步完成，服务通知统一由 dispatch_completions 分发。
+- 初始化成功前拒绝 I/O；失败等待所有已接受初始化收尾后通知，不自动重试。
+- 初始化期间 shutdown 等待已接受工作收尾，先通知初始化取消，再通知关闭；析构可放弃通知。
+- 一个后端由一个服务负责初始化与驱动，跨服务共享的测试改为独立后端或明确的 source_domain。
+- 迁移 file_* 文件名、私有路径工具、工厂头与实现，更新 CMake/JS 路径及所有消费者。
+- 验证去重、空挂载、内联/延迟完成、失败、关闭竞态、挂载回退、读写和 Application 启动。
+- Web 只迁移既有后端，不扩展应用导出；没有 Emscripten 环境时明确未验证。
+
+
+本节实现与桌面验收已完成：共享完整构建、17 项相关测试，以及静态 Engine/文件测试目标构建和
+2 项文件测试通过。迁移使用同步工厂与服务级完成通知，未增加公共后端状态查询。
+Web 后端及测试源码、CMake/JS 路径已迁移，但本机没有 Emscripten，编译与浏览器验收未执行；
+不宣称完整 Web 支持。详细结果见 [Files 收敛记录](../records/2026-11-17-files-backend-initialization.md)。

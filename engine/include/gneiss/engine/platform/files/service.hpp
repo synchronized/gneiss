@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/platform/files/file_types.hpp>
+#include <gneiss/engine/platform/files/types.hpp>
 
 #include <memory>
 #include <string_view>
@@ -42,7 +42,10 @@ public:
   service(service&&) = delete;
   service& operator=(service&&) = delete;
 
-  /** 首次接受请求后禁止修改挂载，前缀以 / 结尾；最长前缀匹配。 */
+  /** 冻结挂载并初始化去重后的来源；完成仅在 dispatch_completions 通知。
+   * 成功前不接受 I/O；失败不可重试。shutdown 等待初始化收尾并通知 cancelled。 */
+  [[nodiscard]] GNEISS_API error initialize(completion_callback callback);
+  /** 初始化开始后禁止修改挂载，前缀以 / 结尾；最长前缀匹配。 */
   [[nodiscard]] GNEISS_API error mount(mount_description description);
   /** 使用服务配置的单文件上限；需要更严格限制时使用 read_options 重载。 */
   [[nodiscard]] GNEISS_API error read(std::string_view uri, files::callback<files::bytes> callback,

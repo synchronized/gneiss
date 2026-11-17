@@ -1,19 +1,43 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "platform/files/native/native_file_backend.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/files/file_path.hpp>
+#include "gneiss/engine/platform/files/backends/native.hpp"
 #include "platform/io/uv/uv_loop_access.hpp"
 #include "platform/io/uv/uv_result.hpp"
 #include <algorithm>
 #include <charconv>
 #include <fcntl.h>
+#include <gneiss/engine/error.hpp>
 #include <limits>
+#include <platform/files/detail/path.hpp>
 #include <stdexcept>
 #include <sys/stat.h>
 #include <utility>
 
 namespace gneiss::files {
+namespace {
+struct operation;
+/** 桌面异步文件后端；借用执行器，须存活至所有请求收尾。
+ * 根目录必须已存在；写入不创建父目录。每次成功写入均先 fsync 再关闭。
+ * 路径解析拒绝根目录外的目标；不提供抵抗并发恶意符号链接替换的安全沙箱。 */
+class native_backend final : public backend {
+public:
+  native_backend(uv_loop_executor& executor, std::string root);
+  ~native_backend() override;
+  error read(std::string_view, read_options, files::callback<files::bytes>) override;
+  error read_range(std::string_view, range, files::callback<files::bytes>) override;
+  error write(std::string_view, files::bytes, write_options, completion_callback) override;
+  error stat(std::string_view, files::callback<files::info>) override;
+  error list(std::string_view, list_options, files::callback<directory_page>) override;
+  error flush(completion_callback) override;
+
+private:
+  error submit(std::string_view path, std::shared_ptr<operation> pending);
+  uv_loop_executor& executor_;
+  std::string root_;
+};
+
+} // namespace
+
 namespace {
 enum class operation_kind { read, write, stat, list };
 enum class stage {
@@ -307,21 +331,17 @@ struct operation : std::enable_shared_from_this<operation> {
   }
 };
 }
-struct native_backend::implementation {
-  uv_loop_executor& executor;
-  std::string root;
-  error submit(std::string_view path, std::shared_ptr<operation> pending) {
-    if (!detail::valid_file_path(path))
-      return error::invalid_argument;
-    pending->root = root;
-    pending->relative = path;
-    return uv_loop_access::post(
-        executor, [pending = std::move(pending)](uv_loop_t* loop) { pending->begin(loop); });
-  }
-};
+error native_backend::submit(std::string_view path, std::shared_ptr<operation> pending) {
+  if (!detail::valid_file_path(path))
+    return error::invalid_argument;
+  pending->root = root_;
+  pending->relative = path;
+  return uv_loop_access::post(
+      executor_, [pending = std::move(pending)](uv_loop_t* loop) { pending->begin(loop); });
+}
 native_backend::native_backend(uv_loop_executor& executor, std::string root)
-    : impl_(std::make_unique<implementation>(implementation{executor, std::move(root)})) {
-  if (impl_->root.empty() || impl_->root.find('\0') != std::string::npos)
+    : executor_(executor), root_(std::move(root)) {
+  if (root_.empty() || root_.find('\0') != std::string::npos)
     throw std::invalid_argument("文件根目录无效");
 }
 native_backend::~native_backend() = default;
@@ -333,7 +353,7 @@ error native_backend::read(std::string_view path, read_options options,
   pending->kind = operation_kind::read;
   pending->limit = options.max_bytes;
   pending->on_read = std::move(callback);
-  return impl_->submit(path, std::move(pending));
+  return submit(path, std::move(pending));
 }
 error native_backend::read_range(std::string_view path, range range,
                                  files::callback<files::bytes> callback) {
@@ -348,7 +368,7 @@ error native_backend::read_range(std::string_view path, range range,
   pending->range = range;
   pending->limit = range.size;
   pending->on_read = std::move(callback);
-  return impl_->submit(path, std::move(pending));
+  return submit(path, std::move(pending));
 }
 error native_backend::write(std::string_view path, files::bytes bytes, write_options options,
                             completion_callback callback) {
@@ -360,7 +380,7 @@ error native_backend::write(std::string_view path, files::bytes bytes, write_opt
   pending->bytes = std::move(bytes);
   pending->create_new = options.mode == write_mode::create_new;
   pending->on_write = std::move(callback);
-  return impl_->submit(path, std::move(pending));
+  return submit(path, std::move(pending));
 }
 error native_backend::stat(std::string_view path, files::callback<files::info> callback) {
   if (!callback)
@@ -368,7 +388,7 @@ error native_backend::stat(std::string_view path, files::callback<files::info> c
   auto pending = std::make_shared<operation>();
   pending->kind = operation_kind::stat;
   pending->on_stat = std::move(callback);
-  return impl_->submit(path, std::move(pending));
+  return submit(path, std::move(pending));
 }
 error native_backend::list(std::string_view path, list_options options,
                            files::callback<directory_page> callback) {
@@ -384,12 +404,16 @@ error native_backend::list(std::string_view path, list_options options,
   }
   pending->limit = options.max_entries;
   pending->on_list = std::move(callback);
-  return impl_->submit(path, std::move(pending));
+  return submit(path, std::move(pending));
 }
 error native_backend::flush(completion_callback callback) {
   if (!callback)
     return error::invalid_argument;
   // 每个已完成写入均已 fsync；不承诺尚未完成写入或跨文件事务。
-  return impl_->executor.post([callback = std::move(callback)] { callback(error::success); });
+  return executor_.post([callback = std::move(callback)] { callback(error::success); });
+}
+
+std::shared_ptr<backend> create_backend_native(native_config config) {
+  return std::make_shared<native_backend>(config.executor, std::move(config.root));
 }
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 
-#include <gneiss/engine/platform/files/file_backend.hpp>
-#include <gneiss/engine/platform/files/file_path.hpp>
+#include <gneiss/engine/platform/files/backend.hpp>
+#include <platform/files/detail/path.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -41,6 +41,22 @@ struct ready_requests {
     queue.push_back(id);
   }
 };
+// 零 ID 专用于初始化完成；普通请求的 ID 始终非零。
+struct initialization_completion {
+  std::mutex mutex;
+  std::weak_ptr<ready_requests> ready;
+  std::size_t remaining{};
+  error status{error::success};
+  void complete(error outcome) {
+    std::lock_guard lock(mutex);
+    if (status.ok() && outcome.failed())
+      status = outcome;
+    if (--remaining == 0)
+      if (auto queue = ready.lock())
+        queue->push({});
+  }
+};
+
 template <class T> struct completion_state {
   std::weak_ptr<ready_requests> ready;
   request_id id;
@@ -163,6 +179,9 @@ struct service::implementation {
   std::map<std::uint64_t, std::unique_ptr<pending_request>> pending;
   std::shared_ptr<ready_requests> ready = std::make_shared<ready_requests>();
   completion_callback on_shutdown;
+  completion_callback on_initialize;
+  std::shared_ptr<initialization_completion> initialization;
+  bool initialized{};
   bool frozen{}, closing{}, dispatching{};
   std::vector<std::weak_ptr<backend_stream>> streams;
   void close_streams() {
@@ -189,7 +208,7 @@ struct service::implementation {
                Start start, bool exact_mount = false, std::optional<std::size_t> reader_index = {},
                std::size_t reserve_bytes = 0, std::function<void()> abort = {}) {
     output = {};
-    if (!on_owner() || closing)
+    if (!on_owner() || closing || !initialized)
       return error::invalid_state;
     if (!callback || !detail::valid_file_uri(uri))
       return error::invalid_argument;
@@ -235,7 +254,6 @@ struct service::implementation {
       request->state->ready = ready;
       request->state->id = request->id;
       pending.emplace(request->id.value, std::move(request));
-      frozen = true;
       output = accepted->id;
       accepted->begin();
       return error::success;
@@ -258,6 +276,33 @@ error service::resolve_source(std::string_view uri,
   if (!entry)
     return error::not_found;
   output = entry->source;
+  return error::success;
+}
+
+error service::initialize(completion_callback callback) {
+  if (!impl_->on_owner() || impl_->frozen || impl_->closing)
+    return error::invalid_state;
+  if (!callback)
+    return error::invalid_argument;
+  auto state = std::make_shared<initialization_completion>();
+  state->ready = impl_->ready;
+  state->remaining = impl_->backends.size();
+  impl_->initialization = state;
+  impl_->on_initialize = std::move(callback);
+  impl_->frozen = true;
+  if (impl_->backends.empty()) {
+    impl_->ready->push({});
+    return error::success;
+  }
+  for (const auto& source : impl_->backends) {
+    // 回调保活后端；服务析构后只写独立完成状态，不访问服务。
+    const auto accepted = source->initialize([state, source](error status) {
+      (void)source; // 保活至初始化完成
+      state->complete(status);
+    });
+    if (accepted.failed())
+      state->complete(accepted);
+  }
   return error::success;
 }
 
@@ -401,7 +446,7 @@ error service::stat(std::string_view uri, files::callback<files::info> callback,
 error service::list(std::string_view uri, list_options options,
                     files::callback<directory_page> callback, request_id& request) {
   request = {};
-  if (!impl_->on_owner() || impl_->closing)
+  if (!impl_->on_owner() || impl_->closing || !impl_->initialized)
     return error::invalid_state;
   if (options.max_entries == 0 || options.max_entries > 1024)
     return error::invalid_argument;
@@ -460,8 +505,9 @@ error service::dispatch_completions(std::size_t max_callbacks) {
     bool& active;
     ~dispatch_guard() { active = false; }
   } guard{impl_->dispatching};
-  for (const auto& backend : impl_->backends)
-    backend->poll();
+  if (impl_->frozen)
+    for (const auto& backend : impl_->backends)
+      backend->poll();
   std::size_t count;
   {
     std::lock_guard lock(impl_->ready->mutex);
@@ -475,6 +521,19 @@ error service::dispatch_completions(std::size_t max_callbacks) {
       id = impl_->ready->queue.front();
       impl_->ready->queue.pop_front();
     }
+    if (id.value == 0) {
+      error outcome;
+      {
+        std::lock_guard lock(impl_->initialization->mutex);
+        outcome = impl_->closing ? error::cancelled : impl_->initialization->status;
+      }
+      impl_->initialized = outcome.ok();
+      impl_->initialization.reset();
+      auto callback = std::move(impl_->on_initialize);
+      ++delivered;
+      callback(outcome);
+      continue;
+    }
     const auto found = impl_->pending.find(id.value);
     if (found == impl_->pending.end() || !found->second->advance())
       continue;
@@ -484,7 +543,8 @@ error service::dispatch_completions(std::size_t max_callbacks) {
     ready->release_budget();
     ready->deliver();
   }
-  if (impl_->closing && impl_->pending.empty() && impl_->on_shutdown && delivered < max_callbacks) {
+  if (impl_->closing && !impl_->on_initialize && impl_->pending.empty() && impl_->on_shutdown &&
+      delivered < max_callbacks) {
     auto callback = std::move(impl_->on_shutdown);
     callback(error::success);
   }

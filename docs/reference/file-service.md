@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::files`。
+内部原生入口位于 `engine/include/gneiss/engine/platform/files/service.hpp`，命名空间为 `gneiss::files`。
 当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
 Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
 旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。
@@ -22,10 +22,29 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 - 服务复制 URI，按值接收写缓冲；完成结果拥有字节，调用方可将其移动到解码任务。
 - 后端可能内联完成，但用户回调始终延迟到服务分发。
 
+## 创建与初始化
+
+工厂声明位于 `platform/files/backends/{memory,native,fetch,browser}.hpp`，只暴露配置和
+`create_backend_xxx` 函数，返回 `shared_ptr<backend>`；具体类定义位于 cpp。工厂不执行 I/O，
+保留配置参数检查的异常语义，分配失败正常传播。后端异步准备由 initialize 完成。
+
+先 mount 配置，再 service.initialize(callback)。初始化开始后挂载冻结；同一后端在多个挂载、
+reader/writer 中只初始化一次。初始化成功通知分发前，I/O 返回 invalid_state；来源身份查询
+仍可使用。服务不允许重复初始化或失败后重试，每个后端由一个服务初始化并驱动。
+
+initialize 返回失败则不回调，返回成功则由 dispatch_completions 通知最终结果；无后端和内联
+完成也不会立即调用用户回调。初始化不占文件请求额度，但通知占一个分发预算。失败等待所有
+已接受工作收尾再通知；shutdown 期间先通知初始化 cancelled，再完成关闭。析构可放弃通知。
+
+Native 仍要求执行器活到请求收尾；Browser 持久化恢复异步完成，写入仍需显式 flush。
+不要直接对已交给服务的后端再次 initialize。设计依据见
+[ADR-123](../decisions/ADR-123-files-backend-initialization.md)。
+
 ## 操作与限额
 
 | 接口 | 当前语义 |
 | --- | --- |
+| initialize | 冻结挂载并去重初始化后端，最终状态通过完成分发通知 |
 | read | 有界整文件读取；省略 read_options 使用服务 max_file_bytes，显式 max_bytes 必须大于零且不超过服务上限 |
 | read_range | 精确范围，允许 EOF 处零长度，越界失败 |
 | write | 单文件安全写入，replace 替换、create_new 拒绝覆盖；持久化另见后端约定 |
@@ -72,7 +91,7 @@ read_next 最多接受一个在途块，消费者再次请求才继续，无隐�
 挂载前缀以 `/` 结尾，例如 `asset://`、`asset://textures/`、`user://`。
 scheme 仅允许小写英文字母；路径须有效 UTF-8，拒绝控制字符、反斜杠、百分号编码、查询、片段、
 冒号、`.`、`..` 和空路径段。挂载根与目录允许尾部 `/`。
-首次接受请求后冻结挂载；最长前缀决定挂载，读取链只在 not_found 时继续。
+初始化开始后冻结挂载；最长前缀决定挂载，读取链只在 not_found 时继续。
 write/flush 只选择唯一 writer；缺少 writer 时提交返回 unsupported。
 Application 的 asset:// 默认只读；Editor 通过 application_configuration::writable_assets 显式启用
 本地写入后端。远程 Fetch 后端仍不支持写入。

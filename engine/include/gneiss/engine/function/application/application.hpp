@@ -89,7 +89,7 @@ private:
   gneiss::resource_load_group* loading_assets() noexcept;
   [[nodiscard]] GNEISS_API gneiss::error advance_resource_io();
   explicit GNEISS_API application(const runtime::application_configuration& config);
-  [[nodiscard]] GNEISS_API gneiss::error initialize();
+  [[nodiscard]] GNEISS_API gneiss::error initialize(std::weak_ptr<application> self);
 
 public:
   GNEISS_API ~application() noexcept;

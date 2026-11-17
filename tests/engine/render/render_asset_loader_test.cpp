@@ -17,7 +17,7 @@
 #include "function/asset/detail/resource_load_group.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>

@@ -1,18 +1,35 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "platform/files/web/fetch_file_backend.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/files/file_path.hpp>
-#include "fetch_stream.hpp"
+#include "gneiss/engine/platform/files/backends/fetch.hpp"
+#include "detail/fetch_stream.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cstring>
 #include <emscripten/fetch.h>
 #include <emscripten/threading.h>
+#include <gneiss/engine/error.hpp>
 #include <limits>
 #include <memory>
+#include <platform/files/detail/path.hpp>
 #include <stdexcept>
 namespace gneiss::files {
+namespace {
+/** 浏览器主线程使用；只读 HTTP 后端，不写入 IDBFS。
+ * 服务基址以 / 结尾；Range 必须返回匹配的 206/Content-Range，绝不整读模拟范围。 */
+class fetch_backend final : public backend {
+public:
+  explicit fetch_backend(std::string base_url);
+  error open_stream(std::string_view, files::callback<std::shared_ptr<backend_stream>>) override;
+  error read(std::string_view, read_options, files::callback<files::bytes>) override;
+  error read_range(std::string_view, range, files::callback<files::bytes>) override;
+  error stat(std::string_view, files::callback<files::info>) override;
+
+private:
+  std::string base_url_;
+};
+
+} // namespace
+
 namespace {
 std::string header(emscripten_fetch_t* fetch, std::string_view name) {
   std::string headers(emscripten_fetch_get_response_headers_length(fetch) + 1, '\0');
@@ -233,5 +250,9 @@ error fetch_backend::stat(std::string_view path, files::callback<files::info> ca
   request->head = true;
   request->on_stat = std::move(callback);
   return request->begin();
+}
+
+std::shared_ptr<backend> create_backend_fetch(fetch_config config) {
+  return std::make_shared<fetch_backend>(std::move(config.base_url));
 }
 }

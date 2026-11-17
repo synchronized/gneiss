@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/platform/files/file_types.hpp>
+#include <gneiss/engine/platform/files/types.hpp>
 
 #include <cstdint>
 #include <memory>

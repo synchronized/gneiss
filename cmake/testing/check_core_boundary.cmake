@@ -261,7 +261,7 @@ foreach(source IN LISTS sources)
   endif()
   # 浏览器桥接只允许这三个私有 JS 导入声明；其他 C 链接声明或定义仍拒绝。
   set(abi_content "${content}")
-  if(source MATCHES "/engine/platform/files/web/fetch_stream\\.cpp$")
+  if(source MATCHES "/engine/platform/files/backends/detail/fetch_stream\\.cpp$")
     string(REPLACE [=[extern "C" {
 void gneiss_fetch_stream_open(const char*, void*, void (*)(void*, int, int));
 void gneiss_fetch_stream_read(int, void*, std::size_t, void*,

@@ -38,12 +38,12 @@ add_test(NAME gneiss.assets.manager COMMAND gneiss_asset_manager_test)
 set_tests_properties(gneiss.assets.manager PROPERTIES TIMEOUT 30)
 
 add_executable(gneiss_file_service_test file_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_read_stream.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/memory_file_backend.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/read_stream.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/memory.cpp"
 )
 set_target_properties(gneiss_file_service_test PROPERTIES FOLDER "Tests")
-# 白盒夹具直接使用内存后端，私有包含路径仅授予本测试。
+# 测试通过工厂创建后端；私有包含路径仅供此目标编译服务内部实现。
 target_include_directories(gneiss_file_service_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_file_service_test PRIVATE gneiss_core)
 target_compile_features(gneiss_file_service_test PRIVATE cxx_std_20)
@@ -58,18 +58,19 @@ add_test(NAME gneiss.files.service COMMAND gneiss_file_service_test)
 
 if(EMSCRIPTEN)
   add_executable(gneiss_browser_file_backend_test browser_file_backend_test.cpp
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_read_stream.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/browser_file_backend.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_file_backend.cpp")
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/service.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/read_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/detail/fetch_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/browser.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/fetch.cpp")
   set_target_properties(gneiss_browser_file_backend_test PROPERTIES FOLDER "Tests")
+  target_link_libraries(gneiss_browser_file_backend_test PRIVATE gneiss_core)
   target_include_directories(gneiss_browser_file_backend_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
   target_compile_features(gneiss_browser_file_backend_test PRIVATE cxx_std_20)
   target_link_options(gneiss_browser_file_backend_test PRIVATE "-sFETCH=1" "-lidbfs.js" "-sEXIT_RUNTIME=0"
-    "SHELL:--js-library \"${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.js\"")
+    "SHELL:--js-library \"${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/detail/fetch_stream.js\"")
   set_property(TARGET gneiss_browser_file_backend_test APPEND PROPERTY LINK_DEPENDS
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/web/fetch_stream.js")
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/detail/fetch_stream.js")
   gneiss_target_compile_warnings(gneiss_browser_file_backend_test)
 endif()
 
@@ -98,7 +99,7 @@ set_tests_properties(gneiss.assets.material PROPERTIES TIMEOUT 30)
 
 if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   add_executable(gneiss_native_file_backend_test native_file_backend_test.cpp
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp")
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/service.cpp")
   set_target_properties(gneiss_native_file_backend_test PROPERTIES FOLDER "Tests")
   target_include_directories(gneiss_native_file_backend_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
   target_link_libraries(gneiss_native_file_backend_test PRIVATE gneiss_core)

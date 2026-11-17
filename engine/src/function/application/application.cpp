@@ -19,7 +19,7 @@
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/platform/files/file_service.hpp>
+#include <gneiss/engine/platform/files/service.hpp>
 #include <optional>
 #include <thread>
 #include <tuple>
@@ -30,11 +30,11 @@
 #include <cmath>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #ifdef __EMSCRIPTEN__
-#include "platform/files/web/browser_file_backend.hpp"
-#include "platform/files/web/fetch_file_backend.hpp"
+#include "gneiss/engine/platform/files/backends/browser.hpp"
+#include "gneiss/engine/platform/files/backends/fetch.hpp"
 #endif
 #ifdef GNEISS_ASSET_LIBUV
-#include "platform/files/native/native_file_backend.hpp"
+#include "gneiss/engine/platform/files/backends/native.hpp"
 #include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
 
 #endif
@@ -64,6 +64,7 @@ struct application::storage {
   std::unique_ptr<gneiss::uv_loop_executor> asset_io_executor_;
 #endif
   std::shared_ptr<gneiss::files::service> files_;
+  std::optional<error> files_initialization_;
   struct environment_read {
     bool ready{};
     gneiss::error status{gneiss::error::not_ready};
@@ -221,7 +222,7 @@ application::create(const application_configuration& config) {
     if (meta_status.failed())
       return meta_status;
     auto instance = std::shared_ptr<application>(new application(config));
-    const auto result = instance->initialize();
+    const auto result = instance->initialize(instance);
     if (result != gneiss::error::success) {
       return result;
     }
@@ -266,7 +267,7 @@ gneiss::error application::attach_task_executor(gneiss::tasks::task_executor& ex
   }
 }
 
-gneiss::error application::initialize() {
+gneiss::error application::initialize(std::weak_ptr<application> self) {
   if (!storage_->render_service_->is_valid()) {
     return gneiss::error::out_of_memory;
   }
@@ -287,23 +288,20 @@ gneiss::error application::initialize() {
         if (started.failed())
           return started;
       }
-      backend = std::make_shared<gneiss::files::native_backend>(*storage_->asset_io_executor_,
-                                                                std::string(root));
+      backend =
+          gneiss::files::create_backend_native({*storage_->asset_io_executor_, std::string(root)});
 #elif defined(__EMSCRIPTEN__)
       auto base = std::string(root);
       if (base.starts_with('/') && !base.starts_with("//")) {
         while (base.size() > 1 && base.ends_with('/'))
           base.pop_back();
-        auto local = std::make_shared<gneiss::files::browser_backend>(
-            std::move(base), gneiss::files::browser_storage::existing);
-        const auto initialized = local->initialize([](gneiss::error) {});
-        if (initialized.failed())
-          return initialized;
+        auto local = gneiss::files::create_backend_browser(
+            {std::move(base), gneiss::files::browser_storage::existing});
         backend = std::move(local);
       } else {
         if (!base.ends_with('/'))
           base += '/';
-        backend = std::make_shared<gneiss::files::fetch_backend>(std::move(base));
+        backend = gneiss::files::create_backend_fetch({std::move(base)});
       }
 #else
       return gneiss::error::unsupported;
@@ -380,30 +378,48 @@ gneiss::error application::initialize() {
     static_cast<void>(shutdown());
     throw;
   }
-  // 完成所有宿主/场景初始化后才提交 I/O，失败回退不遗留后台文件请求。
-  if (storage_->window_service_ && !storage_->config_.environment_asset.empty()) {
-    {
-      auto state = std::make_shared<storage::environment_read>();
-      gneiss::files::request_id request;
-      const auto accepted = storage_->files_->read(
-          storage_->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
-          [state](gneiss::files::completion<gneiss::files::bytes> value) {
-            state->status = value.status;
-            if (value.status.ok()) {
-              {
-                state->bytes =
-                    std::make_shared<const std::vector<std::byte>>(std::move(value.data));
+  // 只接收服务级完成通知；不轮询各个后端。环境加载在文件服务可用后启动。
+  const auto accepted = storage_->files_->initialize([self](error status) {
+    auto owner = self.lock();
+    if (!owner || !owner->storage_->files_)
+      return;
+    auto& application_state = owner->storage_;
+    application_state->files_initialization_ = status;
+    if (status.failed())
+      return;
+    if (application_state->window_service_ &&
+        !application_state->config_.environment_asset.empty()) {
+      {
+        auto state = std::make_shared<storage::environment_read>();
+        gneiss::files::request_id request;
+        const auto accepted = application_state->files_->read(
+            application_state->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
+            [state](gneiss::files::completion<gneiss::files::bytes> value) {
+              state->status = value.status;
+              if (value.status.ok()) {
+                {
+                  state->bytes =
+                      std::make_shared<const std::vector<std::byte>>(std::move(value.data));
+                }
               }
-            }
-            state->ready = true;
-          },
-          request);
-      if (accepted.failed())
-        return accepted;
-      storage_->environment_ = std::move(state);
+              state->ready = true;
+            },
+            request);
+        if (accepted.failed()) {
+          application_state->files_initialization_ = accepted;
+          return;
+        }
+        application_state->environment_ = std::move(state);
+      }
     }
-  }
-  return gneiss::error::success;
+  });
+  if (accepted.failed())
+    return accepted;
+  // 内联完成的后端也经同一队列通知；异步后端由后续主循环继续分发，不阻塞等待。
+  const auto dispatched = storage_->files_->dispatch_completions(64);
+  if (dispatched.failed())
+    return dispatched;
+  return storage_->files_initialization_.value_or(error::success);
 }
 
 std::uint64_t application::now_ns() const {
@@ -689,6 +705,11 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
     }
 
     const auto advanced = advance_loading();
+    if (advanced == error::not_ready && !storage_->files_initialization_) {
+      // 启动尚未完成，仍允许下一轮窗口事件与文件完成分发，不执行业务更新。
+      ++frames_run;
+      continue;
+    }
     if (advanced.failed()) {
       storage_->is_running_ = false;
       return advanced;
@@ -979,6 +1000,10 @@ gneiss::error application::advance_resource_io() {
     if (status.failed())
       return status;
   }
+  if (!storage_->files_initialization_)
+    return error::not_ready;
+  if (storage_->files_initialization_->failed())
+    return *storage_->files_initialization_;
   storage_->asset_manager_->advance();
   storage_->asset_manager_->collect_unused();
   if (auto state = storage_->environment_; state && state->ready) {
