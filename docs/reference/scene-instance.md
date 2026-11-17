@@ -44,7 +44,11 @@ const auto count = created->size(); // 空场景为零，无需拆 result。
 槽位生命周期实现在 `world.cpp`，成员操作和借用句柄实现在 `world_scenes.cpp`。
 两者不依赖资产管理器；`world.create_scene()` 无需 attach。
 `transfer_subtree` 显式迁移同 World 的整棵子树，保持实体身份及局部变换。
-`game_object::world_matrix()` 返回实际组合矩阵，包含非均匀缩放产生的剪切。
+`game_object::scene()`、`children()`、`world_matrix()` 要求有效对象及所属线程，直接返回
+场景句柄、子对象句柄快照和实际组合矩阵；内部层级断裂属于断言违例。矩阵包含非均匀缩放
+产生的剪切。子对象快照不保活对象，结构修改后使用快照中的句柄前应检查是否仍存活。
+`local_transform()`、`parent()`、`world_transform()` 尚保留 result；后者仍用于相机和编辑器
+TRS 操作，不承诺无损表示剪切。
 卸载通过 ECS 析构组件并释放资源强引用，不调用资产缓存清理。
 
 `instantiate(destination, composed, bindings, parent)` 将已组合的完整对象追加到指定场景。

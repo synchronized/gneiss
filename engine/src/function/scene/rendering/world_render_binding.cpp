@@ -77,19 +77,17 @@ result<void> world_render_binding::synchronize() {
     if (!ready)
       continue;
     auto matrix = source_.find(id).world_matrix();
-    if (!matrix)
-      return matrix.error();
     const auto mesh = resource_handle(component->mesh);
     const auto material = resource_handle(component->material);
     if (!key) {
       if (last_key == std::numeric_limits<std::uint64_t>::max())
         return error::invalid_state;
       key = render::instance_key{++last_key};
-      commands.entries.emplace_back(render::create_instance{key, {mesh, material, *matrix}});
+      commands.entries.emplace_back(render::create_instance{key, {mesh, material, matrix}});
       updates[id] = key;
     } else {
       if (change.transform)
-        commands.entries.emplace_back(render::set_transform{key, *matrix});
+        commands.entries.emplace_back(render::set_transform{key, matrix});
       if (changed_component != change.components.end())
         commands.entries.emplace_back(render::set_resources{key, mesh, material});
     }

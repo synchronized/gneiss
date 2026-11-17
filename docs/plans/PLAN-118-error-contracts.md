@@ -127,3 +127,16 @@ Windows Clang Debug：Runtime 及九个相关测试目标构建通过，场景�
 场景加载、场景实例、Prefab 应用、World 边界、组件装配和编辑器属性编辑九项回归通过。
 构建中修正 Prefab 应用测试遗留的私有包含根为 engine/src，其重复生产源码仍未清理。
 未运行 Release、静态库、跨平台及 GPU 验证。P1 的 GameObject 查询和修改/销毁迁移仍待完成。
+
+### P1 第三组实施结果
+
+GameObject 的 scene、children、world_matrix 直接返回值；使用所有配置断言检查有效对象与
+所属线程，父子层级断裂及缺失场景归属作为不变量违例。渲染同步在确认对象与组件存活后直接
+使用矩阵。transfer_subtree 保留外部根对象有效性检查，过期根仍返回 invalid_handle，测试
+覆盖这一边界，避免通过 scene() 断言替代可恢复失败。
+子对象集合仍为非拥有句柄快照；保留删除后的失效检查及包含剪切的矩阵组合测试。
+world_transform 仍由相机和编辑器使用，本组未删除或改变 TRS 组合行为；local_transform、
+parent 以及修改/销毁接口尚待迁移。
+Windows Clang Debug 四目标构建与 native-scene-lifecycle、scene_instance、world_render_binding、
+world-service-boundary 回归通过；新增过期根检查后重跑 World 边界通过。
+未运行 Release、静态库、跨平台与 GPU 验证；P1 未完成。

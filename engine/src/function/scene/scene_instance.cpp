@@ -102,9 +102,9 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   auto status = validate_scene(destination.id());
   if (status.failed())
     return status;
-  auto source = root.scene();
-  if (!source)
-    return source.error();
+  if (!root.is_valid())
+    return error::invalid_handle;
+  const auto source = root.scene();
   if (parent.owner()) {
     if (!destination.contains(parent))
       return error::invalid_argument;
@@ -113,7 +113,7 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   for (std::size_t i = 0; i < nodes.size(); ++i) {
     if (parent.owner() && nodes[i].get() == parent.entity().get())
       return error::invalid_argument;
-    if (impl_->scene_of(nodes[i]) != source->id())
+    if (impl_->scene_of(nodes[i]) != source.id())
       return error::invalid_state;
     const auto* object = impl_->get<detail::object_state>(nodes[i].get());
     const auto* children = object ? &object->children : nullptr;
@@ -130,11 +130,11 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   try {
     status = root.reparent(parent);
   } catch (...) {
-    assign(source->id());
+    assign(source.id());
     throw;
   }
   if (status.failed())
-    assign(source->id());
+    assign(source.id());
   return status;
 }
 bool scene_instance::contains(game_object object) const noexcept {

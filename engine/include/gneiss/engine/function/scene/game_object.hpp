@@ -27,10 +27,10 @@ public:
   /** 只修改运行名称，保留对象身份，不写编辑文档。 */
   [[nodiscard]] GNEISS_API error set_name(std::string_view name) const;
   [[nodiscard]] GNEISS_API result<math::transform> local_transform() const;
-  /** 完整层级矩阵，保留非均匀缩放与旋转组合产生的剪切。 */
-  [[nodiscard]] GNEISS_API result<math::matrix4> world_matrix() const;
-  /** 借用所属场景；纯 ECS 辅助实体或失效对象返回 invalid_handle。 */
-  [[nodiscard]] GNEISS_API result<scene_instance> scene() const;
+  /** 要求对象有效且在所属线程。完整层级矩阵，保留非均匀缩放与旋转组合产生的剪切。 */
+  [[nodiscard]] GNEISS_API math::matrix4 world_matrix() const;
+  /** 借用所属场景；要求有效 GameObject 及所属线程，纯 ECS 实体不是 GameObject。 */
+  [[nodiscard]] GNEISS_API scene_instance scene() const;
   [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;
   [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const;
   /** 无父节点时返回成功的空句柄；失效对象返回 invalid_handle。 */
@@ -39,8 +39,8 @@ public:
   [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
   /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */
   [[nodiscard]] GNEISS_API error destroy() const;
-  /** 返回子对象句柄快照；修改层级不改变快照，使用前须检查句柄是否仍有效。 */
-  [[nodiscard]] GNEISS_API result<std::vector<game_object>> children() const;
+  /** 要求对象有效且在所属线程。返回子对象句柄快照；修改层级不改变快照，使用前须检查句柄是否仍有效。 */
+  [[nodiscard]] GNEISS_API std::vector<game_object> children() const;
   /** 借用普通组件；要求有效对象和所属线程，缺失返回 nullptr。
    * 任何组件增删、替换、对象销毁或场景卸载后须重新获取；复制对象句柄不保活组件。
    * 修改后调用 notify_component_modified<T>()；受约束组件仍通过自身方法校验。 */

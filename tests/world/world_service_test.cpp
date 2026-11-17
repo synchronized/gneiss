@@ -53,7 +53,7 @@ bool scene_object_storage() {
   auto roots = object_scene->roots();
   auto children = root->children();
   if (objects.size() != 2 || roots.size() != 1 || roots.front() != *root ||
-      !children || children->size() != 1 || children->front() != *child)
+      children.size() != 1 || children.front() != *child)
     return false;
   if (child->try_component<mesh_component>() || child->add_component<mesh_component>().failed() ||
       !child->try_component<mesh_component>() ||
@@ -82,13 +82,14 @@ bool scene_object_storage() {
     return false;
   if ((*root).destroy().failed())
     return false;
-  if (object_scene->contains(*root) || object_scene->contains({}) ||
+  if (owner.transfer_subtree(*root, *object_scene) != error::invalid_handle ||
+      object_scene->contains(*root) || object_scene->contains({}) ||
       !object_scene->objects().empty() || !object_scene->roots().empty())
     return false;
   count = owner.entity_count();
   if (count != 0 || owner.find(child_entity).is_valid())
     return false;
-  if (children->front().is_valid() ||
+  if (children.front().is_valid() ||
       child->add_component<mesh_component>() != error::invalid_handle || child->is_valid() ||
       (*root).destroy() != error::invalid_handle)
     return false;

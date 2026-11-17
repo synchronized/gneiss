@@ -497,7 +497,7 @@ int main() try {
     if (!child)
       return 22;
     auto matrix = child->world_matrix();
-    if (!matrix || *matrix != gneiss::math::model_matrix(root_transform) *
+    if (matrix != gneiss::math::model_matrix(root_transform) *
                                   gneiss::math::model_matrix(child_transform))
       return 23;
     if ((*native)->transfer_subtree(*object, *instance, *child) !=
@@ -506,7 +506,7 @@ int main() try {
       return 24;
     if ((*native)->transfer_subtree(*object, *target_scene, *target_parent).failed() ||
         instance->size() != 0U || target_scene->size() != 3U ||
-        child->scene()->id() != target_scene->id() ||
+        child->scene().id() != target_scene->id() ||
         object->parent()->entity() != target_parent->entity())
       return 25;
     unsigned visited = 0;

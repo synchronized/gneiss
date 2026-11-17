@@ -113,7 +113,7 @@ int main(void) {
   if (!replacement || replacement->entity() == copy.entity() || copy.is_valid())
     return 13;
   auto membership = replacement->scene();
-  if (!membership || membership->id() != object_scene->id())
+  if (membership.id() != object_scene->id())
     return 17;
   auto scene_copy = *object_scene;
   if (object_scene->unload().failed() || scene_copy.is_valid() || replacement->is_valid())

@@ -10,20 +10,17 @@
 #include <utility>
 
 namespace gneiss {
-result<std::vector<game_object>> game_object::children() const {
-  if (!owner_)
-    return error::invalid_handle;
+std::vector<game_object> game_object::children() const {
+  GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
-  const auto* object = (*state)->get<detail::object_state>(entity_.get());
-  const auto* ids = object ? &object->children : nullptr;
-  if (!ids)
-    return error::invalid_handle;
+  const auto& ids = (*state)->get<detail::object_state>(entity_.get())->children;
   std::vector<game_object> result;
-  result.reserve(ids->size());
-  for (auto id : *ids)
-    result.push_back(owner_->find(id));
+  result.reserve(ids.size());
+  for (auto id : ids) {
+    auto child = owner_->find(id);
+    GNEISS_ASSERT(child.is_valid(), "对象层级不得包含失效子对象");
+    result.push_back(child);
+  }
   return result;
 }
 bool game_object::is_valid() const noexcept {
@@ -44,28 +41,21 @@ result<math::transform> game_object::local_transform() const {
   const auto* value = object ? &object->local : nullptr;
   return value ? result<math::transform>{*value} : result<math::transform>{error::invalid_handle};
 }
-result<scene_instance> game_object::scene() const {
-  if (!owner_)
-    return error::invalid_handle;
+scene_instance game_object::scene() const {
+  GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
-  return scene_instance::borrow(*owner_, (*state)->scene_of(entity_id{entity_.get()}));
+  auto scene = scene_instance::borrow(*owner_, (*state)->scene_of(entity_));
+  GNEISS_ASSERT(scene.has_value(), "GameObject 必须属于存活场景");
+  return *scene;
 }
-result<math::matrix4> game_object::world_matrix() const {
-  if (!owner_)
-    return error::invalid_handle;
+math::matrix4 game_object::world_matrix() const {
+  GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
   const auto* object = (*state)->get<detail::object_state>(entity_.get());
-  if (!object)
-    return error::invalid_handle;
   auto matrix = math::model_matrix(object->local);
   while (object->parent) {
     object = (*state)->get<detail::object_state>(object->parent.get());
-    if (!object)
-      return error::invalid_handle;
+    GNEISS_ASSERT(object, "对象层级不得包含失效父对象");
     matrix = math::model_matrix(object->local) * matrix;
   }
   return matrix;
