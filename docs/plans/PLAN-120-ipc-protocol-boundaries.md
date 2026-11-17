@@ -182,3 +182,17 @@ logging::record_view 转为拥有文本的协议记录，并非同类型转发�
 验收：Windows Clang Debug 共享构建及 19 项相关测试通过，包含大批次分片、重复 ID 拒绝、
 自定义组件往返及失败不替换完整快照、真实 Runtime/Editor 工作流。Property 测试初始化已与
 宿主 initialize_meta 流程一致。未执行静态、Linux/Web 或远端验证。
+
+## Inspection 分片发送收敛
+
+- [x] 完整逻辑批次经 encode_inspection_snapshot 返回带诊断的信封列表。
+- [x] 整批校验重复 ID；区分序列化失败与大小超限，不再将非法内容误报为内存不足。
+- [x] 探测时预留最大分片序号/数量的字段宽度，保持 64 KiB 与 128 个发送分片上限。
+- [x] Runtime 直接取得帧列表，Editor 直接按消息描述解码；删除字节分片、v2 信封包装及
+  Runtime 纯转发源文件。低层单片 payload 入口仍用于边界测试，resync 空负载接口不变。
+
+本轮不改变 Inspection v3 格式；改变的是非法输入与分片容量失败的错误分类。完整结果发布后
+才进入发送队列，现有网络背压与发送重试机制不变。Session 迁移及 stdout 编码评估仍待处理。
+
+验收：Windows Clang Debug 共享构建及 19 项相关测试通过，包括完整批次分片/拒绝与真实
+Runtime、Editor 工作流。未执行静态、Linux/Web 或远端验证。

@@ -40,9 +40,6 @@ make_protocol_error_response(gneiss::error operation, std::string message,
 make_log_event(const gneiss::logging::record_view& event,
                gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-make_scene_snapshot_events(const ipc_inspection_batch& batch,
-                           std::vector<gneiss::ipc::envelope>& output);
-[[nodiscard]] gneiss::error
 make_statistics_event(const ipc_runtime_statistics& statistics,
                       gneiss::ipc::envelope& output) noexcept;
 

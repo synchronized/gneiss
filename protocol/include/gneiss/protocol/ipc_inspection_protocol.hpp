@@ -80,20 +80,14 @@ extern const protocol::message_descriptor<ipc_inspection_batch> inspection_snaps
 [[nodiscard]] gneiss::error encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
                                                         std::vector<std::uint8_t>& output);
 
-/** 按协议负载上限把一个逻辑批次编码为有界分片。 */
-[[nodiscard]] gneiss::error
-encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
-                                   std::vector<std::vector<std::uint8_t>>& output);
+/** 编码完整逻辑批次为有界信封列表；失败返回诊断，不发布部分结果。 */
+[[nodiscard]] result<std::vector<ipc::envelope>, serialization::diagnostic>
+encode_inspection_snapshot(const ipc_inspection_batch& batch);
 
 /** 解码并验证 JSON 载荷，不验证镜像中的父子引用。 */
 [[nodiscard]] gneiss::error decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
                                                         ipc_inspection_batch& output);
 
-[[nodiscard]] gneiss::error
-encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
-                               std::vector<gneiss::ipc::envelope>& output);
-[[nodiscard]] gneiss::error decode_ipc_inspection_batch_v2(const gneiss::ipc::envelope& envelope,
-                                                           ipc_inspection_batch& output);
 [[nodiscard]] gneiss::error encode_ipc_inspection_resync(std::uint32_t request_id,
                                                          gneiss::ipc::envelope& output) noexcept;
 [[nodiscard]] gneiss::error

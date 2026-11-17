@@ -137,4 +137,12 @@ inspection_snapshot 描述快照事件及方向，反射先生成独立候选，
 跨片顺序和镜像应用仍由接收侧维护。编码与解码都拒绝批次内重复 ID。
 
 单片上限仍为 64 KiB，每批最多 8192 项，接收 chunk_count 上限 4096，发送最多 128 片。
-分片算法、批次/分片包装入口继续保留；resync 仍使用空负载，不为形式统一增加 JSON 对象。
+发送统一使用 `encode_inspection_snapshot(batch)`，返回带诊断的信封列表 result；输入必须是
+完整逻辑批次（chunk_index=0、chunk_count=1）。先校验整个批次，再按编码字节数拆分，
+重复 ID 即使会落在不同分片也拒绝。只有编码成功但超过字节上限时才尝试分片；序列化失败
+直接保留诊断。单项过大、片数超限和非法批次返回 invalid_argument，不伪装为 out_of_memory。
+编码全部成功后才返回帧列表，Runtime 随后加入现有待发送队列，保留队列背压。
+
+接收使用 `protocol::decode(inspection_snapshot, envelope)`。旧字节分片入口、带 v2 后缀的
+信封包装和 Runtime 纯转发源文件已删除。单片 payload 编解码仍供协议边界测试使用。
+resync 继续使用空负载，不为形式统一增加 JSON 对象。

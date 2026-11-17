@@ -76,51 +76,43 @@ namespace {
 }
 
 [[nodiscard]] bool test_inspection() {
-  const gneiss::host::ipc_inspection_batch batch{
-      .stamp = {.session_id = 3U, .sequence = 4U},
-      .is_full = false,
-      .chunk_index = 0U,
-      .chunk_count = 1U,
-      .changes = {{.type = gneiss::host::ipc_inspection_change_type::remove,
-                   .id = {.value = 7U, .generation = 1U},
-                   .node = {}}}};
-  std::vector<gneiss::ipc::envelope> envelopes;
-  if (gneiss::host::encode_ipc_inspection_batch_v2(batch, envelopes) !=
-          gneiss::error::success ||
-      envelopes.size() != 1U) {
-    return false;
-  }
-  gneiss::host::ipc_inspection_batch decoded;
-  if (gneiss::host::decode_ipc_inspection_batch_v2(envelopes.front(), decoded) !=
-          gneiss::error::success ||
-      decoded.stamp.sequence != batch.stamp.sequence || decoded.changes.size() != 1U) {
-    return false;
-  }
-  auto large = batch;
-  large.changes.clear();
+  ipc_inspection_batch batch{.stamp = {3, 4}, .changes = {}};
+  auto empty = encode_inspection_snapshot(batch);
+  if (!empty || empty->size() != 1) return false;
   for (std::uint64_t i = 1; i <= 12; ++i) {
-    auto& change = large.changes.emplace_back();
+    auto& change = batch.changes.emplace_back();
     change.id = change.node.id = {i, 1};
     change.node.name.assign(12000, 'x');
   }
-  if (encode_ipc_inspection_batch_v2(large, envelopes).failed() || envelopes.size() < 2)
-    return false;
+  auto frames = encode_inspection_snapshot(batch);
+  if (!frames || frames->size() < 2) return false;
   std::size_t count = 0;
-  for (std::size_t i = 0; i < envelopes.size(); ++i) {
-    if (envelopes[i].payload.size() > 65536 ||
-        decode_ipc_inspection_batch_v2(envelopes[i], decoded).failed() ||
-        decoded.chunk_index != i || decoded.chunk_count != envelopes.size()) return false;
-    count += decoded.changes.size();
+  for (std::size_t i = 0; i < frames->size(); ++i) {
+    auto decoded = gneiss::protocol::decode(inspection_snapshot, (*frames)[i]);
+    if (!decoded || (*frames)[i].payload.size() > 65536 || decoded->chunk_index != i ||
+        decoded->chunk_count != frames->size()) return false;
+    for (const auto& change : decoded->changes)
+      if (change.id.value != ++count) return false;
   }
-  if (count != large.changes.size()) return false;
-  auto duplicate = large;
-  duplicate.changes[1].id = duplicate.changes[1].node.id = duplicate.changes[0].id;
-  std::vector<std::uint8_t> rejected;
-  if (encode_ipc_inspection_batch(duplicate, rejected).ok()) return false;
+  if (count != batch.changes.size()) return false;
+  // 两个重复对象落入不同分片时，也必须在完整批次阶段拒绝。
+  batch.changes.back().id = batch.changes.back().node.id = batch.changes.front().id;
+  auto invalid = encode_inspection_snapshot(batch);
+  if (invalid || invalid.error().error != gneiss::error::invalid_argument ||
+      invalid.error().message.empty()) return false;
+  batch.changes.resize(1);
+  batch.changes.front().type = ipc_inspection_change_type::remove;
+  batch.changes.front().node.name.assign(70000, 'x');
+  auto oversized = encode_inspection_snapshot(batch);
+  if (oversized || oversized.error().error != gneiss::error::invalid_argument ||
+      oversized.error().message.empty()) return false;
+  batch.changes.clear();
+  batch.chunk_index = 1;
+  batch.chunk_count = 2;
+  if (encode_inspection_snapshot(batch)) return false;
   gneiss::ipc::envelope resync;
-  return gneiss::host::encode_ipc_inspection_resync(9U, resync) == gneiss::error::success &&
-         gneiss::host::decode_ipc_inspection_resync(resync) == gneiss::error::success &&
-         resync.request_id == 9U && resync.kind == gneiss::ipc::message_kind::request;
+  return encode_ipc_inspection_resync(9U, resync) == gneiss::error::success &&
+         decode_ipc_inspection_resync(resync) == gneiss::error::success && resync.request_id == 9;
 }
 
 [[nodiscard]] bool test_inspection_guid_boundary() {

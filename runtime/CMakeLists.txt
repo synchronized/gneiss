@@ -10,7 +10,6 @@ add_library(
   ipc/inbound/property_commands.cpp
   ipc/inbound/session_commands.cpp
   ipc/outbound/heartbeat_response.cpp
-  ipc/outbound/inspection_events.cpp
   ipc/outbound/log_events.cpp
   ipc/outbound/protocol_error_response.cpp
   ipc/outbound/ready_event.cpp

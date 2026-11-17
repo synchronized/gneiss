@@ -286,14 +286,11 @@ runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) {
   if (!implementation_->pending_inspection_frames.empty()) {
     return gneiss::error::not_ready;
   }
-  std::vector<gneiss::ipc::envelope> frames;
-  const auto operation = make_scene_snapshot_events(batch, frames);
-  if (operation != gneiss::error::success) {
-    return operation;
-  }
+  auto frames = encode_inspection_snapshot(batch);
+  if (!frames) return frames.error().error;
   implementation_->pending_inspection_frames.insert(
-      implementation_->pending_inspection_frames.end(), std::make_move_iterator(frames.begin()),
-      std::make_move_iterator(frames.end()));
+      implementation_->pending_inspection_frames.end(), std::make_move_iterator(frames->begin()),
+      std::make_move_iterator(frames->end()));
   return implementation_->flush_inspection();
 }
 
