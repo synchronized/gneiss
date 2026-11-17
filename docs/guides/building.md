@@ -616,3 +616,5 @@ IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/p
 
 项目配置与协议测试由各自测试目录的 CMake 声明；其他测试按现有模块条件启用，依赖和编译权限保持在模块边界内。
 目录迁移不改变目标名、CTest 名称或测试运行命令。
+
+测试目标的 IDE 分组、目录归属和维护规则见[测试维护指南](testing.md#测试目标的-cmake-约定)。

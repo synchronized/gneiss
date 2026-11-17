@@ -228,7 +228,7 @@ if(WIN32)
 endif()
 gneiss_target_compile_warnings(gneiss_scene_load_baseline)
 gneiss_target_output_directories(gneiss_scene_load_baseline)
-set_target_properties(gneiss_scene_load_baseline PROPERTIES FOLDER "Benchmarks")
+set_target_properties(gneiss_scene_load_baseline PROPERTIES FOLDER "Tests")
 
 add_executable(gneiss_texture_load_window_benchmark texture_load_window_benchmark.cpp)
 target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)
@@ -237,7 +237,7 @@ if(WIN32)
 endif()
 gneiss_target_compile_warnings(gneiss_texture_load_window_benchmark)
 gneiss_target_output_directories(gneiss_texture_load_window_benchmark)
-set_target_properties(gneiss_texture_load_window_benchmark PROPERTIES FOLDER "Benchmarks")
+set_target_properties(gneiss_texture_load_window_benchmark PROPERTIES FOLDER "Tests")
 
 # 共享 C++ 绘制描述的转换、借用数组及 C ABI 提交验证。
 add_executable(gneiss_native_draw_submission_test native_draw_submission_test.cpp)

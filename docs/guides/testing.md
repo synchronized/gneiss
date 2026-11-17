@@ -17,6 +17,20 @@ Tooling、Editor、Runtime、Project、Protocol 测试位于同名目录，跨�
 共享辅助和输入保留在 support、data、fixtures；不要为目录迁移复制夹具或生产源码。
 独立浏览器任务宿主位于 `tests/engine/task_web/`，不加入桌面默认构建。
 
+## 测试目标的 CMake 约定
+
+- 测试可执行目标、仅供测试使用的夹具库、头文件编译目标和手动测试/基准目标统一设置
+  `FOLDER "Tests"`，目标定义与属性放在同一领域的 CMake 文件中。
+- 从生产模块复用的库保留其生产归属，不因被测试链接而改为 Tests；单纯的 `add_test()`
+  脚本用例没有构建目标，不设置此属性。
+- 顶层工程启用 `USE_FOLDERS`。`FOLDER` 只控制支持该属性的 IDE 生成器中的组织，
+  不代替 CTest 的 `LABELS`、超时、依赖和启用条件，也不意味着该测试已经通过。
+
+```cmake
+add_executable(gneiss_example_test example_test.cpp)
+set_target_properties(gneiss_example_test PROPERTIES FOLDER "Tests")
+```
+
 ## 测试什么
 
 - 保护可观察行为、所有权、数据格式和错误边界，优先覆盖可能导致数据丢失、悬空引用、

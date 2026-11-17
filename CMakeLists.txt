@@ -10,6 +10,10 @@ project(
   LANGUAGES C CXX
 )
 
+if(PROJECT_IS_TOP_LEVEL)
+  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+endif()
+
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 option(BUILD_SHARED_LIBS "构建共享库" ON)
 option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)

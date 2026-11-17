@@ -230,6 +230,7 @@ add_executable(gneiss_engine_header_boundary_test engine_header_boundary_test.cp
 target_link_libraries(gneiss_engine_header_boundary_test PRIVATE gneiss::engine)
 gneiss_target_compile_warnings(gneiss_engine_header_boundary_test)
 gneiss_target_output_directories(gneiss_engine_header_boundary_test)
+set_target_properties(gneiss_engine_header_boundary_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.engine-header-boundary COMMAND gneiss_engine_header_boundary_test)
 set_tests_properties(gneiss.engine-header-boundary PROPERTIES LABELS cpu)
 
