@@ -442,6 +442,18 @@ Meta/Render/Prefab 测试随 PLAN-118 P2/P3 对应接口迁移整理，不提前
 本轮不按测试数量删减；保留生命周期、外部输入、异步关闭及跨模块装配验证。
 测试精简仍未完成，不因对象接口迁移结束而关闭本计划。
 
+### P1 接口稳定后的测试精简：Prefab 运行应用
+
+2026-11-17：prefab-runtime-application 改为只编译测试自身并链接真实 Engine 与线程依赖。
+移除重复编译的十二个引擎源码、GNEISS_BUILDING_LIBRARY、engine/src 私有包含目录，以及
+直接 PNG/JSON/Granit/任务库依赖。测试直接包含 composition/scene_update 原生契约，删除
+未使用的 scene_application/value_result 包装头及重复 entity_id 转换。
+保留同源实例独立身份、改父与改名、循环拒绝、跨线程拒绝、删除及失步检测的全部行为验证。
+同时删除 CMake 中不添加任何库的空 target_link_libraries 循环；未改动其他目标的有效依赖。
+最终 Windows Clang Debug 配置、目标构建和 prefab-runtime-application 测试通过，
+git diff --check 通过。未运行静态库、Release、跨平台或 GPU 验证；其他重复源码目标及
+scene_access 消费者仍待逐链清理，本计划未完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "../support/scene_application.hpp"
-#include "../support/value_result.hpp"
+#include <gneiss/engine/function/scene/composition.hpp>
+#include <gneiss/engine/function/scene/scene_update.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <cstdio>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -53,12 +57,12 @@ int main() try {
   const auto root_node = mapping.at(first_root).entity;
   const auto child_node = mapping.at(first_child).entity;
   check(root_node != mapping.at(second_root).entity);
-  auto root_identity = world.find(gneiss::entity_id{(root_node).get()}).name();
+  auto root_identity = world.find(root_node).name();
   auto other_identity =
-      world.find(gneiss::entity_id{(mapping.at(second_root).entity).get()}).name();
+      world.find(mapping.at(second_root).entity).name();
   // 同源实例分别使用场景中的名称，运行对象不以名称表达来源身份。
   check(root_identity == "First" && other_identity == "Second");
-  check(world.find(gneiss::entity_id{(child_node).get()}).parent().entity() == root_node);
+  check(world.find(child_node).parent().entity() == root_node);
   // 来源描述释放不影响普通运行成员；组合结果由外部调用方持有。
   std::weak_ptr<e::prefab_description> lifetime = source;
   source.reset();
@@ -73,8 +77,8 @@ int main() try {
   }
   applied = e::apply_scene(*instance, mapping, *effective, next, {});
   check(applied && *applied && mapping.at(first_child).entity == child_node);
-  check(world.find(gneiss::entity_id{(child_node).get()}).parent().entity() == mapping.at(second_root).entity);
-  check(world.find(gneiss::entity_id{(child_node).get()}).name() == "Renamed");
+  check(world.find(child_node).parent().entity() == mapping.at(second_root).entity);
+  check(world.find(child_node).name() == "Renamed");
   // 无效目标层级在修改前拒绝。
   auto cycle = next;
   for (auto& object : cycle.objects)
@@ -82,7 +86,7 @@ int main() try {
       object.parent = first_child;
   applied = e::apply_scene(*instance, mapping, next, cycle, {});
   check(!applied && applied.error() == e::error::invalid_argument);
-  check(world.find(gneiss::entity_id{(child_node).get()}).parent().entity() == mapping.at(second_root).entity);
+  check(world.find(child_node).parent().entity() == mapping.at(second_root).entity);
   e::error foreign;
   std::thread worker([&] {
     auto result = e::apply_scene(*instance, mapping, next, next, {});
@@ -95,10 +99,10 @@ int main() try {
   std::erase_if(removed.objects, [&](const auto& object) { return object.address == first_child; });
   applied = e::apply_scene(*instance, mapping, next, removed, {});
   check(applied && *applied && !mapping.contains(first_child));
-  check(!world.object(gneiss::entity_id{child_node.get()}));
+  check(!world.object(child_node));
   check(mapping.at(first_root).entity == root_node && instance->size() == 3);
   // 外部直接销毁导致失步，不得误用旧实体或静默部分更新。
-  world.find(gneiss::entity_id{(root_node).get()}).destroy();
+  world.find(root_node).destroy();
   applied = e::apply_scene(*instance, mapping, removed, removed, {});
   check(applied && !*applied);
   instance->unload();
