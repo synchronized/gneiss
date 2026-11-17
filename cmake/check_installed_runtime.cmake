@@ -69,9 +69,9 @@ execute_process(
   OUTPUT_VARIABLE runtime_output
   ERROR_VARIABLE runtime_error
 )
-if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "@gneiss-log-v1" OR
-   NOT runtime_output MATCHES "\"source\":\"application\"" OR
-   NOT runtime_output MATCHES "stage=shutdown")
+if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "@gneiss-log-v2" OR
+   NOT runtime_output MATCHES "\"source\":\"runtime\"" OR
+   NOT runtime_output MATCHES "\"category\":\"shutdown\"")
   message(FATAL_ERROR
           "安装树 Runtime 启动失败：${runtime_result}\n${runtime_output}${runtime_error}")
 endif()
@@ -93,7 +93,7 @@ if(GNEISS_SHARED)
     ERROR_VARIABLE template_runtime_error
   )
   if(NOT template_runtime_result EQUAL 0 OR
-     NOT template_runtime_output MATCHES "stage=shutdown")
+     NOT template_runtime_output MATCHES "\"category\":\"shutdown\"")
     message(FATAL_ERROR
             "安装树游戏模板启动失败：${template_runtime_result}\n${template_runtime_output}${template_runtime_error}"
     )
@@ -164,7 +164,7 @@ if(GNEISS_SHARED)
     )
   endif()
   if(NOT package_runtime_result EQUAL 0 OR
-     NOT package_runtime_output MATCHES "stage=shutdown")
+     NOT package_runtime_output MATCHES "\"category\":\"shutdown\"")
     message(FATAL_ERROR
             "可运行目录包启动失败：${package_runtime_result}\n${package_runtime_output}${package_runtime_error}"
     )
@@ -199,7 +199,7 @@ if(GNEISS_SHARED)
     )
   endif()
   if(NOT shipping_runtime_result EQUAL 0 OR
-     NOT shipping_runtime_output MATCHES "stage=shutdown")
+     NOT shipping_runtime_output MATCHES "\"category\":\"shutdown\"")
     message(FATAL_ERROR
             "Shipping 发布包启动失败：${shipping_runtime_result}\n${shipping_runtime_output}${shipping_runtime_error}"
     )
@@ -211,8 +211,8 @@ if(GNEISS_SHARED)
     OUTPUT_VARIABLE lantern_output
     ERROR_VARIABLE lantern_error
   )
-  if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "stage=startup_scene" OR
-     NOT lantern_output MATCHES "stage=shutdown")
+  if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "\"category\":\"startup_scene\"" OR
+     NOT lantern_output MATCHES "\"category\":\"shutdown\"")
     message(FATAL_ERROR
             "安装树 Lantern Gallery 启动失败：${lantern_result}\n${lantern_output}${lantern_error}")
   endif()

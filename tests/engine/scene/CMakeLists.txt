@@ -71,16 +71,10 @@ gneiss_target_output_directories(gneiss_scene_load_application_test)
 set_target_properties(gneiss_scene_load_application_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_application_test)
 
-add_executable(gneiss_scene_load_preparation_test
-  scene_load_preparation_test.cpp
-
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
-)
+add_executable(gneiss_scene_load_preparation_test scene_load_preparation_test.cpp)
+# 仅 content_dependency 为私有白盒访问；实现统一由 Engine 提供。
 target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_scene_load_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_scene_load_preparation_test PRIVATE gneiss::engine gneiss_yyjson gneiss_tasks)
+target_link_libraries(gneiss_scene_load_preparation_test PRIVATE gneiss::engine gneiss_tasks)
 target_compile_features(gneiss_scene_load_preparation_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_load_preparation_test)
 gneiss_target_output_directories(gneiss_scene_load_preparation_test)
@@ -189,3 +183,5 @@ gneiss_target_compile_warnings(gneiss_component_adapter_test)
 gneiss_target_output_directories(gneiss_component_adapter_test)
 set_target_properties(gneiss_component_adapter_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.component-adapter COMMAND gneiss_component_adapter_test)
+
+set_tests_properties(gneiss.scene-load-preparation PROPERTIES LABELS "cpu;integration")

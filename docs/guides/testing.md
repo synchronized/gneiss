@@ -86,3 +86,16 @@ GPU、外部大场景、跨平台和发布矩阵按任务风险及发布要求�
 integration（跨模块或真实 I/O/进程）、gpu、death（预期异常退出）；标签可以重叠。
 benchmark 是显式测量工具，默认不加入常规正确性套件。标签补齐前继续按已核查的测试名选择，
 不能把没有 gpu 标签的条目直接当作 CPU 安全集合。
+
+
+已标注用例可以按执行环境选择（以 Windows Clang Debug 为例）：
+
+```sh
+ctest --preset windows-clang-debug -L "^cpu$" --output-on-failure
+ctest --preset windows-clang-debug -L "^gpu$" --output-on-failure
+```
+
+以上分别运行已审查的 CPU 或 GPU 子集，不代表完整测试集；未标注项仍按名称选择。
+完整枚举使用 `ctest --preset windows-clang-debug --show-only=json-v1`。
+安装/打包流程单独使用 `-R "^gneiss.runtime.installed-smoke$"`，其 Runtime smoke
+会创建渲染后端，需要可用 GPU；不能把安装检查默认视为纯 CPU 测试。

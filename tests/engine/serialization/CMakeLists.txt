@@ -27,6 +27,7 @@ gneiss_target_output_directories(gneiss_prefab_description_test)
 set_target_properties(gneiss_prefab_description_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.prefab_description COMMAND gneiss_prefab_description_test)
 
+# 覆盖准备/校验未导出；当前与编辑器静态库混链会产生导出定义冲突，保留白盒组合待专项收敛。
 add_executable(
   gneiss_prefab_property_override_test
   prefab_property_override_test.cpp
@@ -43,3 +44,6 @@ gneiss_target_compile_warnings(gneiss_prefab_property_override_test)
 gneiss_target_output_directories(gneiss_prefab_property_override_test)
 set_target_properties(gneiss_prefab_property_override_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.prefab_property_override COMMAND gneiss_prefab_property_override_test)
+
+set_tests_properties(gneiss.json_format gneiss.prefab_property_override PROPERTIES LABELS "cpu;unit")
+set_tests_properties(gneiss.scene_description gneiss.prefab_description PROPERTIES LABELS "cpu;integration")
