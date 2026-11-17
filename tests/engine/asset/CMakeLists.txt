@@ -26,7 +26,7 @@ set_target_properties(gneiss_png_decoder_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.png_decoder COMMAND gneiss_png_decoder_test)
 
 add_executable(gneiss_asset_uri_test asset_uri_test.cpp)
-target_link_libraries(gneiss_asset_uri_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_asset_uri_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_asset_uri_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_uri_test)
 gneiss_target_output_directories(gneiss_asset_uri_test)
@@ -55,7 +55,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
 )
 target_include_directories(gneiss_mesh_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_value_interface)
+target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_core_values)
 target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math_dependency)
 target_compile_features(gneiss_mesh_binary_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_mesh_binary_test PRIVATE GNEISS_STATIC_DEFINE)
@@ -70,7 +70,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
 )
 target_include_directories(gneiss_texture_ktx2_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_texture_ktx2_test PRIVATE gneiss_value_interface)
+target_link_libraries(gneiss_texture_ktx2_test PRIVATE gneiss_core_values)
 target_compile_features(gneiss_texture_ktx2_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_texture_ktx2_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_ktx2_test)
@@ -84,7 +84,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
 )
 target_include_directories(gneiss_texture_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_texture_binary_test PRIVATE gneiss_value_interface)
+target_link_libraries(gneiss_texture_binary_test PRIVATE gneiss_core_values)
 target_compile_features(gneiss_texture_binary_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_texture_binary_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_binary_test)

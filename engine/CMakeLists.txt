@@ -368,7 +368,7 @@ add_custom_command(
 )
 get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
 get_target_property(granit_runtime_type granit::granit TYPE)
-if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED_LIBRARY")
+if(WIN32 AND BUILD_SHARED_LIBS AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED_LIBRARY")
   # Windows 不会沿链接信息查找 DLL；把已安装 package 的运行时依赖放到 Gneiss 同目录。
   add_custom_command(
     TARGET gneiss_engine
@@ -382,7 +382,7 @@ if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_value_interface> $<BUILD_INTERFACE:gneiss_events>)
+target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_core_values> $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_diagnostic_log_test diagnostic_log_test.cpp)
-target_link_libraries(gneiss_diagnostic_log_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_diagnostic_log_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_diagnostic_log_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_diagnostic_log_test)
 gneiss_target_output_directories(gneiss_diagnostic_log_test)

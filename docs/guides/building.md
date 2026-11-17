@@ -625,7 +625,7 @@ IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/p
 `cmake/` 按职责组织：
 
 - `dependencies/`：第三方依赖解析、源码缓存与版本选择。
-- `targets/`：跨模块目标约定、内部接口目标与可选 profiling 配置。
+- `targets/`：跨模块目标约定与可选 profiling 配置。
 - `package/`：安装、导出与 package 配置模板；不安装内部 C++ 头文件。
 - `scripts/`：构建阶段执行的代码/数据生成脚本。
 - `testing/`：CMake 验收脚本及其专用配置夹具。
@@ -634,3 +634,8 @@ IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/p
 模块测试是否启用由 `tests/CMakeLists.txt` 按生产模块选项决定，具体测试目标仍在对应领域目录声明。
 移动脚本时同步检查 `-P`、自定义命令 `DEPENDS`、独立测试工程和 CI 缓存键，
 不保留只转发旧路径的兼容脚本。
+
+基础模块的使用要求直接随其真实 target 传播，不为转发 include、编译标准或另一目标
+新增 `*_interface` 层。头文件模块仍可使用 `INTERFACE`，例如 `gneiss_core_values` 与
+`gneiss_events`。`gneiss_fatal` 保持为独立的小型静态实现库，使任务、IO 与宿主的异常边界
+不依赖完整 Engine；静态安装包仍直接包含 fatal 实现，不导出该构建树内部目标。

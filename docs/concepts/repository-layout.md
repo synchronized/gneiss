@@ -194,8 +194,9 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 ## 同源码内部接口的可见范围
 
 - 跨模块原生契约直接来自各模块的 `include` 目录，通过真实 target 依赖传播，不再复制头文件。
-- `cmake/targets/internal_interfaces.cmake` 暂保留 Engine 的接口依赖目标；它不是逐头文件授权清单，
-  也不属于安装 SDK。目标闭包的后续收敛见 PLAN-119。
+- Engine 基础目标由 `engine/src/core/CMakeLists.txt` 声明：`gneiss_core_values` 提供值类型
+  头文件使用要求，`gneiss_events` 提供事件模板依赖，`gneiss_fatal` 提供独立致命异常边界。
+  宿主使用 `gneiss::engine`；不再额外链接 native/value/result 等转发接口目标。
 - Task 的实现与目标位于 `engine/src/core/tasks`；不得借其依赖恢复全局公开源码路径。
 - 构建装配和 CMake 文件归属见[构建指南](../guides/building.md#cmake-文件与装配入口)。
 - Engine 与资产工具编译自身实现时保留 PRIVATE 源码路径。白盒测试显式申请私有路径；

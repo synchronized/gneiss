@@ -7,7 +7,7 @@ add_library(
                                  result_hpp.cpp rid_hpp.cpp
                                 scene_hpp.cpp
 )
-target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
 set_target_properties(gneiss_cpp_header_test PROPERTIES FOLDER "Tests")

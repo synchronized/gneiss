@@ -10,7 +10,7 @@
 最新定向验收中，共享构建的安装/打包 Runtime smoke 已通过（已修正旧日志匹配）。
 
 剩余收尾按以下顺序推进，不把历史阶段记录当作当前待办：
-1. CMake 文件分层、安装规则分离与测试统一装配已落地；继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
+1. CMake 文件分层、安装规则分离与测试统一装配已落地；纯转发接口目标已删除，继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
 2. 逐项审核测试标签：当前 235 项中 213 项尚无标签，不能以排除 gpu 代替 CPU 安全集合。
 3. core-boundary 扫描规则及反例已迁移并通过；继续完成静态构建和相应安装验收。
 4. 单独处理已复现于修改前基线的两个 GPU 失败；未运行的浏览器/跨平台项明确记录。
@@ -666,3 +666,16 @@ project、protocol 七个自有源码根。Engine include/src 归一为逻辑领
 - 迁移前后均为 235 项 CTest，名称集合、标签/超时等属性一致；201 个测试构建目标均属 Tests。
 - 尚未完成：接口依赖目标收敛、白盒重复编译审核、标签补齐、静态与跨平台验收；
   两个既有 GPU 基线失败不在本轮宣称修复。PLAN-119 保持实施中。
+
+### 2026-11-17：移除转发接口目标
+
+- 删除 native/value/result/task/log_output 五个 interface 目标和 internal_interfaces.cmake；
+  值类型要求合并到既有 gneiss_core_values，Tasks、Events、文件日志库直接声明使用要求。
+  已链接 Engine 的消费者删除重复接口依赖，独立白盒测试按实际需要链接基础目标。
+- gneiss_fatal 保留独立实现库，定义回归 engine/src/core/CMakeLists.txt；异常实现与宿主安装
+  terminate handler 的语义不变，底层任务和 IO 不反向依赖 Engine。
+- 修正 PACKAGE Granit 下静态 Engine 的配置错误：TARGET_RUNTIME_DLLS 仅用于共享 Engine。
+- Windows Clang Debug 全量构建、28 项基础回归及共享安装 Runtime smoke 通过；235 项测试名称不变。
+- 静态 Debug 使用已安装 Granit PACKAGE 配置通过；fatal/tasks/math/events/file sink 五个测试目标
+  构建通过，对应 11 项测试通过。首次宽泛筛选误选两个未构建的 fatal-render 测试，均因可执行文件
+  不存在失败；精确筛选后通过，不代表静态渲染验收。静态完整 Engine、安装以及 Web 验收仍未完成。

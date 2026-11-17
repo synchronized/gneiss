@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_native_render_lifecycle_test native_render_lifecycle_test.cpp)
-target_link_libraries(gneiss_native_render_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_native_render_lifecycle_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_native_render_lifecycle_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_render_lifecycle_test)
 gneiss_target_output_directories(gneiss_native_render_lifecycle_test)
@@ -142,7 +142,7 @@ add_executable(
   scene_projection_math_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_value_interface)
+target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_core_values)
 target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
@@ -241,7 +241,7 @@ set_target_properties(gneiss_texture_load_window_benchmark PROPERTIES FOLDER "Te
 
 # 共享 C++ 绘制描述的转换、借用数组及 C ABI 提交验证。
 add_executable(gneiss_native_draw_submission_test native_draw_submission_test.cpp)
-target_link_libraries(gneiss_native_draw_submission_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_native_draw_submission_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_native_draw_submission_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_draw_submission_test)
 gneiss_target_output_directories(gneiss_native_draw_submission_test)
@@ -250,7 +250,7 @@ add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submissio
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。
 add_library(gneiss_render_service_header_check OBJECT render_service_header_check.cpp)
-target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_value_interface)
+target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_core_values)
 target_compile_features(gneiss_render_service_header_check PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_service_header_check)
 set_target_properties(gneiss_render_service_header_check PROPERTIES FOLDER "Tests")

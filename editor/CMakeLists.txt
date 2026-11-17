@@ -49,7 +49,6 @@ target_include_directories(
   PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/runtime/ipc/inbound"
           "${CMAKE_CURRENT_SOURCE_DIR}/runtime/ipc/outbound"
 )
-target_link_libraries(gneiss_editor_host PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_editor_host PUBLIC cxx_std_20)
 target_compile_definitions(
   gneiss_editor_host

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_native_world_lifecycle_test native_world_lifecycle_test.cpp)
-target_link_libraries(gneiss_native_world_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_native_world_lifecycle_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_native_world_lifecycle_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_world_lifecycle_test)
 gneiss_target_output_directories(gneiss_native_world_lifecycle_test)
@@ -10,7 +10,7 @@ set_target_properties(gneiss_native_world_lifecycle_test PROPERTIES FOLDER "Test
 add_test(NAME gneiss.native-world-lifecycle COMMAND gneiss_native_world_lifecycle_test)
 
 add_executable(gneiss_native_scene_lifecycle_test native_scene_lifecycle_test.cpp)
-target_link_libraries(gneiss_native_scene_lifecycle_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_native_scene_lifecycle_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_native_scene_lifecycle_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_scene_lifecycle_test)
 gneiss_target_output_directories(gneiss_native_scene_lifecycle_test)
@@ -91,7 +91,7 @@ set_target_properties(gneiss_prefab_preparation_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.prefab-preparation COMMAND gneiss_prefab_preparation_test)
 
 add_executable(gneiss_scene_instance_test scene_instance_test.cpp)
-target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine)
 target_compile_definitions(
   gneiss_scene_instance_test
   PRIVATE
@@ -125,7 +125,7 @@ set_target_properties(gneiss_scene_instantiation_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene-instantiation COMMAND gneiss_scene_instantiation_test)
 
 add_executable(gneiss_scene_prefab_instance_test scene_prefab_instance_test.cpp)
-target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine)
 target_compile_definitions(
   gneiss_scene_prefab_instance_test
   PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
@@ -137,7 +137,7 @@ set_target_properties(gneiss_scene_prefab_instance_test PROPERTIES FOLDER "Tests
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
 
 add_executable(gneiss_property_inspector_test property_inspector_test.cpp)
-target_link_libraries(gneiss_property_inspector_test PRIVATE gneiss_fatal gneiss::engine gneiss_native_interface gneiss_tasks)
+target_link_libraries(gneiss_property_inspector_test PRIVATE gneiss_fatal gneiss::engine gneiss_tasks)
 target_compile_definitions(gneiss_property_inspector_test PRIVATE
   GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/fixtures/property_inspector")
 gneiss_target_compile_warnings(gneiss_property_inspector_test)

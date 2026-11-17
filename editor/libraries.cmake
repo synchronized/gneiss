@@ -27,7 +27,6 @@ add_library(
 )
 target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui gneiss_editor_model PRIVATE gneiss_scene_document gneiss_imguizmo)
 target_include_directories(gneiss_editor_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(gneiss_editor_ui PRIVATE gneiss_native_interface)
 target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
 target_compile_definitions(
   gneiss_editor_ui
@@ -58,7 +57,6 @@ if(TARGET gneiss_tooling)
   target_link_libraries(
     gneiss_editor_assets
     PRIVATE gneiss_io_uv gneiss::libuv
-    PUBLIC gneiss_native_interface
     PUBLIC gneiss::engine gneiss_tooling gneiss_tasks
   )
   target_include_directories(gneiss_editor_assets
@@ -105,7 +103,6 @@ add_library(
 )
 target_link_libraries(gneiss_editor_model PUBLIC gneiss::engine PRIVATE gneiss_yyjson)
 target_include_directories(gneiss_editor_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(gneiss_editor_model PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_editor_model PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_model)
 gneiss_target_output_directories(gneiss_editor_model)
@@ -148,7 +145,6 @@ add_library(
 )
 target_link_libraries(gneiss_scene_document PUBLIC gneiss_editor_model gneiss_tasks)
 target_include_directories(gneiss_scene_document PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(gneiss_scene_document PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_scene_document PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_document)
 gneiss_target_output_directories(gneiss_scene_document)

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
-target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine)
 if(WIN32)
   target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE user32)
 endif()

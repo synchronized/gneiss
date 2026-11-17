@@ -29,7 +29,7 @@ set_target_properties(gneiss_action_map_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.action_map COMMAND gneiss_action_map_test)
 
 add_executable(gneiss_cpp_input_test cpp_input_test.cpp)
-target_link_libraries(gneiss_cpp_input_test PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
+target_link_libraries(gneiss_cpp_input_test PRIVATE gneiss::engine gneiss_tasks)
 target_compile_definitions(gneiss_cpp_input_test
   PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
 target_compile_features(gneiss_cpp_input_test PRIVATE cxx_std_20)

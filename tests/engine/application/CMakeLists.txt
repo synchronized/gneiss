@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_application_log_test application_log_test.cpp)
-target_link_libraries(gneiss_application_log_test PRIVATE gneiss::engine gneiss_native_interface)
+target_link_libraries(gneiss_application_log_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_application_log_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_application_log_test)
 gneiss_target_output_directories(gneiss_application_log_test)
@@ -10,7 +10,7 @@ set_target_properties(gneiss_application_log_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.application_log COMMAND gneiss_application_log_test)
 
 add_executable(gneiss_native_application_flow_test native_application_flow_test.cpp)
-target_link_libraries(gneiss_native_application_flow_test PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
+target_link_libraries(gneiss_native_application_flow_test PRIVATE gneiss::engine gneiss_tasks)
 target_compile_features(gneiss_native_application_flow_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_application_flow_test)
 target_compile_definitions(
@@ -34,7 +34,7 @@ if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
 endif()
 add_executable(gneiss_loop_timing_test loop_timing_test.cpp)
 target_link_libraries(gneiss_loop_timing_test PRIVATE Threads::Threads)
-target_link_libraries(gneiss_loop_timing_test PRIVATE gneiss_value_interface)
+target_link_libraries(gneiss_loop_timing_test PRIVATE gneiss_core_values)
 target_compile_features(gneiss_loop_timing_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_loop_timing_test)
 gneiss_target_output_directories(gneiss_loop_timing_test)
