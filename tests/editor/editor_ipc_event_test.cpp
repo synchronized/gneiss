@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/protocol/domains.hpp>
 #include "runtime/ipc/editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
@@ -8,6 +10,7 @@
 using namespace gneiss::host;
 
 int main() {
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
   gneiss::ipc::envelope envelope;
   if (gneiss::host::encode_ipc_control_state(gneiss::host::ipc_control_state::paused, envelope) !=
       gneiss::error::success) {

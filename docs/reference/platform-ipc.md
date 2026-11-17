@@ -30,5 +30,8 @@
 `protocol/payload.hpp` 的 `encode_payload(value, limit)` 与 `decode_payload<T>(bytes, limit)`
 返回带序列化诊断的 result。解码前检查大小并构造独立候选；业务层验证成功后才更新输出。
 编码大小检查发生在 JSON 生成后，并非内存分配预算。统计域上限为 64 KiB，仍验证
-session_id 和 sequence 非零。其他域尚未迁移。反射消息迁移进度见
+session_id 和 sequence 非零。Control v2 的状态通知同样使用反射 JSON，例如 `{"state":4}` 表示 paused，状态字段必填，
+域负载上限为 1 KiB。暂停、恢复、停止请求和 ready 通知仍使用空负载；请求操作与关联 ID
+来自帧头，不在负载中重复。状态冲突使用既有协议错误反馈，状态改变通过通知返回 Editor。
+Control v1 不兼容该格式，同版本宿主须配对使用。其余域尚未迁移。反射消息迁移进度见
 [PLAN-120](../plans/PLAN-120-ipc-protocol-boundaries.md)。

@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/protocol/ipc_control_protocol.hpp>
+
+#include <string_view>
 
 using namespace gneiss::host;
 
@@ -62,10 +66,22 @@ namespace {
       gneiss::error::success) {
     return false;
   }
-  envelope.payload.front() = 99U;
-  gneiss::host::ipc_control_state state{};
-  return gneiss::host::decode_ipc_control_state(envelope, state) ==
-         gneiss::error::invalid_argument;
+  for (const std::string_view json : {"{}", "{", "{\"state\":99}", "{\"state\":-1}", "{\"state\":\"paused\"}"}) {
+    envelope.payload.assign(json.begin(), json.end());
+    auto state = ipc_control_state::running;
+    if (decode_ipc_control_state(envelope, state).ok() || state != ipc_control_state::running)
+      return false;
+  }
+  envelope.payload.assign(ipc_control_max_payload_size + 1, ' ');
+  auto state = ipc_control_state::running;
+  if (decode_ipc_control_state(envelope, state).ok() || state != ipc_control_state::running)
+    return false;
+  if (encode_ipc_control_request(ipc_control_operation::pause, 3, envelope).failed())
+    return false;
+  envelope.payload = {'{', '}'};
+  auto operation = ipc_control_operation::invalid;
+  return decode_ipc_control_request(envelope, operation).failed() &&
+         operation == ipc_control_operation::invalid;
 }
 
 [[nodiscard]] bool test_direction_rules() {
@@ -81,6 +97,7 @@ namespace {
 } // namespace
 
 int main() {
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
   try {
     return test_runtime_events() && test_editor_requests() && test_rejections() &&
                    test_direction_rules()

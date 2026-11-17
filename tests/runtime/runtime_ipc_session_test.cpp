@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include "ipc/runtime_ipc_session.hpp"
 
@@ -377,6 +379,7 @@ bool test_disconnect() {
 } // namespace
 
 int main() {
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
   if (!test_property_write_round_trip()) {
     std::fputs("IPC 测试失败：属性写入往返\n", stderr);
     return 1;

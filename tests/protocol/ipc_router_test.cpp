@@ -44,7 +44,7 @@ bool test_binding_and_dispatch() {
     return false;
   }
   constexpr std::array domains{gneiss::protocol::domain_capability{
-      .domain = gneiss::protocol::domain::control, .version = 1U}};
+      .domain = gneiss::protocol::domain::control, .version = gneiss::host::ipc_control_domain_version}};
   const gneiss::protocol::dispatch_context before_handshake{
       .remote_role = gneiss::protocol::peer_role::editor,
       .handshake_complete = false,
@@ -78,7 +78,7 @@ bool test_operation_binding_and_dispatch() {
     return false;
   }
   constexpr std::array domains{gneiss::protocol::domain_capability{
-      .domain = gneiss::protocol::domain::control, .version = 1U}};
+      .domain = gneiss::protocol::domain::control, .version = gneiss::host::ipc_control_domain_version}};
   const gneiss::protocol::dispatch_context connected{.remote_role =
                                                            gneiss::protocol::peer_role::editor,
                                                        .handshake_complete = true,

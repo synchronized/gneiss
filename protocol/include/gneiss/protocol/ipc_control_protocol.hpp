@@ -12,8 +12,8 @@
 
 namespace gneiss::host {
 
-inline constexpr std::uint16_t ipc_control_domain_version = 1U;
-inline constexpr std::size_t ipc_control_max_payload_size = 1U;
+inline constexpr std::uint16_t ipc_control_domain_version = 2U;
+inline constexpr std::size_t ipc_control_max_payload_size = 1024U;
 
 enum class ipc_control_operation : std::uint16_t {
   invalid = 0U,
@@ -33,20 +33,22 @@ enum class ipc_control_state : std::uint8_t {
   stopping = 5U,
 };
 
-[[nodiscard]] gneiss::error
-encode_ipc_control_ready(gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error encode_ipc_control_state(ipc_control_state state,
-                                                             gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error
-decode_ipc_control_state(const gneiss::ipc::envelope& envelope,
-                         ipc_control_state& output) noexcept;
+/** Control v2 状态通知；请求仍由帧头表示，负载为空。 */
+struct ipc_control_state_message final {
+  ipc_control_state state{ipc_control_state::invalid};
+};
 
-[[nodiscard]] gneiss::error
-encode_ipc_control_request(ipc_control_operation operation, std::uint32_t request_id,
-                           gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error
-decode_ipc_control_request(const gneiss::ipc::envelope& envelope,
-                           ipc_control_operation& output) noexcept;
+[[nodiscard]] gneiss::error encode_ipc_control_ready(gneiss::ipc::envelope& output) noexcept;
+[[nodiscard]] gneiss::error encode_ipc_control_state(ipc_control_state state,
+                                                     gneiss::ipc::envelope& output);
+[[nodiscard]] gneiss::error decode_ipc_control_state(const gneiss::ipc::envelope& envelope,
+                                                     ipc_control_state& output);
+
+[[nodiscard]] gneiss::error encode_ipc_control_request(ipc_control_operation operation,
+                                                       std::uint32_t request_id,
+                                                       gneiss::ipc::envelope& output) noexcept;
+[[nodiscard]] gneiss::error decode_ipc_control_request(const gneiss::ipc::envelope& envelope,
+                                                       ipc_control_operation& output) noexcept;
 
 /** 返回 Control 域的固定方向与消息语义规则。 */
 [[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>

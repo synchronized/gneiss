@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/ipc_control_protocol.hpp>
 #include <gneiss/engine/error.hpp>
+#include <gneiss/protocol/ipc_control_protocol.hpp>
 
 #include <array>
-#include <new>
+#include <gneiss/protocol/payload.hpp>
 #include <utility>
 
 namespace {
@@ -14,27 +14,22 @@ constexpr std::array control_operations{
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::ready),
         .editor_to_runtime_kinds = 0U,
-        .runtime_to_editor_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
+        .runtime_to_editor_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::state_changed),
         .editor_to_runtime_kinds = 0U,
-        .runtime_to_editor_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
+        .runtime_to_editor_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::pause),
-        .editor_to_runtime_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
+        .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
         .runtime_to_editor_kinds = 0U},
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::resume),
-        .editor_to_runtime_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
+        .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
         .runtime_to_editor_kinds = 0U},
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::stop),
-        .editor_to_runtime_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
+        .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
         .runtime_to_editor_kinds = 0U}};
 
 [[nodiscard]] bool valid_state(gneiss::host::ipc_control_state state) noexcept {
@@ -61,42 +56,39 @@ gneiss::error encode_ipc_control_ready(gneiss::ipc::envelope& output) noexcept {
   return gneiss::error::success;
 }
 
-gneiss::error encode_ipc_control_state(ipc_control_state state,
-                                               gneiss::ipc::envelope& output) {
+gneiss::error encode_ipc_control_state(ipc_control_state state, gneiss::ipc::envelope& output) {
   if (!valid_state(state)) {
     return gneiss::error::invalid_argument;
   }
-  {
-    gneiss::ipc::envelope encoded{
-        .domain = gneiss::protocol::domain::control,
-        .operation = static_cast<std::uint16_t>(ipc_control_operation::state_changed),
-        .kind = gneiss::ipc::message_kind::event,
-        .request_id = 0U,
-        .payload = {static_cast<std::uint8_t>(state)}};
-    output = std::move(encoded);
-    return gneiss::error::success;
-  }
+  auto payload =
+      protocol::encode_payload(ipc_control_state_message{state}, ipc_control_max_payload_size);
+  if (!payload)
+    return payload.error().error;
+  output = {.domain = protocol::domain::control,
+            .operation = static_cast<std::uint16_t>(ipc_control_operation::state_changed),
+            .kind = ipc::message_kind::event,
+            .request_id = 0U,
+            .payload = std::move(*payload)};
+  return error::success;
 }
 
-gneiss::error decode_ipc_control_state(const gneiss::ipc::envelope& envelope,
-                                               ipc_control_state& output) noexcept {
-  if (envelope.domain != gneiss::protocol::domain::control ||
+error decode_ipc_control_state(const ipc::envelope& envelope, ipc_control_state& output) {
+  if (envelope.domain != protocol::domain::control ||
       envelope.operation != static_cast<std::uint16_t>(ipc_control_operation::state_changed) ||
-      envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U ||
-      envelope.payload.size() != 1U) {
-    return gneiss::error::invalid_argument;
-  }
-  const auto state = static_cast<ipc_control_state>(envelope.payload.front());
-  if (!valid_state(state)) {
-    return gneiss::error::invalid_argument;
-  }
-  output = state;
-  return gneiss::error::success;
+      envelope.kind != ipc::message_kind::event || envelope.request_id != 0U)
+    return error::invalid_argument;
+  auto message = protocol::decode_payload<ipc_control_state_message>(envelope.payload,
+                                                                     ipc_control_max_payload_size);
+  if (!message)
+    return message.error().error;
+  if (!valid_state(message->state))
+    return error::invalid_argument;
+  output = message->state;
+  return error::success;
 }
 
-gneiss::error encode_ipc_control_request(ipc_control_operation operation,
-                                                 std::uint32_t request_id,
-                                                 gneiss::ipc::envelope& output) noexcept {
+gneiss::error encode_ipc_control_request(ipc_control_operation operation, std::uint32_t request_id,
+                                         gneiss::ipc::envelope& output) noexcept {
   if (!valid_request(operation) || request_id == 0U) {
     return gneiss::error::invalid_argument;
   }
@@ -109,7 +101,7 @@ gneiss::error encode_ipc_control_request(ipc_control_operation operation,
 }
 
 gneiss::error decode_ipc_control_request(const gneiss::ipc::envelope& envelope,
-                                                 ipc_control_operation& output) noexcept {
+                                         ipc_control_operation& output) noexcept {
   const auto operation = static_cast<ipc_control_operation>(envelope.operation);
   if (envelope.domain != gneiss::protocol::domain::control || !valid_request(operation) ||
       envelope.kind != gneiss::ipc::message_kind::request || envelope.request_id == 0U ||

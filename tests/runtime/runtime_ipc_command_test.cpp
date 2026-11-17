@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include "ipc/runtime_commands.hpp"
 
@@ -29,6 +31,7 @@ gneiss::error capture_send(void* context, gneiss::ipc::envelope envelope) noexce
 } // namespace
 
 int main() {
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
   using namespace gneiss;
   using namespace gneiss::host;
 
@@ -40,7 +43,7 @@ int main() {
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::session,
                                             .version = 1U},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::control,
-                                            .version = 1U},
+                                            .version = gneiss::host::ipc_control_domain_version},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::inspection,
                                             .version = 1U},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::property,
@@ -63,6 +66,20 @@ int main() {
       state != runtime_ipc_state::paused || sent.values.empty()) {
     return 2;
   }
+  ipc_control_state reported{};
+  if (decode_ipc_control_state(sent.values.back(), reported).failed() || reported != ipc_control_state::paused)
+    return 12;
+  actions.pause_game = false;
+  if (!router.dispatch(envelope, dispatch_context, context).accepted() || actions.pause_game ||
+      state != runtime_ipc_state::paused || sent.values.back().kind != ipc::message_kind::error)
+    return 13;
+  auto old_domains = domains;
+  old_domains[1].version = 1U;
+  auto old_context = dispatch_context;
+  old_context.negotiated_domains = old_domains;
+  if (router.dispatch(envelope, old_context, context).rejection !=
+      protocol::dispatch_rejection::unsupported_domain_version)
+    return 14;
   const ipc_property_write property{.session_id = 3U,
                                     .command_id = 9U,
                                     .object = {4U, 2U},
