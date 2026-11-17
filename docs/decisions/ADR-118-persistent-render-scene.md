@@ -114,3 +114,8 @@ query_info 成功后才采用 revision；not_ready 保留待处理状态，out_o
 零尺寸暂停窗口呈现，离屏目标与捕获仍可执行。截图输出尺寸属于捕获请求，不改写窗口快照，也不
 推进已采用的窗口 revision。拒绝或替换帧不会清除后端重试状态，后续帧继续携带当前表面 revision。
 当前仍是一个窗口呈现表面；不借此增加多窗口支持或修改 Granit 仓库。
+
+原生句柄采用自有 `backend + union data`，每个平台分支使用其实际含义的字段名，避免通用
+`display/window` 被解释为不同类型。通过 Granit 统一 get_native 一次查询后逐分支转换，
+不按字节复制第三方结构，不暴露 Granit/SDL 类型。Emscripten selector 保存指针与长度的借用；
+SDL3 分支可以表达来源，但当前 Render 未链接可选 IntegrationSDL3，明确返回 unsupported。

@@ -7,7 +7,7 @@
 if(NOT @BUILD_SHARED_LIBS@)
   include(CMakeFindDependencyMacro)
   find_dependency(libassert 2.2.1 CONFIG)
-  find_dependency(granit 0.67.0 CONFIG COMPONENTS Window RenderPipeline)
+  find_dependency(granit 0.71.0 CONFIG COMPONENTS Window RenderPipeline)
 endif()
 
 set(GNEISS_RUNTIME_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@")

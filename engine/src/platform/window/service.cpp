@@ -64,48 +64,54 @@ gneiss::error service::initialize(const configuration& config) noexcept {
   if (result.failed()) {
     return map_result(result);
   }
-  std::uint32_t flags = 0;
-  flags |= config.visible ? GRANIT_WINDOW_VISIBLE_BIT : 0U;
-  flags |= config.resizable ? GRANIT_WINDOW_RESIZABLE_BIT : 0U;
-  flags |= config.high_dpi ? GRANIT_WINDOW_HIGH_DPI_BIT : 0U;
-  result = impl_->window_.initialize(impl_->window_system_,
-                                     {
-                                         .title = config.title,
-                                         .width = config.width,
-                                         .height = config.height,
-                                         .flags = static_cast<granit::window_flag>(flags),
-                                     });
+  const auto flags =
+      (config.visible ? granit::window_flag::visible : granit::window_flag::none) |
+      (config.resizable ? granit::window_flag::resizable : granit::window_flag::none) |
+      (config.high_dpi ? granit::window_flag::high_dpi : granit::window_flag::none);
+  result = impl_->window_.initialize(impl_->window_system_, {
+                                                                .title = config.title,
+                                                                .width = config.width,
+                                                                .height = config.height,
+                                                                .flags = flags,
+                                                            });
   if (result.failed()) {
     return map_result(result);
   }
   const auto refreshed = impl_->refresh_surface();
   if (refreshed.failed())
     return refreshed;
-  granit::window_native_win32 win32{};
-  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), win32);
-  if (result.ok()) {
-    impl_->native_window_.display = win32.instance;
-    impl_->native_window_.window = win32.window;
-    impl_->native_window_.backend = native_backend::win32;
-    return gneiss::error::success;
+  granit::window_native native;
+  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), native);
+  if (result.failed())
+    return map_result(result);
+  native_handle handle;
+  switch (native.backend) {
+  case GRANIT_WINDOW_BACKEND_WIN32:
+    handle.backend = native_backend::win32;
+    handle.data.win32 = {native.u.win32.instance, native.u.win32.window};
+    break;
+  case GRANIT_WINDOW_BACKEND_XCB:
+    handle.backend = native_backend::xcb;
+    handle.data.xcb = {native.u.xcb.connection, native.u.xcb.window};
+    break;
+  case GRANIT_WINDOW_BACKEND_WAYLAND:
+    handle.backend = native_backend::wayland;
+    handle.data.wayland = {native.u.wayland.display, native.u.wayland.surface};
+    break;
+  case GRANIT_WINDOW_BACKEND_EMSCRIPTEN:
+    handle.backend = native_backend::emscripten;
+    handle.data.emscripten = {native.u.emscripten.canvas_selector,
+                              native.u.emscripten.canvas_selector_length};
+    break;
+  case GRANIT_WINDOW_BACKEND_SDL3:
+    handle.backend = native_backend::sdl3;
+    handle.data.sdl3 = {native.u.sdl3.window};
+    break;
+  default:
+    return error::unsupported;
   }
-  granit::window_native_xcb xcb{};
-  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), xcb);
-  if (result.ok()) {
-    impl_->native_window_.display = xcb.connection;
-    impl_->native_window_.xcb_window = xcb.window;
-    impl_->native_window_.backend = native_backend::xcb;
-    return gneiss::error::success;
-  }
-  granit::window_native_wayland wayland{};
-  result = granit::get_native(impl_->window_system_, impl_->window_.ref(), wayland);
-  if (result.ok()) {
-    impl_->native_window_.display = wayland.display;
-    impl_->native_window_.window = wayland.surface;
-    impl_->native_window_.backend = native_backend::wayland;
-    return gneiss::error::success;
-  }
-  return map_result(result);
+  impl_->native_window_ = handle;
+  return error::success;
 }
 
 gneiss::error service::poll_input(gneiss::input::event& out_event) noexcept {
@@ -213,6 +219,11 @@ gneiss::error service::poll(bool& out_should_close, bool& out_focus_lost) noexce
   granit::window_event event{};
   auto result = impl_->window_system_.poll(event);
   while (result == granit::result::success) {
+    if (event.type == granit::window_event_type::native_handle_changed &&
+        event.window == impl_->window_.ref()) {
+      // 原生句柄变化使旧 Surface 失效；尚未提供 Render 表面重新绑定，不能继续呈现。
+      return error::unsupported;
+    }
     if (event.type == granit::window_event_type::close_requested &&
         event.window == impl_->window_.ref()) {
       out_should_close = true;

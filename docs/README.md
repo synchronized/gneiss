@@ -305,6 +305,7 @@
 
 - [CAORS 单资源加载接入验证](records/2026-10-20-caors-resource-probe.md)
 
+- [Granit 0.71.0 升级与原生窗口联合体](records/2026-11-17-granit-0.71-upgrade.md)
 - [Granit 0.67.0 升级验收](records/2026-10-19-granit-0.67-upgrade.md)
 - [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
 - [M-305：旧转发头移除](records/M-305-remove-forwarding-headers.md)

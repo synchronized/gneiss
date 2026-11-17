@@ -154,8 +154,8 @@ struct backend::implementation final {
 };
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
-              "Gneiss requires Granit 0.44.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 71,
+              "Gneiss requires Granit 0.71.0 or newer");
 
 gneiss::error map_result(::granit::result result) noexcept {
   switch (result.native()) {
@@ -843,17 +843,27 @@ gneiss::error backend::implementation::initialize_gpu(const gneiss::window::nati
 
   switch (window.backend) {
   case gneiss::window::native_backend::win32:
-    result = surface_.initialize(renderer_,
-                                 ::granit::surface_desc::win32(window.display, window.window));
+    result =
+        surface_.initialize(renderer_, ::granit::surface_desc::win32(window.data.win32.instance,
+                                                                     window.data.win32.window));
     break;
   case gneiss::window::native_backend::xcb:
-    result = surface_.initialize(renderer_,
-                                 ::granit::surface_desc::xcb(window.display, window.xcb_window));
+    result = surface_.initialize(
+        renderer_, ::granit::surface_desc::xcb(window.data.xcb.connection, window.data.xcb.window));
     break;
   case gneiss::window::native_backend::wayland:
-    result = surface_.initialize(renderer_,
-                                 ::granit::surface_desc::wayland(window.display, window.window));
+    result = surface_.initialize(
+        renderer_,
+        ::granit::surface_desc::wayland(window.data.wayland.display, window.data.wayland.surface));
     break;
+  case gneiss::window::native_backend::emscripten:
+    result = surface_.initialize(renderer_,
+                                 ::granit::surface_desc::canvas({window.data.emscripten.selector,
+                                                                 window.data.emscripten.length}));
+    break;
+  case gneiss::window::native_backend::sdl3:
+    // SDL3 Surface 需要可选的 Granit IntegrationSDL3；当前构建不启用它。
+    return gneiss::error::unsupported;
   default:
     return gneiss::error::unsupported;
   }

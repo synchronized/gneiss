@@ -745,3 +745,16 @@ capture_frame 还复制该结构并改写尺寸。当前协议本轮不修改。
 render_frame_packet、render_scene、ui_draw_list、真实窗口 smoke、原生应用流程、原生窗口资产
 集成及安装 Runtime smoke）。真实窗口 smoke 新增连续 resize、最小化时离屏捕获、恢复呈现、
 捕获尺寸不修改窗口尺寸的断言；执行器测试确认替换后的帧保留最新表面 revision。
+
+
+### 2026-11-17：Granit 0.71 与原生句柄联合体
+
+- [x] 核对上游最新标签及 HEAD，固定 0.71.0 提交和 SHA-256；同步 PACKAGE/静态安装最低版本。
+- [x] 用 backend + union data 表达平台身份，统一查询并显式转换，不泄漏第三方类型。
+- [x] 适配窗口标志枚举与 Canvas Surface；SDL3 表面需单独接入 IntegrationSDL3，当前返回 unsupported。
+- [x] 完成共享完整构建、静态相关目标构建、相关测试及安装消费验证，记录未验证平台。
+
+验收详情见 [Granit 0.71 升级记录](../records/2026-11-17-granit-0.71-upgrade.md)。
+
+原生句柄变化不是尺寸变化：收到 native_handle_changed 时当前返回 unsupported，不使用失效表面。
+本轮不启用 SDL3 窗口后端，不承诺 Gneiss Web 全链路可用，不修改 Granit 上游。
