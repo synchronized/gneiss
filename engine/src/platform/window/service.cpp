@@ -8,7 +8,9 @@
 #include <granit/window.hpp>
 #include <granit/window/native.hpp>
 
+#include <atomic>
 #include <cstring>
+#include <gneiss/engine/assert.hpp>
 #include <string_view>
 
 namespace gneiss::window {
@@ -16,6 +18,7 @@ struct service::implementation {
   // 析构顺序：窗口先于窗口系统销毁；Application 先释放借用窗口的渲染服务。
   granit::window_system window_system_;
   granit::window window_;
+  window::id id_;
   native_handle native_window_;
   surface_state surface_;
   error refresh_surface() {
@@ -29,10 +32,12 @@ struct service::implementation {
 };
 service::service() : impl_(std::make_unique<implementation>()) {}
 service::~service() = default;
+window::id service::id() const noexcept { return impl_->id_; }
 native_handle service::native() const noexcept { return impl_->native_window_; }
 surface_state service::surface() const noexcept { return impl_->surface_; }
 
 namespace {
+std::atomic_uint64_t next_window_id{1};
 
 gneiss::error map_result(granit::result result) noexcept {
   switch (result.native()) {
@@ -60,6 +65,7 @@ gneiss::error map_result(granit::result result) noexcept {
 } // namespace
 
 gneiss::error service::initialize(const configuration& config) noexcept {
+  GNEISS_ASSERT(!impl_->id_, "窗口服务不能重复初始化");
   auto result = impl_->window_system_.initialize();
   if (result.failed()) {
     return map_result(result);
@@ -111,18 +117,16 @@ gneiss::error service::initialize(const configuration& config) noexcept {
     return error::unsupported;
   }
   impl_->native_window_ = handle;
+  impl_->id_ = {next_window_id.fetch_add(1, std::memory_order_relaxed)};
+  GNEISS_ASSERT(impl_->id_, "窗口身份已耗尽");
   return error::success;
 }
 
-gneiss::error service::poll_input(gneiss::input::event& out_event) noexcept {
-  granit::input_event source{};
-  const auto result = impl_->window_system_.poll(source);
-  if (result.failed()) {
-    return map_result(result);
-  }
+namespace {
+error translate_input(const granit::input_event& source, window::id id, input::event& out_event) {
   out_event = {};
   out_event.type = static_cast<gneiss::input::event_type>(source.type);
-  out_event.window_id = UINT64_C(1);
+  out_event.window_id = source.window ? id : window::id{};
   out_event.timestamp_ns = source.timestamp_ns;
   switch (source.type) {
   case granit::input_event_type::key:
@@ -170,81 +174,68 @@ gneiss::error service::poll_input(gneiss::input::event& out_event) noexcept {
   return gneiss::error::success;
 }
 
-gneiss::error service::keyboard(gneiss::input::keyboard_state& out_state) const noexcept {
-  granit::keyboard_state source{};
-  const auto result = impl_->window_system_.keyboard(impl_->window_.ref(), source);
-  if (result == granit::result::invalid_handle) {
-    out_state = {};
-    return gneiss::error::success;
-  }
-  if (result.failed()) {
-    return map_result(result);
-  }
-  static_assert(sizeof(out_state.pressed_keys) == sizeof(source.pressed_keys));
-  out_state = {};
-  out_state.modifiers = source.modifiers;
-  std::memcpy(out_state.pressed_keys.data(), source.pressed_keys.data(),
-              sizeof(out_state.pressed_keys));
-  return gneiss::error::success;
-}
+} // namespace
 
-gneiss::error service::pointer(gneiss::input::pointer_state& out_state) const noexcept {
-  granit::pointer_state source{};
-  const auto result = impl_->window_system_.pointer(impl_->window_.ref(), source);
-  if (result == granit::result::invalid_handle) {
-    out_state = {};
-    return gneiss::error::success;
-  }
-  if (result.failed()) {
-    return map_result(result);
-  }
-  out_state = {};
-  out_state.buttons = source.buttons;
-  out_state.x = source.x;
-  out_state.y = source.y;
-  out_state.is_inside = source.inside;
-  return gneiss::error::success;
-}
-
-gneiss::error service::poll(bool& out_should_close, bool& out_focus_lost) noexcept {
-  out_should_close = false;
-  out_focus_lost = false;
+result<event_status>
+service::poll_events(const std::function<error(const input::event&)>& on_input) {
+  GNEISS_ASSERT(impl_->id_ && on_input);
+  event_status status;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
   const auto pump_result = gneiss::measure(
       loop_stage::window_pump, [&]() noexcept { return impl_->window_system_.process_events(); });
   if (pump_result.failed()) {
     return map_result(pump_result);
   }
-  const loop_span events(loop_stage::window_events);
-  granit::window_event event{};
-  auto result = impl_->window_system_.poll(event);
-  while (result == granit::result::success) {
-    if (event.type == granit::window_event_type::native_handle_changed &&
-        event.window == impl_->window_.ref()) {
-      // 原生句柄变化使旧 Surface 失效；尚未提供 Render 表面重新绑定，不能继续呈现。
-      return error::unsupported;
-    }
-    if (event.type == granit::window_event_type::close_requested &&
-        event.window == impl_->window_.ref()) {
-      out_should_close = true;
-    } else if (event.type == granit::window_event_type::focus_changed &&
-               event.window == impl_->window_.ref() && !event.data.focus.focused) {
-      out_focus_lost = true;
-    } else if (event.type == granit::window_event_type::resized &&
-               event.window == impl_->window_.ref()) {
-      const auto refreshed = impl_->refresh_surface();
-      if (refreshed.failed())
-        return refreshed;
-    } else if (event.type == granit::window_event_type::scale_changed &&
-               event.window == impl_->window_.ref()) {
-      const auto refreshed = impl_->refresh_surface();
-      if (refreshed.failed())
-        return refreshed;
-    }
-    event = {};
+  granit::result result;
+  {
+    const loop_span events(loop_stage::window_events);
+    granit::window_event event{};
     result = impl_->window_system_.poll(event);
+    while (result == granit::result::success) {
+      if (event.type == granit::window_event_type::native_handle_changed &&
+          event.window == impl_->window_.ref()) {
+        // 原生句柄变化使旧 Surface 失效；尚未提供 Render 表面重新绑定，不能继续呈现。
+        return error::unsupported;
+      }
+      if (event.type == granit::window_event_type::close_requested &&
+          event.window == impl_->window_.ref()) {
+        status.close_requested = true;
+      } else if (event.type == granit::window_event_type::focus_changed &&
+                 event.window == impl_->window_.ref() && !event.data.focus.focused) {
+        status.focus_lost = true;
+      } else if (event.type == granit::window_event_type::resized &&
+                 event.window == impl_->window_.ref()) {
+        const auto refreshed = impl_->refresh_surface();
+        if (refreshed.failed())
+          return refreshed;
+      } else if (event.type == granit::window_event_type::scale_changed &&
+                 event.window == impl_->window_.ref()) {
+        const auto refreshed = impl_->refresh_surface();
+        if (refreshed.failed())
+          return refreshed;
+      }
+      event = {};
+      result = impl_->window_system_.poll(event);
+    }
+    if (result != granit::result::not_ready)
+      return map_result(result);
   }
-  return result == granit::result::not_ready ? gneiss::error::success : map_result(result);
+  const loop_span inputs(loop_stage::input_events);
+  granit::input_event source{};
+  while ((result = impl_->window_system_.poll(source)) == granit::result::success) {
+    if (source.window && source.window != impl_->window_.ref())
+      continue;
+    input::event translated{};
+    const auto converted = translate_input(source, impl_->id_, translated);
+    if (converted.failed())
+      return converted;
+    const auto delivered = on_input(translated);
+    if (delivered.failed())
+      return delivered;
+  }
+  if (result != granit::result::not_ready)
+    return map_result(result);
+  return status;
 }
 
 } // namespace gneiss::window

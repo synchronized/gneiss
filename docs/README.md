@@ -699,4 +699,5 @@
 - [PLAN-117 功能命名空间收敛](plans/PLAN-117-domain-namespaces.md)
 - [PLAN-118 错误返回与内部契约收敛](plans/PLAN-118-error-contracts.md)
 - [PLAN-119 Engine 头文件、构建目标与测试组织整理](plans/PLAN-119-engine-build-test-layout.md)
+- [ADR-122 窗口采集与输入语义边界](decisions/ADR-122-window-input-boundaries.md)
 - [ADR-120 领域命名空间](decisions/ADR-120-domain-namespaces.md)

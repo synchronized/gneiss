@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <gneiss/engine/core/window/id.hpp>
+
 #include <array>
 #include <cstdint>
 
@@ -95,7 +97,8 @@ union event_data {
 /** type 指定 data 的活动成员；文本长度不得超过 utf8 容量。 */
 struct event {
   event_type type{};
-  std::uint64_t window_id{}, timestamp_ns{};
+  window::id window_id{};
+  std::uint64_t timestamp_ns{};
   event_data data{};
 };
 struct keyboard_state {

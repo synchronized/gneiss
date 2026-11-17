@@ -758,3 +758,16 @@ render_frame_packet、render_scene、ui_draw_list、真实窗口 smoke、原生�
 
 原生句柄变化不是尺寸变化：收到 native_handle_changed 时当前返回 unsupported，不使用失效表面。
 本轮不启用 SDL3 窗口后端，不承诺 Gneiss Web 全链路可用，不修改 Granit 上游。
+
+### 2026-11-17：Window/Input 调用链收敛
+
+边界以 [ADR-122](../decisions/ADR-122-window-input-boundaries.md) 为准。
+
+- [x] 保留平台采集与输入语义两个服务，统一为一次采集调用，删除快照搬运与公开逐事件轮询。
+- [x] 引入 Core window::id，转换时保留来源，窗口重建不复用身份。
+- [x] Input 删除状态 setter，动态事件缓冲替代固定容量；测试改为验证突发输入完整交付。
+- [x] 验证动作边沿、窗口身份生命周期、原生窗口流程及受影响构建。
+
+Windows Clang Debug 完整构建通过；7 项相关测试通过，包括 input_service、action_map、
+cpp_input、granit_platform_smoke、native-application-flow、assets.application-native-window
+及 runtime.installed-smoke。本轮未验证静态构建、Linux 或 Web。

@@ -12,7 +12,7 @@ int main() {
   gneiss::input::service input;
   gneiss::input::event key = {};
   key.type = gneiss::input::event_type::key;
-  key.window_id = 1;
+  key.window_id = {1};
   key.data.key.physical_key = 26U;
   key.data.key.modifiers = 1U;
   key.data.key.action = gneiss::input::key_action::pressed;
@@ -47,14 +47,17 @@ int main() {
   }
 
   input.begin_frame();
-  for (std::size_t index = 0; index < input.event_capacity; ++index) {
+  for (std::size_t index = 0; index < 1024; ++index) {
     if (!input.push(key)) {
       return 5;
     }
   }
-  if (input.push(key)) {
-    return 6;
+  for (std::size_t index = 0; index < 1024; ++index) {
+    if (input.poll(output) != error::success || output.window_id != key.window_id)
+      return 6;
   }
+  if (input.poll(output) != error::not_ready)
+    return 6;
 
   gneiss::input::action_map_description map;
   map.actions.push_back({.name = "move", .bindings = {{26U, 1.0F}}});

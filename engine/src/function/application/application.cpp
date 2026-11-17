@@ -420,43 +420,15 @@ gneiss::error application::poll_events(bool& out_should_close) {
   out_should_close = false;
   if (storage_->window_service_ != nullptr) {
     storage_->input_.begin_frame();
-    bool focus_lost = false;
-    const auto platform_result = storage_->window_service_->poll(out_should_close, focus_lost);
-    if (platform_result != gneiss::error::success) {
-      return platform_result;
-    }
-    gneiss::input::keyboard_state keyboard = {};
-    auto input_result = gneiss::measure(gneiss::loop_stage::input_state, [&]() {
-      return storage_->window_service_->keyboard(keyboard);
+    const auto events = storage_->window_service_->poll_events([&](const input::event& event) {
+      return storage_->input_.push(event) ? error::success : error::invalid_argument;
     });
-    if (input_result != gneiss::error::success) {
-      return input_result;
-    }
-    gneiss::input::pointer_state pointer = {};
-    input_result = gneiss::measure(gneiss::loop_stage::input_state,
-                                   [&]() { return storage_->window_service_->pointer(pointer); });
-    if (input_result != gneiss::error::success) {
-      return input_result;
-    }
-    storage_->input_.set_keyboard(keyboard);
-    storage_->input_.set_pointer(pointer);
-    gneiss::input::event event = {};
-    input_result = gneiss::measure(gneiss::loop_stage::input_events,
-                                   [&]() { return storage_->window_service_->poll_input(event); });
-    while (input_result == gneiss::error::success) {
-      if (!storage_->input_.push(event)) {
-        storage_->input_.clear_focus();
-        return gneiss::error::invalid_state;
-      }
-      event = {};
-      input_result = gneiss::measure(gneiss::loop_stage::input_events, [&]() {
-        return storage_->window_service_->poll_input(event);
-      });
-    }
-    if (focus_lost) {
+    if (!events)
+      return events.error();
+    out_should_close = events->close_requested;
+    if (events->focus_lost)
       storage_->input_.clear_focus();
-    }
-    return input_result == gneiss::error::not_ready ? gneiss::error::success : input_result;
+    return error::success;
   }
   if (storage_->config_.callbacks.poll_events == nullptr) {
     return gneiss::error::success;

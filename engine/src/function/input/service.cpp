@@ -16,21 +16,20 @@ namespace gneiss::input {
 
 void service::begin_frame() noexcept {
   read_index_ = 0;
-  event_count_ = 0;
+  events_.clear();
   for (auto& state : action_states_) {
     state.pressed = false;
     state.released = false;
   }
 }
 
-bool service::push(const event& event) noexcept {
+bool service::push(const event& event) {
   if (event.type > event_type::pointer_left ||
       (event.type == event_type::text && event.data.text.length > sizeof(event.data.text.utf8)) ||
-      (event.type == event_type::key && event.data.key.action > key_action::repeated) ||
-      event_count_ == event_capacity) {
+      (event.type == event_type::key && event.data.key.action > key_action::repeated)) {
     return false;
   }
-  events_[event_count_++] = event;
+  events_.push_back(event);
   apply(event);
   update_actions();
   return true;
@@ -38,7 +37,7 @@ bool service::push(const event& event) noexcept {
 
 error service::poll(event& out_event) noexcept {
   out_event = {};
-  if (read_index_ == event_count_) {
+  if (read_index_ == events_.size()) {
     return error::not_ready;
   }
   out_event = events_[read_index_++];
@@ -133,6 +132,10 @@ void service::apply(const event& event) {
     pointer_.x = event.data.pointer_button.x;
     pointer_.y = event.data.pointer_button.y;
     pointer_.buttons = event.data.pointer_button.buttons;
+  } else if (event.type == event_type::pointer_wheel) {
+    pointer_.x = event.data.pointer_wheel.x;
+    pointer_.y = event.data.pointer_wheel.y;
+    pointer_.buttons = event.data.pointer_wheel.buttons;
   } else if (event.type == event_type::pointer_entered) {
     pointer_.is_inside = true;
   } else if (event.type == event_type::pointer_left) {

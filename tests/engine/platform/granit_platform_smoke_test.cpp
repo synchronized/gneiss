@@ -27,6 +27,7 @@ namespace {
 struct smoke_context final {
   native::ref<const native::texture> texture;
   bool received_key{};
+  gneiss::window::id window_id{};
 };
 
 native::error submit_ui(gneiss::runtime::application& application, smoke_context& context) {
@@ -35,6 +36,9 @@ native::error submit_ui(gneiss::runtime::application& application, smoke_context
     // USB HID 物理键编号：A 为 4。
     if (event.type == gneiss::input::event_type::key && event.data.key.physical_key == 4U &&
         event.data.key.action == gneiss::input::key_action::pressed) {
+      if (!event.window_id || (context.window_id && context.window_id != event.window_id))
+        return error::internal;
+      context.window_id = event.window_id;
       context.received_key = true;
     }
   }
@@ -245,5 +249,31 @@ int main() {
       resources.destroy_texture(texture).failed()) {
     return 8;
   }
-  return application->shutdown().failed() ? 12 : 0;
+  if (application->shutdown().failed())
+    return 12;
+#ifdef _WIN32
+  // 重建窗口必须分配新身份，不能再次使用单窗口占位值 1。
+  auto next_config = config;
+  gneiss::window::id next_id{};
+  std::shared_ptr<gneiss::runtime::application> next;
+  next_config.callbacks.update = [&](const native::frame_time&) {
+    input::event event;
+    while (next->poll_input(event) == error::success) {
+      if (event.type == input::event_type::key)
+        next_id = event.window_id;
+    }
+    return error::success;
+  };
+  auto created = gneiss::runtime::application::create(next_config);
+  if (!created)
+    return 18;
+  next = *created;
+  const auto next_window = FindWindowA(nullptr, title.data());
+  if (!next_window || !PostMessageW(next_window, WM_KEYDOWN, 'A', 0x001e0001) ||
+      !PostMessageW(next_window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) ||
+      next->run(2).failed() || !next_id || next_id == context.window_id ||
+      next->shutdown().failed())
+    return 19;
+#endif
+  return 0;
 }

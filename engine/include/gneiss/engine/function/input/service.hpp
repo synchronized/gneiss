@@ -10,20 +10,18 @@
 
 #include <gneiss/engine/resource/input/action_map.hpp>
 
-#include <array>
 #include <cstddef>
+#include <vector>
 
 namespace gneiss::input {
 
 class service final {
 public:
-  static constexpr std::size_t event_capacity = 256;
-
+  /** 清空上帧事件及动作边沿，复用缓冲容量；按键保持状态不变。 */
   void begin_frame() noexcept;
-  [[nodiscard]] bool push(const event& event) noexcept;
+  /** 接收单个输入上下文的有序事件；非法事件返回 false，分配失败正常传播。 */
+  [[nodiscard]] bool push(const event& event);
   [[nodiscard]] error poll(event& out_event) noexcept;
-  void set_keyboard(const keyboard_state& state) noexcept { keyboard_ = state; }
-  void set_pointer(const pointer_state& state) noexcept { pointer_ = state; }
   void clear_focus() noexcept;
   [[nodiscard]] error replace_action_map(action_map_description map);
   [[nodiscard]] error find_action(std::string_view name, action_id& out_action) const noexcept;
@@ -35,9 +33,8 @@ private:
   void apply(const event& event);
   void update_actions() noexcept;
 
-  std::array<event, event_capacity> events_{};
+  std::vector<event> events_;
   std::size_t read_index_{};
-  std::size_t event_count_{};
   keyboard_state keyboard_ = {};
   pointer_state pointer_ = {};
   action_map_description action_map_;

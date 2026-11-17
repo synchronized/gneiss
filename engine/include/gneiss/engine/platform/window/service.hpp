@@ -10,12 +10,21 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/platform/window/configuration.hpp>
 
+#include <gneiss/engine/result.hpp>
+
+#include <functional>
 #include <memory>
 
 namespace gneiss::window {
 
+/** 单次采集的窗口通知；失焦在本轮输入分发后处理，不表达跨队列时序。 */
+struct event_status {
+  bool close_requested{};
+  bool focus_lost{};
+};
+
 /** 窗口与输入事件服务；所属线程创建、调用和销毁。原生窗口信息仅在服务存活期间借用。
- * 构造分配私有实现，可能抛出 bad_alloc；运行操作通过 result 返回错误。 */
+ * 构造可能抛出 bad_alloc；平台失败通过 result/error 返回，采集回调异常向调用方传播。 */
 class service final {
 public:
   service();
@@ -25,10 +34,10 @@ public:
   service(service&&) = delete;
   service& operator=(service&&) = delete;
   [[nodiscard]] error initialize(const configuration& config) noexcept;
-  [[nodiscard]] error poll(bool& out_should_close, bool& out_focus_lost) noexcept;
-  [[nodiscard]] error poll_input(gneiss::input::event& out_event) noexcept;
-  [[nodiscard]] error keyboard(gneiss::input::keyboard_state& out_state) const noexcept;
-  [[nodiscard]] error pointer(gneiss::input::pointer_state& out_state) const noexcept;
+  /** 泵送一次并同步交付输入，回调不保存；不得重入。失败可能已交付部分事件。 */
+  [[nodiscard]] result<event_status>
+  poll_events(const std::function<error(const input::event&)>& on_input);
+  [[nodiscard]] window::id id() const noexcept;
   [[nodiscard]] native_handle native() const noexcept;
   [[nodiscard]] surface_state surface() const noexcept;
 
