@@ -33,5 +33,7 @@
 session_id 和 sequence 非零。Control v2 的状态通知同样使用反射 JSON，例如 `{"state":4}` 表示 paused，状态字段必填，
 域负载上限为 1 KiB。暂停、恢复、停止请求和 ready 通知仍使用空负载；请求操作与关联 ID
 来自帧头，不在负载中重复。状态冲突使用既有协议错误反馈，状态改变通过通知返回 Editor。
-Control v1 不兼容该格式，同版本宿主须配对使用。其余域尚未迁移。反射消息迁移进度见
+Control v1 不兼容该格式，同版本宿主须配对使用。Scene v2 的加载/取消请求直接保存 `session/revision/uri`，不再借用 Asset 请求；
+进度保存嵌套 `source`、枚举名称 `phase`、进度字段与可选 `budget`。负载上限仍为 16 KiB。
+终态响应、取消和清理补报语义不变。其余域尚未迁移。反射消息迁移进度见
 [PLAN-120](../plans/PLAN-120-ipc-protocol-boundaries.md)。

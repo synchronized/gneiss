@@ -5,6 +5,8 @@
 #include <gneiss/protocol/ipc_protocol_domains.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
 
+#include <gneiss/protocol/registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -163,6 +165,17 @@ void run() {
     check(encode_ipc_scene_progress(progress, 9U, envelope) ==
           gneiss::error::invalid_argument);
   }
+  // 独立候选必须通过业务检查后才能覆盖已有请求。
+  check(encode_ipc_scene_request(source, ipc_scene_operation::load, 9U, envelope).ok());
+  for (const std::string_view malformed : {
+      R"({"session":5,"revision":7})",
+      R"({"session":0,"revision":7,"uri":"asset://scenes/main.scene.json"})",
+      R"({"session":5,"revision":7,"uri":"asset://../escape"})"}) {
+    envelope.payload.assign(malformed.begin(), malformed.end());
+    request = source;
+    check(decode_ipc_scene_request(envelope, request).failed());
+    check(request.session == source.session && request.uri == source.uri);
+  }
   ipc_scene_progress invalid_progress{
       .source = source, .phase = ipc_scene_phase::applied, .can_cancel = true, .message = {}};
   check(encode_ipc_scene_progress(invalid_progress, 9U, envelope) ==
@@ -173,6 +186,7 @@ void run() {
 }
 }
 int main() try {
+  check(gneiss::initialize_meta(gneiss::protocol::register_types).ok());
   run();
   return 0;
 } catch (const std::exception& error) {

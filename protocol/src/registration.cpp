@@ -4,6 +4,7 @@
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/protocol/ipc_control_protocol.hpp>
+#include <gneiss/protocol/ipc_scene_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
 #include <gneiss/protocol/registration.hpp>
 
@@ -28,6 +29,73 @@ error register_types() {
                .guid(guid::literal("f731345f-7eb2-4fb6-9b74-165754178031"))
                .property<&message::state>(meta::property_id{1},
                                           "state")(serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  using phase = host::ipc_scene_phase;
+  status = meta::registration::enumeration<phase>()
+               .name("gneiss.protocol.scene_phase")
+               .guid(guid::literal("b59fd712-d6f1-488a-93ea-c3b984a14ff8"))
+               .value("preparing", phase::preparing)
+               .value("assets", phase::assets)
+               .value("instantiating", phase::instantiating)
+               .value("ready", phase::ready)
+               .value("applied", phase::applied)
+               .value("failed", phase::failed)
+               .value("cancelled", phase::cancelled)
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_scene_request>()
+               .property<&host::ipc_scene_request::session>(meta::property_id{1}, "session")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_request::revision>(meta::property_id{2}, "revision")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_request::uri>(meta::property_id{3}, "uri")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_scene_budget>()
+               .property<&host::ipc_scene_budget::candidate_logical_bytes>(
+                   meta::property_id{1},
+                   "candidate_logical_bytes")(serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_budget::candidate_cpu_data_bytes>(
+                   meta::property_id{2},
+                   "candidate_cpu_data_bytes")(serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_budget::application_logical_bytes>(
+                   meta::property_id{3},
+                   "application_logical_bytes")(serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_budget::application_cpu_data_bytes>(
+                   meta::property_id{4},
+                   "application_cpu_data_bytes")(serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_budget::available_bytes>(meta::property_id{5},
+                                                                   "available_bytes")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_budget::cleanup_complete>(meta::property_id{6},
+                                                                    "cleanup_complete")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_budget::cleanup_pending>(meta::property_id{7},
+                                                                   "cleanup_pending")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_scene_progress>()
+               .property<&host::ipc_scene_progress::source>(meta::property_id{1}, "source")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_progress::phase>(meta::property_id{2}, "phase")(
+                   serialization::field_policy{.required = true, .enum_name = true})
+               .property<&host::ipc_scene_progress::completed>(meta::property_id{3}, "completed")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_progress::total>(meta::property_id{4}, "total")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_progress::can_cancel>(meta::property_id{5}, "can_cancel")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_progress::message>(meta::property_id{6}, "message")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_scene_progress::budget>(meta::property_id{7}, "budget")(
+                   serialization::field_policy{.required = false})
                .commit();
   if (status.failed())
     return status;
