@@ -129,16 +129,9 @@ bool native_operations() {
   invalid.scale[0] = 0;
   if (owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()})
               .set_local_transform(invalid) != gneiss::error::invalid_argument ||
-      gneiss::test_support::assign_value(
-          owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).local_transform(),
-          actual) != gneiss::error::success ||
-      actual.scale[0] != 1)
+      owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).local_transform().scale[0] != 1)
     return false;
-  actual.translation[0] = 42;
-  if (gneiss::test_support::assign_value(
-          owner->find(gneiss::entity_id{(gneiss::entity_id{0}).get()}).local_transform(), actual) !=
-          gneiss::error::invalid_handle ||
-      actual.translation[0] != 42)
+  if (owner->object(gneiss::entity_id{}).error() != gneiss::error::invalid_handle)
     return false;
   gneiss::error foreign{};
   std::thread worker([&] { foreign = owner->find(gneiss::entity_id{entity}).destroy(); });

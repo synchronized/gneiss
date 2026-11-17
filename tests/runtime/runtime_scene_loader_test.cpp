@@ -143,7 +143,7 @@ void run() {
   check(reload(prefab_uri, true).ok());
   check(find_source(extra.uuid) == extra_entity);
   check(app->native_world()->find(extra_entity).name() == "Renamed extra");
-  check(app->native_world()->find(extra_entity).local_transform()->translation.x == 7);
+  check(app->native_world()->find(extra_entity).local_transform().translation.x == 7);
 
   // 删除新增的叶子，旧句柄必须失效；用另一个新对象验证换根时现存身份不变。
   prefab.objects.pop_back();

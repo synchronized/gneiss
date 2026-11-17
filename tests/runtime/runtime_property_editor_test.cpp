@@ -81,9 +81,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(response.revision == 2U);
   GNEISS_TEST_CHECK(response.canonical_value.payload == command.value.payload);
   gneiss::math::transform transform{};
-  GNEISS_TEST_CHECK(
-      gneiss::test_support::assign_value(owner->find(entity).local_transform(), transform) ==
-      gneiss::error::success);
+  transform = owner->find(entity).local_transform();
   GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&
                     transform.translation[2] == 4.0F);
 
@@ -93,9 +91,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(editor.execute(stale, response) == gneiss::error::success);
   GNEISS_TEST_CHECK(response.code == gneiss::error::invalid_state.code() &&
                     response.revision == 2U);
-  GNEISS_TEST_CHECK(
-      gneiss::test_support::assign_value(owner->find(entity).local_transform(), transform) ==
-      gneiss::error::success);
+  transform = owner->find(entity).local_transform();
   GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&
                     transform.translation[2] == 4.0F);
   return true;

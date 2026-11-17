@@ -280,11 +280,9 @@ int main() try {
   const auto second_entity = session.query_node(second)->entity;
   const auto first_uuid = session.selected_node()->uuid;
   const auto is_x = [&](float expected) {
-    gneiss::math::transform local{};
-    return gneiss::test_support::assign_value(
-               app->native_world()->find(session.find_node(first_uuid)->entity).local_transform(),
-               local) == gneiss::error::success &&
-           std::abs(local.translation[0] - expected) < 0.0001F;
+    const auto local =
+        app->native_world()->find(session.find_node(first_uuid)->entity).local_transform();
+    return std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
     component_edit_target identity{.object_uuid = session.selected_node()->uuid,

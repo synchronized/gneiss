@@ -133,8 +133,8 @@ int main() try {
                   second_after) != gneiss::error::success ||
       first_after != first_before || second_after != second_before ||
       first_after.name() != "Reloaded Root" || second_after.name() != "Reloaded Root" ||
-      first_after.local_transform()->translation[0] != 3.0F ||
-      second_after.local_transform()->translation[0] != 2.0F ||
+      first_after.local_transform().translation[0] != 3.0F ||
+      second_after.local_transform().translation[0] != 2.0F ||
       find_source(application, scene, objects, first_instance_uuid, source_child_uuid, child) !=
           gneiss::error::success ||
       find_source(application, scene, objects, second_instance_uuid, source_child_uuid, child) !=
@@ -164,7 +164,7 @@ int main() try {
           .failed() ||
       find_source(application, scene, objects, first_instance_uuid, source_root_uuid, first_after)
           .failed() ||
-      first_after.local_transform()->translation.x != 3)
+      first_after.local_transform().translation.x != 3)
     return 8;
 
   const bool destroyed =

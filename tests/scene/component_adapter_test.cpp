@@ -352,9 +352,8 @@ int main() try {
   auto renamed = recreated->name();
   check(renamed == "renamed");
   auto transform = recreated->local_transform();
-  check(transform.has_value());
-  transform->translation.x = 7.0F;
-  check(recreated->set_local_transform(*transform).ok());
+  transform.translation.x = 7.0F;
+  check(recreated->set_local_transform(transform).ok());
   check(recreated->entity() == recreated_entity);
   auto moved = recreated->world_transform();
   check(moved && moved->translation.x == 7.0F);
@@ -372,7 +371,6 @@ int main() try {
   check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
   check(recreated->set_name("deleted") == e::error::invalid_handle);
   check(recreated->set_local_transform({}) == e::error::invalid_handle);
-  check(!recreated->local_transform());
   check(e::remove_component({*recreated}, movement_description::type_guid) ==
         e::error::invalid_handle);
   check(e::add_component({}, e::make_ref<movement_description>(1)) == e::error::invalid_handle);

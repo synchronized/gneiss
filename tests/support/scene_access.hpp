@@ -129,9 +129,7 @@ struct scene_access {
     }
     if (detail == test_support::node_query_detail::components) {
       auto transform = object.local_transform();
-      if (!transform)
-        return transform.error();
-      info.local_transform = *transform;
+      info.local_transform = transform;
     }
     return info;
   }

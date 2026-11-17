@@ -495,9 +495,7 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
   if (!target)
     return target.error();
   auto object = target->local_transform();
-  if (!object)
-    return object.error();
-  auto root = meta::view(std::as_const(*object));
+  auto root = meta::view(std::as_const(object));
   if (!root)
     return root.error();
   auto member = root->member(field);
@@ -511,14 +509,12 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
   if (type != math::transform::type_guid)
     return edit_runtime_component({*target}, type, field, value);
   auto transform = target->local_transform();
-  if (!transform)
-    return transform.error();
-  auto root = meta::view(*transform);
+  auto root = meta::view(transform);
   if (!root)
     return root.error();
   auto member = root->member(field);
   auto status = member ? member->assign(value) : member.error();
-  return status.failed() ? status : target->set_local_transform(*transform);
+  return status.failed() ? status : target->set_local_transform(transform);
 }
 
 }

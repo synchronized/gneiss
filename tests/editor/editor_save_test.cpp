@@ -220,7 +220,6 @@ int main() try {
   gneiss::entity_id camera_node;
   gneiss::entity_id reloaded_created_node;
   gneiss::entity_id camera_entity;
-  gneiss::math::transform reloaded_transform{};
   if (gneiss::test_support::take_value(
           gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_objects,
                                                                                camera_uuid),
@@ -232,10 +231,11 @@ int main() try {
       gneiss::test_support::assign_value(
           reloaded_application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
           camera_entity) != gneiss::error::success ||
-      gneiss::test_support::assign_value(
-          reloaded_application->native_world()->find(camera_entity).local_transform(),
-          reloaded_transform) != gneiss::error::success ||
-      std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {
+      std::abs(reloaded_application->native_world()
+                   ->find(camera_entity)
+                   .local_transform()
+                   .translation[0] -
+               7.0F) > 0.0001F) {
     return 12;
   }
   if (gneiss::test_support::scene_access{*reloaded_application}->unload(reloaded_scene).failed())

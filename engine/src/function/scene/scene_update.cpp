@@ -26,13 +26,11 @@ rebase_scene_update(world& world,
     if (!runtime)
       return runtime.error();
     auto transform = runtime->local_transform();
-    if (!transform)
-      return transform.error();
     auto replacement = std::ranges::find(next.objects, object.address, &composed_object::address);
     if (replacement != next.objects.end() &&
         same_transform(object.effective.transform, replacement->effective.transform))
-      replacement->effective.transform = *transform;
-    object.effective.transform = *transform;
+      replacement->effective.transform = transform;
+    object.effective.transform = transform;
     // 用实际运行状态比较目标，恢复来源指定的名称、组件和父关系。
     const std::string name(runtime->name());
     auto components = capture_components(world, binding->second.entity);
@@ -103,11 +101,9 @@ result<bool> apply_scene(scene_instance destination,
     if (!destination.contains(*borrowed))
       return false;
     auto transform = borrowed->local_transform();
-    if (!transform)
-      return transform.error();
     projected_object info;
     info.node = binding.entity;
-    info.local_transform = *transform;
+    info.local_transform = transform;
     nodes.emplace(address, std::move(info));
   }
   if (nodes.size() != count)

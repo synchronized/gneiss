@@ -26,7 +26,8 @@ public:
   [[nodiscard]] GNEISS_API std::string_view name() const;
   /** 只修改运行名称，保留对象身份，不写编辑文档。 */
   [[nodiscard]] GNEISS_API error set_name(std::string_view name) const;
-  [[nodiscard]] GNEISS_API result<math::transform> local_transform() const;
+  /** 有效对象、所属线程上的局部变换副本；修改副本不改变对象。 */
+  [[nodiscard]] GNEISS_API math::transform local_transform() const;
   /** 要求对象有效且在所属线程。完整层级矩阵，保留非均匀缩放与旋转组合产生的剪切。 */
   [[nodiscard]] GNEISS_API math::matrix4 world_matrix() const;
   /** 借用所属场景；要求有效 GameObject 及所属线程，纯 ECS 实体不是 GameObject。 */

@@ -151,3 +151,14 @@ Prefab 和生命周期测试删除 assign_value 输出参数包装，直接比�
 Windows Clang Debug 九个目标构建通过，原生生命周期、场景实例、场景 Prefab、Prefab 应用、
 组件装配、结构重载、Runtime 加载/检查及编辑器 Prefab 编辑九项回归通过。
 未运行 Release、静态库、跨平台或 GPU 验证；local_transform 和修改/销毁接口尚未迁移。
+
+### P1 第五组实施结果
+
+local_transform() 直接返回 math::transform 副本，以有效对象与所属线程为断言契约。
+反射读写先通过 world.object 验证外部实体，再读取副本；写回仍通过 set_local_transform
+校验。场景重放、Runtime 检查及测试移除无意义错误拆包和输出参数包装。失效对象测试改为
+检查身份查找失败或 is_valid；保留非法变换写入后原值不变、跨线程反射拒绝等边界验证。
+Windows Clang Debug 十二个相关目标构建通过；World、组件反射/装配、场景实例、Runtime
+加载/检查/属性编辑、Prefab 重载、属性检查器、编辑器属性编辑/Prefab 编辑/保存十二项回归通过。
+未运行 Release、静态库、跨平台或 GPU 验证。world_transform 的 TRS 语义及修改/销毁接口
+仍未迁移，P1 未完成；普通查询本轮不扩展为修改接口契约变更。

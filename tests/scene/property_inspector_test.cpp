@@ -151,11 +151,9 @@ int main() try {
   if (author == description.objects.end())
     return 4;
   auto local = app->native_world()->object(target);
-  auto transform = local ? local->local_transform()
-                         : gneiss::result<gneiss::math::transform>{local.error()};
-  if (!transform)
+  if (!local)
     return 4;
-  author->transform = *transform;
+  author->transform = local->local_transform();
   author->components = *components;
   auto serialized = gneiss::asset_file::serialize(description);
   if (!serialized || !scene.is_valid() || scene.unload().failed())

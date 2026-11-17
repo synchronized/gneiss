@@ -31,15 +31,10 @@ std::string_view game_object::name() const {
   auto state = detail::world_component_access::get(*owner_);
   return (*state)->get<detail::object_state>(entity_.get())->name;
 }
-result<math::transform> game_object::local_transform() const {
-  if (!owner_)
-    return error::invalid_handle;
+math::transform game_object::local_transform() const {
+  GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
-  const auto* object = (*state)->get<detail::object_state>(entity_.get());
-  const auto* value = object ? &object->local : nullptr;
-  return value ? result<math::transform>{*value} : result<math::transform>{error::invalid_handle};
+  return (*state)->get<detail::object_state>(entity_.get())->local;
 }
 scene_instance game_object::scene() const {
   GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");

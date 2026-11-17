@@ -130,7 +130,7 @@ int main() try {
         bindings.at(parent.address).entity != parent_id)
       return 102;
     auto actual = world.object(child_id);
-    if (!actual || actual->name() != "renamed" || actual->local_transform()->translation.x != 3)
+    if (!actual || actual->name() != "renamed" || actual->local_transform().translation.x != 3)
       return 103;
     auto cyclic = next;
     cyclic.objects[0].parent = parent.address;
@@ -160,7 +160,7 @@ int main() try {
     auto stale = next;
     stale.objects[0].effective.transform.translation.x = 99;
     applied = e::apply_scene(*empty, bindings, stale, next, {});
-    if (!applied || *applied || actual->local_transform()->translation.x != 3)
+    if (!applied || *applied || actual->local_transform().translation.x != 3)
       return 110;
     auto reduced = next;
     reduced.objects.pop_back();

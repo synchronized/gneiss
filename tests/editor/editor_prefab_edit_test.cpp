@@ -223,10 +223,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U &&
         session.is_dirty());
   check(app->native_world()->entity_count() == 298U);
-  gneiss::math::transform invalidated;
-  check(gneiss::test_support::assign_value(
-            app->native_world()->find(gneiss::entity_id{(second_node).get()}).local_transform(),
-            invalidated) == gneiss::error::invalid_handle);
+  check(!app->native_world()->find(gneiss::entity_id{(second_node).get()}).is_valid());
   // 冲突不妨碍后续编辑；撤销刷新恢复当时的源内容。
   history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,

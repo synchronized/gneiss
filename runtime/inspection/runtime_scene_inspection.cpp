@@ -227,8 +227,6 @@ gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::applica
       return gneiss::error::invalid_argument;
     auto parent = object.parent();
     auto transform = object.local_transform();
-    if (!transform)
-      return transform.error();
     auto components = gneiss::capture_components(*object.owner(), entity_id{object.entity().get()});
     if (!components)
       return components.error();
@@ -242,7 +240,7 @@ gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::applica
          .prefab_instance_uuid = binding && binding->source ? binding->object : gneiss::guid{},
          .prefab_source_node_uuid = binding ? binding->source : gneiss::guid{},
          .name = name,
-         .local_transform = *transform,
+         .local_transform = transform,
          .components = std::move(*components)});
     return gneiss::error::success;
   });
