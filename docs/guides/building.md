@@ -636,6 +636,8 @@ IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/p
 不保留只转发旧路径的兼容脚本。
 
 基础模块的使用要求直接随其真实 target 传播，不为转发 include、编译标准或另一目标
-新增 `*_interface` 层。头文件模块仍可使用 `INTERFACE`，例如 `gneiss_core_values` 与
-`gneiss_events`。`gneiss_fatal` 保持为独立的小型静态实现库，使任务、IO 与宿主的异常边界
-不依赖完整 Engine；静态安装包仍直接包含 fatal 实现，不导出该构建树内部目标。
+新增 `*_interface` 层。Core 是错误文本与 Fatal 的静态实现库；Math、Events 仍为独立头文件目标。
+平台与任务依赖 Core，不获得数学依赖；Engine 为仓内消费者传播 Core、Math、Events。
+`gneiss::core/math/events/tasks` 是对应目标的别名。当前没有新增安装 SDK；静态 Engine 包含
+基础错误与 Fatal 实现，字符串池和类型身份表仍由 Engine 提供，不能向多个模块静态复制。
+边界与后续限制见 [ADR-121](../decisions/ADR-121-foundation-build-boundaries.md)。

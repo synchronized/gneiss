@@ -142,7 +142,7 @@ add_executable(
   scene_projection_math_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_core_values)
+target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_math gneiss_core)
 target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
@@ -250,12 +250,12 @@ add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submissio
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。
 add_library(gneiss_render_service_header_check OBJECT render_service_header_check.cpp)
-target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_core_values)
+target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_math gneiss_core)
 target_compile_features(gneiss_render_service_header_check PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_service_header_check)
 set_target_properties(gneiss_render_service_header_check PROPERTIES FOLDER "Tests")
 
-target_link_libraries(gneiss_render_executor_test PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_render_executor_test PRIVATE gneiss_core)
 
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   foreach(mode render-frame render-command)
@@ -272,7 +272,7 @@ add_executable(gneiss_render_scene_test
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp")
 target_include_directories(gneiss_render_scene_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_fatal)
+target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_core)
 gneiss_target_compile_warnings(gneiss_render_scene_test)
 gneiss_target_output_directories(gneiss_render_scene_test)
 set_target_properties(gneiss_render_scene_test PROPERTIES FOLDER "Tests")

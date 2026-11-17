@@ -21,6 +21,14 @@ P2–P5 仍未全部验收，PLAN-118 P2/P3 暂不穿插。
 为目录各建一个库、修改第三方仓库。当前顺序为先完成 PLAN-118 P1，再优先执行本计划的测试精简，之后恢复 PLAN-118 P2/P3。
 此前 PLAN-118 查询与线程测试修改已随构建恢复验证，文档状态已在 8a570c1d 同步。
 
+## 基础目标收敛补充
+
+已确认边界见 [ADR-121](../decisions/ADR-121-foundation-build-boundaries.md)。
+先建立无数学依赖的 Core 实现目标（错误与 Fatal），拆出 Math/Events/Tasks 的真实使用要求，
+迁移平台和独立消费者；不将字符串池和类型身份表静态复制到多个模块。
+后续再评估 GUID、字符串标识等实现归属及独立符号导出，日志完整目标暂未收敛。
+此阶段不代表 Core 全部迁移或 PLAN-119 完成。
+
 ## 初始核查记录（2026-11-16）
 
 按本轮工作区静态扫描，engine/include 有 173 个 .h/.hpp，engine/src 有 48 个头文件、
@@ -679,3 +687,17 @@ project、protocol 七个自有源码根。Engine include/src 归一为逻辑领
 - 静态 Debug 使用已安装 Granit PACKAGE 配置通过；fatal/tasks/math/events/file sink 五个测试目标
   构建通过，对应 11 项测试通过。首次宽泛筛选误选两个未构建的 fatal-render 测试，均因可执行文件
   不存在失败；精确筛选后通过，不代表静态渲染验收。静态完整 Engine、安装以及 Web 验收仍未完成。
+
+### 2026-11-17：小型 Core 与数学依赖分离
+
+- Core 静态实现库合并错误文本和 Fatal，删除旧 gneiss_fatal/gneiss_core_values 目标；
+  新增 core/math/events/tasks 的领域别名。数学使用要求单独传播，平台及任务不再间接依赖 GLM。
+- error_message 改为 Core 的普通链接符号，不再从 Engine DLL 导入；宿主通过 Engine 的构建树
+  PUBLIC 依赖获得 Core。静态安装 Engine 包含对应基础实现，不新增 SDK 导出目标。
+- native_result 现有测试改为只链接 Core，验证独立错误文本/结果能力；不新增重复测试。
+- Windows Clang Debug 全量构建通过，30 项基础及安装 Runtime smoke 通过，235 项测试名称不变。
+  静态 Debug 六个基础测试目标构建通过，对应 12 项测试通过。
+- 编译命令确认独立 Core/Tasks/IO/进程目标没有 GLM 路径；同一 IO 源文件编入 Engine 时仍获得
+  Engine 自身数学依赖，不能把源码复用误判为平台目标仍依赖数学。
+- GUID、字符串驻留表、类型身份表、完整日志实现尚未迁移；共享状态归属保持在 Engine。
+  静态完整 Engine/安装、Web 未验收。本阶段边界及后续限制见 ADR-121，不标记完整计划完成。

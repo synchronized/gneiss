@@ -55,7 +55,8 @@ inline constexpr error error::io{-12};
 inline constexpr error error::cancelled{-13};
 
 /** 返回静态英文文本；未知码保持原值，文本为 unrecognized result。 */
-[[nodiscard]] GNEISS_API const char* error_message(error value) noexcept;
+// 无状态基础实现由 gneiss::core 提供，不通过 Engine DLL 导入。
+[[nodiscard]] const char* error_message(error value) noexcept;
 inline std::string_view error::message() const noexcept { return error_message(*this); }
 
 enum class fatal_reason { out_of_memory, unhandled_exception };

@@ -90,7 +90,7 @@ gneiss_target_output_directories(gneiss_default_registry_test)
 set_target_properties(gneiss_default_registry_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.meta-default-registry COMMAND gneiss_default_registry_test)
 add_test(NAME gneiss.meta-default-registry-failure COMMAND gneiss_default_registry_test failure)
-target_link_libraries(gneiss_default_registry_test PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_default_registry_test PRIVATE gneiss_core)
 add_test(NAME gneiss.meta-default-registry-exception COMMAND "${CMAKE_COMMAND}"
   "-DPROGRAM=$<TARGET_FILE:gneiss_default_registry_test>" -DMODE=throw
   -P "${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake")

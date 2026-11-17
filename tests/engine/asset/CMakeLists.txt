@@ -55,7 +55,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
 )
 target_include_directories(gneiss_mesh_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_core_values)
+target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math gneiss_core)
 target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math_dependency)
 target_compile_features(gneiss_mesh_binary_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_mesh_binary_test PRIVATE GNEISS_STATIC_DEFINE)
@@ -70,7 +70,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
 )
 target_include_directories(gneiss_texture_ktx2_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_texture_ktx2_test PRIVATE gneiss_core_values)
+target_link_libraries(gneiss_texture_ktx2_test PRIVATE gneiss_core)
 target_compile_features(gneiss_texture_ktx2_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_texture_ktx2_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_ktx2_test)
@@ -84,7 +84,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
 )
 target_include_directories(gneiss_texture_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_texture_binary_test PRIVATE gneiss_core_values)
+target_link_libraries(gneiss_texture_binary_test PRIVATE gneiss_core)
 target_compile_features(gneiss_texture_binary_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_texture_binary_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_binary_test)
@@ -115,6 +115,6 @@ gneiss_target_output_directories(gneiss_texture_load_application_test)
 set_target_properties(gneiss_texture_load_application_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.texture-load-application COMMAND gneiss_texture_load_application_test)
 
-target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss_core)
 
 set_tests_properties(gneiss.texture-load-application PROPERTIES TIMEOUT 30)

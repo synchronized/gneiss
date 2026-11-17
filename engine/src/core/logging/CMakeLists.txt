@@ -10,4 +10,4 @@ set_target_properties(gneiss_file_log_sink PROPERTIES POSITION_INDEPENDENT_CODE 
 gneiss_target_compile_warnings(gneiss_file_log_sink)
 
 target_include_directories(gneiss_file_log_sink PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(gneiss_file_log_sink PUBLIC gneiss_core_values)
+target_link_libraries(gneiss_file_log_sink PUBLIC gneiss_core)

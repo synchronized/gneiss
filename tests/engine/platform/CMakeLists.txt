@@ -57,7 +57,7 @@ if(TARGET gneiss_io_uv)
   add_test(NAME gneiss.io.uv-file-reader COMMAND gneiss_uv_file_reader_test)
 
   add_executable(gneiss_uv_loop_executor_test "io/uv/uv_loop_executor_test.cpp")
-  target_link_libraries(gneiss_uv_loop_executor_test PRIVATE gneiss_io_uv gneiss_fatal)
+  target_link_libraries(gneiss_uv_loop_executor_test PRIVATE gneiss_io_uv gneiss_core)
   target_compile_features(gneiss_uv_loop_executor_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_uv_loop_executor_test)
   gneiss_target_output_directories(gneiss_uv_loop_executor_test)

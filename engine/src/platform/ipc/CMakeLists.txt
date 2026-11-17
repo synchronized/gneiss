@@ -12,8 +12,8 @@ add_library(
 )
 target_link_libraries(
   gneiss_ipc
-  PUBLIC gneiss_core_values
-  PRIVATE gneiss_fatal gneiss_io_uv gneiss::libuv
+  PUBLIC gneiss_core
+  PRIVATE gneiss_io_uv gneiss::libuv
 )
 target_include_directories(gneiss_ipc PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_features(gneiss_ipc PUBLIC cxx_std_20)

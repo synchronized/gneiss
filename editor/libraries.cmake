@@ -149,6 +149,6 @@ target_compile_features(gneiss_scene_document PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_document)
 gneiss_target_output_directories(gneiss_scene_document)
 
-target_link_libraries(gneiss_editor_assets PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_editor_assets PRIVATE gneiss_core)
 
 target_link_libraries(gneiss_editor_model PUBLIC gneiss_events)

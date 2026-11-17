@@ -56,4 +56,4 @@ gneiss_target_compile_warnings(gneiss_runtime)
 gneiss_target_output_directories(gneiss_runtime)
 
 
-target_link_libraries(gneiss_runtime PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_runtime PRIVATE gneiss_core)

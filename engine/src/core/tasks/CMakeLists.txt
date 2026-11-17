@@ -3,10 +3,11 @@
 
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 add_library(gneiss_tasks STATIC task_scheduler.cpp)
+add_library(gneiss::tasks ALIAS gneiss_tasks)
 if(COMMAND gneiss_target_profiling)
   gneiss_target_profiling(gneiss_tasks)
 endif()
-target_link_libraries(gneiss_tasks PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_tasks PRIVATE gneiss_core)
 target_include_directories(gneiss_tasks PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../include>")
 

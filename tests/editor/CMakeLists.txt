@@ -155,11 +155,11 @@ gneiss_target_output_directories(gneiss_editor_scene_document_versions_test)
 set_target_properties(gneiss_editor_scene_document_versions_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.editor.scene-document-versions COMMAND gneiss_editor_scene_document_versions_test)
 
-target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_core)
 
-target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_core)
 
-target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_fatal)
+target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_core)
 
 include(host_targets.cmake)
 

@@ -137,7 +137,7 @@ set_target_properties(gneiss_scene_prefab_instance_test PROPERTIES FOLDER "Tests
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
 
 add_executable(gneiss_property_inspector_test property_inspector_test.cpp)
-target_link_libraries(gneiss_property_inspector_test PRIVATE gneiss_fatal gneiss::engine gneiss_tasks)
+target_link_libraries(gneiss_property_inspector_test PRIVATE gneiss_core gneiss::engine gneiss_tasks)
 target_compile_definitions(gneiss_property_inspector_test PRIVATE
   GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/fixtures/property_inspector")
 gneiss_target_compile_warnings(gneiss_property_inspector_test)

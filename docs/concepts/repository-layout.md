@@ -194,8 +194,8 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 ## 同源码内部接口的可见范围
 
 - 跨模块原生契约直接来自各模块的 `include` 目录，通过真实 target 依赖传播，不再复制头文件。
-- Engine 基础目标由 `engine/src/core/CMakeLists.txt` 声明：`gneiss_core_values` 提供值类型
-  头文件使用要求，`gneiss_events` 提供事件模板依赖，`gneiss_fatal` 提供独立致命异常边界。
+- Engine 基础目标由 `engine/src/core/CMakeLists.txt` 声明：`gneiss::core` 提供基础错误
+  实现，`gneiss::math` 和 `gneiss::events` 分别提供数学与事件模板依赖。
   宿主使用 `gneiss::engine`；不再额外链接 native/value/result 等转发接口目标。
 - Task 的实现与目标位于 `engine/src/core/tasks`；不得借其依赖恢复全局公开源码路径。
 - 构建装配和 CMake 文件归属见[构建指南](../guides/building.md#cmake-文件与装配入口)。
