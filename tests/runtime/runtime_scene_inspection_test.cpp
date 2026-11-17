@@ -6,6 +6,7 @@
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
+#include <gneiss/protocol/registration.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
@@ -332,7 +333,10 @@ bool test_registered_component_inspection() {
 } // namespace
 
 int main() {
-  if (gneiss::initialize_meta(gneiss::test_support::register_movement_meta).failed() ||
+  if (gneiss::initialize_meta([] {
+        auto status = gneiss::protocol::register_types();
+        return status.failed() ? status : gneiss::test_support::register_movement_meta();
+      }).failed() ||
       gneiss::register_scene_component(gneiss::test_support::operations()).failed())
     return 99;
   if (!test_registered_component_inspection())

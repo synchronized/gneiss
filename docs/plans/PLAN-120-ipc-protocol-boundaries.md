@@ -167,3 +167,18 @@ logging::record_view 转为拥有文本的协议记录，并非同类型转发�
 剩余：Inspection、Session 类型化迁移；stdout 手写文本编解码是否可安全复用反射，需要先
 核查 Meta 初始化前及关闭后的日志调用，不以统一编码为由引入启动或关闭依赖。
 整体阶段二仍未完成。
+
+## Inspection 字段迁移
+
+- [x] 注册对象身份、stamp、node、change、batch，批次递归使用反射序列化。
+- [x] 删除手写 GUID/变换/组件字段编解码及最后一个 reflected_json.hpp 桥接文件。
+- [x] inspection_snapshot 描述驱动快照方向及信封解码，保留独立候选和业务校验。
+- [x] 格式升为 v3，采用嵌套 stamp/local_transform 与通用 GUID null；remove 也携带 node。
+
+这轮保留现有分片算法、批次与分片包装入口，未声称 Inspection API 已全部收敛。后续收尾需
+明确分片失败与非法负载的错误区别，再删除冗余发送包装；Session 和 stdout 编码评估仍待处理。
+格式事实见 [IPC 参考](../reference/platform-ipc.md#inspection-批次反射)。
+
+验收：Windows Clang Debug 共享构建及 19 项相关测试通过，包含大批次分片、重复 ID 拒绝、
+自定义组件往返及失败不替换完整快照、真实 Runtime/Editor 工作流。Property 测试初始化已与
+宿主 initialize_meta 流程一致。未执行静态、Linux/Web 或远端验证。

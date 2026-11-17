@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/registration.hpp>
@@ -25,12 +25,11 @@ struct wire_object : m::object_type<wire_object> {
   int count = 9;
 };
 bool test_object_value() {
-  if (gneiss::serialization::register_builtin_types().failed() ||
-      m::registration::type<wire_object>()
-          .property<&wire_object::count>(m::property_id{1}, "count")
-          .commit()
-          .failed() ||
-      gneiss::protocol::register_types().failed() || m::freeze().failed())
+  if (gneiss::initialize_meta([] {
+        auto status = m::registration::type<wire_object>()
+            .property<&wire_object::count>(m::property_id{1}, "count").commit();
+        return status.failed() ? status : gneiss::protocol::register_types();
+      }).failed())
     return false;
   ipc_property_write command{.session_id = 1,
                              .object = {1, 1},

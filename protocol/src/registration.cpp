@@ -260,6 +260,81 @@ error register_types() {
           .commit();
   if (status.failed())
     return status;
+  status = meta::registration::enumeration<host::ipc_inspection_change_type>()
+               .name("gneiss.protocol.ipc_inspection_change_type")
+               .guid(guid::literal("6195049f-08dd-44e8-bc89-4b4e498d28b6"))
+               .value("upsert", host::ipc_inspection_change_type::upsert)
+               .value("remove", host::ipc_inspection_change_type::remove)
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_runtime_object_id>()
+          .property<&host::ipc_runtime_object_id::value>(meta::property_id{1}, "value")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_runtime_object_id::generation>(meta::property_id{2}, "generation")(
+              serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_inspection_stamp>()
+          .property<&host::ipc_inspection_stamp::session_id>(meta::property_id{1}, "session_id")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_stamp::sequence>(meta::property_id{2}, "sequence")(
+              serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_inspection_node>()
+          .property<&host::ipc_inspection_node::id>(meta::property_id{1}, "id")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::parent>(meta::property_id{2}, "parent")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::uuid>(meta::property_id{3}, "uuid")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::prefab_instance_uuid>(meta::property_id{4},
+                                                                      "prefab_instance_uuid")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::prefab_source_node_uuid>(meta::property_id{5},
+                                                                         "prefab_source_node_uuid")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::name>(meta::property_id{6}, "name")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::local_transform>(meta::property_id{7},
+                                                                 "local_transform")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_node::components>(meta::property_id{8}, "components")(
+              serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_inspection_change>()
+               .property<&host::ipc_inspection_change::type>(meta::property_id{1}, "type")(
+                   serialization::field_policy{.required = true, .enum_name = true})
+               .property<&host::ipc_inspection_change::id>(meta::property_id{2}, "id")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_inspection_change::node>(meta::property_id{3}, "node")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_inspection_batch>()
+          .property<&host::ipc_inspection_batch::stamp>(meta::property_id{1}, "stamp")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_batch::is_full>(meta::property_id{2}, "is_full")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_batch::chunk_index>(meta::property_id{3}, "chunk_index")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_batch::chunk_count>(meta::property_id{4}, "chunk_count")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_inspection_batch::changes>(meta::property_id{5}, "changes")(
+              serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
   return meta::registration::type<statistics>()
       .name("gneiss.protocol.runtime_statistics")
       .guid(guid::literal("fc508023-b243-42c5-9ab8-5fd54aa863d5"))

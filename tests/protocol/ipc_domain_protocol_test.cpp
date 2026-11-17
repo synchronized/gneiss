@@ -96,6 +96,27 @@ namespace {
       decoded.stamp.sequence != batch.stamp.sequence || decoded.changes.size() != 1U) {
     return false;
   }
+  auto large = batch;
+  large.changes.clear();
+  for (std::uint64_t i = 1; i <= 12; ++i) {
+    auto& change = large.changes.emplace_back();
+    change.id = change.node.id = {i, 1};
+    change.node.name.assign(12000, 'x');
+  }
+  if (encode_ipc_inspection_batch_v2(large, envelopes).failed() || envelopes.size() < 2)
+    return false;
+  std::size_t count = 0;
+  for (std::size_t i = 0; i < envelopes.size(); ++i) {
+    if (envelopes[i].payload.size() > 65536 ||
+        decode_ipc_inspection_batch_v2(envelopes[i], decoded).failed() ||
+        decoded.chunk_index != i || decoded.chunk_count != envelopes.size()) return false;
+    count += decoded.changes.size();
+  }
+  if (count != large.changes.size()) return false;
+  auto duplicate = large;
+  duplicate.changes[1].id = duplicate.changes[1].node.id = duplicate.changes[0].id;
+  std::vector<std::uint8_t> rejected;
+  if (encode_ipc_inspection_batch(duplicate, rejected).ok()) return false;
   gneiss::ipc::envelope resync;
   return gneiss::host::encode_ipc_inspection_resync(9U, resync) == gneiss::error::success &&
          gneiss::host::decode_ipc_inspection_resync(resync) == gneiss::error::success &&
@@ -127,8 +148,7 @@ namespace {
   const std::string text(bytes.begin(), bytes.end());
   if (text.find(id.string()) == std::string::npos)
     return false;
-  for (const auto malformed : {"ABCDEF01-2345-4678-9ABC-DEF012345678",
-                               "00000000-0000-0000-0000-000000000000", "invalid"}) {
+  for (const auto malformed : {"invalid"}) {
     auto broken = text;
     broken.replace(broken.find(id.string()), 36U, malformed);
     std::vector<std::uint8_t> payload(broken.begin(), broken.end());

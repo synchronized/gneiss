@@ -124,3 +124,17 @@ stdout 是独立的文本通道，继续支持 `@gneiss-log-v2 ` 前缀、分块
 用于 IPC 尚未可用时的输出。其手写文本编解码本轮未迁移，也不调用需要 Meta 初始化的 IPC
 编码入口。IPC 与 stdout 汇入相同控制台去重路径，但不再互相包裹编码结果。
 Log v1/v2 的 IPC 负载不兼容，须使用配套 Editor/Runtime；stdout 行协议版本未改变。
+
+## Inspection 批次反射
+
+Inspection v3 按内存结构编码 stamp、is_full、chunk_index、chunk_count、changes。change 包含
+枚举名称 type、id 和 node；remove 也写出 node，但业务只使用 id。节点变换存入 local_transform，
+GUID 使用通用格式，nil 写作 null；组件集合直接递归反射，保留多态类型和集合身份校验。
+不再把组件 JSON 片段插入手写 DOM。v2/v3 不兼容，同版本宿主需配套升级。
+
+inspection_snapshot 描述快照事件及方向，反射先生成独立候选，再检查会话、序号、分片范围、
+重复对象 ID、parent 身份完整性、upsert 的节点 ID 一致性及 Prefab 来源约束。真正的父子引用、
+跨片顺序和镜像应用仍由接收侧维护。编码与解码都拒绝批次内重复 ID。
+
+单片上限仍为 64 KiB，每批最多 8192 项，接收 chunk_count 上限 4096，发送最多 128 片。
+分片算法、批次/分片包装入口继续保留；resync 仍使用空负载，不为形式统一增加 JSON 对象。

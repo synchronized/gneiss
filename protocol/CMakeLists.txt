@@ -29,7 +29,6 @@ add_library(gneiss_protocol STATIC
   src/ipc_scene_protocol.cpp
   src/ipc_session_protocol.cpp
   src/ipc_statistics_protocol.cpp
-  src/reflected_json.hpp
   src/runtime_log_protocol.cpp
 )
 add_library(gneiss::protocol ALIAS gneiss_protocol)
