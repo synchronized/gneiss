@@ -14,20 +14,6 @@
 
 namespace gneiss {
 
-/** Prefab 实例中节点的稳定作者身份。 */
-struct prefab_author_address final {
-  gneiss::guid instance_uuid;
-  gneiss::guid source_node_uuid;
-
-  [[nodiscard]] bool operator==(const prefab_author_address&) const noexcept = default;
-};
-
-/** 判断 UUID 是否为规范的小写形式。 */
-[[nodiscard]] bool is_canonical_prefab_uuid(std::string_view value) noexcept;
-
-/** 判断复合作者身份的两个 GUID 是否均为非零值。 */
-[[nodiscard]] bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept;
-
 /** 先定位来源对象，再选择该对象上的属性所属类型。 */
 struct prefab_property_target final {
   static constexpr std::string_view type_name = "prefab_property_target";

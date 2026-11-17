@@ -9,7 +9,6 @@
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include "function/asset/resource_cache.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
@@ -300,16 +299,6 @@ int main() try {
   fresh.root_uuid = {};
   if (gneiss::asset_file::serialize_bytes(fresh))
     return 42;
-  const gneiss::prefab_author_address address{
-      .instance_uuid = *gneiss::guid::parse("20000000-0000-4000-8000-000000000001"),
-      .source_node_uuid = prefab.objects[1].uuid};
-  const gneiss::prefab_author_address different_instance{
-      .instance_uuid = *gneiss::guid::parse("20000000-0000-4000-8000-000000000002"),
-      .source_node_uuid = prefab.objects[1].uuid};
-  if (!gneiss::is_valid_prefab_author_address(address) || address == different_instance) {
-    return 2;
-  }
-
   const auto multiple_roots =
       replace_once(std::string(valid_prefab),
                    R"("parent":{"object":"10000000-0000-4000-8000-000000000002","source":null})",

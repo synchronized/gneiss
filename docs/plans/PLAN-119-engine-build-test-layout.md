@@ -454,6 +454,19 @@ Meta/Render/Prefab 测试随 PLAN-118 P2/P3 对应接口迁移整理，不提前
 git diff --check 通过。未运行静态库、Release、跨平台或 GPU 验证；其他重复源码目标及
 scene_access 消费者仍待逐链清理，本计划未完成。
 
+### 描述序列化测试使用真实 Engine
+
+2026-11-17：scene_description 与 prefab_description 两个测试目标移除六处重复的 Engine
+源码编译，去掉 GNEISS_BUILDING_LIBRARY、旧 src/私有 engine/src 包含路径及直接 JSON/EnTT
+依赖，保留 Engine 和异步夹具实际使用的任务库依赖。Prefab 测试移除未使用的缓存私有头。
+仓库引用核查确认 prefab_author_address 只剩孤立测试使用，两个配套 UUID/身份校验函数
+没有生产调用，因此删除旧类型、函数及其孤立断言，不为测试增加导出。当前覆盖地址模型、
+序列化、层级校验、异步加载和弱缓存行为用例保留。
+Windows Clang Debug 两个目标构建成功，scene_description/prefab_description 两项测试通过，
+git diff --check 通过。未运行 Release、静态库和跨平台验证。
+资产加载/纹理服务测试仍调用私有解码与资源接入辅助，不能直接照搬此次源清单删除；
+这些白盒边界及 scene_access 消费者仍待清理，PLAN-119 未完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。
