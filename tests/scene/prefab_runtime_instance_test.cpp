@@ -101,7 +101,8 @@ int main() try {
   world.find(gneiss::entity_id{(root_node).get()}).destroy();
   applied = e::apply_scene(*instance, mapping, removed, removed, {});
   check(applied && !*applied);
-  check(instance->unload().ok() && world.entity_count() == 0);
+  instance->unload();
+  check(world.entity_count() == 0);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

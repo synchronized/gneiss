@@ -34,7 +34,9 @@ World/scene_instance 的创建和外部身份借用返回 `result<T>`。有效�
 对跨场景或循环返回 `invalid_argument`；这些拒绝不改变原值或层级。
 `destroy()` 返回 void，要求有效对象及所属线程，删除整棵子树后相关句柄立即失效。
 清理可能已被父对象删除的子句柄时先检查 `is_valid()`；外部实体 ID 先经 `world.object()` 验证。
-其他原地修改、卸载及带可失败回调的
+`scene_instance::unload()` 同样返回 void，要求有效场景及所属线程，回收全部成员并释放场景槽位。
+关闭可能已被外部卸载的场景时先检查 `is_valid()`；外部场景 ID 通过 `borrow()` 验证。
+其他原地修改及带可失败回调的
 `visit_objects()` 仍返回 `error`，其他对象查询按其当前声明处理。
 
 ```cpp

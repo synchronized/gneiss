@@ -34,8 +34,8 @@ public:
    * 回调失败停止后续调用，不缓存成员副本；roots_only 只访问根对象。 */
   [[nodiscard]] GNEISS_API error visit_objects(const std::function<error(game_object)>&,
                                                bool roots_only = false) const;
-  /** 卸载全部成员；复制的场景/对象借用句柄不阻止卸载。 */
-  [[nodiscard]] GNEISS_API error unload() const noexcept;
+  /** 要求有效场景及所属线程；卸载全部成员并释放槽位，所有相关借用句柄失效，不得重复卸载。 */
+  GNEISS_API void unload() const noexcept;
 
 private:
   world* owner_{};

@@ -246,7 +246,8 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   check(app->native_world() == world && object->is_valid());
   auto current = e::scene_instance::borrow(*world, (activated->instance.instance).id());
   check(current && current->size() == content->description->objects.size());
-  check(original->unload().ok() && !object->is_valid() && current->is_valid());
+  original->unload();
+  check(!object->is_valid() && current->is_valid());
   auto reload = app->assets().load<e::scene>("asset://scene.json", {.reload = true});
   check(bool(reload));
   await([&] { return reload->status() != e::error::not_ready; });
@@ -284,7 +285,7 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   auto second = load();
   check(*app->assets().find<gneiss::mesh>("asset://mesh.json") == *mesh);
   check(*app->assets().find<gneiss::material>("asset://material.json") == *material);
-  check(first.unload().ok());
+  first.unload();
   check(second.is_valid() && second.size() == 1);
   // 另一场景仍持有共享资源；普通打开不隐式重读损坏源文件。
   std::ofstream(files.root / "material.json") << "broken";

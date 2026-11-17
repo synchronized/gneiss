@@ -20,15 +20,6 @@ error world::validate_scene(scene_instance_id id) const noexcept {
   return impl_->scene_slots.get(id, resource_type::scene_instance) ? error::success
                                                                    : error::invalid_handle;
 }
-error world::unload_scene(scene_instance_id id) noexcept try {
-  auto status = validate_scene(id);
-  if (status.failed())
-    return status;
-  impl_->destroy_scene_members(id);
-  return impl_->scene_slots.destroy(id, resource_type::scene_instance);
-} catch (...) {
-  fatal_current_exception();
-}
 
 result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id) noexcept {
   if (!owner.is_owner_thread())
@@ -145,10 +136,13 @@ bool scene_instance::contains(game_object object) const noexcept {
          owner_->impl_->scene_of(object.entity()) == id_;
 }
 
-error scene_instance::unload() const noexcept {
-  if (!owner_)
-    return error::invalid_handle;
-  return owner_->unload_scene(id_);
+void scene_instance::unload() const noexcept try {
+  GNEISS_ASSERT(is_valid(), "场景卸载要求有效句柄及所属线程");
+  owner_->impl_->destroy_scene_members(id_);
+  const auto status = owner_->impl_->scene_slots.destroy(id_, resource_type::scene_instance);
+  GNEISS_ASSERT(status.ok(), "有效场景槽位必须能够释放");
+} catch (...) {
+  fatal_current_exception();
 }
 
 result<game_object> scene_instance::create_object(const object_options& options,

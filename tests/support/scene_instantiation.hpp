@@ -19,7 +19,7 @@ instantiate_effective(world& world, const composed_scene& composed,
     scene_instance instance;
     ~creation_guard() {
       if (instance.id()) {
-        (void)instance.unload();
+        instance.unload();
       }
     }
   } guard{*created};

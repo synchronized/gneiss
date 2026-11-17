@@ -118,7 +118,8 @@ int main(void) {
   if (membership.id() != object_scene->id())
     return 17;
   auto scene_copy = *object_scene;
-  if (object_scene->unload().failed() || scene_copy.is_valid() || replacement->is_valid())
+  object_scene->unload();
+  if (scene_copy.is_valid() || replacement->is_valid())
     return 18;
   if (scene_copy.create_object({"expired", {}}).error() != error::invalid_handle)
     return 19;

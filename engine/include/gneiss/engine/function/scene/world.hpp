@@ -52,7 +52,6 @@ private:
   friend struct gneiss::world_factory;
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
-  [[nodiscard]] error unload_scene(scene_instance_id) noexcept;
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
   struct implementation;

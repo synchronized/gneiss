@@ -195,8 +195,8 @@ int main() try {
           .ok())
     return 30;
 
+  scene.unload();
   const bool destroyed =
-      scene.unload() == gneiss::error::success &&
       reloader.reload(loaded.reload_state, uri, false) == gneiss::error::invalid_handle &&
       application->native_world()->object(second.objects.front().entity).has_value() &&
       application->shutdown() == gneiss::error::success;

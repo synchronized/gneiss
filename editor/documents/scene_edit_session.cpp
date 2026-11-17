@@ -241,7 +241,7 @@ gneiss::error scene_edit_session::create_empty(runtime::application& application
   initial.description = gneiss::make_ref<const gneiss::scene_description>(std::move(description));
   auto frozen = make_scene_document_snapshot({}, initial);
   if (!frozen) {
-    (void)created->unload();
+    created->unload();
     return frozen.error();
   }
   std::unique_ptr<scene_document> versions;
@@ -249,12 +249,12 @@ gneiss::error scene_edit_session::create_empty(runtime::application& application
     versions = std::make_unique<scene_document>();
   } catch (...) {
     // 局部状态清理后传播意外异常，不作为普通操作失败继续执行。
-    (void)created->unload();
+    created->unload();
     throw;
   }
   const auto status = versions->reset(*frozen, false);
   if (status.failed()) {
-    (void)created->unload();
+    created->unload();
     return status;
   }
   close();
@@ -854,7 +854,7 @@ void scene_edit_session::close() noexcept {
   selection_ = {};
   uri_.clear();
   if (is_open())
-    (void)scene_.unload();
+    scene_.unload();
   document_.reset();
   projection_ = {};
   scene_ = {};

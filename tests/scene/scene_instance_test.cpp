@@ -525,14 +525,19 @@ int main() try {
         visited != 1U)
       return 27;
     // 原场景卸载不能删除已迁出的对象；目标场景卸载统一回收整棵子树。
-    if (instance->unload().failed() || !object->is_valid() || !child->is_valid())
+    instance->unload();
+    if (!object->is_valid() || !child->is_valid())
       return 28;
     instance = std::move(target_scene);
     gneiss::error worker_status;
-    std::thread worker([&] { worker_status = instance->unload(); });
+    std::thread worker([&] {
+      worker_status = gneiss::scene_instance::borrow(**native, instance->id()).error();
+    });
     worker.join();
-    if (worker_status != gneiss::error::invalid_state || instance->unload().failed() ||
-        instance->is_valid() || object->is_valid())
+    if (worker_status != gneiss::error::invalid_state)
+      return 18;
+    instance->unload();
+    if (instance->is_valid() || object->is_valid())
       return 18;
   }
   const gneiss::guid empty_uuid =

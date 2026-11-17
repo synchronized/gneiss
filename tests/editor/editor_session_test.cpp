@@ -116,8 +116,7 @@ int main() try {
             gneiss::error::invalid_handle ||
         session.scene_handle() != before || !session.is_open() || !member->is_valid())
       return 102;
-    if (target->unload().failed())
-      return 103;
+    target->unload();
   }
   // 外部卸载立即使编辑会话失效，关闭不能影响另一场景。
   {
@@ -125,7 +124,10 @@ int main() try {
     if (transient.create_empty(*application, world, gneiss::guid::generate()).failed())
       return 104;
     auto instance = gneiss::scene_instance::borrow(*world, transient.scene_handle().id());
-    if (!instance || instance->unload().failed() || transient.is_open())
+    if (!instance)
+      return 105;
+    instance->unload();
+    if (transient.is_open())
       return 105;
     transient.close();
     if (!session.is_open())

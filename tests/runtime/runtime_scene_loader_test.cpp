@@ -182,7 +182,8 @@ void run() {
   check(gneiss::get_active_camera(*app->native_world(), camera).ok());
   check(camera == find_source(extra.uuid));
   auto instance = gneiss::scene_instance::borrow(*app->native_world(), (source->instance).id());
-  check(instance && instance->unload().ok());
+  check(instance.has_value());
+  instance->unload();
   check(loader.reload(source, uri, false).failed());
 }
 }

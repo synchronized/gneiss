@@ -198,3 +198,15 @@ Windows Clang Debug 十二目标构建通过，十二项相关回归最终通过
 重建并重跑通过，未改变相机实现。git diff --check 通过。
 未运行 Release、静态库、跨平台或 GPU 验证。场景 unload、组件操作及 world_transform 审查
 仍未完成，P1 保持进行中。
+
+### P1 场景卸载实施结果
+
+SceneInstance::unload 改为 void，要求有效句柄及所属线程；卸载全部成员并释放槽位，释放失败
+视为内部不变量违例。删除仅供卸载转发的 world::unload_scene，保留关闭边界的异常终止策略。
+Runtime 激活、Editor 投影/关闭、示例与失败清理直接卸载；可能已失效的场景先检查 is_valid，
+外部身份借用仍返回错误。测试中的重复卸载改为检查句柄失效，跨线程检查移至 borrow 边界；
+保留成员迁移、槽位复用、组件释放、编辑会话外部卸载失效和重载行为验证。
+旧 scene_access 测试夹具通过 borrow 验证后卸载，暂保留其错误返回，待 PLAN-119 删除旧调用。
+Windows Clang Debug 场景查看器与十二测试目标构建通过，十二项相关回归全部通过；
+git diff --check 通过。查看器未运行，未进行 GPU、Release、静态库或跨平台验证。
+P1 的组件操作、world_transform 等剩余契约尚待审查，计划未完成。

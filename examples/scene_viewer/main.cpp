@@ -270,7 +270,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     return 2;
   example::scope_exit unload{[&] {
     if (scene.is_valid()) {
-      (void)scene.unload();
+      scene.unload();
     }
   }};
   const auto scene_ready = clock::now();
@@ -342,16 +342,8 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     }
   }
   const auto run_finished = clock::now();
-  result = ([&] {
-    auto status = scene.unload();
-    if (status == gneiss::error::success)
-      scene = {};
-    return gneiss::error{status};
-  })();
-  if (result != gneiss::error::success) {
-    report_failure("卸载场景", result);
-    return 8;
-  }
+  scene.unload();
+  scene = {};
   const auto scene_unloaded = clock::now();
   result = native_application->shutdown();
   if (result.failed()) {

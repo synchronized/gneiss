@@ -119,7 +119,7 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
     return fail(next.error());
   auto built = gneiss::instantiate(*next, *composed, initial->assets);
   if (!built) {
-    (void)next->unload();
+    next->unload();
     return fail(built.error());
   }
   entity_id primary_camera;
@@ -132,20 +132,20 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
   if (primary_camera.get()) {
     auto selected = gneiss::set_active_camera(*application.native_world(), primary_camera);
     if (selected.failed()) {
-      (void)next->unload();
+      next->unload();
       return fail(selected);
     }
   }
   const auto closed = editing.close();
   if (closed.failed()) {
-    (void)next->unload();
+    next->unload();
     return closed;
   }
   camera.shutdown();
   world = application.native_world();
   auto operation = editing.document().adopt(application, *next, *initial, built->objects);
   if (operation.failed())
-    (void)next->unload();
+    next->unload();
   else {
     visuals_ = std::move(*visual_request);
     operation = camera.initialize();

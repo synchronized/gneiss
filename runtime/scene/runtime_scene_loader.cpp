@@ -102,7 +102,7 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
     return next.error();
   auto built = gneiss::instantiate(*next, *composed, bindings);
   if (!built) {
-    (void)next->unload();
+    next->unload();
     return built.error();
   }
   entity_id camera;
@@ -114,7 +114,7 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   if (camera.get()) {
     auto selected = gneiss::set_active_camera(*application_.native_world(), camera);
     if (selected.failed()) {
-      (void)next->unload();
+      next->unload();
       return selected;
     }
   }
@@ -127,13 +127,8 @@ runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   for (const auto& binding : completion.objects)
     baseline.objects.emplace(gneiss::object_address{binding.object, binding.source},
                              gneiss::scene_object_association{binding.entity});
-  if (current_.is_valid()) {
-    const auto unloaded = current_.unload();
-    if (unloaded.failed()) {
-      (void)next->unload();
-      return unloaded;
-    }
-  }
+  if (current_.is_valid())
+    current_.unload();
   current_ = *next;
   visuals_ = std::move(*visual_request);
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。

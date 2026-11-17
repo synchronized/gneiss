@@ -167,8 +167,8 @@ int main() try {
       first_after.local_transform().translation.x != 3)
     return 8;
 
-  const bool destroyed =
-      scene.unload() == gneiss::error::success && application->shutdown() == gneiss::error::success;
+  scene.unload();
+  const bool destroyed = application->shutdown() == gneiss::error::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 7;
 } catch (...) {

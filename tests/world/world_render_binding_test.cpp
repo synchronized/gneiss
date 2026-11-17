@@ -121,8 +121,7 @@ int main() {
       temporary->add_component<mesh_component>(mesh_component{*mesh, *material}).failed())
     return fail("未提交对象删除及场景卸载");
   temporary->destroy();
-  if (scene->unload().failed())
-    return fail("未提交对象删除及场景卸载");
+  scene->unload();
   (*owner)->flush_changes();
   if (!(*binding)->synchronize())
     return fail("未提交对象删除及场景卸载");

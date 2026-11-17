@@ -46,7 +46,7 @@ activate_scene(gneiss::runtime::application& app, const gneiss::scene_content& c
     return destination.error();
   auto built = instantiate(*destination, *composed, bindings);
   if (!built) {
-    (void)destination->unload();
+    destination->unload();
     return built.error();
   }
   gneiss::entity_id camera;
@@ -58,7 +58,7 @@ activate_scene(gneiss::runtime::application& app, const gneiss::scene_content& c
   if (camera) {
     auto selected = set_active_camera(*app.native_world(), camera);
     if (selected.failed()) {
-      (void)destination->unload();
+      destination->unload();
       return selected;
     }
   }

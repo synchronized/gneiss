@@ -27,8 +27,11 @@ struct scene_access {
   gneiss::error unload(scene_instance id) {
     if (id.owner() != &owner)
       return gneiss::error::invalid_handle;
-    auto scene = id;
-    return scene.unload();
+    auto scene = scene_instance::borrow(owner, id.id());
+    if (!scene)
+      return scene.error();
+    scene->unload();
+    return gneiss::error::success;
   }
   gneiss::result<std::uint64_t> get_node_count(scene_instance id) {
     if (id.owner() != &owner)

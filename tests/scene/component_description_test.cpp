@@ -337,8 +337,7 @@ int main() try {
   auto node = create(*supported);
   if (!node)
     return 12;
-  if (destination->unload().failed())
-    return 12;
+  destination->unload();
   // Prefab 共用完全相同的组件协议。
   auto prefab_text = scene("[" + camera + "," + custom + "]");
   prefab_text.replace(prefab_text.find("gneiss.scene"), 12, "gneiss.prefab");

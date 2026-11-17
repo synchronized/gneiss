@@ -212,14 +212,16 @@ int main() try {
   auto inherited_count = another_handle->size();
   check(inherited_count == 3);
   check(first_object->reparent(*parent_bridge) == e::error::invalid_argument);
-  check(another_handle->unload().ok());
+  another_handle->unload();
   check(!parent_bridge->is_valid());
   check(first_object->is_valid());
   auto other_world = e::create_native();
   check(other_world.has_value());
   check(!e::scene_instance::borrow(**other_world, (instance).id()));
   e::error wrong_thread;
-  std::thread scene_worker([&] { wrong_thread = borrowed_copy.unload(); });
+  std::thread scene_worker([&] {
+    wrong_thread = e::scene_instance::borrow(world, borrowed_copy.id()).error();
+  });
   scene_worker.join();
   check(wrong_thread == e::error::invalid_state);
   check(borrowed_copy.is_valid());
@@ -324,10 +326,9 @@ int main() try {
   lifetime = state(world).get<movement_component>(id)->lifetime;
   auto borrowed_object = world.object(gneiss::entity_id{node.get()});
   check(borrowed_object && borrowed_object->is_valid());
-  check(borrowed_copy.unload().ok());
+  borrowed_copy.unload();
   check(!borrowed->is_valid() && !borrowed_copy.is_valid());
   check(!borrowed_object->is_valid());
-  check(!borrowed_copy.unload().ok());
   check(lifetime.expired());
   // 动态成员经借用场景创建，直接 World 删除后查询清理失效索引。
   auto dynamic_scene = scenes.create_empty(e::guid::from_bytes({20}));
@@ -364,7 +365,8 @@ int main() try {
   check(preserved_identity == "recreated");
   auto detached = dynamic->create_object({"detached", {}}, *recreated);
   check(detached && detached->reparent({}).ok());
-  check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
+  dynamic->unload();
+  check(!recreated->is_valid() && !detached->is_valid());
   check(e::remove_component({*recreated}, movement_description::type_guid) ==
         e::error::invalid_handle);
   check(e::add_component({}, e::make_ref<movement_description>(1)) == e::error::invalid_handle);
@@ -493,7 +495,7 @@ int main() try {
   auto append_foreign_parent = foreign_scene->create_object({"foreign", {}});
   check(append_foreign_parent.has_value());
   check(!e::instantiate(*destination, *append_composed, {}, *append_foreign_parent));
-  check(foreign_scene->unload().ok());
+  foreign_scene->unload();
   check(scenes.unload(camera_instance->instance).ok());
   // Prefab 覆盖使用同一适配入口，不认识测试组件的类型。
   auto prefab = std::make_shared<e::prefab_description>();
@@ -570,9 +572,10 @@ int main() try {
   auto new_object = scenes.find_object(replaced->objects, first.uuid);
   check(new_object && new_object->name() == "replacement");
   check(stable->size() == 1 && other->size() == 1);
-  check(stable->unload().ok());
+  stable->unload();
   check(!new_object->is_valid() && other_object->is_valid());
-  check(other->unload().ok() && !other_object->is_valid());
+  other->unload();
+  check(!other_object->is_valid());
   lifetime = state(world).get<movement_component>(id)->lifetime;
   owner->reset();
   check(lifetime.expired());

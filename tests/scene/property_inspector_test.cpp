@@ -105,7 +105,7 @@ int main() try {
   example::scope_exit close{[&] {
     if (app) {
       if (scene.is_valid())
-        (void)scene.unload();
+        scene.unload();
       (void)app->shutdown();
     }
   }};
@@ -156,8 +156,9 @@ int main() try {
   author->transform = local->local_transform();
   author->components = *components;
   auto serialized = gneiss::asset_file::serialize(description);
-  if (!serialized || !scene.is_valid() || scene.unload().failed())
+  if (!serialized || !scene.is_valid())
     return 4;
+  scene.unload();
   auto json = std::move(*serialized);
   scene = {};
   if (app->shutdown().failed())
@@ -188,8 +189,9 @@ int main() try {
       app->native_world()->find(target).try_component<gneiss::camera_component>();
   if (!runtime_camera || std::abs(runtime_camera->settings.near_plane - 0.25F) > 0.0001F)
     return 6;
-  if (!scene.is_valid() || scene.unload().failed())
+  if (!scene.is_valid())
     return 6;
+  scene.unload();
   scene = {};
   if (app->shutdown().failed())
     return 6;

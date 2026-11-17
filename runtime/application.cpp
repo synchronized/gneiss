@@ -699,7 +699,7 @@ private:
                .message = "Runtime 属性写入执行器初始化失败",
                .result = operation});
     if (scene.is_valid())
-      (void)scene.unload();
+      scene.unload();
     return 5;
   }
   context.property_editor = &property_editor;
@@ -777,7 +777,7 @@ private:
                  .result = operation});
 
       if (scene.is_valid())
-        (void)scene.unload();
+        scene.unload();
       return 11;
     }
     context.ipc_session = ipc_session.get();

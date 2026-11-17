@@ -70,8 +70,8 @@ gneiss::error project_scene_document(scene_instance& scene, scene_projection& pr
     gneiss::scene_instance candidate;
     entity_id camera;
     ~candidate_guard() {
-      if (candidate.id()) {
-        (void)candidate.unload();
+      if (candidate.is_valid()) {
+        candidate.unload();
         if (camera.get())
           (void)gneiss::set_active_camera(world, camera);
       }
@@ -85,9 +85,7 @@ gneiss::error project_scene_document(scene_instance& scene, scene_projection& pr
   if (status.failed())
     return status;
   auto associations = replacement.objects();
-  status = scene.unload();
-  if (status.failed())
-    return status;
+  scene.unload();
   scene = rebuilt->instance;
   guard.candidate = {};
   projection.replace(std::move(associations));
