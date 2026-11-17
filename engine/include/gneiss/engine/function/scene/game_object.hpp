@@ -33,10 +33,12 @@ public:
   /** 借用所属场景；要求有效 GameObject 及所属线程，纯 ECS 实体不是 GameObject。 */
   [[nodiscard]] GNEISS_API scene_instance scene() const;
   [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;
+  /** 要求有效对象及所属线程；非法变换返回 invalid_argument，原值不变。 */
   [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const;
   /** 要求对象有效且在所属线程；根对象返回空句柄。 */
   [[nodiscard]] GNEISS_API game_object parent() const;
-  /** 空 parent 表示根；拒绝跨 World 及循环层级。 */
+  /** 要求有效对象及所属线程；空 parent 表示根，保留局部变换。
+   * 失效父对象或跨 World 返回 invalid_handle；跨场景或循环返回 invalid_argument，层级不变。 */
   [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
   /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */
   [[nodiscard]] GNEISS_API error destroy() const;

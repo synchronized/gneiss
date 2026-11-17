@@ -365,7 +365,6 @@ int main() try {
   auto detached = dynamic->create_object({"detached", {}}, *recreated);
   check(detached && detached->reparent({}).ok());
   check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
-  check(recreated->set_local_transform({}) == e::error::invalid_handle);
   check(e::remove_component({*recreated}, movement_description::type_guid) ==
         e::error::invalid_handle);
   check(e::add_component({}, e::make_ref<movement_description>(1)) == e::error::invalid_handle);

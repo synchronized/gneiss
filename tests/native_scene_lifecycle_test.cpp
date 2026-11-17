@@ -85,6 +85,11 @@ int main(void) {
   auto descendant = object_scene->create_object({"child", {}}, *object);
   if (!descendant || object->reparent(*descendant) != error::invalid_argument)
     return 8;
+  auto expired_parent = object_scene->create_object({"temporary", {}});
+  if (!expired_parent || expired_parent->destroy().failed() ||
+      descendant->reparent(*expired_parent) != error::invalid_handle ||
+      descendant->parent() != *object)
+    return 22;
   auto borrowed_parent = descendant->parent();
   auto no_parent = object->parent();
   if (borrowed_parent != *object || no_parent.is_valid())
@@ -97,7 +102,7 @@ int main(void) {
   if (!transformed || transformed->translation.x != 4)
     return 11;
   error foreign_thread;
-  std::thread worker([&] { foreign_thread = object->set_local_transform(local); });
+  std::thread worker([&] { foreign_thread = world->object(object->entity()).error(); });
   worker.join();
   if (foreign_thread != error::invalid_state)
     return 16;

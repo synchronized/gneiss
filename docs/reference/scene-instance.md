@@ -29,6 +29,9 @@ World/scene_instance 的创建和外部身份借用返回 `result<T>`。有效�
 场景有效且在所属线程调用，契约违例通过断言终止。`contains()` 的参数允许为空、过期
 或来自其他 World，这些正常不匹配返回 false。`game_object::set_name()` 要求有效对象及所属线程，
 返回 void，只修改运行名称，不写编辑文档；输入名称会复制，允许传入当前名称的借用。
+`set_local_transform()` 和 `reparent()` 同样要求接收对象有效且在所属线程调用。
+前者对非法变换返回 `invalid_argument`，后者对失效父对象或跨 World 返回 `invalid_handle`，
+对跨场景或循环返回 `invalid_argument`；这些拒绝不改变原值或层级。
 其他原地修改、删除、卸载及带可失败回调的
 `visit_objects()` 仍返回 `error`，其他对象查询按其当前声明处理。
 

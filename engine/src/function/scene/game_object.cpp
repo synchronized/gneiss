@@ -74,14 +74,9 @@ result<math::transform> game_object::world_transform() const {
   return transform;
 }
 error game_object::set_local_transform(const math::transform& transform) const {
-  if (!owner_)
-    return error::invalid_handle;
+  GNEISS_ASSERT(is_valid(), "GameObject 修改要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
   auto* object = (*state)->get<detail::object_state>(entity_.get());
-  if (!object)
-    return error::invalid_handle;
   if (!math::is_valid_transform(transform))
     return error::invalid_argument;
   object->local = transform;
@@ -105,21 +100,22 @@ game_object game_object::parent() const {
   return parent;
 }
 error game_object::reparent(game_object parent) const {
-  if (!owner_ || (parent.owner_ && parent.owner_ != owner_))
+  GNEISS_ASSERT(is_valid(), "GameObject 修改要求有效句柄及所属线程");
+  if (parent.owner_ && parent.owner_ != owner_)
     return error::invalid_handle;
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
   auto* object = (*state)->get<detail::object_state>(entity_.get());
   auto* target = (*state)->get<detail::object_state>(parent.entity_.get());
-  if (!object || (parent.entity_ && !target))
+  if (parent.entity_ && !target)
     return error::invalid_handle;
   if (target && object->scene != target->scene)
     return error::invalid_argument;
   for (auto ancestor = parent.entity_; ancestor;) {
     if (ancestor == entity_)
       return error::invalid_argument;
-    ancestor = (*state)->get<detail::object_state>(ancestor.get())->parent;
+    const auto* ancestor_object = (*state)->get<detail::object_state>(ancestor.get());
+    GNEISS_ASSERT(ancestor_object, "对象层级不得包含失效父对象");
+    ancestor = ancestor_object->parent;
   }
   if (object->parent == parent.entity_)
     return error::success;
