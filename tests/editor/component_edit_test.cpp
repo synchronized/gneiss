@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
 #include "../support/movement_editor.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
@@ -19,6 +18,7 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include "ui/panels/reflected_property_editor.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -508,14 +508,16 @@ int main() try {
   auto reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->settings.acceleration == 20 &&
         reloaded->get<movement_description>()->samples[1] == 9);
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->find_node(receipt->objects, ordinary),
-            loaded_node)
-            .ok());
+  const auto ordinary_binding = std::ranges::find_if(receipt->objects, [&](const auto& binding) {
+    return binding.object == ordinary && !binding.source;
+  });
+  check(ordinary_binding != receipt->objects.end());
+  loaded_node = ordinary_binding->entity;
   reloaded = e::capture_components(world, loaded_node);
   check(reloaded && reloaded->get<movement_description>()->mode == movement_mode::run &&
         reloaded->get<movement_description>()->speed == 4);
-  check(gneiss::test_support::scene_access{*app}->unload(loaded).ok());
+  loaded.unload();
+  check(!loaded.is_valid());
   gneiss::editor::scene_subtree_snapshot removed_prefab;
   check(document.destroy_subtree(document.find_prefab_root(reference.uuid)->node, removed_prefab)
             .ok());

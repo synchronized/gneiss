@@ -558,6 +558,18 @@ Windows Clang Debug 对应 10 个目标构建成功，10 项测试全部通过�
 本轮未重复完整矩阵。scene_access 仍被 10 个测试/基准源文件使用，后续继续迁移，
 在最后一个消费者退出前保留辅助文件；PLAN-119 尚未整体完成。
 
+### 资源重载与保存测试直接使用对象和装配回执
+
+2026-11-17：texture_load_application、component_edit、editor_save 移除 scene_access；
+native_application 清除未使用的包含。纹理重载用例保存 scene.objects() 返回的借用句柄，
+直接读取组件，不再排序实体或采集完整描述；两个对象的材质共享与外部改绑验证保持不变。
+保存和组件编辑用例按已有装配回执中的来源 UUID 查找对象，不维护额外运行身份。
+卸载后检查场景及对象句柄失效，未改变生产 API 或引入替代包装。
+
+Windows Clang Debug 四个目标构建成功，对应四项测试全部通过；git diff --check 通过。
+scene_access 剩余六个测试/基准源文件消费者，包含三个渲染用例和三个场景/编辑器用例。
+本轮没有运行 GPU 基准或完整矩阵，PLAN-119 其余验收项保持未完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

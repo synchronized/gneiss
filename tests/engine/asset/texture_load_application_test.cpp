@@ -3,7 +3,6 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/codec_result.hpp"
-#include <gneiss/engine/function/scene/components.hpp>
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
@@ -14,7 +13,6 @@
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 
-#include "../../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 
 #include <cstdio>
@@ -124,13 +122,10 @@ void run(gneiss::tasks::execution_mode mode) {
   gneiss::scene_instance scene{};
   check(gneiss::error{gneiss::test_support::load_scene(
             *app, scene_uri, &scene, &scheduler)} == gneiss::error::success);
-  const auto capture = [&](std::uint64_t index) {
-    gneiss::test_support::scene_node_info info;
-    check(gneiss::error{gneiss::test_support::take_value(
-              gneiss::test_support::scene_access{*app}->get_node_info(scene, index), info)} ==
-          gneiss::error::success);
-    const auto object = app->native_world()->find(info.node);
-    const auto* component = object.try_component<gneiss::mesh_component>();
+  const auto objects = scene.objects();
+  check(objects.size() == 2U);
+  const auto capture = [&](std::size_t index) {
+    const auto* component = objects[index].try_component<gneiss::mesh_component>();
     check(component != nullptr);
     return *component;
   };
@@ -224,11 +219,6 @@ void run(gneiss::tasks::execution_mode mode) {
   check(completion.state == gneiss::asset_load_state::cancelled &&
         completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
-  gneiss::test_support::scene_node_info node;
-  check(gneiss::error{gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->get_node_info(scene, 0U), node)} ==
-        gneiss::error::success);
-  const auto world = app->native_world();
   check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
         gneiss::error::success);
   gneiss::mesh_component external;
@@ -239,18 +229,18 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::take_value(app->assets().create(view), external.mesh).ok());
   check(gneiss::test_support::take_value(app->assets().create({}, {}), external.material).ok());
   auto* external_target =
-      app->native_world()->find(node.entity).try_component<gneiss::mesh_component>();
+      objects.front().try_component<gneiss::mesh_component>();
   check(external_target != nullptr);
   *external_target = external;
   wait();
   check(completion.result == gneiss::error::success &&
         completion.state == gneiss::asset_load_state::completed &&
         completion.assets.size() == 1U);
-  auto unchanged = world->find(node.entity).try_component<gneiss::mesh_component>();
+  auto unchanged = objects.front().try_component<gneiss::mesh_component>();
   check(unchanged && unchanged->mesh == external.mesh && unchanged->material == external.material);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
-  check(gneiss::error{gneiss::test_support::scene_access{*app}->unload(scene)} ==
-        gneiss::error::success);
+  scene.unload();
+  check(!scene.is_valid() && !objects.front().is_valid());
   check(gneiss::error{gneiss::test_support::load_scene(
             *app, scene_uri, &scene, &scheduler)} == gneiss::error::success);
   check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==

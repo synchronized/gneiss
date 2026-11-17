@@ -12,10 +12,10 @@
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 
-#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -213,28 +213,21 @@ int main() try {
                                        &reloaded_objects) != gneiss::error::success) {
     return 11;
   }
-  gneiss::entity_id camera_node;
-  gneiss::entity_id reloaded_created_node;
-  gneiss::entity_id camera_entity;
-  if (gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_objects,
-                                                                               camera_uuid),
-          camera_node) != gneiss::error::success ||
-      gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*reloaded_application}->find_node(reloaded_objects,
-                                                                               created_uuid),
-          reloaded_created_node) != gneiss::error::success ||
-      gneiss::test_support::assign_value(
-          reloaded_application->native_world()->object(gneiss::entity_id{(camera_node).get()}),
-          camera_entity) != gneiss::error::success ||
-      std::abs(reloaded_application->native_world()
-                   ->find(camera_entity)
-                   .local_transform()
-                   .translation[0] -
-               7.0F) > 0.0001F) {
+  const auto camera_binding = std::ranges::find_if(reloaded_objects, [&](const auto& binding) {
+    return binding.object == camera_uuid && !binding.source;
+  });
+  const auto created_binding = std::ranges::find_if(reloaded_objects, [&](const auto& binding) {
+    return binding.object == created_uuid && !binding.source;
+  });
+  if (camera_binding == reloaded_objects.end() || created_binding == reloaded_objects.end())
     return 12;
-  }
-  if (gneiss::test_support::scene_access{*reloaded_application}->unload(reloaded_scene).failed())
+  const auto camera = reloaded_application->native_world()->object(camera_binding->entity);
+  const auto created = reloaded_application->native_world()->object(created_binding->entity);
+  if (!camera || !created ||
+      std::abs(camera->local_transform().translation[0] - 7.0F) > 0.0001F)
+    return 12;
+  reloaded_scene.unload();
+  if (camera->is_valid() || created->is_valid() || reloaded_scene.is_valid())
     return 12;
   reloaded_application.reset();
   std::filesystem::remove_all(root);

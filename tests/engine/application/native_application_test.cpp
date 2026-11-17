@@ -9,7 +9,6 @@
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include "../../support/logging.hpp"
-#include "../../support/scene_access.hpp"
 #include "../../support/value_result.hpp"
 #include <array>
 #include <chrono>
