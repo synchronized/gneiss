@@ -182,7 +182,7 @@ int main() try {
   auto borrowed = e::scene_instance::borrow(world, (instance).id());
   check(borrowed && borrowed->is_valid());
   auto member_count = borrowed->size();
-  check(member_count && *member_count == 2);
+  check(member_count == 2);
   auto borrowed_copy = *borrowed;
   auto another_scene =
       gneiss::test_support::scene_fixture::instantiate_scene(world, prepare(source), {});
@@ -210,7 +210,7 @@ int main() try {
   auto parent_bridge = another_handle->create_object({"parent bridge", {}}, *foreign_parent);
   check(parent_bridge.has_value());
   auto inherited_count = another_handle->size();
-  check(inherited_count && *inherited_count == 3);
+  check(inherited_count == 3);
   check(first_object->reparent(*parent_bridge) == e::error::invalid_argument);
   check(another_handle->unload().ok());
   check(!parent_bridge->is_valid());
@@ -339,11 +339,11 @@ int main() try {
   auto dynamic_child = dynamic->create_object({"dynamic child", {}}, *dynamic_root);
   check(dynamic_child.has_value());
   auto dynamic_count = dynamic->size();
-  check(dynamic_count && *dynamic_count == 2);
+  check(dynamic_count == 2);
   check(dynamic_root->destroy().ok());
   check(!dynamic_root->is_valid() && !dynamic_child->is_valid());
   dynamic_count = dynamic->size();
-  check(dynamic_count && *dynamic_count == 0);
+  check(dynamic_count == 0);
   check(!dynamic_root->is_valid());
   auto recreated = dynamic->create_object({"recreated", {}});
   check(recreated && recreated->entity() != dynamic_root->entity());
@@ -360,7 +360,7 @@ int main() try {
   check(moved && moved->translation.x == 7.0F);
   check(recreated->set_name("recreated").ok());
   auto dynamic_members = dynamic->size();
-  check(dynamic_members && *dynamic_members == 1);
+  check(dynamic_members == 1);
   e::error cross_thread_mutation;
   std::thread dynamic_worker([&] { cross_thread_mutation = recreated->set_name("wrong thread"); });
   dynamic_worker.join();
@@ -453,7 +453,7 @@ int main() try {
   check(append_composed.has_value());
   auto appended = e::instantiate(*destination, *append_composed, {}, *existing_parent);
   auto appended_again = e::instantiate(*destination, *append_composed, {}, *existing_parent);
-  check(appended && appended_again && *destination->size() == 5);
+  check(appended && appended_again && destination->size() == 5);
   check(appended->roots.size() == 1 && appended_again->roots.size() == 1);
   check(appended->roots[0] != appended_again->roots[0]);
   check(*appended->roots[0].parent() == *existing_parent);
@@ -464,7 +464,7 @@ int main() try {
   check(broken_composed.has_value());
   auto failed_append = e::instantiate(*destination, *broken_composed, {}, *existing_parent);
   check(!failed_append && failed_append.error() == e::error::invalid_state);
-  check(world.entity_count() == before_append_failure && *destination->size() == 5);
+  check(world.entity_count() == before_append_failure && destination->size() == 5);
   check(existing_parent->is_valid() && appended->roots[0].is_valid());
   check(gneiss::get_active_camera(world, camera_after_failure).ok() &&
         camera_after_failure == active_camera);
@@ -578,7 +578,7 @@ int main() try {
   check(!old_object->is_valid() && other_object->is_valid());
   auto new_object = scenes.find_object(replaced->objects, first.uuid);
   check(new_object && new_object->name() == "replacement");
-  check(*stable->size() == 1 && *other->size() == 1);
+  check(stable->size() == 1 && other->size() == 1);
   check(stable->unload().ok());
   check(!new_object->is_valid() && other_object->is_valid());
   check(other->unload().ok() && !other_object->is_valid());

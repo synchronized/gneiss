@@ -818,7 +818,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
 )
-target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_prefab_runtime_instance_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
   gneiss_prefab_runtime_instance_test

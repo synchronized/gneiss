@@ -34,6 +34,10 @@ struct scene_access {
     if (id.owner() != &owner)
       return gneiss::error::invalid_handle;
     auto scene = id;
+    if (!owner.is_owner_thread())
+      return gneiss::error::invalid_state;
+    if (!scene.is_valid())
+      return gneiss::error::invalid_handle;
     return scene.size();
   }
   // 来源查找只使用调用方保存的本次回执，不扫描运行对象的属性。

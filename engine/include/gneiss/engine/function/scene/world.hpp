@@ -53,7 +53,6 @@ private:
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
   [[nodiscard]] error unload_scene(scene_instance_id) noexcept;
-  [[nodiscard]] result<std::uint64_t> scene_size(scene_instance_id) const;
   friend struct detail::world_component_access;
   explicit GNEISS_API world(std::uint32_t domain);
   struct implementation;

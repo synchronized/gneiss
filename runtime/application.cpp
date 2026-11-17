@@ -417,20 +417,12 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
   if (context.ipc_session != nullptr && context.scene != gneiss::scene_instance{} &&
       context.inspection_session_id != 0U && time->elapsed_ns >= context.next_statistics_ns) {
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
-    std::uint64_t scene_node_count = 0U;
-    std::uint64_t entity_count = 0U;
-    auto scenes_result = context.scene.size();
-    auto operation = scenes_result ? gneiss::error::success : scenes_result.error();
-    if (scenes_result) {
-      scene_node_count = std::move(*scenes_result);
-    }
-    if (operation == gneiss::error::success) {
-      entity_count = context.application->native_world()->entity_count();
-    }
-    if (operation != gneiss::error::success) {
-      context.ipc_failure = operation;
+    if (!context.scene.is_valid()) {
+      context.ipc_failure = gneiss::error::invalid_handle;
       return request_exit();
     }
+    const auto scene_node_count = context.scene.size();
+    const auto entity_count = context.application->native_world()->entity_count();
     const gneiss::host::ipc_runtime_statistics statistics{
         .session_id = context.inspection_session_id,
         .sequence = context.next_statistics_sequence++,

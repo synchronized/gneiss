@@ -24,17 +24,18 @@ ECS 组件持有 mesh/material 等引擎资源强引用，不保存第三方后�
 
 ## 原生结果接口
 
-World/scene_instance 的创建和查询接口返回 `result<T>`，失败时只返回错误，不提供部分输出。
-原地修改、删除和卸载继续返回 `error`。调用方先检查结果，再取得值：
+World/scene_instance 的创建和外部身份借用返回 `result<T>`。有效场景上的 `size()`、
+`objects()`、`roots()`、`contains()` 直接返回数量、句柄集合或 bool；要求 World 存活、
+场景有效且在所属线程调用，契约违例通过断言终止。`contains()` 的参数允许为空、过期
+或来自其他 World，这些正常不匹配返回 false。原地修改、删除、卸载及带可失败回调的
+`visit_objects()` 仍返回 `error`，其他对象查询按其当前声明处理。
 
 ```cpp
 auto created = world.create_scene();
 if (!created)
   return created.error();
-auto count = created->size();
-if (!count)
-  return count.error();
-// 查询运行成员；持久化使用调用方的描述或编辑器文档。
+const auto count = created->size(); // 空场景为零，无需拆 result。
+// 外部场景 ID 用 scene_instance::borrow 验证，异步保存的句柄在使用前检查 is_valid。
 ```
 
 运行集合不提供从实例反向构造实例化输入或 Prefab 作者头的入口；

@@ -150,7 +150,7 @@ int main() try {
       return 106;
     applied = e::apply_scene(*foreign_scene, bindings, next, next, {});
     // 其他 World 的关联不匹配目标场景；不创建或删除对象。
-    if (!applied || *applied || *foreign_scene->size() != 0)
+    if (!applied || *applied || foreign_scene->size() != 0)
       return 106;
     auto invalid_bindings = bindings;
     invalid_bindings.at(parent.address) = invalid_bindings.at(child.address);
@@ -471,7 +471,7 @@ int main() try {
     if (!native || !other)
       return 15;
     auto instance = (*native)->create_scene();
-    if (!instance || !instance->is_valid() || *instance->size() != 0U)
+    if (!instance || !instance->is_valid() || instance->size() != 0U)
       return 16;
     std::map<gneiss::object_address, gneiss::scene_object_association> mapping;
     auto applied_native = gneiss::apply_scene(*instance, mapping, {}, {}, {});
@@ -479,7 +479,7 @@ int main() try {
       return 19;
     auto object = instance->create_object({"Direct", {}});
     if (!object || !instance->contains(*object) || instance->contains({}) ||
-        *instance->size() != 1U ||
+        instance->size() != 1U ||
         gneiss::scene_instance::borrow(**other, instance->id()).error() !=
             gneiss::error::invalid_handle)
       return 17;
@@ -502,10 +502,10 @@ int main() try {
       return 23;
     if ((*native)->transfer_subtree(*object, *instance, *child) !=
             gneiss::error::invalid_argument ||
-        *instance->size() != 2U)
+        instance->size() != 2U)
       return 24;
     if ((*native)->transfer_subtree(*object, *target_scene, *target_parent).failed() ||
-        *instance->size() != 0U || *target_scene->size() != 3U ||
+        instance->size() != 0U || target_scene->size() != 3U ||
         child->scene()->id() != target_scene->id() ||
         object->parent()->entity() != target_parent->entity())
       return 25;

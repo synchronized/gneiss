@@ -33,9 +33,9 @@ error world::unload_scene(scene_instance_id id) noexcept try {
 result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id) noexcept {
   if (!owner.is_owner_thread())
     return error::invalid_state;
-  auto count = owner.scene_size(id);
-  if (!count)
-    return count.error();
+  auto status = owner.validate_scene(id);
+  if (status.failed())
+    return status;
   scene_instance result;
   result.owner_ = &owner;
   result.id_ = id;
@@ -44,10 +44,11 @@ result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id
 bool scene_instance::is_valid() const noexcept {
   return owner_ && owner_->validate_scene(id_).ok();
 }
-result<std::uint64_t> scene_instance::size() const noexcept {
-  if (!owner_)
-    return error::invalid_handle;
-  return owner_->scene_size(id_);
+std::uint64_t scene_instance::size() const noexcept {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
+  std::uint64_t count{};
+  owner_->impl_->each_scene_member(id_, [&](entity_id) { ++count; });
+  return count;
 }
 std::vector<game_object> scene_instance::objects() const {
   GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
@@ -148,15 +149,6 @@ error scene_instance::unload() const noexcept {
   if (!owner_)
     return error::invalid_handle;
   return owner_->unload_scene(id_);
-}
-
-result<std::uint64_t> world::scene_size(scene_instance_id instance) const {
-  const auto status = validate_scene(instance);
-  if (status.failed())
-    return status;
-  std::uint64_t count{};
-  impl_->each_scene_member(instance, [&](entity_id) { ++count; });
-  return count;
 }
 
 result<game_object> scene_instance::create_object(const object_options& options,

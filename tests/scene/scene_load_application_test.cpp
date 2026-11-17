@@ -152,7 +152,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
           gneiss::error::not_ready);
   }
   auto nodes = completion.instance.size();
-  check(nodes && *nodes == 1U);
+  check(nodes == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["","","","",""]})";
   const std::array sources{gneiss::render_resource_source{"asset://material.json",
@@ -245,7 +245,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   }
   check(app->native_world() == world && object->is_valid());
   auto current = e::scene_instance::borrow(*world, (activated->instance.instance).id());
-  check(current && *current->size() == content->description->objects.size());
+  check(current && current->size() == content->description->objects.size());
   check(original->unload().ok() && !object->is_valid() && current->is_valid());
   auto reload = app->assets().load<e::scene>("asset://scene.json", {.reload = true});
   check(bool(reload));
@@ -258,7 +258,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   auto empty_scene = gneiss::test_support::activate_scene(*app, empty);
   check(bool(empty_scene) && !empty_scene->visuals);
   auto empty_instance = e::scene_instance::borrow(*world, (empty_scene->instance.instance).id());
-  check(empty_instance && *empty_instance->size() == 0 && current->is_valid());
+  check(empty_instance && empty_instance->size() == 0 && current->is_valid());
 }
 
 void shared_scene_assets(gneiss::tasks::execution_mode mode) {
@@ -285,7 +285,7 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   check(*app->assets().find<gneiss::mesh>("asset://mesh.json") == *mesh);
   check(*app->assets().find<gneiss::material>("asset://material.json") == *material);
   check(first.unload().ok());
-  check(second.is_valid() && *second.size() == 1);
+  check(second.is_valid() && second.size() == 1);
   // 另一场景仍持有共享资源；普通打开不隐式重读损坏源文件。
   std::ofstream(files.root / "material.json") << "broken";
   auto third = load();

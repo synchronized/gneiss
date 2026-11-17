@@ -114,3 +114,16 @@ objects/roots 不再经过可失败回调接口生成快照；辅助 ECS 实体�
 Windows Clang Debug 五目标构建通过；world-service-boundary、scene_instance、scene-instantiation、
 prefab_structural_reload、editor.author-property-edit 五项回归通过。未运行 Release、静态库、
 跨平台或 GPU 验证。size、GameObject 查询与修改/销毁签名尚未迁移，P1 未完成。
+
+### P1 第二组实施结果
+
+scene_instance::size 直接返回 uint64_t，沿用有效场景与所属线程断言。删除 world::scene_size
+中间入口；borrow 直接校验槽位，不为验证外部 ID 枚举场景成员。
+Runtime 重载提交/完成、检查与统计，以及编辑器投影/接入显式验证可能过期的场景，保留
+可恢复错误；正常数量比较不再拆 result。旧 scene_access 夹具暂保留边界检查，待 PLAN-119
+退出消费者后删除。更新 scene-instance Reference，未将 GameObject 尚未迁移的查询描述为完成。
+
+Windows Clang Debug：Runtime 及九个相关测试目标构建通过，场景检查、加载器、结构重载、
+场景加载、场景实例、Prefab 应用、World 边界、组件装配和编辑器属性编辑九项回归通过。
+构建中修正 Prefab 应用测试遗留的私有包含根为 engine/src，其重复生产源码仍未清理。
+未运行 Release、静态库、跨平台及 GPU 验证。P1 的 GameObject 查询和修改/销毁迁移仍待完成。

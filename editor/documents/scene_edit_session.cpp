@@ -193,10 +193,9 @@ gneiss::error scene_edit_session::adopt(runtime::application& application,
   if (!world || world != application.native_world() || initial.uri.empty() || !scene.id())
     return gneiss::error::invalid_argument;
   {
-    const auto count = scene.size();
-    if (!count)
-      return count.error();
-    if (*count != objects.size())
+    if (!scene.is_valid())
+      return gneiss::error::invalid_handle;
+    if (scene.size() != objects.size())
       return gneiss::error::invalid_argument;
     for (const auto& binding : objects) {
       auto object = world->object(binding.entity);

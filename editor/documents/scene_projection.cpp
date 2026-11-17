@@ -24,9 +24,10 @@ gneiss::error scene_projection::reset(std::span<const gneiss::scene_object_bindi
 gneiss::error project_scene_document(scene_instance& scene, scene_projection& projection,
                                      const scene_document_snapshot* baseline,
                                      const scene_document_snapshot& target, bool prepare_editor) {
-  auto valid = scene.size();
-  if (!valid)
-    return valid.error();
+  if (scene.owner() && !scene.owner()->is_owner_thread())
+    return gneiss::error::invalid_state;
+  if (!scene.is_valid())
+    return gneiss::error::invalid_handle;
   auto& world = *scene.owner();
   if (baseline) {
     auto associations = projection.objects();

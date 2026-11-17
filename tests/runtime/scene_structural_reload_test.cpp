@@ -134,7 +134,7 @@ int main() try {
   auto count = scene.size();
   if (!camera_after || camera_after != camera_before || !new_child || find_object(old_child_uuid) ||
       retired_child.is_valid() || retired_parent ||
-      retired_parent.error() != gneiss::error::invalid_handle || !count || *count != 2U)
+      retired_parent.error() != gneiss::error::invalid_handle || count != 2U)
     return 3;
 
   write_scene(

@@ -214,13 +214,13 @@ gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::applica
     return gneiss::error::invalid_argument;
   if (scene.owner() != application.native_world())
     return gneiss::error::invalid_handle;
-  auto count = scene.size();
-  if (!count)
-    return count.error();
-  if (*count > runtime_inspection_max_nodes)
+  if (!scene.is_valid())
+    return gneiss::error::invalid_handle;
+  const auto count = scene.size();
+  if (count > runtime_inspection_max_nodes)
     return gneiss::error::out_of_memory;
   std::vector<runtime_scene_source_node> nodes;
-  nodes.reserve(static_cast<std::size_t>(*count));
+  nodes.reserve(static_cast<std::size_t>(count));
   auto status = scene.visit_objects([&](gneiss::game_object object) -> gneiss::error {
     const std::string name(object.name());
     if (name.size() > runtime_inspection_max_string_size)

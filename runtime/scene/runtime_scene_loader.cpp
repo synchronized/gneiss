@@ -200,9 +200,8 @@ gneiss::error runtime_scene_loader::reload(gneiss::ref<scene_reload_state> sourc
   if (!source || source->instance.owner() != application_.native_world() || !source->synchronized ||
       !source->content || !source->content->description)
     return gneiss::error::invalid_state;
-  auto count = source->instance.size();
-  if (!count)
-    return count.error();
+  if (!source->instance.is_valid())
+    return gneiss::error::invalid_handle;
   if (active_ || reload_ || visuals_ || !application_.can_load_assets())
     return gneiss::error::not_ready;
   reload_task next;
@@ -290,9 +289,8 @@ void runtime_scene_loader::advance_reload() {
         auto& source = *task.source;
         if (!source.synchronized || source.instance.owner() != application_.native_world())
           return gneiss::error::invalid_state;
-        auto count = source.instance.size();
-        if (!count)
-          return count.error();
+        if (!source.instance.is_valid())
+          return gneiss::error::invalid_handle;
         gneiss::ref<const gneiss::scene_content> content;
         if constexpr (std::is_same_v<typename std::remove_cvref_t<decltype(request)>::value_type,
                                      gneiss::scene>) {

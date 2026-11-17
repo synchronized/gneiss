@@ -20,7 +20,8 @@ public:
   [[nodiscard]] world* owner() const noexcept { return owner_; }
   [[nodiscard]] scene_instance_id id() const noexcept { return id_; }
   [[nodiscard]] GNEISS_API bool is_valid() const noexcept;
-  [[nodiscard]] GNEISS_API result<std::uint64_t> size() const noexcept;
+  /** 有效场景、所属线程上的成员数量；空场景返回零。 */
+  [[nodiscard]] GNEISS_API std::uint64_t size() const noexcept;
   /** 要求本场景有效且在所属线程；跨 World、空或失效对象返回 false。 */
   [[nodiscard]] GNEISS_API bool contains(game_object) const noexcept;
   /** 创建本场景成员；父对象必须属于本场景，空父对象创建根。 */

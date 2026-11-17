@@ -64,9 +64,11 @@ result<bool> apply_scene(scene_instance destination,
   if (!destination.owner())
     return error::invalid_handle;
   auto& world = *destination.owner();
-  auto count = destination.size();
-  if (!count)
-    return count.error();
+  if (!world.is_owner_thread())
+    return error::invalid_state;
+  if (!destination.is_valid())
+    return error::invalid_handle;
+  const auto count = destination.size();
   std::map<object_address, const composed_object*> old;
   for (const auto& object : previous.objects)
     if (!old.emplace(object.address, &object).second)
@@ -110,7 +112,7 @@ result<bool> apply_scene(scene_instance destination,
     info.local_transform = *transform;
     nodes.emplace(address, std::move(info));
   }
-  if (nodes.size() != *count)
+  if (nodes.size() != count)
     return false;
   // 所有目标及基线先检查，再开始更新；不把外部变更当作已同步状态。
   if (nodes.size() != old.size())
