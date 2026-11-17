@@ -686,7 +686,7 @@ gneiss::error runtime_process::load_scene(std::string_view uri) {
   if (state.scene_load.source.revision != 0U && !scene_phase_terminal(state.scene_load.phase))
     return gneiss::error::not_ready;
   ipc_scene_request source{1U, ++state.scene_revision, std::string(uri)};
-  const auto sent = state.ipc_session.send_scene_request(source, false);
+  const auto sent = state.ipc_session.send_scene_load(source);
   if (sent != gneiss::error::success)
     return sent;
   state.scene_load = {
@@ -698,7 +698,7 @@ gneiss::error runtime_process::cancel_scene_load() noexcept {
   if (!implementation_ || !implementation_->scene_load.can_cancel)
     return gneiss::error::not_ready;
   const auto result =
-      implementation_->ipc_session.send_scene_request(implementation_->scene_load.source, true);
+      implementation_->ipc_session.send_scene_cancel(implementation_->scene_load.source);
   if (result == gneiss::error::success)
     implementation_->scene_load.can_cancel = false;
   return result;

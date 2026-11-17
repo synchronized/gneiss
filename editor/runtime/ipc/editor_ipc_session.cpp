@@ -293,12 +293,17 @@ bool editor_ipc_session::supports_scene_loading() const noexcept {
                            &gneiss::protocol::domain_capability::domain) !=
              implementation_->negotiated_domains.end();
 }
-gneiss::error editor_ipc_session::send_scene_request(const ipc_scene_request& value,
-                                                             bool cancel) {
+gneiss::error editor_ipc_session::send_scene_load(const ipc_scene_request& value) {
   if (!is_authenticated() || !supports_scene_loading())
     return gneiss::error::not_ready;
-  auto encoded = protocol::encode(cancel ? scene_cancel : scene_load, value,
-                                  cancel ? 0U : implementation_->next_request_id++);
+  auto encoded = protocol::encode(scene_load, value, implementation_->next_request_id++);
+  return encoded ? implementation_->send(std::move(*encoded)) : encoded.error().error;
+}
+
+gneiss::error editor_ipc_session::send_scene_cancel(const ipc_scene_request& value) {
+  if (!is_authenticated() || !supports_scene_loading())
+    return gneiss::error::not_ready;
+  auto encoded = protocol::encode(scene_cancel, value);
   return encoded ? implementation_->send(std::move(*encoded)) : encoded.error().error;
 }
 

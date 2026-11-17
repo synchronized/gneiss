@@ -38,8 +38,8 @@ public:
   [[nodiscard]] gneiss::error send_property_write(const ipc_property_write& command);
   [[nodiscard]] gneiss::error send_asset_cancel(std::uint64_t session,
                                                         std::uint64_t revision);
-  [[nodiscard]] gneiss::error send_scene_request(const ipc_scene_request& value,
-                                                         bool cancel);
+  [[nodiscard]] gneiss::error send_scene_load(const ipc_scene_request& value);
+  [[nodiscard]] gneiss::error send_scene_cancel(const ipc_scene_request& value);
   [[nodiscard]] bool supports_scene_loading() const noexcept;
   [[nodiscard]] gneiss::error send_asset_reload(const ipc_asset_reload_request& command,
                                                         ipc_asset_operation operation);

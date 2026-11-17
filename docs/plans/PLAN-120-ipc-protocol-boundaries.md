@@ -124,3 +124,17 @@ Scene 同一 load 操作的 request/response 必须可区分；终态响应和�
 
 资产工作流测试补齐冻结前协议注册，与宿主入口一致。未执行静态、Linux/Web 和远端验证。
 Property/Inspection/Session/Log 尚未完成类型化迁移，PLAN-120 整体仍在推进。
+
+## 发送接口复核与 Property 后续范围
+
+- [x] Scene 加载/取消改为具名入口，删除发送层 bool 选择，保持请求 ID 与取消事件语义。
+- [x] 复核 Asset operation 的批次来源与结果关联，保留实际动态选择，不添加转发对象。
+- [x] 将消息、域规则、Router、Session 的当前职责记录到
+  [IPC 参考](../reference/platform-ipc.md#消息与业务入口的职责)。
+- [x] Windows Clang Debug 共享构建及 19 项相关测试通过；未执行静态或跨平台验证。
+
+Property 接入评估：value 已复用反射，外层字段仍手写 JSON，并有负载和 envelope 两套入口。
+下一步应迁移完整的 write/result 收发链，移除这两层重复包装。保留对象 generation、
+expected_revision 冲突检查、请求关联及成功结果的 canonical_value；这些属于业务规则，
+不能用通用反射替代。失败结果不要求规范值，需先明确消息字段策略再调整域版本。
+本轮仅完成评估，尚未迁移 Property，不扩展通用框架来模拟属性编辑业务。
