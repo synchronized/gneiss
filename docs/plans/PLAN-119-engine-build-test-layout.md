@@ -12,7 +12,7 @@
 剩余收尾按以下顺序推进，不把历史阶段记录当作当前待办：
 1. 继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
 2. 逐项审核测试标签：当前 235 项中 213 项尚无标签，不能以排除 gpu 代替 CPU 安全集合。
-3. 迁移 core-boundary 扫描规则及反例到当前目录；完成静态构建和相应安装验收。
+3. core-boundary 扫描规则及反例已迁移并通过；继续完成静态构建和相应安装验收。
 4. 单独处理已复现于修改前基线的两个 GPU 失败；未运行的浏览器/跨平台项明确记录。
 P2–P5 仍未全部验收，PLAN-118 P2/P3 暂不穿插。
 目标：明确 Engine 与其余仓内模块的目录和契约边界，消除 CMake 旧路径和重复维护，
@@ -629,6 +629,23 @@ gpu/integration 和统一 60 秒超时。CTest 总数仍为 235，尚有 213 项
 Shipping/示例 smoke 整项重跑通过。core-boundary 仍因扫描根 src 无源码失败，须连同反例
 迁移规则；本轮未关闭此问题。静态配置与跨平台验收未运行，GPU 基线失败仍未处理。
 git diff --check 通过。
+
+### 当前目录的架构边界检查恢复
+
+2026-11-17：core-boundary 扫描 engine/include、engine/src、editor、runtime、tooling、
+project、protocol 七个自有源码根。Engine include/src 归一为逻辑领域路径，保留真实文件诊断；
+契约 gneiss/engine 前缀及内部 core/resource/function/platform 包含均参与原有依赖规则。
+数学、Meta、Serialization、资源、Scene/Render、平台与宿主依赖检查继续生效。
+
+同步迁移原有反例；移除已废弃 Host 目录专用规则/反例和禁止 function/application 目录的
+过时断言，应用装配现在位于该目录。修正编辑器属性链及 Web fetch 实际路径。
+反例使用独立随机夹具目录，避免先前失败残留污染新运行；新增 include/src 双根、当前包含
+前缀、五个外层模块的诊断匹配，以及空树拒绝和合法应用装配正例。
+子进程诊断显式 UTF-8，并归一换行空白，避免 Windows 编码和 CMake 自动折行误判。
+
+当前仓库实际扫描 556 个源码文件；gneiss.core-boundary 与 core-boundary-negative 两项
+均通过，git diff --check 通过。仅修改检查脚本与计划，未重复生产构建或 GPU 测试。
+此前旧 src 扫描失败已解决；静态矩阵、完整标签审查及 GPU 基线问题仍未完成。
 
 ## 决策边界
 
