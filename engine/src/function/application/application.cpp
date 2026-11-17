@@ -35,7 +35,7 @@
 #endif
 #ifdef GNEISS_ASSET_LIBUV
 #include "gneiss/engine/platform/files/backends/native.hpp"
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
+#include <gneiss/engine/platform/io/executor.hpp>
 
 #endif
 
@@ -61,7 +61,7 @@ struct application::storage {
   gneiss::debug_draw_list debug_draw_list_;
   std::vector<application_view> views_{application_view{}};
 #ifdef GNEISS_ASSET_LIBUV
-  std::unique_ptr<gneiss::uv_loop_executor> asset_io_executor_;
+  std::unique_ptr<gneiss::io::executor> asset_io_executor_;
 #endif
   std::shared_ptr<gneiss::files::service> files_;
   std::optional<error> files_initialization_;
@@ -283,7 +283,7 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
       std::shared_ptr<gneiss::files::backend> backend;
 #ifdef GNEISS_ASSET_LIBUV
       if (!storage_->asset_io_executor_) {
-        storage_->asset_io_executor_ = std::make_unique<gneiss::uv_loop_executor>();
+        storage_->asset_io_executor_ = std::make_unique<gneiss::io::executor>();
         const auto started = storage_->asset_io_executor_->start();
         if (started.failed())
           return started;

@@ -5,9 +5,9 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/error.hpp>
 
-#include "platform/io/uv/uv_loop_access.hpp"
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
-#include "platform/io/uv/uv_result.hpp"
+#include "platform/io/detail/uv_loop_access.hpp"
+#include <gneiss/engine/platform/io/executor.hpp>
+#include "platform/io/detail/uv_error.hpp"
 
 #include <uv.h>
 
@@ -42,7 +42,7 @@ struct ipc_transport::implementation final {
   implementation(std::size_t events, std::size_t writes)
       : event_capacity(events), write_capacity(writes) {}
 
-  uv_loop_executor executor;
+  io::executor executor;
   uv_tcp_t listener{};
   uv_tcp_t stream{};
   uv_connect_t connect_request{};
@@ -157,7 +157,7 @@ struct ipc_transport::implementation final {
     }
     if (count < 0) {
       const auto operation =
-          count == UV_EOF ? error::success : gneiss::from_uv_status(static_cast<int>(count));
+          count == UV_EOF ? error::success : gneiss::io::detail::from_uv_status(static_cast<int>(count));
       if (!self->is_stopping) {
         self->emit_status(ipc_transport_event_type::disconnected, operation);
       }
@@ -168,7 +168,7 @@ struct ipc_transport::implementation final {
   }
 
   error begin_read() {
-    const auto operation = gneiss::from_uv_status(
+    const auto operation = gneiss::io::detail::from_uv_status(
         uv_read_start(reinterpret_cast<uv_stream_t*>(&stream), allocate_read_buffer, on_read));
     if (operation == error::success) {
       current_state.store(ipc_transport_state::connected, std::memory_order_release);
@@ -187,13 +187,13 @@ struct ipc_transport::implementation final {
     auto* self = static_cast<implementation*>(server->data);
     if (status < 0 || self->is_stopping) {
       if (status < 0 && !self->is_stopping) {
-        self->emit_status(ipc_transport_event_type::error, gneiss::from_uv_status(status));
+        self->emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(status));
       }
       return;
     }
     if (self->stream_initialized) {
       auto* rejected = new rejected_connection;
-      const auto initialized = gneiss::from_uv_status(uv_tcp_init(server->loop, &rejected->stream));
+      const auto initialized = gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &rejected->stream));
       if (initialized.failed()) {
         delete rejected;
         self->emit_status(ipc_transport_event_type::error, initialized);
@@ -207,7 +207,7 @@ struct ipc_transport::implementation final {
       return;
     }
 
-    const auto initialized = gneiss::from_uv_status(uv_tcp_init(server->loop, &self->stream));
+    const auto initialized = gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &self->stream));
     if (initialized != error::success) {
       self->emit_status(ipc_transport_event_type::error, initialized);
       return;
@@ -215,7 +215,7 @@ struct ipc_transport::implementation final {
     self->stream_initialized = true;
     self->stream.data = self;
     const auto accepted =
-        gneiss::from_uv_status(uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
+        gneiss::io::detail::from_uv_status(uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
     if (accepted != error::success) {
       self->emit_status(ipc_transport_event_type::error, accepted);
       self->close_stream();
@@ -237,7 +237,7 @@ struct ipc_transport::implementation final {
     }
     if (status < 0) {
       self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-      self->emit_status(ipc_transport_event_type::error, gneiss::from_uv_status(status));
+      self->emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(status));
       self->close_stream();
       return;
     }
@@ -255,7 +255,7 @@ struct ipc_transport::implementation final {
     auto* write = static_cast<write_request*>(request->data);
     write->owner->pending_writes.fetch_sub(1U, std::memory_order_release);
     if (status < 0 && !write->owner->is_stopping) {
-      write->owner->emit_status(ipc_transport_event_type::error, gneiss::from_uv_status(status));
+      write->owner->emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(status));
     }
     delete write;
   } catch (...) {
@@ -278,7 +278,7 @@ struct ipc_transport::implementation final {
         uv_write(&write->request, reinterpret_cast<uv_stream_t*>(&stream), &buffer, 1U, on_write);
     if (operation != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, gneiss::from_uv_status(operation));
+      emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(operation));
       delete write;
     }
   }
@@ -296,7 +296,7 @@ struct ipc_transport::implementation final {
                                                    std::memory_order_relaxed));
 
     const auto operation =
-        uv_loop_access::post(executor, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
+        io::detail::uv_loop_access::post(executor, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
           state->write(std::move(data));
         });
     if (operation != error::success) {
@@ -346,26 +346,26 @@ error ipc_transport::start_server() {
   {
     auto completion = std::make_shared<std::promise<error>>();
     auto completed = completion->get_future();
-    operation = uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
+    operation = io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
                                                                  completion](uv_loop_t* loop) {
-      auto current = gneiss::from_uv_status(uv_tcp_init(loop, &state->listener));
+      auto current = gneiss::io::detail::from_uv_status(uv_tcp_init(loop, &state->listener));
       if (current == error::success) {
         state->listener_initialized = true;
         state->listener.data = state;
         sockaddr_in address{};
-        current = gneiss::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
+        current = gneiss::io::detail::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
         if (current == error::success) {
-          current = gneiss::from_uv_status(
+          current = gneiss::io::detail::from_uv_status(
               uv_tcp_bind(&state->listener, reinterpret_cast<const sockaddr*>(&address), 0U));
         }
         if (current == error::success) {
-          current = gneiss::from_uv_status(uv_listen(
+          current = gneiss::io::detail::from_uv_status(uv_listen(
               reinterpret_cast<uv_stream_t*>(&state->listener), 1, implementation::on_connection));
         }
         if (current == error::success) {
           sockaddr_in local{};
           int length = sizeof(local);
-          current = gneiss::from_uv_status(
+          current = gneiss::io::detail::from_uv_status(
               uv_tcp_getsockname(&state->listener, reinterpret_cast<sockaddr*>(&local), &length));
           if (current == error::success) {
             state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
@@ -413,19 +413,19 @@ error ipc_transport::start_client(const ipc_endpoint& endpoint) {
   {
     auto completion = std::make_shared<std::promise<error>>();
     auto completed = completion->get_future();
-    operation = uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
+    operation = io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
                                                                  endpoint,
                                                                  completion](uv_loop_t* loop) {
-      auto current = gneiss::from_uv_status(uv_tcp_init(loop, &state->stream));
+      auto current = gneiss::io::detail::from_uv_status(uv_tcp_init(loop, &state->stream));
       if (current == error::success) {
         state->stream_initialized = true;
         state->stream.data = state;
         state->connect_request.data = state;
         sockaddr_in address{};
         current =
-            gneiss::from_uv_status(uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
+            gneiss::io::detail::from_uv_status(uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
         if (current == error::success) {
-          current = gneiss::from_uv_status(uv_tcp_connect(
+          current = gneiss::io::detail::from_uv_status(uv_tcp_connect(
               &state->connect_request, &state->stream, reinterpret_cast<const sockaddr*>(&address),
               implementation::on_connect));
         }
@@ -474,7 +474,7 @@ error ipc_transport::stop() {
   }
   implementation_->current_state.store(ipc_transport_state::stopping, std::memory_order_release);
   auto operation =
-      uv_loop_access::post(implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
+      io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
         state->is_stopping = true;
         state->close_stream();
         if (state->listener_initialized &&

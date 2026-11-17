@@ -3,11 +3,13 @@
 #pragma once
 #include <gneiss/engine/platform/files/backend.hpp>
 namespace gneiss {
-class uv_loop_executor;
+namespace io {
+class executor;
+}
 }
 namespace gneiss::files {
 struct native_config {
-  uv_loop_executor& executor;
+  io::executor& executor;
   std::string root;
 };
 /** 借用执行器至请求收尾；根目录须存在，写入不创建父目录。 */

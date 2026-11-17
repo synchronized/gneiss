@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "uv_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include "uv_error.hpp"
 #include <gneiss/engine/error.hpp>
 
 #include <uv.h>
 
-namespace gneiss {
+namespace gneiss::io::detail {
 
 error from_uv_status(int value) noexcept {
   switch (value) {
@@ -33,4 +32,4 @@ error from_uv_status(int value) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::io::detail

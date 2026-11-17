@@ -216,3 +216,15 @@ node tests/integration/assets/run_browser_files.cjs <测试.js路径> <浏览器
 
 脚本需要支持原生 fetch/WebSocket 的 Node，使用随机本地端口和产物目录内独立浏览器配置。
 测试配置保留在产物目录以便排查，不使用个人浏览器配置。
+
+
+## 原生 I/O 执行器
+
+原生后端借用 `gneiss::io::executor`（`platform/io/executor.hpp`）。宿主负责启动执行器，
+然后创建后端、配置挂载并初始化文件服务。关闭时先等待文件服务收尾、释放后端，再停止执行器。
+执行器不拥有文件服务，也不承担文件路径、挂载或资源加载语义。
+
+`io::executor` 属于 `gneiss_io` 目标，提供 `start()`、`post()`、`stop()`、`is_running()`。
+任务在专用 I/O 线程执行；只有 `post()` 允许并发提交，其余操作由调用方外部同步。
+停止会拒绝新任务并等待在途工作收尾，不能从执行器线程停止或销毁自身。
+libuv 循环访问和错误转换仅供实现使用，位于 `src/platform/io/detail`，不通过该目标传播私有目录。

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
+#include <gneiss/engine/platform/io/executor.hpp>
 
 #include <array>
 #include <atomic>
@@ -16,7 +16,7 @@ constexpr std::size_t producer_count = 8U;
 constexpr std::size_t tasks_per_producer = 1000U;
 
 bool run_multi_producer_test() {
-  gneiss::uv_loop_executor runtime(64U);
+  gneiss::io::executor runtime(64U);
   if (runtime.start() != gneiss::error::success) {
     return false;
   }
@@ -51,7 +51,7 @@ bool run_multi_producer_test() {
 }
 
 bool run_concurrent_stop_test() {
-  gneiss::uv_loop_executor runtime(32U);
+  gneiss::io::executor runtime(32U);
   if (runtime.start() != gneiss::error::success) {
     return false;
   }
@@ -91,7 +91,7 @@ bool run_concurrent_stop_test() {
 bool run_destructor_drain_test() {
   std::atomic_size_t executed = 0U;
   {
-    gneiss::uv_loop_executor runtime(32U);
+    gneiss::io::executor runtime(32U);
     if (runtime.start() != gneiss::error::success) {
       return false;
     }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "gneiss/engine/platform/files/backends/native.hpp"
-#include "platform/io/uv/uv_loop_access.hpp"
-#include "platform/io/uv/uv_result.hpp"
+#include "platform/io/detail/uv_loop_access.hpp"
+#include "platform/io/detail/uv_error.hpp"
 #include <algorithm>
 #include <charconv>
 #include <fcntl.h>
@@ -21,7 +21,7 @@ struct operation;
  * 路径解析拒绝根目录外的目标；不提供抵抗并发恶意符号链接替换的安全沙箱。 */
 class native_backend final : public backend {
 public:
-  native_backend(uv_loop_executor& executor, std::string root);
+  native_backend(io::executor& executor, std::string root);
   ~native_backend() override;
   error read(std::string_view, read_options, files::callback<files::bytes>) override;
   error read_range(std::string_view, range, files::callback<files::bytes>) override;
@@ -32,7 +32,7 @@ public:
 
 private:
   error submit(std::string_view path, std::shared_ptr<operation> pending);
-  uv_loop_executor& executor_;
+  io::executor& executor_;
   std::string root_;
 };
 
@@ -89,7 +89,7 @@ struct operation : std::enable_shared_from_this<operation> {
         (void)uv_fs_close(nullptr, &cleanup, descriptor, nullptr);
         uv_fs_req_cleanup(&cleanup);
         descriptor = -1;
-        finish(status.failed() ? status : from_uv_status(code));
+        finish(status.failed() ? status : io::detail::from_uv_status(code));
         return;
       }
       request.result = code;
@@ -200,7 +200,7 @@ struct operation : std::enable_shared_from_this<operation> {
               {entry.name, {entry.type == UV_DIRENT_DIR ? kind::directory : kind::regular, {}}});
         }
         uv_fs_req_cleanup(&request);
-        finish(code != 0 && code != UV_EOF ? from_uv_status(code) : error::success);
+        finish(code != 0 && code != UV_EOF ? io::detail::from_uv_status(code) : error::success);
         return;
       }
       std::string resolved;
@@ -220,7 +220,7 @@ struct operation : std::enable_shared_from_this<operation> {
                         ? uv_fs_link(loop, &request, temporary.c_str(), path.c_str(), completed)
                         : uv_fs_rename(loop, &request, temporary.c_str(), path.c_str(), completed));
         } else {
-          finish(status.failed() ? status : from_uv_status(static_cast<int>(value)));
+          finish(status.failed() ? status : io::detail::from_uv_status(static_cast<int>(value)));
         }
         return;
       }
@@ -232,7 +232,7 @@ struct operation : std::enable_shared_from_this<operation> {
       if (step == stage::publish) {
         if (value >= 0 && !create_new)
           temporary_created = false;
-        finish(from_uv_status(static_cast<int>(value)));
+        finish(io::detail::from_uv_status(static_cast<int>(value)));
         return;
       }
       if (value < 0) {
@@ -243,7 +243,7 @@ struct operation : std::enable_shared_from_this<operation> {
           submitted(uv_fs_realpath(loop, &request, parent.c_str(), completed));
           return;
         }
-        close(from_uv_status(static_cast<int>(value)));
+        close(io::detail::from_uv_status(static_cast<int>(value)));
         return;
       }
       switch (step) {
@@ -336,10 +336,10 @@ error native_backend::submit(std::string_view path, std::shared_ptr<operation> p
     return error::invalid_argument;
   pending->root = root_;
   pending->relative = path;
-  return uv_loop_access::post(
+  return io::detail::uv_loop_access::post(
       executor_, [pending = std::move(pending)](uv_loop_t* loop) { pending->begin(loop); });
 }
-native_backend::native_backend(uv_loop_executor& executor, std::string root)
+native_backend::native_backend(io::executor& executor, std::string root)
     : executor_(executor), root_(std::move(root)) {
   if (root_.empty() || root_.find('\0') != std::string::npos)
     throw std::invalid_argument("文件根目录无效");

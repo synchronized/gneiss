@@ -56,7 +56,7 @@ if(TARGET gneiss_tooling)
   )
   target_link_libraries(
     gneiss_editor_assets
-    PRIVATE gneiss_io_uv gneiss::libuv
+    PRIVATE gneiss_io gneiss::libuv
     PUBLIC gneiss::engine gneiss_tooling gneiss_tasks
   )
   target_include_directories(gneiss_editor_assets

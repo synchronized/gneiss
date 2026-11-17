@@ -612,7 +612,7 @@ Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
 测试源码、脚本及专用夹具统一存放在根目录 `tests/`，`src/` 下不再放置 tests 子目录。
 共享项目配置与协议测试分别位于 `tests/project` 和 `tests/protocol`；
 Runtime 与 Editor 宿主测试分别位于 `tests/runtime` 和 `tests/editor`；
-IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/platform/io/uv`。
+IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/platform/io`。
 
 项目配置与协议测试由各自测试目录的 CMake 声明；其他测试按现有模块条件启用，依赖和编译权限保持在模块边界内。
 目录迁移不改变目标名、CTest 名称或测试运行命令。

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
+#include <gneiss/engine/platform/io/executor.hpp>
 
 #include <gneiss/engine/error.hpp>
 #include <atomic>
@@ -33,7 +33,7 @@ bool broken_pipe_on_worker() {
       pthread_sigmask(SIG_UNBLOCK, &signal, nullptr) != 0) {
     return false;
   }
-  gneiss::uv_loop_executor executor;
+  gneiss::io::executor executor;
   for (int attempt = 0; attempt < 2; ++attempt) {
     std::array<int, 2> descriptors{};
     if (pipe(descriptors.data()) != 0) {
@@ -86,7 +86,7 @@ bool test_broken_pipe() {
 int main(int argc, char** argv) {
   gneiss::install_fatal_handler();
   if (argc > 1) {
-    gneiss::uv_loop_executor executor;
+    gneiss::io::executor executor;
     if (executor.start().failed())
       return 10;
     const bool oom = std::string_view(argv[1]) == "oom";
@@ -106,12 +106,12 @@ int main(int argc, char** argv) {
     return 9;
   }
 #endif
-  gneiss::uv_loop_executor invalid(0U);
+  gneiss::io::executor invalid(0U);
   if (invalid.start() != gneiss::error::invalid_argument) {
     return 1;
   }
 
-  gneiss::uv_loop_executor runtime(2U);
+  gneiss::io::executor runtime(2U);
   if (runtime.post([] {}) != gneiss::error::not_ready ||
       runtime.start() != gneiss::error::success || !runtime.is_running() ||
       runtime.start() != gneiss::error::invalid_state) {

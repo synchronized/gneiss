@@ -789,3 +789,18 @@ cpp_input、granit_platform_smoke、native-application-flow、assets.application
 2 项文件测试通过。迁移使用同步工厂与服务级完成通知，未增加公共后端状态查询。
 Web 后端及测试源码、CMake/JS 路径已迁移，但本机没有 Emscripten，编译与浏览器验收未执行；
 不宣称完整 Web 支持。详细结果见 [Files 收敛记录](../records/2026-11-17-files-backend-initialization.md)。
+
+
+### Platform I/O 职责收敛
+
+已确认范围：`io::executor` 独立拥有 I/O 线程和任务队列；Files、IPC 与编辑器文件监听器
+按各自生命周期使用执行器。文件操作属于 Files，不增加新的 I/O 服务或后端抽象。
+
+- 删除没有生产消费者的 `uv_async_file`、`uv_file_reader`、`uv_path_resolver` 及其专用测试。
+- 执行器入口为 `platform/io/executor.hpp`，libuv 访问与错误转换放在 `src/platform/io/detail`。
+- 目标改为 `gneiss_io`，libuv 私有链接，不传播实现目录；保留隔离 libuv 的 PImpl。
+- 保留执行器排队、停止、压力及异常边界测试，验证 Files、IPC 与编辑器文件监听消费者。
+- 不改变线程所有权、队满返回、关闭排空语义；不保留旧类型与头文件兼容别名。
+
+实施状态：已完成。Windows Clang Debug 共享构建及 19 项相关测试通过；静态 Engine、
+执行器、IPC、原生文件目标构建及 3 项相关测试通过。未执行 Linux/Web 验证。

@@ -5,7 +5,7 @@
 #include <chrono>
 #include <cstdio>
 #include <gneiss/engine/platform/files/service.hpp>
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
+#include <gneiss/engine/platform/io/executor.hpp>
 #include <stdexcept>
 #include <thread>
 using namespace gneiss;
@@ -16,7 +16,7 @@ void check(bool value) {
 int main(int argc, char** argv) {
   if (argc != 2)
     return 1;
-  uv_loop_executor executor;
+  io::executor executor;
   check(executor.start().ok());
   auto backend = gneiss::files::create_backend_native({executor, argv[1]});
   gneiss::files::service service;

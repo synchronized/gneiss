@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/io/executor.hpp>
 
-#include "uv_loop_access.hpp"
-#include "uv_result.hpp"
+#include "detail/uv_error.hpp"
+#include "detail/uv_loop_access.hpp"
 
 #include <uv.h>
 
@@ -23,9 +22,9 @@
 #include <signal.h>
 #endif
 
-namespace gneiss {
+namespace gneiss::io {
 
-struct uv_loop_executor::implementation final {
+struct executor::implementation final {
   explicit implementation(std::size_t capacity) : queue_capacity(capacity) {}
 
   uv_loop_t loop{};
@@ -75,11 +74,11 @@ struct uv_loop_executor::implementation final {
     }
 #endif
     if (operation == error::success) {
-      operation = from_uv_status(uv_loop_init(&loop));
+      operation = detail::from_uv_status(uv_loop_init(&loop));
     }
     if (operation == error::success) {
       wakeup.data = this;
-      operation = from_uv_status(uv_async_init(&loop, &wakeup, on_wakeup));
+      operation = detail::from_uv_status(uv_async_init(&loop, &wakeup, on_wakeup));
       if (operation != error::success) {
         (void)uv_loop_close(&loop);
       }
@@ -104,16 +103,16 @@ struct uv_loop_executor::implementation final {
   }
 };
 
-uv_loop_executor::uv_loop_executor(std::size_t queue_capacity)
+executor::executor(std::size_t queue_capacity)
     : implementation_(std::make_unique<implementation>(queue_capacity)) {}
 
-uv_loop_executor::~uv_loop_executor() {
+executor::~executor() {
   if (implementation_) {
     (void)stop();
   }
 }
 
-error uv_loop_executor::start() {
+error executor::start() {
   if (!implementation_ || implementation_->queue_capacity == 0U) {
     return error::invalid_argument;
   }
@@ -142,7 +141,7 @@ error uv_loop_executor::start() {
   }
 }
 
-error uv_loop_executor::post(task operation) {
+error executor::post(task operation) {
   if (!implementation_ || !operation) {
     return error::invalid_argument;
   }
@@ -155,7 +154,7 @@ error uv_loop_executor::post(task operation) {
       return error::not_ready;
     }
     implementation_->tasks.push_back(std::move(operation));
-    const auto wakeup_result = from_uv_status(uv_async_send(&implementation_->wakeup));
+    const auto wakeup_result = detail::from_uv_status(uv_async_send(&implementation_->wakeup));
     if (wakeup_result != error::success) {
       implementation_->tasks.pop_back();
     }
@@ -163,7 +162,7 @@ error uv_loop_executor::post(task operation) {
   }
 }
 
-error uv_loop_executor::stop() noexcept {
+error executor::stop() noexcept {
   if (!implementation_ || !implementation_->worker.joinable()) {
     return error::not_ready;
   }
@@ -178,14 +177,14 @@ error uv_loop_executor::stop() noexcept {
     wakeup_result = uv_async_send(&implementation_->wakeup);
   }
   implementation_->worker.join();
-  return from_uv_status(wakeup_result);
+  return detail::from_uv_status(wakeup_result);
 }
 
-bool uv_loop_executor::is_running() const noexcept {
+bool executor::is_running() const noexcept {
   return implementation_ && implementation_->running.load(std::memory_order_acquire);
 }
 
-error uv_loop_access::post(uv_loop_executor& executor, task operation) {
+error detail::uv_loop_access::post(executor& executor, task operation) {
   if (!operation || !executor.implementation_) {
     return error::invalid_argument;
   }
@@ -195,4 +194,4 @@ error uv_loop_access::post(uv_loop_executor& executor, task operation) {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::io

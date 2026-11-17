@@ -5,9 +5,9 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/error.hpp>
 
-#include "platform/io/uv/uv_loop_access.hpp"
-#include <gneiss/engine/platform/io/uv/uv_loop_executor.hpp>
-#include "platform/io/uv/uv_result.hpp"
+#include "platform/io/detail/uv_loop_access.hpp"
+#include <gneiss/engine/platform/io/executor.hpp>
+#include "platform/io/detail/uv_error.hpp"
 
 #include <uv.h>
 
@@ -47,7 +47,7 @@ struct asset_file_watcher::implementation final {
 
   explicit implementation(std::size_t capacity) : event_capacity(capacity) {}
 
-  gneiss::uv_loop_executor executor;
+  gneiss::io::executor executor;
   std::filesystem::path source_root;
   std::vector<std::unique_ptr<directory_watch>> watches;
   std::unordered_set<std::string> watched_directories;
@@ -87,7 +87,7 @@ struct asset_file_watcher::implementation final {
         watches.reserve((std::max)(std::size_t{8U}, watches.size() * 2U));
       }
       watched_directories.insert(key);
-      auto operation = gneiss::from_uv_status(uv_fs_event_init(loop, &watch->handle));
+      auto operation = gneiss::io::detail::from_uv_status(uv_fs_event_init(loop, &watch->handle));
       if (operation != gneiss::error::success) {
         watched_directories.erase(key);
         return operation;
@@ -101,7 +101,7 @@ struct asset_file_watcher::implementation final {
         flags = UV_FS_EVENT_RECURSIVE;
       }
 #endif
-      operation = gneiss::from_uv_status(
+      operation = gneiss::io::detail::from_uv_status(
           uv_fs_event_start(&active_watch->handle, on_file_event, key.c_str(), flags));
       if (operation != gneiss::error::success) {
         watched_directories.erase(key);
@@ -140,7 +140,7 @@ struct asset_file_watcher::implementation final {
                             int status) noexcept try {
     auto* watch = static_cast<directory_watch*>(handle->data);
     auto* self = watch->owner;
-    const auto operation = gneiss::from_uv_status(status);
+    const auto operation = gneiss::io::detail::from_uv_status(status);
     if (operation != gneiss::error::success) {
       self->emit({.kind = asset_file_event_kind::error,
                   .relative_path = watch->directory.lexically_relative(self->source_root),
@@ -217,7 +217,7 @@ gneiss::error asset_file_watcher::start(const std::filesystem::path& source_root
     }
     auto completion = std::make_shared<std::promise<gneiss::error>>();
     auto completed = completion->get_future();
-    operation = gneiss::uv_loop_access::post(
+    operation = gneiss::io::detail::uv_loop_access::post(
         implementation_->executor, [state = implementation_.get(), completion](uv_loop_t* loop) {
           completion->set_value(state->refresh_directories(loop));
         });
@@ -225,7 +225,7 @@ gneiss::error asset_file_watcher::start(const std::filesystem::path& source_root
       operation = completed.get();
     }
     if (operation != gneiss::error::success) {
-      (void)gneiss::uv_loop_access::post(
+      (void)gneiss::io::detail::uv_loop_access::post(
           implementation_->executor,
           [state = implementation_.get()](uv_loop_t*) { state->close_watches(); });
       (void)implementation_->executor.stop();
@@ -244,7 +244,7 @@ gneiss::error asset_file_watcher::stop() {
   if (!implementation_ || !implementation_->running.exchange(false, std::memory_order_acq_rel)) {
     return gneiss::error::not_ready;
   }
-  const auto posted = gneiss::uv_loop_access::post(
+  const auto posted = gneiss::io::detail::uv_loop_access::post(
       implementation_->executor,
       [state = implementation_.get()](uv_loop_t*) { state->close_watches(); });
   const auto stopped = implementation_->executor.stop();

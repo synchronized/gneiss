@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SRC_IO_UV_UV_RESULT_HPP_
-#define GNEISS_SRC_IO_UV_UV_RESULT_HPP_
+#pragma once
 
 #include <gneiss/engine/error.hpp>
 
-namespace gneiss {
+namespace gneiss::io::detail {
 
 /** 将 libuv 返回值转换为稳定的 Gneiss 结果码，不暴露 libuv 类型。 */
 [[nodiscard]] error from_uv_status(int value) noexcept;
 
-} // namespace gneiss
-
-#endif
+} // namespace gneiss::io::detail
