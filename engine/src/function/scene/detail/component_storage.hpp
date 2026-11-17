@@ -13,7 +13,7 @@ template <class T> struct component_policy {
 };
 inline world_component_access::storage& component_state(game_object object) {
   GNEISS_ASSERT(object.is_valid(), "组件操作要求有效 GameObject 及所属线程");
-  return **world_component_access::get(*object.owner());
+  return world_component_access::get(*object.owner());
 }
 }
 namespace gneiss {

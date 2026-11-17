@@ -32,7 +32,8 @@ public:
   [[nodiscard]] GNEISS_API math::matrix4 world_matrix() const;
   /** 借用所属场景；要求有效 GameObject 及所属线程，纯 ECS 实体不是 GameObject。 */
   [[nodiscard]] GNEISS_API scene_instance scene() const;
-  [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;
+  /** 有效对象及所属线程上的逐级 TRS 组合；不表示剪切，精确层级变换使用 world_matrix。 */
+  [[nodiscard]] GNEISS_API math::transform world_transform() const;
   /** 要求有效对象及所属线程；非法变换返回 invalid_argument，原值不变。 */
   [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const;
   /** 要求对象有效且在所属线程；根对象返回空句柄。 */

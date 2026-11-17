@@ -357,7 +357,7 @@ int main() try {
   check(recreated->set_local_transform(transform).ok());
   check(recreated->entity() == recreated_entity);
   auto moved = recreated->world_transform();
-  check(moved && moved->translation.x == 7.0F);
+  check(moved.translation.x == 7.0F);
   recreated->set_name("recreated");
   auto dynamic_members = dynamic->size();
   check(dynamic_members == 1);

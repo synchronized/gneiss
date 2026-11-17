@@ -8,12 +8,12 @@ result<std::optional<render_camera_snapshot>> select_render_camera(world& owner,
                                                                    std::uint32_t viewport_width,
                                                                    std::uint32_t viewport_height,
                                                                    const view_camera* camera) {
-  auto state = detail::world_component_access::get(owner);
-  if (!state)
-    return state.error();
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  auto& state = detail::world_component_access::get(owner);
   if (!viewport_width || !viewport_height)
     return error::invalid_argument;
-  auto& world = **state;
+  auto& world = state;
   view_camera selected;
   bool has_camera = camera != nullptr;
   if (camera != nullptr) {
@@ -25,10 +25,10 @@ result<std::optional<render_camera_snapshot>> select_render_camera(world& owner,
     if (const auto* component = world.get<camera_component>(active_camera); component != nullptr) {
       selected.camera = {component->settings.fov, component->settings.near_plane,
                          component->settings.far_plane};
-      auto transform = owner.find(entity_id{active_camera}).world_transform();
-      has_camera = transform.ok();
-      if (transform)
-        selected.transform = *transform;
+      auto object = owner.object(entity_id{active_camera});
+      has_camera = object.has_value();
+      if (object)
+        selected.transform = object->world_transform();
     }
   }
   if (has_camera) {

@@ -115,10 +115,8 @@ int run_tests() {
   }
   const auto expected =
       reference_combine(root_transform, reference_combine(child_transform, grandchild_transform));
-  gneiss::math::transform actual = gneiss::math::transform{};
-  if (gneiss::test_support::assign_value(grandchild.world_transform(), actual) !=
-          gneiss::error::success ||
-      !approximately_equal(actual, expected) || grandchild.entity() != entity) {
+  if (!approximately_equal(grandchild.world_transform(), expected) ||
+      grandchild.entity() != entity) {
     return 3;
   }
 
@@ -128,9 +126,8 @@ int run_tests() {
   other_transform.rotation[3] = half_sqrt_two;
   if (other_root.set_local_transform(other_transform) != gneiss::error::success ||
       grandchild.reparent(other_root) != gneiss::error::success ||
-      gneiss::test_support::assign_value(grandchild.world_transform(), actual) !=
-          gneiss::error::success ||
-      !approximately_equal(actual, reference_combine(other_transform, grandchild_transform)) ||
+      !approximately_equal(grandchild.world_transform(),
+                           reference_combine(other_transform, grandchild_transform)) ||
       grandchild.entity() != entity) {
     return 4;
   }
@@ -148,9 +145,8 @@ int run_tests() {
   invalid = grandchild_transform;
   invalid.rotation[3] = 2.0F;
   if (grandchild.set_local_transform(invalid) != gneiss::error::invalid_argument ||
-      gneiss::test_support::assign_value(grandchild.world_transform(), actual) !=
-          gneiss::error::success ||
-      !approximately_equal(actual, reference_combine(other_transform, grandchild_transform))) {
+      !approximately_equal(grandchild.world_transform(),
+                           reference_combine(other_transform, grandchild_transform))) {
     return 7;
   }
   // 先创建子对象再挂到后建的父对象，递归删除允许 ECS 移动组件存储。

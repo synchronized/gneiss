@@ -58,8 +58,8 @@ const auto count = created->size(); // 空场景为零，无需拆 result。
 不表示错误；内部层级断裂属于断言违例。矩阵包含非均匀缩放
 产生的剪切。子对象快照不保活对象，结构修改后使用快照中的句柄前应检查是否仍存活。
 `local_transform()` 直接返回局部变换副本，要求有效对象和所属线程；修改副本需通过
-`set_local_transform()` 校验并写回。`world_transform()` 尚保留 result，仍用于相机和编辑器
-TRS 操作，不承诺无损表示剪切。
+`set_local_transform()` 校验并写回。`world_transform()` 同样直接返回值，要求有效对象及所属线程；
+沿父链保持既有逐级 TRS 组合，用于相机和编辑器，不承诺无损表示剪切。
 卸载通过 ECS 析构组件并释放资源强引用，不调用资产缓存清理。
 
 `instantiate(destination, composed, bindings, parent)` 将已组合的完整对象追加到指定场景。

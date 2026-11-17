@@ -5,9 +5,9 @@
 #include <gneiss/engine/function/scene/world.hpp>
 namespace gneiss::detail {
 /** 仅供组件适配实现访问现有 ECS；不得将后端类型传播到 Scene/资源接口。
- * 返回借用指针，只能在 World 所属线程、World 存活期间使用。 */
+ * 返回借用引用；World 必须存活，所属线程为断言前置条件。 */
 struct GNEISS_API world_component_access {
   using storage = world::implementation;
-  static result<storage*> get(world& owner) noexcept;
+  static storage& get(world& owner) noexcept;
 };
 }

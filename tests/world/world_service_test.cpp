@@ -114,13 +114,9 @@ bool native_operations() {
     return false;
   gneiss::math::transform local;
   local.translation = {2, 3, 4};
-  gneiss::math::transform actual;
   if (owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).set_local_transform(local) !=
           gneiss::error::success ||
-      gneiss::test_support::assign_value(
-          owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).world_transform(),
-          actual) != gneiss::error::success ||
-      actual.translation != local.translation)
+      owner->find(node).world_transform().translation != local.translation)
     return false;
   auto invalid = local;
   invalid.scale[0] = 0;

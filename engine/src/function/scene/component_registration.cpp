@@ -44,12 +44,10 @@ struct component_instance_ids {
   std::map<guid, guid> values;
 };
 component_instance_ids& instance_ids(world& owner, entity_id node) {
-  auto state = detail::world_component_access::get(owner);
-  if (!state)
-    throw std::invalid_argument("无效 World");
+  auto& state = detail::world_component_access::get(owner);
   auto id = entity(owner, node).get();
-  auto* identities = (*state)->get<component_instance_ids>(id);
-  return identities ? *identities : (*state)->emplace<component_instance_ids>(id);
+  auto* identities = state.get<component_instance_ids>(id);
+  return identities ? *identities : state.emplace<component_instance_ids>(id);
 }
 error camera_valid(const camera_description& value) {
   return validate_camera_description(value).error;

@@ -10,11 +10,10 @@
 #include "function/scene/detail/world_component_access.hpp"
 #include "function/scene/detail/world_impl.hpp"
 namespace gneiss {
-result<detail::world_component_access::storage*>
+detail::world_component_access::storage&
 detail::world_component_access::get(world& owner) noexcept {
-  if (!owner.is_owner_thread())
-    return error::invalid_state;
-  return owner.impl_.get();
+  GNEISS_ASSERT(owner.is_owner_thread(), "World 内部访问要求所属线程");
+  return *owner.impl_;
 }
 world::world(std::uint32_t domain) : impl_(std::make_unique<implementation>(domain)) {}
 world::~world() noexcept try {

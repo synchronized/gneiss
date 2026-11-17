@@ -52,12 +52,7 @@ struct movement_component {
   movement_description data;
   std::shared_ptr<int> lifetime = std::make_shared<int>(0);
 };
-inline auto& state(e::world& world) {
-  auto access = e::detail::world_component_access::get(world);
-  if (!access)
-    throw std::runtime_error("World 访问失败");
-  return **access;
-}
+inline auto& state(e::world& world) { return e::detail::world_component_access::get(world); }
 inline std::uint64_t entity(e::world& world, gneiss::entity_id node) {
   gneiss::entity_id value;
   if (gneiss::test_support::assign_value(world.object(gneiss::entity_id{(node).get()}), value)

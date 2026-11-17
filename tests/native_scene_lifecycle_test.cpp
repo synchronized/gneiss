@@ -16,7 +16,6 @@ int main(void) {
   gneiss::entity_id child = gneiss::entity_id{};
   gneiss::math::transform root_transform;
   gneiss::math::transform child_transform;
-  gneiss::math::transform world_transform;
   gneiss::entity_id attached = gneiss::entity_id{};
 
   if (gneiss::test_support::assign_value(gneiss::create_native(), world).failed())
@@ -43,10 +42,8 @@ int main(void) {
           gneiss::error::success ||
       world->find(gneiss::entity_id{(child).get()}).parent().entity() != root ||
       world->find(gneiss::entity_id{(root).get()}).parent().entity() != gneiss::entity_id{} ||
-      gneiss::test_support::assign_value(
-          world->find(gneiss::entity_id{(child).get()}).world_transform(), world_transform) !=
-          gneiss::error::success ||
-      world_transform.translation[0] != 2.0F || world_transform.translation[1] != 3.0F) {
+      child_object->world_transform().translation[0] != 2.0F ||
+      child_object->world_transform().translation[1] != 3.0F) {
     return 3;
   }
 
@@ -100,7 +97,7 @@ int main(void) {
   if (object->set_local_transform(local).failed())
     return 10;
   auto transformed = descendant->world_transform();
-  if (!transformed || transformed->translation.x != 4)
+  if (transformed.translation.x != 4)
     return 11;
   error foreign_thread;
   std::thread worker([&] { foreign_thread = world->object(object->entity()).error(); });

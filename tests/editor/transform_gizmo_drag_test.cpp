@@ -82,13 +82,9 @@ int main() try {
         return 4;
       }
       gneiss::math::transform desired{};
-      if (gneiss::test_support::assign_value(
-              application->native_world()
-                  ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
-                  .world_transform(),
-              desired) != gneiss::error::success) {
-        return 5;
-      }
+      desired = application->native_world()
+                    ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
+                    .world_transform();
       for (int frame = 0; frame < 4; ++frame) {
         if (mode == 0) {
           desired.translation[0] += 1.0F;
@@ -102,16 +98,10 @@ int main() try {
           desired.scale[1] += 0.5F;
         }
         gneiss::editor::gizmo_matrix matrix{};
-        gneiss::math::transform actual{};
-        if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-                gneiss::error::success ||
+        if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != gneiss::error::success ||
             drag.preview(session, matrix) != gneiss::error::success ||
-            gneiss::test_support::assign_value(
-                application->native_world()
-                    ->find(gneiss::entity_id{(gneiss::entity_id{target.get()}).get()})
-                    .world_transform(),
-                actual) != gneiss::error::success ||
-            !near(actual, desired) || history.size() != 0U) {
+            !near(application->native_world()->find(target).world_transform(), desired) ||
+            history.size() != 0U) {
           return 6;
         }
       }
@@ -176,13 +166,9 @@ int main() try {
   const auto prefab_id = session.selection();
   const auto prefab_identity = *session.selected_prefab_node();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (gneiss::test_support::assign_value(
-          application->native_world()
-              ->find(gneiss::entity_id{(gneiss::entity_id{prefab_id.get()}).get()})
-              .world_transform(),
-          desired) != gneiss::error::success) {
-    return 14;
-  }
+  desired = application->native_world()
+                ->find(gneiss::entity_id{(gneiss::entity_id{prefab_id.get()}).get()})
+                .world_transform();
   desired.translation[0] += 3.0F;
   if (drag.begin(session) != gneiss::error::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
@@ -216,13 +202,9 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (gneiss::test_support::assign_value(
-          application->native_world()
-              ->find(gneiss::entity_id{(gneiss::entity_id{session.selection().get()}).get()})
-              .world_transform(),
-          desired) != gneiss::error::success) {
-    return 17;
-  }
+  desired = application->native_world()
+                ->find(gneiss::entity_id{(gneiss::entity_id{session.selection().get()}).get()})
+                .world_transform();
   desired.translation[0] += 2.0F;
   if (drag.begin(session) != gneiss::error::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=

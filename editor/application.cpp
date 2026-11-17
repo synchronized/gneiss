@@ -1527,12 +1527,10 @@ gneiss::error update_editor_camera(editor_state& state, const gneiss::frame_time
       selected_node = prefab->node;
     }
     if (selected_node.is_valid()) {
-      auto target = state.application->native_world()
-                        ->find(gneiss::entity_id{selected_node.get()})
-                        .world_transform();
+      auto target = state.application->native_world()->object(selected_node);
       if (!target)
         return target.error();
-      return state.camera.focus(*target);
+      return state.camera.focus(target->world_transform());
     }
   }
   return state.camera.update(input);

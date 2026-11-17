@@ -34,15 +34,15 @@ void world_render_binding::on_changed(const object_changes& batch) {
 }
 result<std::unique_ptr<world_render_binding>>
 world_render_binding::create(world& source, gneiss::render::service& render) {
-  auto state = detail::world_component_access::get(source);
-  if (!state)
-    return state.error();
+  if (!source.is_owner_thread())
+    return error::invalid_state;
+  auto& state = detail::world_component_access::get(source);
   auto value = std::unique_ptr<world_render_binding>(new world_render_binding(source, render));
   value->subscription_ = source.changes().connect<&world_render_binding::on_changed>(*value);
   // 只在建立绑定时全量枚举；后续订阅记录不会被其他消费者清空。
-  (*state)->each<detail::object_state, mesh_component>(
+  state.each<detail::object_state, mesh_component>(
       [&](entt::entity entity, const auto&, const auto&) {
-        value->pending_[entity_id{(*state)->encode_entity(entity)}].transform = true;
+        value->pending_[entity_id{state.encode_entity(entity)}].transform = true;
       });
   auto scene = render.create_scene();
   if (!scene)
@@ -51,9 +51,9 @@ world_render_binding::create(world& source, gneiss::render::service& render) {
   return value;
 }
 result<void> world_render_binding::synchronize() {
-  auto state = detail::world_component_access::get(source_);
-  if (!state)
-    return state.error();
+  if (!source_.is_owner_thread())
+    return error::invalid_state;
+  auto& state = detail::world_component_access::get(source_);
   render::scene_commands commands{scene_, {}};
   std::map<entity_id, render::instance_key> updates;
   auto last_key = last_key_;
@@ -64,8 +64,8 @@ result<void> world_render_binding::synchronize() {
     const auto changed_component = change.components.find(mesh_type);
     if (!change.transform && !change.destroyed && changed_component == change.components.end())
       continue;
-    const auto* component = (*state)->get<mesh_component>(id.get());
-    const auto* object = (*state)->get<detail::object_state>(id.get());
+    const auto* component = state.get<mesh_component>(id.get());
+    const auto* object = state.get<detail::object_state>(id.get());
     const bool ready =
         !change.destroyed && object && component && component->mesh && component->material;
     if (key &&

@@ -5,17 +5,12 @@
 
 ## 状态与范围
 
-2026-11-12：P1 进行中。World::flush_changes 已改为 void，entity_count 已改为直接返回
-std::uint64_t 的 const 查询；两者以全配置断言检查所属线程。Application、Runtime 统计及
-Scene/Prefab/Editor 测试调用已迁移，变化合并、回调异常边界和渲染重试语义不变。
-内部访问及 GameObject 查询尚未迁移，P1 未完成。
+2026-11-17：P0、P1 已完成。World/GameObject 查询、修改、销毁、场景卸载和模板组件
+操作已按借用契约收敛，内部存储访问直接返回引用；外部身份、业务拒绝及回调错误保留诊断。
+最新验证为 Windows Clang Debug 编辑器和相关目标构建、八项定向回归通过；此前分组验证
+见下文。Release、静态库及跨平台验收未完成，纳入 P4，不将 Debug 结果等同于完整矩阵。
 
-数量查询原有的错线程错误返回测试改为子进程终止测试，同时覆盖变化派发；
-外部实体查找的错线程拒绝仍独立验证。删除 Editor 中只检查数量查询成功、未检查数量的断言，
-其余对象数量、失败后不残留实体和失效句柄行为断言保留。
-
-2026-11-16 验证：World 服务与错线程子进程测试通过，数量查询和变化派发的终止分支均已执行；
-本轮同时通过相机数学与相机选取回归。仅验证 Windows Clang Debug 构建，未执行其他平台和完整 Release 构建。
+按用户确认，下一步优先推进 PLAN-119 的测试精简，再恢复本计划 P2/P3；P4 仍未完成。
 
 权威规则见[代码规范](../guides/coding-style.md#返回值契约与终止的选择)。
 本计划延续已完成的 [PLAN-109](PLAN-109-exception-boundaries.md) 与
@@ -48,7 +43,7 @@ libassert 已接入，验证范围见[接入记录](../records/2026-11-12-libass
 ## 实施顺序
 
 - [x] P0：统一评审规则、登记候选与保护边界，链接现有异常与测试规范。
-- [ ] P1：World/GameObject 完整链。先列现有调用者与失效/线程测试，再确定直接查询签名；
+- [x] P1：World/GameObject 完整链。先列现有调用者与失效/线程测试，再确定直接查询签名；
   迁移内部访问及 Runtime/Editor 消费者，删除被新契约取代的传播分支和测试。
 - [ ] P2：Meta 内部 getter/ops。逐项拆分契约违例与输入问题，验证属性面板、序列化和覆盖应用。
 - [ ] P3：Render 执行器及 Prefab 重放定向审计。回执失配必须先核实并发/关闭时序；
@@ -223,3 +218,20 @@ GameObject 模板组件访问、增删与通知共用有效对象/所属线程�
 Windows Clang Debug 八个目标构建与八项相关测试通过；git diff --check 通过。
 未运行 Release、静态库、跨平台或 GPU 验证。world_transform 和 P1 其他剩余接口尚待审查，
 PLAN-118 未完成。
+
+### P1 收尾审查与验证
+
+world_component_access::get 改为所属线程断言并直接返回 implementation 引用；GameObject、
+组件身份存储、渲染同步及测试私有访问删除 result 拆包。相机选择与渲染同步的边界仍显式
+拒绝错误线程，避免把原有外部可恢复失败变成断言。
+world_transform 直接返回逐级 TRS 组合值，不改变组合算法；剪切仍使用 world_matrix 表达。
+Editor 聚焦先通过 world.object 验证选择身份，渲染相机保留对象缺失时无相机的行为。
+name 的有效对象检查统一为项目全配置断言。
+
+保留接口审查结论：create_scene 仍可能因初始化和槽位分配失败；create_object 接收外部父对象
+与变换，需保留输入拒绝及失败清理；transfer_subtree 保留跨场景迁移输入验证与失败还原；
+visit_objects 保留身份边界、空回调和回调失败。这些不是永远成功的 result，不为统一签名删除。
+
+Windows Clang Debug 编辑器与八个测试目标构建通过，原生场景生命周期、场景树变换、相机、
+渲染同步、World 边界、组件装配、Editor Gizmo 与会话八项测试通过，git diff --check 通过。
+未运行编辑器 GUI/GPU、Release、静态库和跨平台；后续全计划验收继续由 P4 承担。
