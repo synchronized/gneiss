@@ -13,10 +13,7 @@ inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner, sce
   auto object = owner.object(id);
   if (!object)
     return object.error();
-  auto member = destination.contains(*object);
-  if (!member)
-    return member.error();
-  if (!*member)
+  if (!destination.contains(*object))
     return gneiss::error::invalid_handle;
   return *object;
 }

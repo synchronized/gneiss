@@ -18,10 +18,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
   if (parent.owner()) {
     if (parent.owner() != &world)
       return error::invalid_argument;
-    auto valid = destination.contains(parent);
-    if (!valid)
-      return valid.error();
-    if (!*valid)
+    if (!destination.contains(parent))
       return error::invalid_handle;
   }
   std::map<object_address, const composed_object*> descriptions;

@@ -202,10 +202,7 @@ gneiss::error scene_edit_session::adopt(runtime::application& application,
       auto object = world->object(binding.entity);
       if (!object)
         return object.error();
-      auto member = scene.contains(*object);
-      if (!member)
-        return member.error();
-      if (!*member)
+      if (!scene.contains(*object))
         return gneiss::error::invalid_handle;
     }
     scene_edit_session pending;

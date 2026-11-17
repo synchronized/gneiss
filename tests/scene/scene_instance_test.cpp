@@ -478,7 +478,7 @@ int main() try {
     if (!applied_native || !*applied_native)
       return 19;
     auto object = instance->create_object({"Direct", {}});
-    if (!object || !*instance->contains(*object) || *instance->contains({}) ||
+    if (!object || !instance->contains(*object) || instance->contains({}) ||
         *instance->size() != 1U ||
         gneiss::scene_instance::borrow(**other, instance->id()).error() !=
             gneiss::error::invalid_handle)

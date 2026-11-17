@@ -84,3 +84,33 @@ GameObject 现有失效句柄操作是否被编辑器正常使用、Meta 自定�
 关闭时回执是否可能合法缺失，均须在对应阶段通过源码和测试确定。
 默认保留已有可恢复语义；只有确认它实际属于编程错误后才调整。若需改变已确认的生命周期或
 跨模块协议，先说明具体影响再讨论，不把推测当成不可达状态。
+
+## P1 已确认的借用 API 契约（2026-11-17）
+
+先调整正式 API，再迁移 PLAN-119 的测试包装，避免重复适配旧错误语义。
+World 必须覆盖借用句柄的使用期；普通查询要求所属线程及有效 generation，使用断言检查。
+World 已销毁后的悬空指针不能通过 is_valid 修复。外部 ID、IPC 和异步完成处理先验证身份。
+
+| 接口 | 目标返回 | 正常缺失与失败边界 |
+| --- | --- | --- |
+| GameObject 的 local_transform/world_matrix/scene/parent/children | 对应值 | 根 parent 返回空句柄；其他内部层级断裂属于不变量违例 |
+| SceneInstance 的 size/objects/roots | 数量或句柄快照 | 空场景返回零或空集合 |
+| SceneInstance::contains | bool | 当前场景须有效；空、过期、其他 World 的对象返回 false |
+| set_name/destroy/unload | void | 有效句柄、所属线程为前提；销毁后先检查 is_valid，不重复操作 |
+| create_object/reparent/set_local_transform/transfer_subtree | 保留错误 | 非法变换、循环、跨场景等真实拒绝仍可恢复 |
+| visit_objects | 暂保留 error | 回调存在真实失败，不能随查询错误一起删掉 |
+
+实施示例：创建场景成功后调用 objects()/contains() 不再拆 result；接收外部 ID 时先通过
+world.object 或 scene_instance::borrow 验证，再调用查询。unload 后仅在 World 存活期间用
+is_valid 判断失效，不再查询已卸载场景。分批迁移完整消费者链，未迁移签名保持现状。
+
+### P1 第一组实施结果
+
+已迁移 SceneInstance::contains、objects、roots：直接返回 bool/句柄快照，以所有配置启用的
+GNEISS_ASSERT 检查场景存活及所属线程。is_valid 直接校验槽位，不再为判断存活统计全部成员。
+objects/roots 不再经过可失败回调接口生成快照；辅助 ECS 实体仍不作为 GameObject 返回。
+实例化、场景更新、跨场景迁移和编辑器接入保留入口验证及业务拒绝，删除 contains 的无意义
+错误拆包。测试同步验证正常缺失、删除后的归属与空快照，不新增逐接口死亡测试。
+Windows Clang Debug 五目标构建通过；world-service-boundary、scene_instance、scene-instantiation、
+prefab_structural_reload、editor.author-property-edit 五项回归通过。未运行 Release、静态库、
+跨平台或 GPU 验证。size、GameObject 查询与修改/销毁签名尚未迁移，P1 未完成。

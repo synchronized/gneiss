@@ -436,6 +436,10 @@ scene_node_info 副本转换；保留同源双实例、重载身份、覆盖恢�
 Windows Clang Debug 五个相关目标构建通过，Prefab 结构重载、场景实例、实例化、场景 Prefab
 实例及组件装配五项回归通过。未运行 GPU、静态库及跨平台验证，其他 scene_access 消费者仍待迁移。
 
+后续优先按 [PLAN-118](PLAN-118-error-contracts.md) 收敛对象查询的返回契约，再继续迁移
+受影响测试包装，避免重复适配 result/error。首组 SceneInstance 查询及调用方已同步迁移，
+该工作不代表本计划其余测试去重已完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

@@ -100,10 +100,7 @@ result<bool> apply_scene(scene_instance destination,
     auto borrowed = world.object(binding.entity);
     if (!borrowed)
       return false;
-    auto member = destination.contains(*borrowed);
-    if (!member)
-      return member.error();
-    if (!*member)
+    if (!destination.contains(*borrowed))
       return false;
     auto transform = borrowed->local_transform();
     if (!transform)
@@ -252,10 +249,7 @@ result<bool> apply_scene(scene_instance destination,
     const auto target_binding = prepared_binding(object);
     const auto node = nodes.at(object.address).node;
     auto target = world.find(node);
-    auto member = destination.contains(target);
-    if (!member)
-      return member.error();
-    if (!*member)
+    if (!destination.contains(target))
       return error::invalid_handle;
     auto current = target.try_component<mesh_component>();
     if (current && current->mesh == target_binding.mesh &&

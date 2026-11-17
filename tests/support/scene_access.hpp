@@ -57,10 +57,7 @@ struct scene_access {
     auto object = owner.object(entity_id{node.get()});
     if (!object)
       return object.error();
-    auto member = scene.contains(*object);
-    if (!member)
-      return member.error();
-    return *member ? gneiss::error::success : gneiss::error::invalid_handle;
+    return scene.contains(*object) ? gneiss::error::success : gneiss::error::invalid_handle;
   }
   gneiss::error reparent_node(scene_instance id, entity_id node, entity_id parent) {
     auto status = validate_editable_node(id, node);

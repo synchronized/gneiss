@@ -52,7 +52,7 @@ bool scene_object_storage() {
   auto objects = object_scene->objects();
   auto roots = object_scene->roots();
   auto children = root->children();
-  if (!objects || objects->size() != 2 || !roots || roots->size() != 1 || roots->front() != *root ||
+  if (objects.size() != 2 || roots.size() != 1 || roots.front() != *root ||
       !children || children->size() != 1 || children->front() != *child)
     return false;
   if (child->try_component<mesh_component>() || child->add_component<mesh_component>().failed() ||
@@ -81,6 +81,9 @@ bool scene_object_storage() {
   if (foreign != error::invalid_state)
     return false;
   if ((*root).destroy().failed())
+    return false;
+  if (object_scene->contains(*root) || object_scene->contains({}) ||
+      !object_scene->objects().empty() || !object_scene->roots().empty())
     return false;
   count = owner.entity_count();
   if (count != 0 || owner.find(child_entity).is_valid())

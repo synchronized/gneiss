@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/assert.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 
@@ -41,31 +41,32 @@ result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id
   result.id_ = id;
   return result;
 }
-bool scene_instance::is_valid() const noexcept { return size().has_value(); }
+bool scene_instance::is_valid() const noexcept {
+  return owner_ && owner_->validate_scene(id_).ok();
+}
 result<std::uint64_t> scene_instance::size() const noexcept {
   if (!owner_)
     return error::invalid_handle;
   return owner_->scene_size(id_);
 }
-result<std::vector<game_object>> scene_instance::objects() const {
+std::vector<game_object> scene_instance::objects() const {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   std::vector<game_object> objects;
-  auto status = visit_objects([&](game_object object) {
-    objects.push_back(object);
-    return error::success;
+  owner_->impl_->each_scene_member(id_, [&](entity_id id) {
+    if (owner_->impl_->get<detail::object_state>(id.get()))
+      objects.push_back(owner_->find(id));
   });
-  return status.ok() ? result<std::vector<game_object>>{std::move(objects)}
-                     : result<std::vector<game_object>>{status};
+  return objects;
 }
-result<std::vector<game_object>> scene_instance::roots() const {
+std::vector<game_object> scene_instance::roots() const {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   std::vector<game_object> objects;
-  auto status = visit_objects(
-      [&](game_object object) {
-        objects.push_back(object);
-        return error::success;
-      },
-      true);
-  return status.ok() ? result<std::vector<game_object>>{std::move(objects)}
-                     : result<std::vector<game_object>>{status};
+  owner_->impl_->each_scene_member(id_, [&](entity_id id) {
+    const auto* object = owner_->impl_->get<detail::object_state>(id.get());
+    if (object && !object->parent)
+      objects.push_back(owner_->find(id));
+  });
+  return objects;
 }
 error scene_instance::visit_objects(const std::function<error(game_object)>& visitor,
                                     bool roots_only) const {
@@ -104,10 +105,7 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   if (!source)
     return source.error();
   if (parent.owner()) {
-    auto member = destination.contains(parent);
-    if (!member)
-      return member.error();
-    if (!*member)
+    if (!destination.contains(parent))
       return error::invalid_argument;
   }
   std::vector<entity_id> nodes{entity_id{root.entity().get()}};
@@ -138,12 +136,8 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
     assign(source->id());
   return status;
 }
-result<bool> scene_instance::contains(game_object object) const noexcept {
-  if (!owner_)
-    return error::invalid_handle;
-  auto status = owner_->validate_scene(id_);
-  if (status.failed())
-    return status;
+bool scene_instance::contains(game_object object) const noexcept {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   if (object.owner() != owner_)
     return false;
   return owner_->impl_->is_alive(object.entity().get()) &&
@@ -173,10 +167,7 @@ result<game_object> scene_instance::create_object(const object_options& options,
   if (status.failed())
     return status;
   if (parent.owner()) {
-    auto member = contains(parent);
-    if (!member)
-      return member.error();
-    if (!*member)
+    if (!contains(parent))
       return error::invalid_handle;
   }
   // 创建实体可能移动层级组件；先复制可能借自已有对象的名称。

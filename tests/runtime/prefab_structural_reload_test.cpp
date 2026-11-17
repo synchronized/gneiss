@@ -61,10 +61,7 @@ gneiss::error find_source(const std::shared_ptr<gneiss::runtime::application>& a
   output = application->native_world()->find(binding->entity);
   if (!output)
     return gneiss::error::not_found;
-  auto member = scene.contains(output);
-  if (!member)
-    return member.error();
-  return *member ? gneiss::error::success : gneiss::error::invalid_handle;
+  return scene.contains(output) ? gneiss::error::success : gneiss::error::invalid_handle;
 }
 
 } // namespace
