@@ -76,15 +76,14 @@ bool scene_object_storage() {
   auto count = owner.entity_count();
   if (failed || count != 2)
     return false;
-  if ((*other)->find(root->entity()).destroy() != error::invalid_handle)
+  if ((*other)->object(root->entity()).error() != error::invalid_handle)
     return false;
   error foreign;
-  std::thread worker([&] { foreign = (*root).destroy(); });
+  std::thread worker([&] { foreign = owner.object(root->entity()).error(); });
   worker.join();
   if (foreign != error::invalid_state)
     return false;
-  if ((*root).destroy().failed())
-    return false;
+  root->destroy();
   if (owner.transfer_subtree(*root, *object_scene) != error::invalid_handle ||
       object_scene->contains(*root) || object_scene->contains({}) ||
       !object_scene->objects().empty() || !object_scene->roots().empty())
@@ -94,7 +93,7 @@ bool scene_object_storage() {
     return false;
   if (children.front().is_valid() ||
       child->add_component<mesh_component>() != error::invalid_handle || child->is_valid() ||
-      (*root).destroy() != error::invalid_handle)
+      root->is_valid())
     return false;
   auto replacement = object_scene->create_object({"新节点", {}});
   return replacement && *replacement != *root && *replacement != *child;
@@ -137,7 +136,7 @@ bool native_operations() {
   if (owner->object(gneiss::entity_id{}).error() != gneiss::error::invalid_handle)
     return false;
   gneiss::error foreign{};
-  std::thread worker([&] { foreign = owner->find(gneiss::entity_id{entity}).destroy(); });
+  std::thread worker([&] { foreign = owner->object(entity).error(); });
   worker.join();
   if (foreign != gneiss::error::invalid_state || !owner->find(entity).is_valid())
     return false;

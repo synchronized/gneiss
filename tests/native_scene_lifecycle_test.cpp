@@ -52,17 +52,17 @@ int main(void) {
 
   if (world->find(gneiss::entity_id{(root).get()})
               .reparent(world->find(gneiss::entity_id{(child).get()})) !=
-          gneiss::error::invalid_argument ||
-      world->find(entity).destroy() != gneiss::error::success ||
-      gneiss::test_support::assign_value(world->object(gneiss::entity_id{(child).get()}),
+          gneiss::error::invalid_argument)
+    return 4;
+  world->find(entity).destroy();
+  if (gneiss::test_support::assign_value(world->object(gneiss::entity_id{(child).get()}),
                                          attached) != gneiss::error::invalid_handle ||
       attached != gneiss::entity_id{}) {
     return 4;
   }
 
-  if (world->find(gneiss::entity_id{(root).get()}).destroy() != gneiss::error::success ||
-      world->find(gneiss::entity_id{(child).get()}).destroy() !=
-          gneiss::error::invalid_handle) {
+  root_object->destroy();
+  if (child_object->is_valid()) {
     return 5;
   }
   // 借用对象不拥有实体；空值、跨 World、generation 与子树销毁使用同一规则。
@@ -76,7 +76,6 @@ int main(void) {
     return 6;
   auto foreign = foreign_scene->create_object({"foreign", {}});
   if (!object || !foreign || !object->is_valid() || game_object{}.is_valid() ||
-      game_object{}.destroy() != error::invalid_handle ||
       object->reparent(*foreign) != error::invalid_handle)
     return 6;
   auto rejected = object_scene->create_object({"cross", {}}, *foreign);
@@ -86,8 +85,10 @@ int main(void) {
   if (!descendant || object->reparent(*descendant) != error::invalid_argument)
     return 8;
   auto expired_parent = object_scene->create_object({"temporary", {}});
-  if (!expired_parent || expired_parent->destroy().failed() ||
-      descendant->reparent(*expired_parent) != error::invalid_handle ||
+  if (!expired_parent)
+    return 22;
+  expired_parent->destroy();
+  if (descendant->reparent(*expired_parent) != error::invalid_handle ||
       descendant->parent() != *object)
     return 22;
   auto borrowed_parent = descendant->parent();
@@ -107,8 +108,8 @@ int main(void) {
   if (foreign_thread != error::invalid_state)
     return 16;
   auto copy = *object;
-  if (object->destroy().failed() || copy.is_valid() || descendant->is_valid() ||
-      copy.destroy() != error::invalid_handle)
+  object->destroy();
+  if (copy.is_valid() || descendant->is_valid())
     return 12;
   auto replacement = object_scene->create_object({"replacement", {}});
   if (!replacement || replacement->entity() == copy.entity() || copy.is_valid())

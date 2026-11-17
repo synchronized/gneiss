@@ -135,8 +135,8 @@ int main() {
                                        gneiss::meta::property_id{4},
                                        value) != error::unsupported)
     return 12;
-  if (object.destroy().failed() ||
-      gneiss::test_support::assign_value(
+  object.destroy();
+  if (gneiss::test_support::assign_value(
           gneiss::read_component_property(*first, entity.get(), camera_type,
                                           gneiss::meta::property_id{2}),
           value) != error::invalid_handle)

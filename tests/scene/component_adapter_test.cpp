@@ -206,7 +206,7 @@ int main() try {
   check(first_object->reparent(*bridge) == e::error::invalid_argument);
   check(bridge->reparent(*foreign_parent) == e::error::invalid_argument);
   check(first_object->reparent({}).ok());
-  check(bridge->destroy().ok());
+  bridge->destroy();
   auto parent_bridge = another_handle->create_object({"parent bridge", {}}, *foreign_parent);
   check(parent_bridge.has_value());
   auto inherited_count = another_handle->size();
@@ -340,7 +340,7 @@ int main() try {
   check(dynamic_child.has_value());
   auto dynamic_count = dynamic->size();
   check(dynamic_count == 2);
-  check(dynamic_root->destroy().ok());
+  dynamic_root->destroy();
   check(!dynamic_root->is_valid() && !dynamic_child->is_valid());
   dynamic_count = dynamic->size();
   check(dynamic_count == 0);
@@ -396,7 +396,7 @@ int main() try {
   check(e::remove_component({*runtime_object}, runtime_only_description::type_guid).ok());
   check(e::remove_component({*runtime_object}, runtime_only_description::type_guid) ==
         e::error::not_found);
-  check(runtime_object->destroy().ok());
+  runtime_object->destroy();
   // 装配只安装默认提示；显式激活后，其他装配成功或失败均不能改变活动相机。
   e::scene_description camera_scene;
   camera_scene.uuid = e::guid::generate();
@@ -479,7 +479,8 @@ int main() try {
   auto failed_link = e::instantiate(*destination, missing_link, {});
   check(!failed_link && failed_link.error() == e::error::not_found);
   check(world.entity_count() == before_missing_link);
-  check(link_one->roots.front().destroy().ok() && link_two->roots.front().destroy().ok());
+  link_one->roots.front().destroy();
+  link_two->roots.front().destroy();
   auto malformed = *append_composed;
   malformed.objects.back().parent = malformed.objects.front().address;
   check(!e::instantiate(*destination, malformed, {}));

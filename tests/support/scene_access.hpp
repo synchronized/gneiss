@@ -78,7 +78,8 @@ struct scene_access {
     auto status = validate_editable_node(id, node);
     if (status.failed())
       return status;
-    return owner.object(entity_id{node.get()})->destroy();
+    owner.object(entity_id{node.get()})->destroy();
+    return gneiss::error::success;
   }
   gneiss::error destroy_node(scene_instance id, entity_id node) {
     auto status = validate_editable_node(id, node);

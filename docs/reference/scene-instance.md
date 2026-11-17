@@ -32,7 +32,9 @@ World/scene_instance 的创建和外部身份借用返回 `result<T>`。有效�
 `set_local_transform()` 和 `reparent()` 同样要求接收对象有效且在所属线程调用。
 前者对非法变换返回 `invalid_argument`，后者对失效父对象或跨 World 返回 `invalid_handle`，
 对跨场景或循环返回 `invalid_argument`；这些拒绝不改变原值或层级。
-其他原地修改、删除、卸载及带可失败回调的
+`destroy()` 返回 void，要求有效对象及所属线程，删除整棵子树后相关句柄立即失效。
+清理可能已被父对象删除的子句柄时先检查 `is_valid()`；外部实体 ID 先经 `world.object()` 验证。
+其他原地修改、卸载及带可失败回调的
 `visit_objects()` 仍返回 `error`，其他对象查询按其当前声明处理。
 
 ```cpp

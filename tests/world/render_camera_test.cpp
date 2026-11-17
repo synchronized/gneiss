@@ -49,7 +49,7 @@ int main() {
   });
   worker.join();
   CHECK(query_error == error::invalid_state && host_error == error::invalid_state);
-  CHECK(object->destroy().ok());
+  object->destroy();
   selected = select_render_camera(owner, 800, 600);
   CHECK(selected && !*selected);
   selected = select_render_camera(owner, 640, 480, &override_camera);

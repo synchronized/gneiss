@@ -174,9 +174,10 @@ result<bool> apply_scene(scene_instance destination,
   }
   std::ranges::sort(removed, std::greater<>{});
   for (const auto& [depth, address] : removed) {
-    auto status = world.find(gneiss::entity_id{(nodes.at(address).node).get()}).destroy();
-    if (status.failed())
-      return status;
+    auto target = world.object(nodes.at(address).node);
+    if (!target)
+      return target.error();
+    target->destroy();
     nodes.erase(address);
     associations.erase(address);
   }

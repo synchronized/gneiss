@@ -237,9 +237,9 @@ int main() try {
       application->native_world()
           ->find(gneiss::entity_id{(triangle).get()})
           .reparent(application->native_world()->find(gneiss::entity_id{(camera_node).get()}))
-          .failed() ||
-      application->native_world()->find(temporary->entity()).destroy().failed())
+          .failed())
     return 34;
+  temporary->destroy();
   // 同一来源的另一个 World 可以独立修改，原 World 的身份不受影响。
   auto camera_before =
       application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name();
@@ -403,9 +403,9 @@ int main() try {
   // 同名运行对象可以重复创建，身份由实体 ID 区分。
   auto duplicate = gneiss::test_support::spawn_mesh(*application->native_world(),
                                                     application->assets(), scene, create_desc);
-  if (!duplicate || *duplicate == created_node ||
-      application->native_world()->find(*duplicate).destroy().failed())
+  if (!duplicate || *duplicate == created_node)
     return 5;
+  application->native_world()->find(*duplicate).destroy();
   if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         created_node, missing_mesh_uri,
                                         material_uri) != gneiss::error::not_found) {

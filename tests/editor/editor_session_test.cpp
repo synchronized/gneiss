@@ -164,10 +164,8 @@ int main() try {
     return 3;
   }
   const auto selected = session.selection();
-  if (gneiss::error{
-          application->native_world()->find(gneiss::entity_id{(selected).get()}).destroy()} !=
-          gneiss::error::success ||
-      session.validate_selection() != gneiss::error::success ||
+  application->native_world()->find(selected).destroy();
+  if (session.validate_selection() != gneiss::error::success ||
       session.selection().is_valid()) {
     return 4;
   }

@@ -83,7 +83,7 @@ inline gneiss::result<entity_id> spawn_mesh(gneiss::world& owner, gneiss::asset_
       context, gneiss::make_component_description(gneiss::mesh_component_description{
                    std::string(fixture.mesh_uri), std::string(fixture.material_uri)}));
   if (status.failed()) {
-    (void)made->destroy();
+    made->destroy();
     return status;
   }
   return made->entity();

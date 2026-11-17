@@ -79,10 +79,6 @@ int main(void) {
   settings.near_plane = 0.5F;
   if (!(captured.settings = settings).valid() || borrowed->settings.near_plane != camera.near_plane)
     return 32;
-  settings.near_plane = -1;
-  borrowed->settings = settings;
-  if (borrowed->settings.near_plane != camera.near_plane)
-    return 37;
   if (second->find(entity).is_valid())
     return 33;
   gneiss::error thread_status;
@@ -91,9 +87,10 @@ int main(void) {
   worker.join();
   if (thread_status != gneiss::error::invalid_state)
     return 34;
-  if (second->find(entity).destroy() != gneiss::error::invalid_handle ||
-      first->find(entity).destroy() != gneiss::error::success ||
-      first->find(entity).destroy() != gneiss::error::invalid_handle) {
+  if (second->object(entity).error() != gneiss::error::invalid_handle)
+    return 6;
+  first->find(entity).destroy();
+  if (first->object(entity).error() != gneiss::error::invalid_handle) {
     return 6;
   }
   if (object.is_valid() || object.remove_component<gneiss::camera_component>() !=

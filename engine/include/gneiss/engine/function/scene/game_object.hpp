@@ -40,8 +40,8 @@ public:
   /** 要求有效对象及所属线程；空 parent 表示根，保留局部变换。
    * 失效父对象或跨 World 返回 invalid_handle；跨场景或循环返回 invalid_argument，层级不变。 */
   [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
-  /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */
-  [[nodiscard]] GNEISS_API error destroy() const;
+  /** 要求有效对象及所属线程；销毁整棵子树，相关借用句柄同时失效，不得重复销毁。 */
+  GNEISS_API void destroy() const;
   /** 要求对象有效且在所属线程。返回子对象句柄快照；修改层级不改变快照，使用前须检查句柄是否仍有效。 */
   [[nodiscard]] GNEISS_API std::vector<game_object> children() const;
   /** 借用普通组件；要求有效对象和所属线程，缺失返回 nullptr。

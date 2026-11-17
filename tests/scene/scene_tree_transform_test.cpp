@@ -155,8 +155,10 @@ int run_tests() {
   }
   // 先创建子对象再挂到后建的父对象，递归删除允许 ECS 移动组件存储。
   if (root.reparent(child) != gneiss::error::invalid_argument ||
-      root.reparent(other_root).failed() || other_root.destroy().failed() || root.is_valid() ||
-      child.is_valid() || grandchild.is_valid())
+      root.reparent(other_root).failed())
+    return 8;
+  other_root.destroy();
+  if (root.is_valid() || child.is_valid() || grandchild.is_valid())
     return 8;
   return 0;
 }

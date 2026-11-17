@@ -51,7 +51,7 @@ result<scene_instantiation_result> instantiate(scene_instance destination,
       // 父对象可能先被销毁；后续失效子句柄无需再次删除。
       for (auto object : objects)
         if (object.is_valid())
-          (void)object.destroy();
+          object.destroy();
     }
   } guard{created};
   scene_instantiation_result receipt;

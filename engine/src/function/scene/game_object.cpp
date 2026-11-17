@@ -127,14 +127,10 @@ error game_object::reparent(game_object parent) const {
   (*state)->mark_transform_changed(entity_);
   return error::success;
 }
-error game_object::destroy() const {
-  if (!owner_)
-    return error::invalid_handle;
+void game_object::destroy() const {
+  GNEISS_ASSERT(is_valid(), "GameObject 销毁要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
-  if (!(*state)->get<detail::object_state>(entity_.get()))
-    return error::invalid_handle;
-  return (*state)->destroy_entity(entity_.get()) ? error::success : error::invalid_handle;
+  const bool destroyed = (*state)->destroy_entity(entity_.get());
+  GNEISS_ASSERT(destroyed, "有效 GameObject 必须能够销毁");
 }
 }

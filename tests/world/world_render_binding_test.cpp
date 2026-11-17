@@ -103,8 +103,7 @@ int main() {
   if (wrong_thread != error::invalid_state)
     return fail("拒绝其他线程同步");
   const auto old_id = child->entity();
-  if (child->destroy().failed())
-    return fail("删除对象与多绑定同步");
+  child->destroy();
   (*owner)->flush_changes();
   if (!first.objects.at(old_id).destroyed || !(*binding)->synchronize() ||
       !(*other_binding)->synchronize())
@@ -119,8 +118,10 @@ int main() {
   // 提交前创建又删除，不能留下渲染实例；卸载同时处理已有成员。
   auto temporary = scene->create_object();
   if (!temporary ||
-      temporary->add_component<mesh_component>(mesh_component{*mesh, *material}).failed() ||
-      temporary->destroy().failed() || scene->unload().failed())
+      temporary->add_component<mesh_component>(mesh_component{*mesh, *material}).failed())
+    return fail("未提交对象删除及场景卸载");
+  temporary->destroy();
+  if (scene->unload().failed())
     return fail("未提交对象删除及场景卸载");
   (*owner)->flush_changes();
   if (!(*binding)->synchronize())

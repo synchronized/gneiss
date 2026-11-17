@@ -98,7 +98,7 @@ int main() try {
   check(!world.object(gneiss::entity_id{child_node.get()}));
   check(mapping.at(first_root).entity == root_node && instance->size() == 3);
   // 外部直接销毁导致失步，不得误用旧实体或静默部分更新。
-  check(world.find(gneiss::entity_id{(root_node).get()}).destroy().ok());
+  world.find(gneiss::entity_id{(root_node).get()}).destroy();
   applied = e::apply_scene(*instance, mapping, removed, removed, {});
   check(applied && !*applied);
   check(instance->unload().ok() && world.entity_count() == 0);
