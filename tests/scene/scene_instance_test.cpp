@@ -507,7 +507,7 @@ int main() try {
     if ((*native)->transfer_subtree(*object, *target_scene, *target_parent).failed() ||
         instance->size() != 0U || target_scene->size() != 3U ||
         child->scene().id() != target_scene->id() ||
-        object->parent()->entity() != target_parent->entity())
+        object->parent().entity() != target_parent->entity())
       return 25;
     unsigned visited = 0;
     if (target_scene

@@ -226,8 +226,6 @@ gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::applica
     if (name.size() > runtime_inspection_max_string_size)
       return gneiss::error::invalid_argument;
     auto parent = object.parent();
-    if (!parent)
-      return parent.error();
     auto transform = object.local_transform();
     if (!transform)
       return transform.error();
@@ -238,7 +236,7 @@ gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::applica
     const auto* binding = source == sources_.end() ? nullptr : &source->second;
     nodes.push_back(
         {.native_node = object.entity().get(),
-         .native_parent = parent->entity().get(),
+         .native_parent = parent.entity().get(),
          .native_entity = object.entity().get(),
          .uuid = binding && !binding->source ? binding->object : gneiss::guid{},
          .prefab_instance_uuid = binding && binding->source ? binding->object : gneiss::guid{},

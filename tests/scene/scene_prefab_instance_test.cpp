@@ -43,11 +43,7 @@ int main() try {
   check(member->effective.transform.translation.x == 3);
   const auto child = mapping.at(member->address).entity;
   const auto root = mapping.at(member->parent).entity;
-  gneiss::entity_id parent;
-  check(gneiss::test_support::assign_value(
-            app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
-            .ok() &&
-        parent == root);
+  check(app->native_world()->find(gneiss::entity_id{(child).get()}).parent().entity() == root);
   // 来源信息只在调用方组合结果中；运行对象只保存名称和普通组件。
   auto identity = app->native_world()->find(gneiss::entity_id{(root).get()}).name();
   check(app->native_world()->find(root).is_valid());
@@ -63,10 +59,7 @@ int main() try {
   check(second_identity == identity && second_mapping.at(member->parent).entity != root);
   check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
   check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
-  check(gneiss::test_support::assign_value(
-            app->native_world()->find(gneiss::entity_id{(child).get()}).parent(), parent)
-            .ok() &&
-        !parent);
+  check(!app->native_world()->find(gneiss::entity_id{(child).get()}).parent());
   check(member->effective.transform.translation.x == 3);
   check(
       gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, root).ok());

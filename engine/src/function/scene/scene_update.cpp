@@ -42,9 +42,7 @@ rebase_scene_update(world& world,
     object.effective.components = std::move(*components);
     object_address parent_address;
     auto parent_object = runtime->parent();
-    if (!parent_object)
-      return parent_object.error();
-    const entity_id parent_node{parent_object->entity().get()};
+    const entity_id parent_node{parent_object.entity().get()};
     if (parent_node) {
       auto parent = std::ranges::find_if(
           associations, [&](const auto& entry) { return entry.second.entity == parent_node; });

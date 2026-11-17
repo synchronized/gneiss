@@ -197,7 +197,7 @@ int main() try {
             .reparent(world.find(gneiss::entity_id{(another_scene->objects[0].entity).get()})) ==
         e::error::invalid_argument);
   auto unchanged_parent = first_object->parent();
-  check(unchanged_parent && !unchanged_parent->is_valid());
+  check(!unchanged_parent);
   // 中间对象也必须有场景归属，不能绕开跨场景的成员边界。
   auto bridge_scene = world.create_scene();
   check(bridge_scene.has_value());
@@ -456,9 +456,9 @@ int main() try {
   check(appended && appended_again && destination->size() == 5);
   check(appended->roots.size() == 1 && appended_again->roots.size() == 1);
   check(appended->roots[0] != appended_again->roots[0]);
-  check(*appended->roots[0].parent() == *existing_parent);
+  check(appended->roots[0].parent() == *existing_parent);
   auto child_object = world.object(appended->objects.front().entity);
-  check(child_object && *child_object->parent() == appended->roots[0]);
+  check(child_object && child_object->parent() == appended->roots[0]);
   const auto before_append_failure = world.entity_count();
   auto broken_composed = e::compose_scene(broken_scene, {});
   check(broken_composed.has_value());

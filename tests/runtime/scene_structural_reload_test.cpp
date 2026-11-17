@@ -118,7 +118,7 @@ int main() try {
   const auto* restored_camera = camera_before.try_component<gneiss::camera_component>();
   auto restored_parent = old_child.parent();
   if (camera_before.name() != "Camera" || !restored_camera || !restored_parent ||
-      *restored_parent != camera_before)
+      restored_parent != camera_before)
     return 21;
 
   const auto retired_child = old_child;
@@ -130,11 +130,9 @@ int main() try {
   }
   auto camera_after = find_object(camera_uuid);
   auto new_child = find_object(new_child_uuid);
-  auto retired_parent = retired_child.parent();
   auto count = scene.size();
   if (!camera_after || camera_after != camera_before || !new_child || find_object(old_child_uuid) ||
-      retired_child.is_valid() || retired_parent ||
-      retired_parent.error() != gneiss::error::invalid_handle || count != 2U)
+      retired_child.is_valid() || count != 2U)
     return 3;
 
   write_scene(

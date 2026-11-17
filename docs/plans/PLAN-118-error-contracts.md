@@ -140,3 +140,14 @@ parent 以及修改/销毁接口尚待迁移。
 Windows Clang Debug 四目标构建与 native-scene-lifecycle、scene_instance、world_render_binding、
 world-service-boundary 回归通过；新增过期根检查后重跑 World 边界通过。
 未运行 Release、静态库、跨平台与 GPU 验证；P1 未完成。
+
+### P1 第四组实施结果
+
+parent() 直接返回 GameObject，根对象返回空句柄；有效对象及所属线程为断言契约，内部父节点
+失效属于层级不变量违例。场景重放与 Runtime 检查直接读取父句柄，保留调用前的外部对象查找。
+Prefab 和生命周期测试删除 assign_value 输出参数包装，直接比较父句柄或实体身份；根对象
+空父节点、改父失败后层级不变、重载后的父关系仍受验证。已销毁对象不再调用 parent 期待
+错误码，改为保留 is_valid 失效检查。未增加平行 checked 查询或逐接口死亡测试。
+Windows Clang Debug 九个目标构建通过，原生生命周期、场景实例、场景 Prefab、Prefab 应用、
+组件装配、结构重载、Runtime 加载/检查及编辑器 Prefab 编辑九项回归通过。
+未运行 Release、静态库、跨平台或 GPU 验证；local_transform 和修改/销毁接口尚未迁移。

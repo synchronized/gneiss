@@ -105,16 +105,15 @@ error game_object::set_name(std::string_view name) const {
   object->name = std::string(name);
   return error::success;
 }
-result<game_object> game_object::parent() const {
-  if (!owner_)
-    return error::invalid_handle;
+game_object game_object::parent() const {
+  GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
   const auto* object = (*state)->get<detail::object_state>(entity_.get());
-  if (!object)
-    return error::invalid_handle;
-  return object->parent ? owner_->object(object->parent) : result<game_object>{game_object{}};
+  if (!object->parent)
+    return {};
+  auto parent = owner_->find(object->parent);
+  GNEISS_ASSERT(parent.is_valid(), "对象层级不得包含失效父对象");
+  return parent;
 }
 error game_object::reparent(game_object parent) const {
   if (!owner_ || (parent.owner_ && parent.owner_ != owner_))

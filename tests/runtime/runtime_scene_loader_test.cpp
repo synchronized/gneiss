@@ -162,7 +162,7 @@ void run() {
   const auto replacement_root = find_source(extra.uuid);
   check(find_source(original_root) == root_entity);
   auto parent = app->native_world()->find(root_entity).parent();
-  check(parent && parent->entity() == replacement_root);
+  check(parent && parent.entity() == replacement_root);
   std::ofstream(files.root / prefab_uri.substr(8)) << "broken";
   check(reload(prefab_uri, true).failed());
   check(find_source(original_root) == root_entity);

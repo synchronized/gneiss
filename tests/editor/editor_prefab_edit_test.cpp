@@ -160,11 +160,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
         1.0F);
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
   check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
-  entity_id moved_parent;
-  check(gneiss::test_support::assign_value(
-            world->find(gneiss::entity_id{(moved_node).get()}).parent(), moved_parent)
-            .ok() &&
-        moved_parent == old_selected);
+  check(world->find(gneiss::entity_id{(moved_node).get()}).parent().entity() == old_selected);
 
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Updated");
   check(session.selection() == old_selected &&
@@ -177,10 +173,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(!history.is_pending());
   check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Source");
   check(session.find_prefab_source(first_uuid, moved_uuid)->node == moved_node);
-  check(gneiss::test_support::assign_value(
-            world->find(gneiss::entity_id{(moved_node).get()}).parent(), moved_parent)
-            .ok() &&
-        moved_parent == first);
+  check(world->find(gneiss::entity_id{(moved_node).get()}).parent().entity() == first);
 
   check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Source");
   check(session.selection() == old_selected &&
@@ -385,11 +378,8 @@ void run(gneiss::tasks::execution_mode mode) {
   root_node = session.find_prefab_root(uuid)->node;
   check(gneiss::test_support::scene_query(session).nodes.size() == 1U);
   const auto restored_child = gneiss::test_support::scene_query(session).nodes.front().node;
-  entity_id retained_parent;
-  check(gneiss::test_support::assign_value(
-            world->find(gneiss::entity_id{(restored_child).get()}).parent(), retained_parent)
-            .ok() &&
-        retained_parent == root_node && restored_child != own_child);
+  check(world->find(gneiss::entity_id{(restored_child).get()}).parent().entity() == root_node &&
+        restored_child != own_child);
   check(session.destroy_node(restored_child).ok());
   check(session.validate_selection().ok());
   deletion_history.clear();

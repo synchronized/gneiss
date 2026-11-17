@@ -90,9 +90,7 @@ struct scene_access {
     bool has_children = false;
     status = scene.visit_objects([&](gneiss::game_object object) {
       auto parent = object.parent();
-      if (!parent)
-        return parent.error();
-      has_children |= parent->entity().get() == node.get();
+      has_children |= parent.entity().get() == node.get();
       return gneiss::error{gneiss::error::success};
     });
     if (status.failed())
@@ -118,12 +116,10 @@ struct scene_access {
     auto object = objects[index];
     const std::string name(object.name());
     auto parent = object.parent();
-    if (!parent)
-      return parent.error();
     test_support::scene_node_info info;
     info.node = entity_id{object.entity().get()};
     info.entity = object.entity();
-    info.parent = entity_id{parent->entity().get()};
+    info.parent = entity_id{parent.entity().get()};
     info.name = name;
     if (detail != test_support::node_query_detail::identity) {
       auto components = gneiss::capture_components(owner, info.node);

@@ -33,8 +33,8 @@ public:
   [[nodiscard]] GNEISS_API scene_instance scene() const;
   [[nodiscard]] GNEISS_API result<math::transform> world_transform() const;
   [[nodiscard]] GNEISS_API error set_local_transform(const math::transform&) const;
-  /** 无父节点时返回成功的空句柄；失效对象返回 invalid_handle。 */
-  [[nodiscard]] GNEISS_API result<game_object> parent() const;
+  /** 要求对象有效且在所属线程；根对象返回空句柄。 */
+  [[nodiscard]] GNEISS_API game_object parent() const;
   /** 空 parent 表示根；拒绝跨 World 及循环层级。 */
   [[nodiscard]] GNEISS_API error reparent(game_object parent) const;
   /** 销毁整棵子树，所有指向其中实体的借用句柄同时失效。 */

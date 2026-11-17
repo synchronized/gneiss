@@ -58,11 +58,7 @@ int main() try {
       world.find(gneiss::entity_id{(mapping.at(second_root).entity).get()}).name();
   // 同源实例分别使用场景中的名称，运行对象不以名称表达来源身份。
   check(root_identity == "First" && other_identity == "Second");
-  gneiss::entity_id parent;
-  check(gneiss::test_support::assign_value(
-            world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
-            .ok() &&
-        parent == root_node);
+  check(world.find(gneiss::entity_id{(child_node).get()}).parent().entity() == root_node);
   // 来源描述释放不影响普通运行成员；组合结果由外部调用方持有。
   std::weak_ptr<e::prefab_description> lifetime = source;
   source.reset();
@@ -77,10 +73,7 @@ int main() try {
   }
   applied = e::apply_scene(*instance, mapping, *effective, next, {});
   check(applied && *applied && mapping.at(first_child).entity == child_node);
-  check(gneiss::test_support::assign_value(
-            world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
-            .ok() &&
-        parent == mapping.at(second_root).entity);
+  check(world.find(gneiss::entity_id{(child_node).get()}).parent().entity() == mapping.at(second_root).entity);
   check(world.find(gneiss::entity_id{(child_node).get()}).name() == "Renamed");
   // 无效目标层级在修改前拒绝。
   auto cycle = next;
@@ -89,10 +82,7 @@ int main() try {
       object.parent = first_child;
   applied = e::apply_scene(*instance, mapping, next, cycle, {});
   check(!applied && applied.error() == e::error::invalid_argument);
-  check(gneiss::test_support::assign_value(
-            world.find(gneiss::entity_id{(child_node).get()}).parent(), parent)
-            .ok() &&
-        parent == mapping.at(second_root).entity);
+  check(world.find(gneiss::entity_id{(child_node).get()}).parent().entity() == mapping.at(second_root).entity);
   e::error foreign;
   std::thread worker([&] {
     auto result = e::apply_scene(*instance, mapping, next, next, {});

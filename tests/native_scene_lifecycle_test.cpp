@@ -14,7 +14,6 @@ int main(void) {
   gneiss::entity_id entity = gneiss::entity_id{};
   gneiss::entity_id root = gneiss::entity_id{};
   gneiss::entity_id child = gneiss::entity_id{};
-  gneiss::entity_id parent = gneiss::entity_id{};
   gneiss::math::transform root_transform;
   gneiss::math::transform child_transform;
   gneiss::math::transform world_transform;
@@ -41,12 +40,8 @@ int main(void) {
           gneiss::error::success ||
       world->find(gneiss::entity_id{(child).get()}).set_local_transform(child_transform) !=
           gneiss::error::success ||
-      gneiss::test_support::assign_value(world->find(gneiss::entity_id{(child).get()}).parent(),
-                                         parent) != gneiss::error::success ||
-      parent != root ||
-      gneiss::test_support::assign_value(world->find(gneiss::entity_id{(root).get()}).parent(),
-                                         parent) != gneiss::error::success ||
-      parent != gneiss::entity_id{} ||
+      world->find(gneiss::entity_id{(child).get()}).parent().entity() != root ||
+      world->find(gneiss::entity_id{(root).get()}).parent().entity() != gneiss::entity_id{} ||
       gneiss::test_support::assign_value(
           world->find(gneiss::entity_id{(child).get()}).world_transform(), world_transform) !=
           gneiss::error::success ||
@@ -91,7 +86,7 @@ int main(void) {
     return 8;
   auto borrowed_parent = descendant->parent();
   auto no_parent = object->parent();
-  if (!borrowed_parent || *borrowed_parent != *object || !no_parent || no_parent->is_valid())
+  if (borrowed_parent != *object || no_parent.is_valid())
     return 9;
   math::transform local;
   local.translation.x = 4;
