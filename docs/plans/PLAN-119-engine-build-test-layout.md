@@ -587,6 +587,25 @@ asset-pixel 在资源等待处失败，pbr-negative-scale 的可见性对照像�
 scene_access 仅剩 scene_instance_test 与 scene_load_baseline 两个消费者；辅助删除和计划
 其他验收尚未完成。
 
+### 旧场景测试包装退出完成
+
+2026-11-17：最后两个消费者 scene_instance_test 和 scene_load_baseline 迁移完成，
+删除 tests/support/scene_access.hpp 与 scene_node_info.hpp，测试源码不再引用旧包装及
+node_query_detail。场景测试通过装配回执定位对象，直接检查对象属性、层级、组件与场景大小；
+确需验证描述捕获时直接调用正式 capture_components。基准只保存相机借用与初始变换，
+不再采集整套节点描述。
+
+删除仅由旧辅助维持的契约：空场景强制描述 UUID、按排序索引查询节点、禁止删除有子对象的
+父节点、重复卸载返回错误。原生有效接收者使用契约不通过失败返回测试；失效外部场景 ID
+继续通过 borrow 验证。递归删除、槽位 generation、跨 World、线程边界、组件增删、
+资源引用保活、装配失败后恢复等验证保留。删除测试自有 set_camera 及其自证参数校验，
+使用正式组件添加入口。
+
+Windows Clang Debug scene_instance 与 scene_load_baseline 两目标构建成功；
+scene_instance、scene-instantiation、scene_prefab_instance、component-adapter 四项测试通过。
+git diff --check 及旧包装源码引用扫描通过。场景加载交互基准未运行，未重复完整矩阵。
+此前已记录的两个 GPU 基线失败仍未解决；旧辅助退出完成不代表 PLAN-119 整体完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

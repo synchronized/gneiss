@@ -10,7 +10,7 @@
 #include "function/render/detail/frame_packet.hpp"
 #include <gneiss/engine/function/render/service.hpp>
 
-#include "../../support/scene_access.hpp"
+#include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <algorithm>
 #include <array>
@@ -164,8 +164,8 @@ int main(int argc, char** argv) try {
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss::scene_instance previous_scene{};
-  gneiss::world* previous_world{};
-  gneiss::test_support::scene_node_info camera;
+  gneiss::game_object camera;
+  gneiss::math::transform camera_transform;
   std::uint64_t previous_resources{};
   gneiss::render::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
@@ -176,25 +176,14 @@ int main(int argc, char** argv) try {
       return 11;
     }
     if (previous_scene == gneiss::scene_instance{} ||
-        (previous_world = app->native_world()) == nullptr ||
+        app->native_world() == nullptr ||
         gneiss::error{app->run(10U)} != gneiss::error::success) {
       return 11;
     }
-    std::uint64_t count{};
-    if (gneiss::error{gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->get_node_count(previous_scene), count)} !=
-        gneiss::error::success) {
-      return 11;
-    }
-    for (std::uint64_t index = 0U; index < count; ++index) {
-      gneiss::test_support::scene_node_info node;
-      if (gneiss::error{gneiss::test_support::take_value(
-              gneiss::test_support::scene_access{*app}->get_node_info(previous_scene, index),
-              node)} != gneiss::error::success) {
-        return 11;
-      }
-      if (node.components.get<gneiss::camera_description>() != nullptr) {
-        camera = node;
+    for (auto object : previous_scene.objects()) {
+      if (object.try_component<gneiss::camera_component>()) {
+        camera = object;
+        camera_transform = object.local_transform();
         break;
       }
     }
@@ -303,13 +292,10 @@ int main(int argc, char** argv) try {
       }
       const auto elapsed = milliseconds(start);
       if (scenario == "interact" && scene == gneiss::scene_instance{}) {
-        if (camera.node.is_valid()) {
-          auto transform = camera.local_transform;
+        if (camera.is_valid()) {
+          auto transform = camera_transform;
           transform.translation[0] += static_cast<float>(std::sin(elapsed / 1000.0) * 0.1);
-          if (gneiss::error{
-                  previous_world
-                      ->find(gneiss::entity_id{(gneiss::entity_id{camera.node.get()}).get()})
-                      .set_local_transform(transform)} != gneiss::error::success) {
+          if (camera.set_local_transform(transform).failed()) {
             return gneiss::error::internal;
           }
         }
@@ -394,9 +380,7 @@ int main(int argc, char** argv) try {
           if (!built)
             return built.error();
           if (previous_scene.id()) {
-            auto unloaded = gneiss::test_support::scene_access{*handle}.unload(previous_scene);
-            if (unloaded.failed())
-              return unloaded;
+            previous_scene.unload();
           }
           activation_ms = milliseconds(activation_start);
           maximum_activation_ms = std::max(maximum_activation_ms, activation_ms);
@@ -495,13 +479,9 @@ int main(int argc, char** argv) try {
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
     return 4;
   }
-  std::uint64_t nodes{};
-  if (gneiss::error{gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*app}->get_node_count(scene), nodes)} !=
-          gneiss::error::success ||
-      nodes == 0U) {
+  const auto nodes = scene.size();
+  if (nodes == 0U)
     return 5;
-  }
   const auto rendering_start = clock_type::now();
   if (gneiss::error{app->run(60U)} != gneiss::error::success) {
     return 6;
@@ -523,11 +503,11 @@ int main(int argc, char** argv) try {
   if (scenario == "failure") {
     const auto retry_start = clock_type::now();
     if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) !=
-            gneiss::error::success ||
-        gneiss::test_support::scene_access{*app}.unload(previous_scene).failed() ||
-        gneiss::error{app->run(60U)} != gneiss::error::success) {
+        gneiss::error::success)
       return 16;
-    }
+    previous_scene.unload();
+    if (gneiss::error{app->run(60U)} != gneiss::error::success)
+      return 16;
     retry_ms = milliseconds(retry_start);
     live_resources = app->render().live_resource_count();
     gneiss::render::frame_image retried_image;
