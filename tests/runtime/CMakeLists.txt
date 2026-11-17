@@ -63,7 +63,7 @@ if(BUILD_TESTING)
 
   add_executable(gneiss_runtime_log_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_log_test.cpp" "${PROJECT_SOURCE_DIR}/runtime/runtime_logging.cpp" "${PROJECT_SOURCE_DIR}/runtime/runtime_logging.hpp")
   target_include_directories(gneiss_runtime_log_test PRIVATE "${PROJECT_SOURCE_DIR}/runtime")
-  target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_file_log_sink gneiss_protocol gneiss::engine)
+  target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_logging_sinks gneiss_protocol gneiss::engine)
   target_compile_features(gneiss_runtime_log_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_log_test)
   gneiss_target_output_directories(gneiss_runtime_log_test)

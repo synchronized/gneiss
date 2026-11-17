@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "file_sink.hpp"
-#include "console_sink.hpp"
 #include <format>
+#include <gneiss/engine/core/logging/sinks/console.hpp>
+#include <gneiss/engine/core/logging/sinks/file.hpp>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_sinks.h>

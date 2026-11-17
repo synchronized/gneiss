@@ -18,10 +18,8 @@ class service;
 class GNEISS_API logger {
 public:
   logger() = default;
-  /** 仅借用具有静态生命周期的频道名；动态文本请通过 service.get_logger 创建。 */
-  template <std::size_t N>
-  explicit logger(const char (&channel)[N]) noexcept
-      : default_channel_(channel, N - 1), use_default_(true) {}
+  /** 持有频道名，调用时使用默认服务；允许动态文本，构造可能分配。 */
+  explicit logger(std::string_view channel);
   [[nodiscard]] bool enabled(level severity) const;
   /** 内部结构化记录；保留上下文/错误码，空来源和类别使用频道。文本借用至返回。 */
   void write(message_view message) const;
@@ -55,7 +53,6 @@ private:
       : state_(std::move(state)), channel_(channel) {}
   std::shared_ptr<detail::service_state> resolve() const;
   void submit(level severity, std::string_view text) const;
-  std::string_view default_channel_;
   bool use_default_{};
   std::weak_ptr<detail::service_state> state_;
   string_name channel_;

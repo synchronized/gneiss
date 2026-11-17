@@ -804,3 +804,16 @@ Web 后端及测试源码、CMake/JS 路径已迁移，但本机没有 Emscripte
 
 实施状态：已完成。Windows Clang Debug 共享构建及 19 项相关测试通过；静态 Engine、
 执行器、IPC、原生文件目标构建及 3 项相关测试通过。未执行 Linux/Web 验证。
+
+
+### Logging 文件与输出边界整理
+
+- 输出工厂迁到 include 的 `core/logging/sinks/`，实现合为 `sinks.cpp`；目标改为
+  `gneiss_logging_sinks`，停止公开传播实现目录。
+- 服务、频道句柄、连接、默认路由按对象拆分实现；共享控制块保留在 detail，维护弱引用失效语义。
+- Logger 统一持有 string_name，消除局部字符数组借用；默认服务、动态 attach 与队列满策略不变。
+- 生命周期契约违例改为断言；保留文件输出可恢复错误与配置参数检查。
+- 验证频道生命周期、默认绑定、服务关闭、多线程投递、队满、输出失败和宿主日志接入。
+
+实施状态：已完成。Windows Clang Debug 共享构建及 17 项日志、宿主、头文件边界测试通过；
+静态 Engine 构建及 3 项日志测试通过。未执行 Linux/Web 验证。

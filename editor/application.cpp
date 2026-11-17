@@ -29,7 +29,7 @@
 #include <gneiss/engine/core/logging/service.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
-#include "console_sink.hpp"
+#include <gneiss/engine/core/logging/sinks/console.hpp>
 #include "ui/imgui_adapter.hpp"
 #include "ui/dialogs/native_dialog.hpp"
 #include "ui/panels/author_hierarchy_panel.hpp"

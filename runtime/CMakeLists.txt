@@ -48,7 +48,7 @@ gneiss_target_output_directories(gneiss_runtime_ipc)
 add_executable(gneiss_runtime "${PROJECT_SOURCE_DIR}/runtime/main.cpp" application.cpp application.hpp runtime_logging.cpp runtime_logging.hpp)
 target_link_libraries(
   gneiss_runtime
-  PRIVATE gneiss_file_log_sink gneiss_project_config gneiss::engine gneiss_runtime_ipc gneiss_tasks
+  PRIVATE gneiss_logging_sinks gneiss_project_config gneiss::engine gneiss_runtime_ipc gneiss_tasks
 )
 
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)

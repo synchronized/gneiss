@@ -73,6 +73,9 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/input/types.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/logger.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/sink_connection.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/default_service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/logging/record.hpp"
 )

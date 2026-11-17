@@ -9,7 +9,8 @@
 `core/logging/record.hpp` 定义 `level`、`message_view`、`record_view` 和迁移期 `record_callback`；
 `logger.hpp`、`service.hpp/.cpp`、`sink.hpp` 分别提供频道句柄、上下文和输出契约。
 `detail/async_queue.hpp/.cpp` 是内部异步队列，不单独提供 validation 模块。
-平台文件输出位于 `platform/logging/file_sink.hpp/.cpp`，不在 Core 引入 spdlog。
+输出工厂位于 `core/logging/sinks/file.hpp` 和 `sinks/console.hpp`；具体适配在
+`engine/src/core/logging/sinks.cpp`，spdlog 只作为输出适配目标的私有依赖。
 Application/Render 不再持有队列或接收队列指针，内部通过 Logger 提交。
 
 Runtime 宿主安装默认 service，并以 Sink 接收 record_view；Application 不提供日志回调配置。
@@ -19,7 +20,7 @@ Runtime 宿主安装默认 service，并以 Sink 接收 record_view；Applicatio
 
 ```cpp
 namespace logging = gneiss::logging;
-static const logging::logger log{"asset"}; // 静态生命周期字面量，不访问服务
+static const logging::logger log{"asset"}; // 持有频道名，不访问服务
 
 logging::service logs; // 默认异步，唯一有界队列
 // 文件 Sink 打开失败由调用者处理，此处省略。
@@ -31,8 +32,9 @@ log.info("加载资源：{}", uri);
 头文件分别为 `logger.hpp`、`service.hpp`、`default_service.hpp`。
 默认 Logger 在调用时解析当前默认服务；未安装或关闭后禁用，不创建隐式线程。
 默认路由槽保留至进程结束，仅持服务弱引用，避免静态析构顺序问题。
-静态频道必须具有静态存储期；动态字符串通过 `logs.get_logger(channel)` 创建，内部持有 string_name。
-显式 Logger 固定绑定服务，关闭后不会改绑。默认路由只由宿主在停止生产者后安装/解除，重复安装抛出契约错误。
+默认与显式 Logger 均持有 string_name；构造时保存频道，不借用调用者文本，可能分配。
+`logger{channel}` 使用默认服务，`logs.get_logger(channel)` 固定绑定指定服务。
+显式 Logger 固定绑定服务，关闭后不会改绑。默认路由只由宿主在停止生产者后安装/解除，重复安装触发断言。
 
 `service_options` 支持 synchronous/asynchronous、queue_capacity 和 minimum_level。
 同步模式不创建工作线程或队列，在调用线程串行输出；不要将磁盘 Sink 用于实时线程同步输出。
@@ -53,12 +55,12 @@ Runtime 与 Editor 均在启动校验前安装默认服务；旧 Runtime 文件�
 ## 独立同步输出适配
 
 `logging::sink` 位于 `engine/core/logging/sink.hpp`，同步接收完整 `record_view`，不保存借用字段。
-平台层 `logging::create_file_sink(path, truncate)` 创建文件 Sink；内部目标为 `gneiss_file_log_sink`。
+`logging::create_file_sink(path, truncate)` 创建文件 Sink；输出适配目标为 `gneiss_logging_sinks`。
 默认追加，可显式截断；宿主须在非实时线程串行调用 `write/flush`，正常关闭前显式 flush。
 文件失败返回 `error::io`，分配及其他异常向执行边界传播。实现不使用 spdlog 的 logger 异常吞并路径。
 文本包含原生单调时间、生产者线程、序号、上下文、级别、来源、分类、结果码和正文；不是 IPC 格式。
 `create_rotating_file_sink` 提供按容量轮转，默认 1 MiB、一个备份，备份名遵循 spdlog（如 runtime.1.log）。
-`console_sink.hpp` 的 `create_console_sink()` 提供同步 stderr 输出，复用同一原生字段格式。
+`sinks/console.hpp` 的 `create_console_sink()` 提供同步 stderr 输出，复用同一原生字段格式。
 Runtime 使用轮转文件 Sink 与宿主协议终端 Sink；Editor 使用终端 Sink 与主线程交接缓冲。
 
 ## 字段与所有权
@@ -101,7 +103,7 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 ## 校验与结构化提交
 
-频道在显式 get_logger 时检查一次；内部正文约定为合法 UTF-8，不逐条扫描。
+频道在 Logger 构造或 get_logger 时检查一次；内部正文约定为合法 UTF-8，不逐条扫描。
 格式检查不保证字符串内容 UTF-8 合法性，外部 IPC 数据仍由协议解码入口检查。
 独立 validation 模块及 application::submit_log 已删除。
 
@@ -134,3 +136,15 @@ Console 的 changed() 返回对象级 events::sink<void()>；追加、清空、�
 正常关闭先停止应用/后台生产者，再排空日志与 UI 缓冲。提前退出时 service 析构仍排空已接收日志，
 Sink 只持共享缓冲，不引用已销毁的 Editor 状态。性能采样的 stdout 行保留为工具验收输出。
 本版不新增源文件/行号捕获包装；source 表示逻辑来源，不冒充调用点信息。
+
+
+## 实现边界
+
+`service.cpp` 管理配置、输出端及关闭；`logger.cpp` 负责过滤与提交；
+`sink_connection.cpp` 管理连接；`default_service.cpp` 唯一维护默认路由。
+`detail/service_state.hpp` 共享内部控制块与输出保护，`detail/async_queue` 唯一维护异步队列。
+控制块用于弱引用失效检测与在途提交，不增加公开状态对象。
+
+重复默认绑定、绑定或 attach 已关闭服务、在输出回调内 flush/close，以及内部队列意外拒绝
+属于契约违例，使用断言。配置值非法仍沿用构造/配置入口的参数异常；文件打开、输出失败
+继续通过错误结果处理。队列满仍丢弃并汇总诊断，不改成致命错误。

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <cstdlib>
+#include <gneiss/engine/assert.hpp>
 #include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/logging/service.hpp>
 #include <iostream>
@@ -51,13 +53,6 @@ void test_default_and_sync() {
   logging::scoped_sink_connection connection =
       logs.attach(std::move(output), {.minimum_level = gneiss::logging::level::warning});
   logging::default_service_binding binding{logs};
-  bool duplicate{};
-  try {
-    logging::default_service_binding invalid{logs};
-  } catch (const std::logic_error&) {
-    duplicate = true;
-  }
-  require(duplicate);
   require(!static_log.enabled(gneiss::logging::level::info));
   static_log.warning("synchronous");
   require(memory->messages.size() == 1 && memory->channels.front() == "static");
@@ -71,6 +66,18 @@ void test_default_and_sync() {
     static_log.info("rebound");
   }
   require(memory->messages.size() == 3);
+  logging::logger local;
+  {
+    char channel[] = "local";
+    local = logging::logger{channel};
+    channel[0] = 'X';
+  }
+  {
+    logging::default_service_binding rebound{logs};
+    local.info("owned channel");
+  }
+  require(memory->channels.back() == "local");
+
   connection.disconnect();
   require(!connection.connected());
   require(!logs.get_logger("isolated").enabled(gneiss::logging::level::fatal));
@@ -128,7 +135,15 @@ void test() {
   expired.info("expired");
 }
 }
-int main() {
+int main(int argc, char**) {
+  if (argc == 2) {
+    // 子进程以确定退出码验证断言，避免系统崩溃弹窗。
+    libassert::set_failure_handler([](const libassert::assertion_info&) { std::_Exit(0); });
+    logging::service logs;
+    logging::default_service_binding first{logs};
+    logging::default_service_binding duplicate{logs};
+    return 1;
+  }
   try {
     test();
     test_default_and_sync();

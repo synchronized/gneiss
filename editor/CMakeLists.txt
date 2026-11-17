@@ -73,7 +73,7 @@ add_executable(
 )
 target_link_libraries(
   gneiss_editor
-  PRIVATE gneiss_file_log_sink gneiss_editor_host gneiss_editor_ui gneiss_child_process gneiss_tasks
+  PRIVATE gneiss_logging_sinks gneiss_editor_host gneiss_editor_ui gneiss_child_process gneiss_tasks
 )
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(

@@ -15,7 +15,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
 )
 target_include_directories(gneiss_log_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_log_queue_test PRIVATE gneiss_core Threads::Threads)
+target_link_libraries(gneiss_log_queue_test PRIVATE gneiss_core gneiss_libassert Threads::Threads)
 target_compile_features(gneiss_log_queue_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_log_queue_test)
 gneiss_target_output_directories(gneiss_log_queue_test)
@@ -24,10 +24,13 @@ add_test(NAME gneiss.log-queue COMMAND gneiss_log_queue_test)
 
 add_executable(gneiss_logging_service_test logging_service_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/logger.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/sink_connection.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/default_service.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/core/types/string_name.cpp")
 target_compile_definitions(gneiss_logging_service_test PRIVATE GNEISS_STATIC_DEFINE)
-target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_core Threads::Threads)
+target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_core gneiss_libassert Threads::Threads)
 gneiss_target_compile_warnings(gneiss_logging_service_test)
 gneiss_target_output_directories(gneiss_logging_service_test)
 set_target_properties(gneiss_logging_service_test PROPERTIES FOLDER "Tests")
@@ -39,3 +42,5 @@ foreach(mode IN ITEMS oom unexpected)
     COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_log_queue_test>
     -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake)
 endforeach()
+
+add_test(NAME gneiss.logging-duplicate-binding-contract COMMAND gneiss_logging_service_test duplicate)

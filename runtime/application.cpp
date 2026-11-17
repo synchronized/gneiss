@@ -14,7 +14,7 @@
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/project/project_description.hpp>
 
-#include "file_sink.hpp"
+#include <gneiss/engine/core/logging/sinks/file.hpp>
 #include "assets/runtime_asset_reloader.hpp"
 #include "ipc/runtime_ipc_session.hpp"
 #include "runtime_logging.hpp"
