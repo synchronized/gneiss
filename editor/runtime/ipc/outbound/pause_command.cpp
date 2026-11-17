@@ -9,7 +9,7 @@
 namespace gneiss::host {
 
 gneiss::error make_pause_command(std::uint32_t request_id,
-                                         gneiss::ipc_envelope& output) noexcept {
+                                         gneiss::ipc::envelope& output) noexcept {
   return encode_ipc_control_request(ipc_control_operation::pause, request_id, output);
 }
 

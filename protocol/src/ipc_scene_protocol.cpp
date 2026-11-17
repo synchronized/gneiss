@@ -68,21 +68,21 @@ bool valid_progress(const ipc_scene_progress& value) {
          (!value.budget || !value.budget->cleanup_pending || !value.budget->cleanup_complete);
 }
 constexpr auto request_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request);
-constexpr auto event_kind = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event);
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request);
+constexpr auto event_kind = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event);
 constexpr std::array operations{
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = 1U,
         .editor_to_runtime_kinds = request_kind,
         .runtime_to_editor_kinds =
-            gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response),
+            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response),
     },
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = 2U,
         .editor_to_runtime_kinds = event_kind,
         .runtime_to_editor_kinds = 0U,
     },
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = 3U,
         .editor_to_runtime_kinds = 0U,
         .runtime_to_editor_kinds = event_kind,
@@ -106,23 +106,23 @@ bool scene_phase_terminal(ipc_scene_phase phase) noexcept {
   return phase == ipc_scene_phase::applied || phase == ipc_scene_phase::failed ||
          phase == ipc_scene_phase::cancelled;
 }
-std::span<const gneiss::ipc_operation_descriptor> ipc_scene_operations() noexcept {
+std::span<const gneiss::protocol::operation_descriptor> ipc_scene_operations() noexcept {
   return operations;
 }
 gneiss::error encode_ipc_scene_request(const ipc_scene_request& value,
                                                ipc_scene_operation operation,
                                                std::uint32_t request_id,
-                                               gneiss::ipc_envelope& output) {
+                                               gneiss::ipc::envelope& output) {
   if (!valid_source(value) ||
       (operation != ipc_scene_operation::load && operation != ipc_scene_operation::cancel) ||
       (operation == ipc_scene_operation::load ? request_id == 0U : request_id != 0U)) {
     return gneiss::error::invalid_argument;
   }
-  gneiss::ipc_envelope envelope{
-      .domain = gneiss::ipc_domain::scene,
+  gneiss::ipc::envelope envelope{
+      .domain = gneiss::protocol::domain::scene,
       .operation = static_cast<std::uint16_t>(operation),
-      .kind = operation == ipc_scene_operation::load ? gneiss::ipc_message_kind::request
-                                                     : gneiss::ipc_message_kind::event,
+      .kind = operation == ipc_scene_operation::load ? gneiss::ipc::message_kind::request
+                                                     : gneiss::ipc::message_kind::event,
       .request_id = request_id,
       .payload = {},
   };
@@ -138,16 +138,16 @@ gneiss::error encode_ipc_scene_request(const ipc_scene_request& value,
   }
   return encoded;
 }
-gneiss::error decode_ipc_scene_request(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_scene_request(const gneiss::ipc::envelope& envelope,
                                                ipc_scene_request& output) {
   const auto operation = static_cast<ipc_scene_operation>(envelope.operation);
-  if (envelope.domain != gneiss::ipc_domain::scene ||
+  if (envelope.domain != gneiss::protocol::domain::scene ||
       envelope.payload.size() > ipc_scene_max_payload_size ||
-      gneiss::validate_ipc_envelope(envelope) != gneiss::error::success ||
+      gneiss::ipc::validate_envelope(envelope) != gneiss::error::success ||
       (operation == ipc_scene_operation::load
-           ? envelope.kind != gneiss::ipc_message_kind::request
+           ? envelope.kind != gneiss::ipc::message_kind::request
            : operation != ipc_scene_operation::cancel ||
-                 envelope.kind != gneiss::ipc_message_kind::event)) {
+                 envelope.kind != gneiss::ipc::message_kind::event)) {
     return gneiss::error::invalid_argument;
   }
   ipc_asset_reload_request value;
@@ -171,7 +171,7 @@ gneiss::error decode_ipc_scene_request(const gneiss::ipc_envelope& envelope,
 }
 gneiss::error encode_ipc_scene_progress(const ipc_scene_progress& value,
                                                 std::uint32_t request_id,
-                                                gneiss::ipc_envelope& output) {
+                                                gneiss::ipc::envelope& output) {
   if (!valid_progress(value)) {
     return gneiss::error::invalid_argument;
   }
@@ -223,12 +223,12 @@ gneiss::error encode_ipc_scene_progress(const ipc_scene_progress& value,
     return gneiss::error::invalid_argument;
   }
   const bool response = request_id != 0U && scene_phase_terminal(value.phase);
-  gneiss::ipc_envelope envelope{
-      .domain = gneiss::ipc_domain::scene,
+  gneiss::ipc::envelope envelope{
+      .domain = gneiss::protocol::domain::scene,
       .operation = static_cast<std::uint16_t>(response ? ipc_scene_operation::load
                                                        : ipc_scene_operation::progress),
-      .kind = response ? gneiss::ipc_message_kind::response
-                       : gneiss::ipc_message_kind::event,
+      .kind = response ? gneiss::ipc::message_kind::response
+                       : gneiss::ipc::message_kind::event,
       .request_id = response ? request_id : 0U,
       .payload = {},
   };
@@ -237,15 +237,15 @@ gneiss::error encode_ipc_scene_progress(const ipc_scene_progress& value,
   output = std::move(envelope);
   return gneiss::error::success;
 }
-gneiss::error decode_ipc_scene_progress(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_scene_progress(const gneiss::ipc::envelope& envelope,
                                                 ipc_scene_progress& output) {
   const bool response =
-      envelope.operation == 1U && envelope.kind == gneiss::ipc_message_kind::response;
-  if (envelope.domain != gneiss::ipc_domain::scene ||
+      envelope.operation == 1U && envelope.kind == gneiss::ipc::message_kind::response;
+  if (envelope.domain != gneiss::protocol::domain::scene ||
       envelope.payload.size() > ipc_scene_max_payload_size ||
-      gneiss::validate_ipc_envelope(envelope) != gneiss::error::success ||
+      gneiss::ipc::validate_envelope(envelope) != gneiss::error::success ||
       (!response &&
-       (envelope.operation != 3U || envelope.kind != gneiss::ipc_message_kind::event))) {
+       (envelope.operation != 3U || envelope.kind != gneiss::ipc::message_kind::event))) {
     return gneiss::error::invalid_argument;
   }
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(

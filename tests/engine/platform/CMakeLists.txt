@@ -76,13 +76,6 @@ if(TARGET gneiss_ipc)
   set_target_properties(gneiss_ipc_envelope_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.ipc.envelope COMMAND gneiss_ipc_envelope_test)
 
-  add_executable(gneiss_ipc_dispatcher_test "ipc/ipc_dispatcher_test.cpp")
-  target_link_libraries(gneiss_ipc_dispatcher_test PRIVATE gneiss_ipc)
-  gneiss_target_compile_warnings(gneiss_ipc_dispatcher_test)
-  gneiss_target_output_directories(gneiss_ipc_dispatcher_test)
-  set_target_properties(gneiss_ipc_dispatcher_test PROPERTIES FOLDER "Tests")
-  add_test(NAME gneiss.ipc.dispatcher COMMAND gneiss_ipc_dispatcher_test)
-
   add_executable(gneiss_ipc_transport_test "ipc/ipc_transport_test.cpp")
   target_link_libraries(gneiss_ipc_transport_test PRIVATE gneiss_ipc gneiss::libuv)
   gneiss_target_compile_warnings(gneiss_ipc_transport_test)

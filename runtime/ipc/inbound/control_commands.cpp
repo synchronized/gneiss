@@ -9,7 +9,7 @@
 namespace gneiss::host {
 namespace {
 
-gneiss::error validate(const gneiss::ipc_envelope& envelope,
+gneiss::error validate(const gneiss::ipc::envelope& envelope,
                                ipc_control_operation expected) noexcept {
   ipc_control_operation decoded = ipc_control_operation::invalid;
   const auto operation = decode_ipc_control_request(envelope, decoded);
@@ -18,7 +18,7 @@ gneiss::error validate(const gneiss::ipc_envelope& envelope,
              : operation;
 }
 
-gneiss::error handle_pause(const gneiss::ipc_envelope& envelope,
+gneiss::error handle_pause(const gneiss::ipc::envelope& envelope,
                                    runtime_command_context& context) noexcept {
   const auto decoded = validate(envelope, ipc_control_operation::pause);
   if (decoded != gneiss::error::success) {
@@ -34,7 +34,7 @@ gneiss::error handle_pause(const gneiss::ipc_envelope& envelope,
   return context.send_state(ipc_control_state::paused);
 }
 
-gneiss::error handle_resume(const gneiss::ipc_envelope& envelope,
+gneiss::error handle_resume(const gneiss::ipc::envelope& envelope,
                                     runtime_command_context& context) noexcept {
   const auto decoded = validate(envelope, ipc_control_operation::resume);
   if (decoded != gneiss::error::success) {
@@ -50,7 +50,7 @@ gneiss::error handle_resume(const gneiss::ipc_envelope& envelope,
   return context.send_state(ipc_control_state::running);
 }
 
-gneiss::error handle_stop(const gneiss::ipc_envelope& envelope,
+gneiss::error handle_stop(const gneiss::ipc::envelope& envelope,
                                   runtime_command_context& context) noexcept {
   const auto decoded = validate(envelope, ipc_control_operation::stop);
   if (decoded != gneiss::error::success || context.state() == runtime_ipc_state::stopping) {
@@ -65,15 +65,15 @@ gneiss::error handle_stop(const gneiss::ipc_envelope& envelope,
 
 gneiss::error register_runtime_control_commands(runtime_command_router& router) noexcept {
   auto operation =
-      router.bind(gneiss::ipc_domain::control,
+      router.bind(gneiss::protocol::domain::control,
                   static_cast<std::uint16_t>(ipc_control_operation::pause), handle_pause);
   if (operation == gneiss::error::success) {
     operation =
-        router.bind(gneiss::ipc_domain::control,
+        router.bind(gneiss::protocol::domain::control,
                     static_cast<std::uint16_t>(ipc_control_operation::resume), handle_resume);
   }
   if (operation == gneiss::error::success) {
-    operation = router.bind(gneiss::ipc_domain::control,
+    operation = router.bind(gneiss::protocol::domain::control,
                             static_cast<std::uint16_t>(ipc_control_operation::stop), handle_stop);
   }
   return operation;

@@ -8,7 +8,7 @@
 
 namespace gneiss::host {
 
-gneiss::error decode_runtime_inspection_event(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_runtime_inspection_event(const gneiss::ipc::envelope& envelope,
                                                       runtime_ipc_event& output) noexcept {
   return gneiss::host::detail::decode_value<runtime_inspection_event>(
       envelope, output,

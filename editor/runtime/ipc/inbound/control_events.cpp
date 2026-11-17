@@ -8,10 +8,10 @@
 
 namespace gneiss::host {
 
-gneiss::error decode_runtime_control_event(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_runtime_control_event(const gneiss::ipc::envelope& envelope,
                                                    runtime_ipc_event& output) noexcept {
   if (envelope.operation == static_cast<std::uint16_t>(ipc_control_operation::ready) &&
-      envelope.kind == gneiss::ipc_message_kind::event && envelope.request_id == 0U &&
+      envelope.kind == gneiss::ipc::message_kind::event && envelope.request_id == 0U &&
       envelope.payload.empty()) {
     output = runtime_ready_event{};
     return gneiss::error::success;

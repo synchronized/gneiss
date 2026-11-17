@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/ipc_envelope.hpp>
+#include <gneiss/engine/platform/ipc/envelope.hpp>
 
 #include <algorithm>
 #include <array>
@@ -12,10 +12,10 @@
 
 namespace {
 
-[[nodiscard]] gneiss::ipc_envelope make_request() {
-  return {.domain = gneiss::ipc_domain::property,
+[[nodiscard]] gneiss::ipc::envelope make_request() {
+  return {.domain = 6U,
           .operation = 7U,
-          .kind = gneiss::ipc_message_kind::request,
+          .kind = gneiss::ipc::message_kind::request,
           .request_id = 42U,
           .payload = {1U, 2U, 3U}};
 }
@@ -23,8 +23,8 @@ namespace {
 [[nodiscard]] bool test_round_trip_and_network_order() {
   const auto request = make_request();
   std::vector<std::uint8_t> encoded;
-  if (gneiss::encode_ipc_envelope(request, encoded) != gneiss::error::success ||
-      encoded.size() != gneiss::ipc_envelope_header_size + request.payload.size()) {
+  if (gneiss::ipc::encode_envelope(request, encoded) != gneiss::error::success ||
+      encoded.size() != gneiss::ipc::envelope_header_size + request.payload.size()) {
     return false;
   }
   constexpr std::array expected_header{
@@ -35,13 +35,13 @@ namespace {
       std::uint8_t{0x00}, std::uint8_t{0x00}, std::uint8_t{0x00}, std::uint8_t{0x2A},
       std::uint8_t{0x00}, std::uint8_t{0x00}, std::uint8_t{0x00}, std::uint8_t{0x03}};
   if (!std::ranges::equal(expected_header,
-                          std::span{encoded}.first(gneiss::ipc_envelope_header_size))) {
+                          std::span{encoded}.first(gneiss::ipc::envelope_header_size))) {
     return false;
   }
 
-  gneiss::ipc_envelope_decoder decoder;
-  std::vector<gneiss::ipc_envelope> decoded;
-  const auto split = gneiss::ipc_envelope_header_size - 1U;
+  gneiss::ipc::envelope_decoder decoder;
+  std::vector<gneiss::ipc::envelope> decoded;
+  const auto split = gneiss::ipc::envelope_header_size - 1U;
   return decoder.append(std::span{encoded}.first(split), decoded) ==
              gneiss::error::success &&
          decoded.empty() && decoder.buffered_size() == split &&
@@ -54,13 +54,13 @@ namespace {
 
 [[nodiscard]] bool test_sticky_failure_and_reset() {
   std::vector<std::uint8_t> encoded;
-  if (gneiss::encode_ipc_envelope(make_request(), encoded) !=
+  if (gneiss::ipc::encode_envelope(make_request(), encoded) !=
       gneiss::error::success) {
     return false;
   }
   encoded[14] = 1U;
-  gneiss::ipc_envelope_decoder decoder;
-  std::vector<gneiss::ipc_envelope> output;
+  gneiss::ipc::envelope_decoder decoder;
+  std::vector<gneiss::ipc::envelope> output;
   if (decoder.append(encoded, output) != gneiss::error::invalid_argument ||
       !decoder.has_failed() ||
       decoder.append(encoded, output) != gneiss::error::invalid_state) {
@@ -75,45 +75,45 @@ namespace {
 [[nodiscard]] bool test_validation() {
   auto envelope = make_request();
   envelope.request_id = 0U;
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::invalid_argument) {
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::invalid_argument) {
     return false;
   }
-  envelope.kind = gneiss::ipc_message_kind::event;
+  envelope.kind = gneiss::ipc::message_kind::event;
   envelope.request_id = 1U;
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::invalid_argument) {
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::invalid_argument) {
     return false;
   }
   envelope.request_id = 0U;
   envelope.operation = 0U;
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::invalid_argument) {
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::invalid_argument) {
     return false;
   }
   envelope.operation = 1U;
   envelope.protocol_major = 3U;
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::invalid_argument) {
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::invalid_argument) {
     return false;
   }
-  envelope.protocol_major = gneiss::ipc_v2_protocol_major;
+  envelope.protocol_major = gneiss::ipc::v2_protocol_major;
   envelope.protocol_minor = 1U;
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::invalid_argument) {
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::invalid_argument) {
     return false;
   }
-  envelope.protocol_minor = gneiss::ipc_v2_protocol_minor;
-  envelope.domain = static_cast<gneiss::ipc_domain>(0U);
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::invalid_argument) {
+  envelope.protocol_minor = gneiss::ipc::v2_protocol_minor;
+  envelope.domain = static_cast<std::uint16_t>(0U);
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::invalid_argument) {
     return false;
   }
-  envelope.domain = static_cast<gneiss::ipc_domain>(99U);
-  if (gneiss::validate_ipc_envelope(envelope) != gneiss::error::success) {
+  envelope.domain = static_cast<std::uint16_t>(99U);
+  if (gneiss::ipc::validate_envelope(envelope) != gneiss::error::success) {
     return false;
   }
-  envelope.kind = static_cast<gneiss::ipc_message_kind>(99U);
-  return gneiss::validate_ipc_envelope(envelope) == gneiss::error::invalid_argument;
+  envelope.kind = static_cast<gneiss::ipc::message_kind>(99U);
+  return gneiss::ipc::validate_envelope(envelope) == gneiss::error::invalid_argument;
 }
 
 [[nodiscard]] bool test_malformed_headers() {
   std::vector<std::uint8_t> encoded;
-  if (gneiss::encode_ipc_envelope(make_request(), encoded) !=
+  if (gneiss::ipc::encode_envelope(make_request(), encoded) !=
       gneiss::error::success) {
     return false;
   }
@@ -131,8 +131,8 @@ namespace {
       malformed[22] = 0U;
       malformed[23] = 1U;
     }
-    gneiss::ipc_envelope_decoder decoder;
-    std::vector<gneiss::ipc_envelope> output;
+    gneiss::ipc::envelope_decoder decoder;
+    std::vector<gneiss::ipc::envelope> output;
     if (decoder.append(malformed, output) != gneiss::error::invalid_argument ||
         !output.empty()) {
       return false;
@@ -144,19 +144,19 @@ namespace {
 [[nodiscard]] bool test_concatenated_envelopes() {
   auto first = make_request();
   auto second = first;
-  second.kind = gneiss::ipc_message_kind::response;
+  second.kind = gneiss::ipc::message_kind::response;
   std::vector<std::uint8_t> first_bytes;
   std::vector<std::uint8_t> second_bytes;
-  if (gneiss::encode_ipc_envelope(first, first_bytes) != gneiss::error::success ||
-      gneiss::encode_ipc_envelope(second, second_bytes) != gneiss::error::success) {
+  if (gneiss::ipc::encode_envelope(first, first_bytes) != gneiss::error::success ||
+      gneiss::ipc::encode_envelope(second, second_bytes) != gneiss::error::success) {
     return false;
   }
   first_bytes.insert(first_bytes.end(), second_bytes.begin(), second_bytes.end());
-  gneiss::ipc_envelope_decoder decoder;
-  std::vector<gneiss::ipc_envelope> output;
+  gneiss::ipc::envelope_decoder decoder;
+  std::vector<gneiss::ipc::envelope> output;
   return decoder.append(first_bytes, output) == gneiss::error::success &&
-         output.size() == 2U && output[0].kind == gneiss::ipc_message_kind::request &&
-         output[1].kind == gneiss::ipc_message_kind::response;
+         output.size() == 2U && output[0].kind == gneiss::ipc::message_kind::request &&
+         output[1].kind == gneiss::ipc::message_kind::response;
 }
 
 } // namespace

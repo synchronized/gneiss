@@ -225,17 +225,17 @@ gneiss::error decode_ipc_property_write_result(std::span<const std::uint8_t> pay
 namespace {
 
 constexpr auto property_request_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request);
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request);
 constexpr auto property_response_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response);
-constexpr std::array property_operations{gneiss::ipc_operation_descriptor{
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response);
+constexpr std::array property_operations{gneiss::protocol::operation_descriptor{
     .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
     .editor_to_runtime_kinds = property_request_kind,
     .runtime_to_editor_kinds = property_response_kind}};
 
-[[nodiscard]] bool matches_property(const gneiss::ipc_envelope& envelope,
-                                    gneiss::ipc_message_kind kind) noexcept {
-  return envelope.domain == gneiss::ipc_domain::property &&
+[[nodiscard]] bool matches_property(const gneiss::ipc::envelope& envelope,
+                                    gneiss::ipc::message_kind kind) noexcept {
+  return envelope.domain == gneiss::protocol::domain::property &&
          envelope.operation == static_cast<std::uint16_t>(ipc_property_operation::write) &&
          envelope.kind == kind;
 }
@@ -244,7 +244,7 @@ constexpr std::array property_operations{gneiss::ipc_operation_descriptor{
 
 gneiss::error encode_ipc_property_write_v2(const ipc_property_write& command,
                                                    std::uint32_t request_id,
-                                                   gneiss::ipc_envelope& output) {
+                                                   gneiss::ipc::envelope& output) {
   if (request_id == 0U || command.command_id != request_id) {
     return gneiss::error::invalid_argument;
   }
@@ -253,17 +253,17 @@ gneiss::error encode_ipc_property_write_v2(const ipc_property_write& command,
   if (operation != gneiss::error::success) {
     return operation;
   }
-  output = {.domain = gneiss::ipc_domain::property,
+  output = {.domain = gneiss::protocol::domain::property,
             .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
-            .kind = gneiss::ipc_message_kind::request,
+            .kind = gneiss::ipc::message_kind::request,
             .request_id = request_id,
             .payload = std::move(payload)};
   return gneiss::error::success;
 }
 
-gneiss::error decode_ipc_property_write_v2(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_property_write_v2(const gneiss::ipc::envelope& envelope,
                                                    ipc_property_write& output) {
-  if (!matches_property(envelope, gneiss::ipc_message_kind::request) ||
+  if (!matches_property(envelope, gneiss::ipc::message_kind::request) ||
       envelope.request_id == 0U) {
     return gneiss::error::invalid_argument;
   }
@@ -279,7 +279,7 @@ gneiss::error decode_ipc_property_write_v2(const gneiss::ipc_envelope& envelope,
 
 gneiss::error encode_ipc_property_result_v2(const ipc_property_write_result& response,
                                                     std::uint32_t request_id,
-                                                    gneiss::ipc_envelope& output) {
+                                                    gneiss::ipc::envelope& output) {
   if (request_id == 0U || response.command_id != request_id) {
     return gneiss::error::invalid_argument;
   }
@@ -288,17 +288,17 @@ gneiss::error encode_ipc_property_result_v2(const ipc_property_write_result& res
   if (operation != gneiss::error::success) {
     return operation;
   }
-  output = {.domain = gneiss::ipc_domain::property,
+  output = {.domain = gneiss::protocol::domain::property,
             .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
-            .kind = gneiss::ipc_message_kind::response,
+            .kind = gneiss::ipc::message_kind::response,
             .request_id = request_id,
             .payload = std::move(payload)};
   return gneiss::error::success;
 }
 
-gneiss::error decode_ipc_property_result_v2(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_property_result_v2(const gneiss::ipc::envelope& envelope,
                                                     ipc_property_write_result& output) {
-  if (!matches_property(envelope, gneiss::ipc_message_kind::response) ||
+  if (!matches_property(envelope, gneiss::ipc::message_kind::response) ||
       envelope.request_id == 0U) {
     return gneiss::error::invalid_argument;
   }
@@ -312,7 +312,7 @@ gneiss::error decode_ipc_property_result_v2(const gneiss::ipc_envelope& envelope
   return gneiss::error::success;
 }
 
-std::span<const gneiss::ipc_operation_descriptor> ipc_property_operations() noexcept {
+std::span<const gneiss::protocol::operation_descriptor> ipc_property_operations() noexcept {
   return property_operations;
 }
 

@@ -14,7 +14,7 @@
 namespace gneiss::host {
 
 gneiss::error make_log_event(const gneiss::logging::record_view& event,
-                                     gneiss::ipc_envelope& output) {
+                                     gneiss::ipc::envelope& output) {
   {
     std::string encoded_event;
     const auto operation = gneiss::host::encode_runtime_log_event(event, encoded_event);

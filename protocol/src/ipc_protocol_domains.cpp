@@ -19,94 +19,94 @@
 namespace {
 
 constexpr std::array capabilities{
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::scene,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::scene,
                                           .version = gneiss::host::ipc_scene_domain_version},
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::control,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::control,
                                           .version = gneiss::host::ipc_control_domain_version},
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::log,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::log,
                                           .version = gneiss::host::ipc_log_domain_version},
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::inspection,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::inspection,
                                           .version = gneiss::host::ipc_inspection_domain_version},
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::statistics,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::statistics,
                                           .version = gneiss::host::ipc_statistics_domain_version},
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::property,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::property,
                                           .version = gneiss::host::ipc_property_domain_version},
-    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::asset,
+    gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::asset,
                                           .version = gneiss::host::ipc_asset_domain_version}};
 
 } // namespace
 
 namespace gneiss::host {
 
-std::span<const gneiss::ipc_domain_capability> ipc_v2_domain_capabilities() noexcept {
+std::span<const gneiss::protocol::domain_capability> ipc_v2_domain_capabilities() noexcept {
   return capabilities;
 }
 
-gneiss::error register_ipc_v2_domains(gneiss::ipc_domain_handler handler,
+gneiss::error register_ipc_v2_domains(gneiss::protocol::domain_handler handler,
                                               void* handler_context,
-                                              gneiss::ipc_domain_registry& output) {
+                                              gneiss::protocol::dispatcher& output) {
   if (handler == nullptr) {
     return gneiss::error::invalid_argument;
   }
-  gneiss::ipc_domain_registry registry;
+  gneiss::protocol::dispatcher registry;
   const std::array descriptors{
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::scene,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::scene,
                                             .version = ipc_scene_domain_version,
                                             .capability = "scene",
                                             .max_payload_size = ipc_scene_max_payload_size,
                                             .operations = ipc_scene_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::session,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::session,
                                             .version = ipc_session_domain_version,
                                             .capability = {},
                                             .max_payload_size = ipc_session_max_payload_size,
                                             .operations = ipc_session_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::asset,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::asset,
                                             .version = ipc_asset_domain_version,
                                             .capability = "asset",
                                             .max_payload_size = ipc_asset_max_payload_size,
                                             .operations = ipc_asset_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::control,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::control,
                                             .version = ipc_control_domain_version,
                                             .capability = "control",
                                             .max_payload_size = ipc_control_max_payload_size,
                                             .operations = ipc_control_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::log,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::log,
                                             .version = ipc_log_domain_version,
                                             .capability = "log",
                                             .max_payload_size =
-                                                gneiss::ipc_envelope_max_payload_size,
+                                                gneiss::ipc::envelope_max_payload_size,
                                             .operations = ipc_log_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::inspection,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::inspection,
                                             .version = ipc_inspection_domain_version,
                                             .capability = "inspection",
                                             .max_payload_size =
-                                                gneiss::ipc_envelope_max_payload_size,
+                                                gneiss::ipc::envelope_max_payload_size,
                                             .operations = ipc_inspection_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::statistics,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::statistics,
                                             .version = ipc_statistics_domain_version,
                                             .capability = "statistics",
                                             .max_payload_size =
-                                                gneiss::ipc_envelope_max_payload_size,
+                                                gneiss::ipc::envelope_max_payload_size,
                                             .operations = ipc_statistics_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context},
-      gneiss::ipc_domain_descriptor{.domain = gneiss::ipc_domain::property,
+      gneiss::protocol::domain_descriptor{.domain = gneiss::protocol::domain::property,
                                             .version = ipc_property_domain_version,
                                             .capability = "property",
                                             .max_payload_size =
-                                                gneiss::ipc_envelope_max_payload_size,
+                                                gneiss::ipc::envelope_max_payload_size,
                                             .operations = ipc_property_operations(),
                                             .handler = handler,
                                             .handler_context = handler_context}};

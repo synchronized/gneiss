@@ -11,8 +11,8 @@
 namespace {
 
 constexpr std::size_t max_log_event_size = std::size_t{16U} * 1024U;
-constexpr auto event_kind = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event);
-constexpr std::array log_operations{gneiss::ipc_operation_descriptor{
+constexpr auto event_kind = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event);
+constexpr std::array log_operations{gneiss::protocol::operation_descriptor{
     .operation = static_cast<std::uint16_t>(gneiss::host::ipc_log_operation::event),
     .editor_to_runtime_kinds = 0U,
     .runtime_to_editor_kinds = event_kind}};
@@ -22,15 +22,15 @@ constexpr std::array log_operations{gneiss::ipc_operation_descriptor{
 namespace gneiss::host {
 
 gneiss::error encode_ipc_log_event(std::string_view event,
-                                           gneiss::ipc_envelope& output) {
+                                           gneiss::ipc::envelope& output) {
   if (event.size() > max_log_event_size) {
     return gneiss::error::invalid_argument;
   }
   {
-    gneiss::ipc_envelope encoded{
-        .domain = gneiss::ipc_domain::log,
+    gneiss::ipc::envelope encoded{
+        .domain = gneiss::protocol::domain::log,
         .operation = static_cast<std::uint16_t>(ipc_log_operation::event),
-        .kind = gneiss::ipc_message_kind::event,
+        .kind = gneiss::ipc::message_kind::event,
         .request_id = 0U,
         .payload = {reinterpret_cast<const std::uint8_t*>(event.data()),
                     reinterpret_cast<const std::uint8_t*>(event.data()) + event.size()}};
@@ -39,11 +39,11 @@ gneiss::error encode_ipc_log_event(std::string_view event,
   }
 }
 
-gneiss::error decode_ipc_log_event(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_log_event(const gneiss::ipc::envelope& envelope,
                                            std::string& output) {
-  if (envelope.domain != gneiss::ipc_domain::log ||
+  if (envelope.domain != gneiss::protocol::domain::log ||
       envelope.operation != static_cast<std::uint16_t>(ipc_log_operation::event) ||
-      envelope.kind != gneiss::ipc_message_kind::event || envelope.request_id != 0U ||
+      envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U ||
       envelope.payload.size() > max_log_event_size) {
     return gneiss::error::invalid_argument;
   }
@@ -55,7 +55,7 @@ gneiss::error decode_ipc_log_event(const gneiss::ipc_envelope& envelope,
   }
 }
 
-std::span<const gneiss::ipc_operation_descriptor> ipc_log_operations() noexcept {
+std::span<const gneiss::protocol::operation_descriptor> ipc_log_operations() noexcept {
   return log_operations;
 }
 

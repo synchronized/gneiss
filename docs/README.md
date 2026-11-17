@@ -703,3 +703,7 @@
 - [ADR-123 Files 后端工厂与服务初始化](decisions/ADR-123-files-backend-initialization.md)
 - [ADR-122 窗口采集与输入语义边界](decisions/ADR-122-window-input-boundaries.md)
 - [ADR-120 领域命名空间](decisions/ADR-120-domain-namespaces.md)
+
+- [PLAN-120：平台 IPC 与反射协议消息](plans/PLAN-120-ipc-protocol-boundaries.md)
+- [ADR-124：平台 IPC 与宿主协议分离](decisions/ADR-124-ipc-protocol-boundaries.md)
+- [平台 IPC](reference/platform-ipc.md)

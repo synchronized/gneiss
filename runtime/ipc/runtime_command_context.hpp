@@ -9,7 +9,7 @@
 #include <gneiss/protocol/ipc_control_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
-#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
+#include <gneiss/engine/platform/ipc/transport.hpp>
 
 #include <cstdint>
 #include <string>
@@ -53,7 +53,7 @@ struct runtime_ipc_actions final {
 /** 单条 Runtime IPC 命令可访问的最小会话能力，仅在主线程 dispatch 期间有效。 */
 class runtime_command_context final {
 public:
-  using send_callback = gneiss::error (*)(void*, gneiss::ipc_envelope);
+  using send_callback = gneiss::error (*)(void*, gneiss::ipc::envelope);
 
   runtime_command_context(runtime_ipc_state& state, runtime_ipc_actions& actions,
                           void* send_context, send_callback send) noexcept
@@ -62,7 +62,7 @@ public:
   [[nodiscard]] runtime_ipc_state state() const noexcept { return state_; }
   void set_state(runtime_ipc_state state) noexcept { state_ = state; }
   [[nodiscard]] runtime_ipc_actions& actions() noexcept { return actions_; }
-  [[nodiscard]] gneiss::error send(gneiss::ipc_envelope envelope) {
+  [[nodiscard]] gneiss::error send(gneiss::ipc::envelope envelope) {
     return send_ == nullptr ? gneiss::error::invalid_state
                             : send_(send_context_, std::move(envelope));
   }

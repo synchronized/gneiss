@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <gneiss/engine/error.hpp>
 
@@ -37,11 +37,11 @@ decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
 
 [[nodiscard]] gneiss::error
 encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                         gneiss::ipc_envelope& output);
+                         gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_statistics_v2(const gneiss::ipc_envelope& envelope,
+decode_ipc_statistics_v2(const gneiss::ipc::envelope& envelope,
                          ipc_runtime_statistics& output);
-[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_statistics_operations() noexcept;
 
 } // namespace gneiss::host

@@ -12,7 +12,7 @@
 namespace gneiss::host::detail {
 
 template <typename Event, typename Decode>
-gneiss::error decode_value(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_value(const gneiss::ipc::envelope& envelope,
                                    runtime_ipc_event& output, Decode&& decode) noexcept {
   Event event;
   event.request_id = envelope.request_id;

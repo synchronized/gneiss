@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/domains.hpp>
 #include "ipc/runtime_ipc_session.hpp"
 #include <gneiss/engine/error.hpp>
 
@@ -23,31 +24,31 @@ struct runtime_ipc_session::implementation final {
   }
 
   runtime_ipc_config config;
-  gneiss::ipc_transport transport;
+  gneiss::ipc::transport transport{256U, 64U, gneiss::protocol::is_discardable};
   ipc_timeout_tracker handshake_deadline;
   ipc_timeout_tracker heartbeat_deadline;
   runtime_ipc_state current_state = runtime_ipc_state::stopped;
-  std::vector<gneiss::ipc_domain_capability> requested_domains{
+  std::vector<gneiss::protocol::domain_capability> requested_domains{
       ipc_v2_domain_capabilities().begin(), ipc_v2_domain_capabilities().end()};
-  std::vector<gneiss::ipc_domain_capability> negotiated_domains;
+  std::vector<gneiss::protocol::domain_capability> negotiated_domains;
   runtime_command_router router;
   bool router_ready = false;
   bool wants_running = false;
-  std::deque<gneiss::ipc_envelope> pending_inspection_frames;
+  std::deque<gneiss::ipc::envelope> pending_inspection_frames;
 
-  gneiss::error dispatch(const gneiss::ipc_envelope& envelope,
+  gneiss::error dispatch(const gneiss::ipc::envelope& envelope,
                                  runtime_ipc_actions& actions) {
     if (!router_ready) {
       return gneiss::error::invalid_state;
     }
-    const gneiss::ipc_dispatch_context dispatch_context{
-        .remote_role = gneiss::ipc_peer_role::editor,
+    const gneiss::protocol::dispatch_context dispatch_context{
+        .remote_role = gneiss::protocol::peer_role::editor,
         .handshake_complete = true,
         .negotiated_domains = negotiated_domains};
     runtime_command_context command_context(current_state, actions, this, send_from_command);
     const auto outcome = router.dispatch(envelope, dispatch_context, command_context);
     if (!outcome.accepted()) {
-      return outcome.rejection == gneiss::ipc_dispatch_rejection::handler_failed
+      return outcome.rejection == gneiss::protocol::dispatch_rejection::handler_failed
                  ? outcome.handler_result
                  : gneiss::error::invalid_argument;
     }
@@ -55,7 +56,7 @@ struct runtime_ipc_session::implementation final {
   }
 
   static gneiss::error send_from_command(void* context,
-                                                 gneiss::ipc_envelope envelope) {
+                                                 gneiss::ipc::envelope envelope) {
     return static_cast<implementation*>(context)->send(std::move(envelope));
   }
 
@@ -73,24 +74,24 @@ struct runtime_ipc_session::implementation final {
     return gneiss::error::success;
   }
 
-  gneiss::error send(gneiss::ipc_envelope envelope) {
+  gneiss::error send(gneiss::ipc::envelope envelope) {
     return transport.send(envelope);
   }
 
-  [[nodiscard]] bool negotiated(gneiss::ipc_domain domain) const noexcept {
+  [[nodiscard]] bool negotiated(std::uint16_t domain) const noexcept {
     return std::ranges::find(negotiated_domains, domain,
-                             &gneiss::ipc_domain_capability::domain) !=
+                             &gneiss::protocol::domain_capability::domain) !=
            negotiated_domains.end();
   }
 
   gneiss::error send_state(ipc_control_state state) {
-    gneiss::ipc_envelope envelope;
+    gneiss::ipc::envelope envelope;
     const auto operation = make_state_event(state, envelope);
     return operation == gneiss::error::success ? send(std::move(envelope)) : operation;
   }
 
   gneiss::error enter_running() {
-    gneiss::ipc_envelope ready;
+    gneiss::ipc::envelope ready;
     auto operation = make_ready_event(ready);
     if (operation == gneiss::error::success) {
       operation = send(std::move(ready));
@@ -143,11 +144,11 @@ gneiss::error runtime_ipc_session::pump(clock::time_point now,
       implementation_->current_state == runtime_ipc_state::failed) {
     return gneiss::error::invalid_state;
   }
-  std::vector<gneiss::ipc_transport_event> events;
-  (void)implementation_->transport.poll_events(events);
+  std::vector<gneiss::ipc::transport_event> events;
+  (void)implementation_->transport.drain_events(events);
   for (auto& event : events) {
-    if (event.type == gneiss::ipc_transport_event_type::connected) {
-      gneiss::ipc_envelope hello;
+    if (event.type == gneiss::ipc::transport_event_type::connected) {
+      gneiss::ipc::envelope hello;
       auto operation = make_session_hello_event(implementation_->config.session_token,
                                                 implementation_->requested_domains, 1U, hello);
       if (operation == gneiss::error::success) {
@@ -159,14 +160,14 @@ gneiss::error runtime_ipc_session::pump(clock::time_point now,
       implementation_->current_state = runtime_ipc_state::authenticating;
       continue;
     }
-    if (event.type == gneiss::ipc_transport_event_type::disconnected ||
-        event.type == gneiss::ipc_transport_event_type::error) {
+    if (event.type == gneiss::ipc::transport_event_type::disconnected ||
+        event.type == gneiss::ipc::transport_event_type::error) {
       const auto operation = event.operation == gneiss::error::success
                                  ? gneiss::error::io
                                  : event.operation;
       return implementation_->fail(operation, actions);
     }
-    if (event.type != gneiss::ipc_transport_event_type::envelope_received) {
+    if (event.type != gneiss::ipc::transport_event_type::envelope_received) {
       continue;
     }
 
@@ -174,9 +175,9 @@ gneiss::error runtime_ipc_session::pump(clock::time_point now,
       ipc_session_hello hello;
       const auto operation = decode_ipc_session_hello(event.envelope, hello);
       if (operation != gneiss::error::success ||
-          event.envelope.domain != gneiss::ipc_domain::session ||
+          event.envelope.domain != gneiss::protocol::domain::session ||
           event.envelope.operation != static_cast<std::uint16_t>(ipc_session_operation::hello) ||
-          event.envelope.kind != gneiss::ipc_message_kind::response ||
+          event.envelope.kind != gneiss::ipc::message_kind::response ||
           event.envelope.request_id != 1U) {
         return implementation_->fail(operation == gneiss::error::success
                                          ? gneiss::error::invalid_argument
@@ -187,13 +188,13 @@ gneiss::error runtime_ipc_session::pump(clock::time_point now,
       if (std::ranges::any_of(implementation_->negotiated_domains, [&](const auto negotiated) {
             const auto requested =
                 std::ranges::find(implementation_->requested_domains, negotiated.domain,
-                                  &gneiss::ipc_domain_capability::domain);
+                                  &gneiss::protocol::domain_capability::domain);
             return requested == implementation_->requested_domains.end() ||
                    negotiated.version == 0U || negotiated.version > requested->version;
           })) {
         return implementation_->fail(gneiss::error::invalid_argument, actions);
       }
-      if (!implementation_->negotiated(gneiss::ipc_domain::control)) {
+      if (!implementation_->negotiated(gneiss::protocol::domain::control)) {
         return implementation_->fail(gneiss::error::unsupported, actions);
       }
       implementation_->heartbeat_deadline.reset(now);
@@ -254,7 +255,7 @@ gneiss::error runtime_ipc_session::notify_shutdown(std::int32_t exit_code) {
   implementation_->current_state = runtime_ipc_state::stopping;
   auto operation = implementation_->send_state(ipc_control_state::stopping);
   if (operation == gneiss::error::success) {
-    gneiss::ipc_envelope envelope;
+    gneiss::ipc::envelope envelope;
     operation = make_shutdown_event(exit_code, envelope);
     if (operation == gneiss::error::success) {
       operation = implementation_->send(std::move(envelope));
@@ -269,7 +270,7 @@ runtime_ipc_session::notify_log_event(const gneiss::logging::record_view& event)
                            implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const auto operation = make_log_event(event, envelope);
   return operation == gneiss::error::success ? implementation_->send(std::move(envelope))
                                                      : operation;
@@ -277,7 +278,7 @@ runtime_ipc_session::notify_log_event(const gneiss::logging::record_view& event)
 
 gneiss::error
 runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) {
-  if (!implementation_ || !implementation_->negotiated(gneiss::ipc_domain::inspection) ||
+  if (!implementation_ || !implementation_->negotiated(gneiss::protocol::domain::inspection) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
@@ -285,7 +286,7 @@ runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) {
   if (!implementation_->pending_inspection_frames.empty()) {
     return gneiss::error::not_ready;
   }
-  std::vector<gneiss::ipc_envelope> frames;
+  std::vector<gneiss::ipc::envelope> frames;
   const auto operation = make_scene_snapshot_events(batch, frames);
   if (operation != gneiss::error::success) {
     return operation;
@@ -298,12 +299,12 @@ runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) {
 
 gneiss::error
 runtime_ipc_session::notify_property_write_result(const ipc_property_write_result& response) {
-  if (!implementation_ || !implementation_->negotiated(gneiss::ipc_domain::property) ||
+  if (!implementation_ || !implementation_->negotiated(gneiss::protocol::domain::property) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const auto operation = make_property_write_result_event(
       response, static_cast<std::uint32_t>(response.command_id), envelope);
   return operation == gneiss::error::success ? implementation_->transport.send(envelope)
@@ -314,12 +315,12 @@ gneiss::error
 runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_result& response,
                                                 ipc_asset_operation operation,
                                                 std::uint32_t request_id) {
-  if (!implementation_ || !implementation_->negotiated(gneiss::ipc_domain::asset) ||
+  if (!implementation_ || !implementation_->negotiated(gneiss::protocol::domain::asset) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const auto encoded = make_asset_reload_result(response, operation, request_id, envelope);
   return encoded == gneiss::error::success ? implementation_->transport.send(envelope)
                                                    : encoded;
@@ -327,11 +328,11 @@ runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_result& r
 
 gneiss::error runtime_ipc_session::notify_scene_progress(const ipc_scene_progress& value,
                                                                  std::uint32_t request_id) {
-  if (!implementation_ || !implementation_->negotiated(gneiss::ipc_domain::scene) ||
+  if (!implementation_ || !implementation_->negotiated(gneiss::protocol::domain::scene) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused))
     return gneiss::error::not_ready;
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const auto encoded = encode_ipc_scene_progress(value, request_id, envelope);
   return encoded == gneiss::error::success ? implementation_->transport.send(envelope)
                                                    : encoded;
@@ -348,7 +349,7 @@ runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics)
                            implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const auto operation = make_statistics_event(statistics, envelope);
   return operation == gneiss::error::success ? implementation_->transport.send(envelope)
                                                      : operation;
@@ -379,7 +380,7 @@ runtime_ipc_state runtime_ipc_session::state() const noexcept {
   return implementation_ ? implementation_->current_state : runtime_ipc_state::failed;
 }
 
-bool runtime_ipc_session::supports_domain(gneiss::ipc_domain domain) const noexcept {
+bool runtime_ipc_session::supports_domain(std::uint16_t domain) const noexcept {
   return implementation_ && implementation_->negotiated(domain);
 }
 

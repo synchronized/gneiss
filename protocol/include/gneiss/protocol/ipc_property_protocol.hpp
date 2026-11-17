@@ -7,7 +7,7 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/protocol/ipc_inspection_protocol.hpp>
 
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/value.hpp>
@@ -58,17 +58,17 @@ decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
 
 [[nodiscard]] gneiss::error
 encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
-                             gneiss::ipc_envelope& output);
+                             gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_property_write_v2(const gneiss::ipc_envelope& envelope,
+decode_ipc_property_write_v2(const gneiss::ipc::envelope& envelope,
                              ipc_property_write& output);
 [[nodiscard]] gneiss::error
 encode_ipc_property_result_v2(const ipc_property_write_result& response, std::uint32_t request_id,
-                              gneiss::ipc_envelope& output);
+                              gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_property_result_v2(const gneiss::ipc_envelope& envelope,
+decode_ipc_property_result_v2(const gneiss::ipc::envelope& envelope,
                               ipc_property_write_result& output);
-[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_property_operations() noexcept;
 
 } // namespace gneiss::host

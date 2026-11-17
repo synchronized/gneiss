@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/resource/scene/component_description.hpp>
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
@@ -79,16 +79,16 @@ decode_ipc_inspection_batch(std::span<const std::uint8_t> payload, ipc_inspectio
 
 [[nodiscard]] gneiss::error
 encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
-                               std::vector<gneiss::ipc_envelope>& output);
+                               std::vector<gneiss::ipc::envelope>& output);
 [[nodiscard]] gneiss::error
-decode_ipc_inspection_batch_v2(const gneiss::ipc_envelope& envelope,
+decode_ipc_inspection_batch_v2(const gneiss::ipc::envelope& envelope,
                                ipc_inspection_batch& output);
 [[nodiscard]] gneiss::error
 encode_ipc_inspection_resync(std::uint32_t request_id,
-                             gneiss::ipc_envelope& output) noexcept;
+                             gneiss::ipc::envelope& output) noexcept;
 [[nodiscard]] gneiss::error
-decode_ipc_inspection_resync(const gneiss::ipc_envelope& envelope) noexcept;
-[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
+decode_ipc_inspection_resync(const gneiss::ipc::envelope& envelope) noexcept;
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_inspection_operations() noexcept;
 
 } // namespace gneiss::host

@@ -2,6 +2,9 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_library(gneiss_protocol STATIC
+  src/dispatcher.cpp
+  include/gneiss/protocol/dispatcher.hpp
+  include/gneiss/protocol/domains.hpp
   include/gneiss/protocol/ipc_asset_protocol.hpp
   include/gneiss/protocol/ipc_control_protocol.hpp
   include/gneiss/protocol/ipc_inspection_protocol.hpp

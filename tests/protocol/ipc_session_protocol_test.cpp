@@ -13,9 +13,9 @@ namespace {
 [[nodiscard]] bool test_hello_and_negotiation() {
   const gneiss::host::ipc_session_hello request{
       .token = "secret",
-      .domains = {{.domain = gneiss::ipc_domain::control, .version = 2U},
-                  {.domain = gneiss::ipc_domain::property, .version = 1U}}};
-  gneiss::ipc_envelope envelope;
+      .domains = {{.domain = gneiss::protocol::domain::control, .version = 2U},
+                  {.domain = gneiss::protocol::domain::property, .version = 1U}}};
+  gneiss::ipc::envelope envelope;
   if (gneiss::host::encode_ipc_session_hello(request, false, 7U, envelope) !=
       gneiss::error::success) {
     return false;
@@ -25,10 +25,10 @@ namespace {
       decoded.token != request.token || decoded.domains.size() != 2U) {
     return false;
   }
-  constexpr std::array supported{gneiss::ipc_domain_capability{
-                                     .domain = gneiss::ipc_domain::control, .version = 1U},
-                                 gneiss::ipc_domain_capability{
-                                     .domain = gneiss::ipc_domain::log, .version = 1U}};
+  constexpr std::array supported{gneiss::protocol::domain_capability{
+                                     .domain = gneiss::protocol::domain::control, .version = 1U},
+                                 gneiss::protocol::domain_capability{
+                                     .domain = gneiss::protocol::domain::log, .version = 1U}};
   gneiss::host::ipc_session_hello acknowledgment;
   if (gneiss::host::negotiate_ipc_session_hello(decoded, "secret", supported, acknowledgment) !=
           gneiss::error::success ||
@@ -44,7 +44,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_session_messages() {
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const gneiss::host::ipc_session_heartbeat heartbeat{.nonce = 42U};
   if (gneiss::host::encode_ipc_session_heartbeat(heartbeat, false, 8U, envelope) !=
       gneiss::error::success) {
@@ -81,10 +81,10 @@ namespace {
 [[nodiscard]] bool test_rejections() {
   gneiss::host::ipc_session_hello request{
       .token = "secret",
-      .domains = {{.domain = gneiss::ipc_domain::control, .version = 1U}}};
+      .domains = {{.domain = gneiss::protocol::domain::control, .version = 1U}}};
   gneiss::host::ipc_session_hello output;
-  constexpr std::array supported{gneiss::ipc_domain_capability{
-      .domain = gneiss::ipc_domain::control, .version = 1U}};
+  constexpr std::array supported{gneiss::protocol::domain_capability{
+      .domain = gneiss::protocol::domain::control, .version = 1U}};
   if (gneiss::host::negotiate_ipc_session_hello(request, "wrong", supported, output) !=
       gneiss::error::invalid_argument) {
     return false;
@@ -94,7 +94,7 @@ namespace {
       gneiss::error::invalid_argument) {
     return false;
   }
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   return gneiss::host::encode_ipc_session_hello(request, false, 0U, envelope) ==
          gneiss::error::invalid_argument;
 }
@@ -103,9 +103,9 @@ namespace {
   const auto operations = gneiss::host::ipc_session_operations();
   return operations.size() == 4U &&
          operations[0].runtime_to_editor_kinds ==
-             gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request) &&
+             gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request) &&
          operations[0].editor_to_runtime_kinds ==
-             gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response) &&
+             gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response) &&
          operations[3].editor_to_runtime_kinds == 0U;
 }
 

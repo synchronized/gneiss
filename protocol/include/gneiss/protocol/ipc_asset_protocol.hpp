@@ -5,7 +5,7 @@
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_ASSET_IPC_ASSET_PROTOCOL_H_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <cstdint>
 #include <span>
@@ -67,9 +67,9 @@ struct ipc_asset_reload_result final {
 /** 取消只携带批次身份；作为事件不占用重载响应，终态由原请求返回。 */
 [[nodiscard]] gneiss::error encode_ipc_asset_cancel(std::uint64_t session,
                                                             std::uint64_t revision,
-                                                            gneiss::ipc_envelope& output);
+                                                            gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_asset_cancel(const gneiss::ipc_envelope& envelope,
+decode_ipc_asset_cancel(const gneiss::ipc::envelope& envelope,
                         ipc_asset_reload_request& output) noexcept;
 
 [[nodiscard]] gneiss::error
@@ -84,17 +84,17 @@ encode_ipc_asset_request(const ipc_asset_reload_request& request,
 
 [[nodiscard]] gneiss::error
 encode_ipc_asset_request_v2(const ipc_asset_reload_request& request, ipc_asset_operation operation,
-                            std::uint32_t request_id, gneiss::ipc_envelope& output);
+                            std::uint32_t request_id, gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_asset_request_v2(const gneiss::ipc_envelope& envelope,
+decode_ipc_asset_request_v2(const gneiss::ipc::envelope& envelope,
                             ipc_asset_reload_request& output);
 [[nodiscard]] gneiss::error
 encode_ipc_asset_result_v2(const ipc_asset_reload_result& response, ipc_asset_operation operation,
-                           std::uint32_t request_id, gneiss::ipc_envelope& output);
+                           std::uint32_t request_id, gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_asset_result_v2(const gneiss::ipc_envelope& envelope,
+decode_ipc_asset_result_v2(const gneiss::ipc::envelope& envelope,
                            ipc_asset_reload_result& output);
-[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_asset_operations() noexcept;
 
 } // namespace gneiss::host

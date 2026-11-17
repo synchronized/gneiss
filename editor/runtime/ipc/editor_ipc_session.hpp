@@ -7,7 +7,7 @@
 #include "runtime/ipc/editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
 
-#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
+#include <gneiss/engine/platform/ipc/transport.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -47,7 +47,7 @@ public:
   [[nodiscard]] bool is_authenticated() const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] bool supports_asset_reload() const noexcept;
-  [[nodiscard]] gneiss::ipc_endpoint endpoint() const;
+  [[nodiscard]] gneiss::ipc::endpoint endpoint() const;
   [[nodiscard]] const std::string& token() const noexcept;
 
 private:

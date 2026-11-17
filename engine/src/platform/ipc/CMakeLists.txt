@@ -3,12 +3,10 @@
 
 add_library(
   gneiss_ipc STATIC
-  ipc_dispatcher.cpp
-  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/ipc_dispatcher.hpp"
-  ipc_envelope.cpp
-  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/ipc_envelope.hpp"
-  ipc_transport.cpp
-  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/ipc_transport.hpp"
+  envelope.cpp
+  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/envelope.hpp"
+  transport.cpp
+  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/transport.hpp"
 )
 target_link_libraries(
   gneiss_ipc

@@ -344,23 +344,23 @@ gneiss::error decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
 namespace {
 
 constexpr auto inspection_event_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event);
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event);
 constexpr auto inspection_request_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request);
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request);
 constexpr std::array inspection_operations{
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(ipc_inspection_operation::snapshot),
         .editor_to_runtime_kinds = 0U,
         .runtime_to_editor_kinds = inspection_event_kind},
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(ipc_inspection_operation::resync),
         .editor_to_runtime_kinds = inspection_request_kind,
         .runtime_to_editor_kinds = 0U}};
 
-[[nodiscard]] bool matches_inspection(const gneiss::ipc_envelope& envelope,
+[[nodiscard]] bool matches_inspection(const gneiss::ipc::envelope& envelope,
                                       ipc_inspection_operation operation,
-                                      gneiss::ipc_message_kind kind) noexcept {
-  return envelope.domain == gneiss::ipc_domain::inspection &&
+                                      gneiss::ipc::message_kind kind) noexcept {
+  return envelope.domain == gneiss::protocol::domain::inspection &&
          envelope.operation == static_cast<std::uint16_t>(operation) && envelope.kind == kind;
 }
 
@@ -368,20 +368,20 @@ constexpr std::array inspection_operations{
 
 gneiss::error
 encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
-                               std::vector<gneiss::ipc_envelope>& output) {
+                               std::vector<gneiss::ipc::envelope>& output) {
   std::vector<std::vector<std::uint8_t>> payloads;
   auto operation = encode_ipc_inspection_batch_chunks(batch, payloads);
   if (operation != gneiss::error::success) {
     return operation;
   }
   {
-    std::vector<gneiss::ipc_envelope> encoded;
+    std::vector<gneiss::ipc::envelope> encoded;
     encoded.reserve(payloads.size());
     for (auto& payload : payloads) {
       encoded.push_back(
-          {.domain = gneiss::ipc_domain::inspection,
+          {.domain = gneiss::protocol::domain::inspection,
            .operation = static_cast<std::uint16_t>(ipc_inspection_operation::snapshot),
-           .kind = gneiss::ipc_message_kind::event,
+           .kind = gneiss::ipc::message_kind::event,
            .request_id = 0U,
            .payload = std::move(payload)});
     }
@@ -390,10 +390,10 @@ encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
   }
 }
 
-gneiss::error decode_ipc_inspection_batch_v2(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_inspection_batch_v2(const gneiss::ipc::envelope& envelope,
                                                      ipc_inspection_batch& output) {
   if (!matches_inspection(envelope, ipc_inspection_operation::snapshot,
-                          gneiss::ipc_message_kind::event) ||
+                          gneiss::ipc::message_kind::event) ||
       envelope.request_id != 0U) {
     return gneiss::error::invalid_argument;
   }
@@ -401,28 +401,28 @@ gneiss::error decode_ipc_inspection_batch_v2(const gneiss::ipc_envelope& envelop
 }
 
 gneiss::error encode_ipc_inspection_resync(std::uint32_t request_id,
-                                                   gneiss::ipc_envelope& output) noexcept {
+                                                   gneiss::ipc::envelope& output) noexcept {
   if (request_id == 0U) {
     return gneiss::error::invalid_argument;
   }
-  output = {.domain = gneiss::ipc_domain::inspection,
+  output = {.domain = gneiss::protocol::domain::inspection,
             .operation = static_cast<std::uint16_t>(ipc_inspection_operation::resync),
-            .kind = gneiss::ipc_message_kind::request,
+            .kind = gneiss::ipc::message_kind::request,
             .request_id = request_id,
             .payload = {}};
   return gneiss::error::success;
 }
 
 gneiss::error
-decode_ipc_inspection_resync(const gneiss::ipc_envelope& envelope) noexcept {
+decode_ipc_inspection_resync(const gneiss::ipc::envelope& envelope) noexcept {
   return matches_inspection(envelope, ipc_inspection_operation::resync,
-                            gneiss::ipc_message_kind::request) &&
+                            gneiss::ipc::message_kind::request) &&
                  envelope.request_id != 0U && envelope.payload.empty()
              ? gneiss::error::success
              : gneiss::error::invalid_argument;
 }
 
-std::span<const gneiss::ipc_operation_descriptor> ipc_inspection_operations() noexcept {
+std::span<const gneiss::protocol::operation_descriptor> ipc_inspection_operations() noexcept {
   return inspection_operations;
 }
 

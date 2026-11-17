@@ -356,25 +356,25 @@ gneiss::error decode_ipc_asset_result(std::span<const std::uint8_t> payload,
 namespace {
 
 constexpr auto request_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request);
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request);
 constexpr auto response_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response);
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response);
 constexpr std::array asset_operations{
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(ipc_asset_operation::progress),
         .editor_to_runtime_kinds = 0U,
         .runtime_to_editor_kinds =
-            gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event)},
-    gneiss::ipc_operation_descriptor{
+            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
+    gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
         .editor_to_runtime_kinds =
-            gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event),
+            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event),
         .runtime_to_editor_kinds = 0U},
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(ipc_asset_operation::reload),
         .editor_to_runtime_kinds = request_kind,
         .runtime_to_editor_kinds = response_kind},
-    gneiss::ipc_operation_descriptor{
+    gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(ipc_asset_operation::resync),
         .editor_to_runtime_kinds = request_kind,
         .runtime_to_editor_kinds = response_kind}};
@@ -382,7 +382,7 @@ constexpr std::array asset_operations{
 } // namespace
 
 gneiss::error encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
-                                              gneiss::ipc_envelope& output) {
+                                              gneiss::ipc::envelope& output) {
   if (session == 0U || revision == 0U)
     return gneiss::error::invalid_argument;
   mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -394,18 +394,18 @@ gneiss::error encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revis
   auto result = write_document(document.get(), root, payload);
   if (result != gneiss::error::success)
     return result;
-  output = {.domain = gneiss::ipc_domain::asset,
+  output = {.domain = gneiss::protocol::domain::asset,
             .operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
-            .kind = gneiss::ipc_message_kind::event,
+            .kind = gneiss::ipc::message_kind::event,
             .request_id = 0U,
             .payload = std::move(payload)};
   return gneiss::error::success;
 }
-gneiss::error decode_ipc_asset_cancel(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_asset_cancel(const gneiss::ipc::envelope& envelope,
                                               ipc_asset_reload_request& output) noexcept {
-  if (envelope.domain != gneiss::ipc_domain::asset ||
+  if (envelope.domain != gneiss::protocol::domain::asset ||
       envelope.operation != static_cast<std::uint16_t>(ipc_asset_operation::cancel) ||
-      envelope.kind != gneiss::ipc_message_kind::event || envelope.request_id != 0U ||
+      envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U ||
       envelope.payload.size() > 256U)
     return gneiss::error::invalid_argument;
   document_ptr document(yyjson_read(reinterpret_cast<const char*>(envelope.payload.data()),
@@ -422,7 +422,7 @@ gneiss::error decode_ipc_asset_cancel(const gneiss::ipc_envelope& envelope,
 gneiss::error encode_ipc_asset_request_v2(const ipc_asset_reload_request& request,
                                                   ipc_asset_operation operation,
                                                   std::uint32_t request_id,
-                                                  gneiss::ipc_envelope& output) {
+                                                  gneiss::ipc::envelope& output) {
   if (request_id == 0U || !known_operation(static_cast<std::uint16_t>(operation))) {
     return gneiss::error::invalid_argument;
   }
@@ -431,19 +431,19 @@ gneiss::error encode_ipc_asset_request_v2(const ipc_asset_reload_request& reques
   if (encoded != gneiss::error::success) {
     return encoded;
   }
-  output = {.domain = gneiss::ipc_domain::asset,
+  output = {.domain = gneiss::protocol::domain::asset,
             .operation = static_cast<std::uint16_t>(operation),
-            .kind = gneiss::ipc_message_kind::request,
+            .kind = gneiss::ipc::message_kind::request,
             .request_id = request_id,
             .payload = std::move(payload)};
   return gneiss::error::success;
 }
 
-gneiss::error decode_ipc_asset_request_v2(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_asset_request_v2(const gneiss::ipc::envelope& envelope,
                                                   ipc_asset_reload_request& output) {
-  if (envelope.domain != gneiss::ipc_domain::asset ||
+  if (envelope.domain != gneiss::protocol::domain::asset ||
       !known_operation(envelope.operation) ||
-      envelope.kind != gneiss::ipc_message_kind::request || envelope.request_id == 0U) {
+      envelope.kind != gneiss::ipc::message_kind::request || envelope.request_id == 0U) {
     return gneiss::error::invalid_argument;
   }
   return decode_ipc_asset_request(envelope.payload, output);
@@ -452,7 +452,7 @@ gneiss::error decode_ipc_asset_request_v2(const gneiss::ipc_envelope& envelope,
 gneiss::error encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
                                                  ipc_asset_operation operation,
                                                  std::uint32_t request_id,
-                                                 gneiss::ipc_envelope& output) {
+                                                 gneiss::ipc::envelope& output) {
   const bool progress = operation == ipc_asset_operation::progress;
   if (progress ? (request_id != 0U || (response.status != ipc_asset_apply_status::preparing &&
                                        response.status != ipc_asset_apply_status::uploading))
@@ -466,24 +466,24 @@ gneiss::error encode_ipc_asset_result_v2(const ipc_asset_reload_result& response
   if (encoded != gneiss::error::success) {
     return encoded;
   }
-  output = {.domain = gneiss::ipc_domain::asset,
+  output = {.domain = gneiss::protocol::domain::asset,
             .operation = static_cast<std::uint16_t>(operation),
-            .kind = progress ? gneiss::ipc_message_kind::event
-                             : gneiss::ipc_message_kind::response,
+            .kind = progress ? gneiss::ipc::message_kind::event
+                             : gneiss::ipc::message_kind::response,
             .request_id = request_id,
             .payload = std::move(payload)};
   return gneiss::error::success;
 }
 
-gneiss::error decode_ipc_asset_result_v2(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_asset_result_v2(const gneiss::ipc::envelope& envelope,
                                                  ipc_asset_reload_result& output) {
   const bool progress =
       envelope.operation == static_cast<std::uint16_t>(ipc_asset_operation::progress);
-  if (envelope.domain != gneiss::ipc_domain::asset ||
+  if (envelope.domain != gneiss::protocol::domain::asset ||
       (progress
-           ? envelope.kind != gneiss::ipc_message_kind::event || envelope.request_id != 0U
+           ? envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U
            : !known_operation(envelope.operation) ||
-                 envelope.kind != gneiss::ipc_message_kind::response ||
+                 envelope.kind != gneiss::ipc::message_kind::response ||
                  envelope.request_id == 0U))
     return gneiss::error::invalid_argument;
   ipc_asset_reload_result parsed;
@@ -497,7 +497,7 @@ gneiss::error decode_ipc_asset_result_v2(const gneiss::ipc_envelope& envelope,
   return gneiss::error::success;
 }
 
-std::span<const gneiss::ipc_operation_descriptor> ipc_asset_operations() noexcept {
+std::span<const gneiss::protocol::operation_descriptor> ipc_asset_operations() noexcept {
   return asset_operations;
 }
 

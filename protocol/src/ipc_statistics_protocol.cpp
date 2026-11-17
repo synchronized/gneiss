@@ -91,8 +91,8 @@ gneiss::error decode_ipc_runtime_statistics(std::span<const std::uint8_t> payloa
 namespace {
 
 constexpr auto statistics_event_kind =
-    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event);
-constexpr std::array statistics_operations{gneiss::ipc_operation_descriptor{
+    gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event);
+constexpr std::array statistics_operations{gneiss::protocol::operation_descriptor{
     .operation = static_cast<std::uint16_t>(ipc_statistics_operation::snapshot),
     .editor_to_runtime_kinds = 0U,
     .runtime_to_editor_kinds = statistics_event_kind}};
@@ -100,31 +100,31 @@ constexpr std::array statistics_operations{gneiss::ipc_operation_descriptor{
 } // namespace
 
 gneiss::error encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                                               gneiss::ipc_envelope& output) {
+                                               gneiss::ipc::envelope& output) {
   std::vector<std::uint8_t> payload;
   const auto operation = encode_ipc_runtime_statistics(statistics, payload);
   if (operation != gneiss::error::success) {
     return operation;
   }
-  output = {.domain = gneiss::ipc_domain::statistics,
+  output = {.domain = gneiss::protocol::domain::statistics,
             .operation = static_cast<std::uint16_t>(ipc_statistics_operation::snapshot),
-            .kind = gneiss::ipc_message_kind::event,
+            .kind = gneiss::ipc::message_kind::event,
             .request_id = 0U,
             .payload = std::move(payload)};
   return gneiss::error::success;
 }
 
-gneiss::error decode_ipc_statistics_v2(const gneiss::ipc_envelope& envelope,
+gneiss::error decode_ipc_statistics_v2(const gneiss::ipc::envelope& envelope,
                                                ipc_runtime_statistics& output) {
-  if (envelope.domain != gneiss::ipc_domain::statistics ||
+  if (envelope.domain != gneiss::protocol::domain::statistics ||
       envelope.operation != static_cast<std::uint16_t>(ipc_statistics_operation::snapshot) ||
-      envelope.kind != gneiss::ipc_message_kind::event || envelope.request_id != 0U) {
+      envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U) {
     return gneiss::error::invalid_argument;
   }
   return decode_ipc_runtime_statistics(envelope.payload, output);
 }
 
-std::span<const gneiss::ipc_operation_descriptor> ipc_statistics_operations() noexcept {
+std::span<const gneiss::protocol::operation_descriptor> ipc_statistics_operations() noexcept {
   return statistics_operations;
 }
 

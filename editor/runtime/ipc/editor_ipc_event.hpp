@@ -46,27 +46,27 @@ using runtime_ipc_event =
                  runtime_scene_progress_event>;
 
 [[nodiscard]] gneiss::error
-decode_runtime_session_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_session_event(const gneiss::ipc::envelope& envelope,
                              runtime_ipc_event& output);
 [[nodiscard]] gneiss::error
-decode_runtime_control_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_control_event(const gneiss::ipc::envelope& envelope,
                              runtime_ipc_event& output) noexcept;
 [[nodiscard]] gneiss::error
-decode_runtime_log_event(const gneiss::ipc_envelope& envelope, runtime_ipc_event& output);
+decode_runtime_log_event(const gneiss::ipc::envelope& envelope, runtime_ipc_event& output);
 [[nodiscard]] gneiss::error
-decode_runtime_inspection_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_inspection_event(const gneiss::ipc::envelope& envelope,
                                 runtime_ipc_event& output) noexcept;
 [[nodiscard]] gneiss::error
-decode_runtime_statistics_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_statistics_event(const gneiss::ipc::envelope& envelope,
                                 runtime_ipc_event& output) noexcept;
 [[nodiscard]] gneiss::error
-decode_runtime_property_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_property_event(const gneiss::ipc::envelope& envelope,
                               runtime_ipc_event& output) noexcept;
 [[nodiscard]] gneiss::error
-decode_runtime_asset_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_asset_event(const gneiss::ipc::envelope& envelope,
                            runtime_ipc_event& output) noexcept;
 [[nodiscard]] gneiss::error
-decode_runtime_scene_event(const gneiss::ipc_envelope& envelope,
+decode_runtime_scene_event(const gneiss::ipc::envelope& envelope,
                            runtime_ipc_event& output) noexcept;
 
 } // namespace gneiss::host

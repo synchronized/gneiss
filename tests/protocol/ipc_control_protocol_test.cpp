@@ -9,12 +9,12 @@ using namespace gneiss::host;
 namespace {
 
 [[nodiscard]] bool test_runtime_events() {
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   if (gneiss::host::encode_ipc_control_ready(envelope) != gneiss::error::success ||
-      envelope.domain != gneiss::ipc_domain::control ||
+      envelope.domain != gneiss::protocol::domain::control ||
       envelope.operation !=
           static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::ready) ||
-      envelope.kind != gneiss::ipc_message_kind::event || !envelope.payload.empty()) {
+      envelope.kind != gneiss::ipc::message_kind::event || !envelope.payload.empty()) {
     return false;
   }
   if (gneiss::host::encode_ipc_control_state(gneiss::host::ipc_control_state::paused, envelope) !=
@@ -31,7 +31,7 @@ namespace {
   for (const auto expected :
        {gneiss::host::ipc_control_operation::pause, gneiss::host::ipc_control_operation::resume,
         gneiss::host::ipc_control_operation::stop}) {
-    gneiss::ipc_envelope envelope;
+    gneiss::ipc::envelope envelope;
     if (gneiss::host::encode_ipc_control_request(expected, 7U, envelope) !=
         gneiss::error::success) {
       return false;
@@ -47,7 +47,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_rejections() {
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   if (gneiss::host::encode_ipc_control_request(gneiss::host::ipc_control_operation::ready, 1U,
                                                envelope) !=
           gneiss::error::invalid_argument ||
@@ -72,9 +72,9 @@ namespace {
   const auto operations = gneiss::host::ipc_control_operations();
   return operations.size() == 5U && operations[0].editor_to_runtime_kinds == 0U &&
          operations[0].runtime_to_editor_kinds ==
-             gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event) &&
+             gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event) &&
          operations[2].editor_to_runtime_kinds ==
-             gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request) &&
+             gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request) &&
          operations[2].runtime_to_editor_kinds == 0U;
 }
 

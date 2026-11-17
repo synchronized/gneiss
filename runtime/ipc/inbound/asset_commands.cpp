@@ -11,7 +11,7 @@ namespace {
 
 constexpr std::size_t asset_reload_budget = 8U;
 
-gneiss::error handle_asset_cancel(const gneiss::ipc_envelope& envelope,
+gneiss::error handle_asset_cancel(const gneiss::ipc::envelope& envelope,
                                           runtime_command_context& context) {
   ipc_asset_reload_request request;
   const auto decoded = decode_ipc_asset_cancel(envelope, request);
@@ -23,7 +23,7 @@ gneiss::error handle_asset_cancel(const gneiss::ipc_envelope& envelope,
   return gneiss::error::success;
 }
 
-gneiss::error handle_asset_reload(const gneiss::ipc_envelope& envelope,
+gneiss::error handle_asset_reload(const gneiss::ipc::envelope& envelope,
                                           runtime_command_context& context) {
   ipc_asset_reload_request request;
   const auto decoded = decode_ipc_asset_request_v2(envelope, request);
@@ -44,16 +44,16 @@ gneiss::error handle_asset_reload(const gneiss::ipc_envelope& envelope,
 
 gneiss::error register_runtime_asset_commands(runtime_command_router& router) noexcept {
   auto operation =
-      router.bind(gneiss::ipc_domain::asset,
+      router.bind(gneiss::protocol::domain::asset,
                   static_cast<std::uint16_t>(ipc_asset_operation::reload), handle_asset_reload);
   if (operation == gneiss::error::success) {
     operation =
-        router.bind(gneiss::ipc_domain::asset,
+        router.bind(gneiss::protocol::domain::asset,
                     static_cast<std::uint16_t>(ipc_asset_operation::resync), handle_asset_reload);
   }
   if (operation == gneiss::error::success)
     operation =
-        router.bind(gneiss::ipc_domain::asset,
+        router.bind(gneiss::protocol::domain::asset,
                     static_cast<std::uint16_t>(ipc_asset_operation::cancel), handle_asset_cancel);
   return operation;
 }

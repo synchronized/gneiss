@@ -13,7 +13,7 @@
 #include <gneiss/protocol/ipc_router.hpp>
 #include <gneiss/protocol/ipc_session_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
-#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
+#include <gneiss/engine/platform/ipc/transport.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
 #include <chrono>
@@ -24,7 +24,7 @@
 namespace gneiss::host {
 
 struct runtime_ipc_config final {
-  gneiss::ipc_endpoint endpoint;
+  gneiss::ipc::endpoint endpoint;
   std::string session_token;
   std::chrono::milliseconds handshake_timeout{5000};
   std::chrono::milliseconds heartbeat_timeout{10000};
@@ -62,7 +62,7 @@ public:
   [[nodiscard]] gneiss::error stop();
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
-  [[nodiscard]] bool supports_domain(gneiss::ipc_domain domain) const noexcept;
+  [[nodiscard]] bool supports_domain(std::uint16_t domain) const noexcept;
 
 private:
   struct implementation;

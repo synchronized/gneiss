@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/domains.hpp>
 #include "application.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/logging/default_service.hpp>
@@ -394,7 +395,7 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
   }
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
       context.scene != gneiss::scene_instance{} && time->elapsed_ns >= context.next_inspection_ns &&
-      context.ipc_session->supports_domain(gneiss::ipc_domain::inspection)) {
+      context.ipc_session->supports_domain(gneiss::protocol::domain::inspection)) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::host::runtime_scene_snapshot snapshot;
     const auto captured = context.scene_inspection->capture_scene(

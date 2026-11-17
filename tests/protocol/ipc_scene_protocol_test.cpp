@@ -24,7 +24,7 @@ void cleanup_updates() {
       .revision = 7U,
       .uri = "asset://scenes/main.scene.json",
   };
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   ipc_scene_progress invalid_progress;
   ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};
   draining.budget.emplace();
@@ -54,7 +54,7 @@ void cleanup_updates() {
     check(draining.budget->cleanup_pending);
   }
   check(encode_ipc_scene_progress(cleaned, 0U, envelope) == gneiss::error::success &&
-        envelope.kind == gneiss::ipc_message_kind::event);
+        envelope.kind == gneiss::ipc::message_kind::event);
   auto terminal = draining;
   check(apply_scene_cleanup_update(terminal, cleaned));
   check(terminal.phase == ipc_scene_phase::cancelled && terminal.message == draining.message &&
@@ -67,7 +67,7 @@ void cleanup_updates() {
 void run() {
   cleanup_updates();
   const ipc_scene_request source{5U, 7U, "asset://scenes/main.scene.json"};
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   ipc_scene_request request;
   check(encode_ipc_scene_request(source, ipc_scene_operation::load, 9U, envelope) ==
         gneiss::error::success);
@@ -79,7 +79,7 @@ void run() {
   check(encode_ipc_scene_request(source, ipc_scene_operation::cancel, 0U, envelope) ==
         gneiss::error::success);
   check(decode_ipc_scene_request(envelope, request) == gneiss::error::success);
-  envelope.kind = gneiss::ipc_message_kind::request;
+  envelope.kind = gneiss::ipc::message_kind::request;
   check(decode_ipc_scene_request(envelope, request) == gneiss::error::invalid_argument);
   auto invalid = source;
   invalid.uri = "asset://../escape";
@@ -94,14 +94,14 @@ void run() {
                                 .can_cancel = !scene_phase_terminal(phase),
                                 .message = "阶段信息"};
     check(encode_ipc_scene_progress(progress, 9U, envelope) == gneiss::error::success);
-    check(envelope.kind == (scene_phase_terminal(phase) ? gneiss::ipc_message_kind::response
-                                                        : gneiss::ipc_message_kind::event));
+    check(envelope.kind == (scene_phase_terminal(phase) ? gneiss::ipc::message_kind::response
+                                                        : gneiss::ipc::message_kind::event));
     ipc_scene_progress decoded;
     check(decode_ipc_scene_progress(envelope, decoded) == gneiss::error::success);
     check(decoded.phase == phase && decoded.total == progress.total &&
           decoded.source.uri == source.uri);
     check(encode_ipc_scene_progress(progress, 0U, envelope) == gneiss::error::success &&
-          envelope.kind == gneiss::ipc_message_kind::event);
+          envelope.kind == gneiss::ipc::message_kind::event);
     check(decode_ipc_scene_progress(envelope, decoded) == gneiss::error::success);
     check(!decoded.budget.has_value());
     progress.budget = ipc_scene_budget{

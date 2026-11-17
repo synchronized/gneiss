@@ -4,7 +4,7 @@
 #pragma once
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <optional>
 #include <string>
@@ -55,16 +55,16 @@ struct ipc_scene_progress {
 [[nodiscard]] gneiss::error encode_ipc_scene_request(const ipc_scene_request& value,
                                                              ipc_scene_operation operation,
                                                              std::uint32_t request_id,
-                                                             gneiss::ipc_envelope& output);
+                                                             gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_scene_request(const gneiss::ipc_envelope& envelope, ipc_scene_request& output);
+decode_ipc_scene_request(const gneiss::ipc::envelope& envelope, ipc_scene_request& output);
 /** 启动场景及进度使用事件；外部切换的唯一终态使用原 request_id 的响应；后续清理账本使用
  * request_id=0 的事件。 */
 [[nodiscard]] gneiss::error encode_ipc_scene_progress(const ipc_scene_progress& value,
                                                               std::uint32_t request_id,
-                                                              gneiss::ipc_envelope& output);
+                                                              gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_scene_progress(const gneiss::ipc_envelope& envelope, ipc_scene_progress& output);
-[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
+decode_ipc_scene_progress(const gneiss::ipc::envelope& envelope, ipc_scene_progress& output);
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_scene_operations() noexcept;
 } // namespace gneiss::host

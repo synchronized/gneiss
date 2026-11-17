@@ -10,7 +10,7 @@ namespace gneiss::host {
 
 gneiss::error
 make_inspection_resync_command(std::uint32_t request_id,
-                               gneiss::ipc_envelope& output) noexcept {
+                               gneiss::ipc::envelope& output) noexcept {
   return encode_ipc_inspection_resync(request_id, output);
 }
 

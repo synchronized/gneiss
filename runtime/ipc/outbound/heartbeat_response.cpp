@@ -10,7 +10,7 @@ namespace gneiss::host {
 
 gneiss::error make_heartbeat_response(const ipc_session_heartbeat& heartbeat,
                                               std::uint32_t request_id,
-                                              gneiss::ipc_envelope& output) {
+                                              gneiss::ipc::envelope& output) {
   return encode_ipc_session_heartbeat(heartbeat, true, request_id, output);
 }
 

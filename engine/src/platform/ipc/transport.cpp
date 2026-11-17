@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/ipc/ipc_transport.hpp>
+#include <gneiss/engine/platform/ipc/transport.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/error.hpp>
 
@@ -24,9 +24,9 @@
 #include <span>
 #include <utility>
 
-namespace gneiss {
+namespace gneiss::ipc {
 
-struct ipc_transport::implementation final {
+struct transport::implementation final {
   enum class mode : std::uint8_t { none, server, client };
 
   struct write_request final {
@@ -39,35 +39,35 @@ struct ipc_transport::implementation final {
     uv_tcp_t stream{};
   };
 
-  implementation(std::size_t events, std::size_t writes)
-      : event_capacity(events), write_capacity(writes) {}
+  implementation(std::size_t events, std::size_t writes, message_classifier classifier)
+      : event_capacity(events), write_capacity(writes), is_discardable(classifier) {}
 
   io::executor executor;
   uv_tcp_t listener{};
   uv_tcp_t stream{};
   uv_connect_t connect_request{};
   std::array<char, 64U * 1024U> read_buffer{};
-  ipc_envelope_decoder envelope_decoder;
+  envelope_decoder envelope_decoder;
   mutable std::mutex event_mutex;
-  std::deque<ipc_transport_event> events;
+  std::deque<transport_event> events;
   std::size_t event_capacity;
   std::size_t write_capacity;
+  message_classifier is_discardable;
   std::atomic_size_t pending_writes = 0U;
   std::atomic_size_t dropped_events = 0U;
-  std::atomic<ipc_transport_state> current_state = ipc_transport_state::stopped;
-  ipc_endpoint local_endpoint;
+  std::atomic<transport_state> current_state = transport_state::stopped;
+  ipc::endpoint local_endpoint;
   mode current_mode = mode::none;
   bool listener_initialized = false;
   bool stream_initialized = false;
   bool is_stopping = false;
 
-  static bool is_log(const ipc_transport_event& event) noexcept {
-    return event.type == ipc_transport_event_type::envelope_received &&
-           event.envelope.domain == ipc_domain::log &&
-           event.envelope.kind == ipc_message_kind::event;
+  bool is_low_priority(const transport_event& event) const noexcept {
+    return event.type == transport_event_type::envelope_received &&
+           is_discardable && is_discardable(event.envelope);
   }
 
-  void emit(ipc_transport_event event) {
+  void emit(transport_event event) {
     {
       const std::scoped_lock lock(event_mutex);
       if (event_capacity == 0U) {
@@ -75,16 +75,16 @@ struct ipc_transport::implementation final {
         return;
       }
       if (events.size() >= event_capacity) {
-        // 日志可丢弃，但不能挤掉属性结果、场景终态与控制确认。
-        const auto log = std::ranges::find_if(events, is_log);
-        if (!is_log(event) && log != events.end()) {
-          events.erase(log);
-        } else if (event.type == ipc_transport_event_type::envelope_received) {
+        // 可丢弃消息不能挤掉普通消息，分类由本地配置决定。
+        const auto discardable = std::ranges::find_if(events, [this](const auto& value) { return is_low_priority(value); });
+        if (!is_low_priority(event) && discardable != events.end()) {
+          events.erase(discardable);
+        } else if (event.type == transport_event_type::envelope_received) {
           dropped_events.fetch_add(1U, std::memory_order_relaxed);
           return;
         } else {
           const auto frame = std::ranges::find_if(events, [](const auto& pending) {
-            return pending.type == ipc_transport_event_type::envelope_received;
+            return pending.type == transport_event_type::envelope_received;
           });
           if (frame != events.end()) {
             events.erase(frame);
@@ -98,8 +98,8 @@ struct ipc_transport::implementation final {
     }
   }
 
-  void emit_status(ipc_transport_event_type type, error operation = error::success) {
-    ipc_transport_event event;
+  void emit_status(transport_event_type type, error operation = error::success) {
+    transport_event event;
     event.type = type;
     event.operation = operation;
     emit(std::move(event));
@@ -119,7 +119,7 @@ struct ipc_transport::implementation final {
     self->stream_initialized = false;
     self->envelope_decoder.reset();
     if (!self->is_stopping && self->current_mode == mode::server && self->listener_initialized) {
-      self->current_state.store(ipc_transport_state::listening, std::memory_order_release);
+      self->current_state.store(transport_state::listening, std::memory_order_release);
     }
   } catch (...) {
     gneiss::fatal_current_exception();
@@ -137,19 +137,19 @@ struct ipc_transport::implementation final {
     if (count > 0) {
       const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(buffer->base),
                                    static_cast<std::size_t>(count));
-      std::vector<ipc_envelope> envelopes;
+      std::vector<envelope> envelopes;
       const auto operation = self->envelope_decoder.append(bytes, envelopes);
       if (operation == error::success) {
         for (auto& envelope : envelopes) {
-          ipc_transport_event event;
-          event.type = ipc_transport_event_type::envelope_received;
+          transport_event event;
+          event.type = transport_event_type::envelope_received;
           event.envelope = std::move(envelope);
           self->emit(std::move(event));
         }
       }
       if (operation != error::success) {
-        self->emit_status(ipc_transport_event_type::error, operation);
-        self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
+        self->emit_status(transport_event_type::error, operation);
+        self->current_state.store(transport_state::failed, std::memory_order_release);
         self->close_stream();
         return;
       }
@@ -159,7 +159,7 @@ struct ipc_transport::implementation final {
       const auto operation =
           count == UV_EOF ? error::success : gneiss::io::detail::from_uv_status(static_cast<int>(count));
       if (!self->is_stopping) {
-        self->emit_status(ipc_transport_event_type::disconnected, operation);
+        self->emit_status(transport_event_type::disconnected, operation);
       }
       self->close_stream();
     }
@@ -171,8 +171,8 @@ struct ipc_transport::implementation final {
     const auto operation = gneiss::io::detail::from_uv_status(
         uv_read_start(reinterpret_cast<uv_stream_t*>(&stream), allocate_read_buffer, on_read));
     if (operation == error::success) {
-      current_state.store(ipc_transport_state::connected, std::memory_order_release);
-      emit_status(ipc_transport_event_type::connected);
+      current_state.store(transport_state::connected, std::memory_order_release);
+      emit_status(transport_event_type::connected);
     }
     return operation;
   }
@@ -187,7 +187,7 @@ struct ipc_transport::implementation final {
     auto* self = static_cast<implementation*>(server->data);
     if (status < 0 || self->is_stopping) {
       if (status < 0 && !self->is_stopping) {
-        self->emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(status));
+        self->emit_status(transport_event_type::error, gneiss::io::detail::from_uv_status(status));
       }
       return;
     }
@@ -196,7 +196,7 @@ struct ipc_transport::implementation final {
       const auto initialized = gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &rejected->stream));
       if (initialized.failed()) {
         delete rejected;
-        self->emit_status(ipc_transport_event_type::error, initialized);
+        self->emit_status(transport_event_type::error, initialized);
         return;
       }
       if (uv_accept(server, reinterpret_cast<uv_stream_t*>(&rejected->stream)) != 0) {
@@ -209,7 +209,7 @@ struct ipc_transport::implementation final {
 
     const auto initialized = gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &self->stream));
     if (initialized != error::success) {
-      self->emit_status(ipc_transport_event_type::error, initialized);
+      self->emit_status(transport_event_type::error, initialized);
       return;
     }
     self->stream_initialized = true;
@@ -217,13 +217,13 @@ struct ipc_transport::implementation final {
     const auto accepted =
         gneiss::io::detail::from_uv_status(uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
     if (accepted != error::success) {
-      self->emit_status(ipc_transport_event_type::error, accepted);
+      self->emit_status(transport_event_type::error, accepted);
       self->close_stream();
       return;
     }
     const auto reading = self->begin_read();
     if (reading != error::success) {
-      self->emit_status(ipc_transport_event_type::error, reading);
+      self->emit_status(transport_event_type::error, reading);
       self->close_stream();
     }
   } catch (...) {
@@ -236,15 +236,15 @@ struct ipc_transport::implementation final {
       return;
     }
     if (status < 0) {
-      self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-      self->emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(status));
+      self->current_state.store(transport_state::failed, std::memory_order_release);
+      self->emit_status(transport_event_type::error, gneiss::io::detail::from_uv_status(status));
       self->close_stream();
       return;
     }
     const auto reading = self->begin_read();
     if (reading != error::success) {
-      self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-      self->emit_status(ipc_transport_event_type::error, reading);
+      self->current_state.store(transport_state::failed, std::memory_order_release);
+      self->emit_status(transport_event_type::error, reading);
       self->close_stream();
     }
   } catch (...) {
@@ -255,7 +255,7 @@ struct ipc_transport::implementation final {
     auto* write = static_cast<write_request*>(request->data);
     write->owner->pending_writes.fetch_sub(1U, std::memory_order_release);
     if (status < 0 && !write->owner->is_stopping) {
-      write->owner->emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(status));
+      write->owner->emit_status(transport_event_type::error, gneiss::io::detail::from_uv_status(status));
     }
     delete write;
   } catch (...) {
@@ -265,7 +265,7 @@ struct ipc_transport::implementation final {
   void write(std::vector<std::uint8_t> bytes) {
     if (!stream_initialized || uv_is_closing(reinterpret_cast<uv_handle_t*>(&stream)) != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, error::not_ready);
+      emit_status(transport_event_type::error, error::not_ready);
       return;
     }
     auto* write = new write_request;
@@ -278,15 +278,15 @@ struct ipc_transport::implementation final {
         uv_write(&write->request, reinterpret_cast<uv_stream_t*>(&stream), &buffer, 1U, on_write);
     if (operation != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, gneiss::io::detail::from_uv_status(operation));
+      emit_status(transport_event_type::error, gneiss::io::detail::from_uv_status(operation));
       delete write;
     }
   }
 
-  error enqueue(std::vector<std::uint8_t> bytes, bool log) {
+  error enqueue(std::vector<std::uint8_t> bytes, bool discardable) {
     // 在同一个 CAS 中为非日志消息保留容量，避免并发日志发送占满控制通道。
     const auto limit =
-        write_capacity - (log ? (std::min)(write_capacity / 4U, std::size_t{16U}) : 0U);
+        write_capacity - (discardable ? (std::min)(write_capacity / 4U, std::size_t{16U}) : 0U);
     auto pending = pending_writes.load(std::memory_order_relaxed);
     do {
       if (pending >= limit) {
@@ -319,22 +319,22 @@ struct ipc_transport::implementation final {
   }
 };
 
-ipc_transport::ipc_transport(std::size_t event_capacity, std::size_t write_capacity)
-    : implementation_(std::make_unique<implementation>(event_capacity, write_capacity)) {}
+transport::transport(std::size_t event_capacity, std::size_t write_capacity, message_classifier classifier)
+    : implementation_(std::make_unique<implementation>(event_capacity, write_capacity, classifier)) {}
 
-ipc_transport::~ipc_transport() {
+transport::~transport() {
   if (implementation_) {
     (void)stop();
   }
 }
 
-error ipc_transport::start_server() {
+error transport::start_server() {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U) {
     return error::invalid_argument;
   }
   if (implementation_->current_state.load(std::memory_order_acquire) !=
-      ipc_transport_state::stopped) {
+      transport_state::stopped) {
     return error::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::server);
@@ -369,14 +369,14 @@ error ipc_transport::start_server() {
               uv_tcp_getsockname(&state->listener, reinterpret_cast<sockaddr*>(&local), &length));
           if (current == error::success) {
             state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
-            state->current_state.store(ipc_transport_state::listening, std::memory_order_release);
-            state->emit_status(ipc_transport_event_type::listening);
+            state->current_state.store(transport_state::listening, std::memory_order_release);
+            state->emit_status(transport_event_type::listening);
           }
         }
       }
       if (current != error::success) {
-        state->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-        state->emit_status(ipc_transport_event_type::error, current);
+        state->current_state.store(transport_state::failed, std::memory_order_release);
+        state->emit_status(transport_event_type::error, current);
         if (state->listener_initialized) {
           uv_close(reinterpret_cast<uv_handle_t*>(&state->listener), nullptr);
         }
@@ -389,19 +389,19 @@ error ipc_transport::start_server() {
   }
   if (operation != error::success) {
     (void)implementation_->executor.stop();
-    implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
+    implementation_->current_state.store(transport_state::stopped, std::memory_order_release);
   }
   return operation;
 }
 
-error ipc_transport::start_client(const ipc_endpoint& endpoint) {
+error transport::start_client(const ipc::endpoint& endpoint) {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U || endpoint.address != "127.0.0.1" ||
       endpoint.port == 0U) {
     return error::invalid_argument;
   }
   if (implementation_->current_state.load(std::memory_order_acquire) !=
-      ipc_transport_state::stopped) {
+      transport_state::stopped) {
     return error::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::client);
@@ -431,10 +431,10 @@ error ipc_transport::start_client(const ipc_endpoint& endpoint) {
         }
       }
       if (current == error::success) {
-        state->current_state.store(ipc_transport_state::connecting, std::memory_order_release);
+        state->current_state.store(transport_state::connecting, std::memory_order_release);
       } else {
-        state->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-        state->emit_status(ipc_transport_event_type::error, current);
+        state->current_state.store(transport_state::failed, std::memory_order_release);
+        state->emit_status(transport_event_type::error, current);
         state->close_stream();
       }
       completion->set_value(current);
@@ -445,34 +445,33 @@ error ipc_transport::start_client(const ipc_endpoint& endpoint) {
   }
   if (operation != error::success) {
     (void)implementation_->executor.stop();
-    implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
+    implementation_->current_state.store(transport_state::stopped, std::memory_order_release);
   }
   return operation;
 }
 
-error ipc_transport::send(const ipc_envelope& envelope) {
+error transport::send(const envelope& envelope) {
   if (!implementation_ || implementation_->current_state.load(std::memory_order_acquire) !=
-                              ipc_transport_state::connected) {
+                              transport_state::connected) {
     return error::not_ready;
   }
   std::vector<std::uint8_t> encoded;
-  const auto operation = encode_ipc_envelope(envelope, encoded);
+  const auto operation = encode_envelope(envelope, encoded);
   return operation == error::success
              ? implementation_->enqueue(std::move(encoded),
-                                        envelope.domain == ipc_domain::log &&
-                                            envelope.kind == ipc_message_kind::event)
+                                        implementation_->is_discardable && implementation_->is_discardable(envelope))
              : operation;
 }
 
-std::size_t ipc_transport::pending_write_count() const noexcept {
+std::size_t transport::pending_write_count() const noexcept {
   return implementation_ ? implementation_->pending_writes.load(std::memory_order_acquire) : 0U;
 }
 
-error ipc_transport::stop() {
+error transport::stop() {
   if (!implementation_ || !implementation_->executor.is_running()) {
     return error::not_ready;
   }
-  implementation_->current_state.store(ipc_transport_state::stopping, std::memory_order_release);
+  implementation_->current_state.store(transport_state::stopping, std::memory_order_release);
   auto operation =
       io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
         state->is_stopping = true;
@@ -486,14 +485,14 @@ error ipc_transport::stop() {
     return operation;
   }
   operation = implementation_->executor.stop();
-  implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
+  implementation_->current_state.store(transport_state::stopped, std::memory_order_release);
   implementation_->current_mode = implementation::mode::none;
   implementation_->listener_initialized = false;
   implementation_->stream_initialized = false;
   return operation;
 }
 
-std::size_t ipc_transport::poll_events(std::vector<ipc_transport_event>& output,
+std::size_t transport::drain_events(std::vector<transport_event>& output,
                                        std::size_t max_count) {
   if (!implementation_ || max_count == 0U) {
     return 0U;
@@ -510,7 +509,7 @@ std::size_t ipc_transport::poll_events(std::vector<ipc_transport_event>& output,
   }
 }
 
-ipc_endpoint ipc_transport::endpoint() const {
+endpoint transport::endpoint() const {
   if (!implementation_) {
     return {};
   }
@@ -519,13 +518,13 @@ ipc_endpoint ipc_transport::endpoint() const {
   }
 }
 
-ipc_transport_state ipc_transport::state() const noexcept {
+transport_state transport::state() const noexcept {
   return implementation_ ? implementation_->current_state.load(std::memory_order_acquire)
-                         : ipc_transport_state::failed;
+                         : transport_state::failed;
 }
 
-std::size_t ipc_transport::dropped_event_count() const noexcept {
+std::size_t transport::dropped_event_count() const noexcept {
   return implementation_ ? implementation_->dropped_events.load(std::memory_order_relaxed) : 0U;
 }
 
-} // namespace gneiss
+} // namespace gneiss::ipc

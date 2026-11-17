@@ -25,7 +25,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_log_and_statistics() {
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   const std::string event = R"({"level":"INFO","message":"运行中"})";
   std::string decoded_event;
   if (gneiss::host::encode_ipc_log_event(event, envelope) != gneiss::error::success ||
@@ -65,7 +65,7 @@ namespace {
       .changes = {{.type = gneiss::host::ipc_inspection_change_type::remove,
                    .id = {.value = 7U, .generation = 1U},
                    .node = {}}}};
-  std::vector<gneiss::ipc_envelope> envelopes;
+  std::vector<gneiss::ipc::envelope> envelopes;
   if (gneiss::host::encode_ipc_inspection_batch_v2(batch, envelopes) !=
           gneiss::error::success ||
       envelopes.size() != 1U) {
@@ -77,10 +77,10 @@ namespace {
       decoded.stamp.sequence != batch.stamp.sequence || decoded.changes.size() != 1U) {
     return false;
   }
-  gneiss::ipc_envelope resync;
+  gneiss::ipc::envelope resync;
   return gneiss::host::encode_ipc_inspection_resync(9U, resync) == gneiss::error::success &&
          gneiss::host::decode_ipc_inspection_resync(resync) == gneiss::error::success &&
-         resync.request_id == 9U && resync.kind == gneiss::ipc_message_kind::request;
+         resync.request_id == 9U && resync.kind == gneiss::ipc::message_kind::request;
 }
 
 [[nodiscard]] bool test_inspection_guid_boundary() {
@@ -138,7 +138,7 @@ namespace {
       .field_id = 7U,
       .expected_revision = 11U,
       .value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   gneiss::host::ipc_property_write decoded_command;
   if (gneiss::host::encode_ipc_property_write_v2(command, 21U, envelope) !=
           gneiss::error::success ||
@@ -171,7 +171,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_rules_and_rejections() {
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   gneiss::host::ipc_property_write command;
   command.session_id = 1U;
   command.command_id = 2U;

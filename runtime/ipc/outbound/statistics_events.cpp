@@ -9,7 +9,7 @@
 namespace gneiss::host {
 
 gneiss::error make_statistics_event(const ipc_runtime_statistics& statistics,
-                                            gneiss::ipc_envelope& output) noexcept {
+                                            gneiss::ipc::envelope& output) noexcept {
   return encode_ipc_statistics_v2(statistics, output);
 }
 

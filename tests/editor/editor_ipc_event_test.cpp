@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/domains.hpp>
 #include "runtime/ipc/editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
 
 using namespace gneiss::host;
 
 int main() {
-  gneiss::ipc_envelope envelope;
+  gneiss::ipc::envelope envelope;
   if (gneiss::host::encode_ipc_control_state(gneiss::host::ipc_control_state::paused, envelope) !=
       gneiss::error::success) {
     return 1;
@@ -39,7 +40,7 @@ int main() {
       std::get<gneiss::host::runtime_asset_result_event>(event).value.revision != 4U) {
     return 4;
   }
-  envelope.domain = gneiss::ipc_domain::property;
+  envelope.domain = gneiss::protocol::domain::property;
   return gneiss::host::decode_runtime_property_event(envelope, event) !=
                  gneiss::error::success
              ? 0

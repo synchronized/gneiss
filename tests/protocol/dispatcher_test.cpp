@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <array>
 #include <cstdint>
@@ -14,30 +14,29 @@ struct handler_state final {
   gneiss::error result = gneiss::error::success;
 };
 
-gneiss::error handle(void* context, const gneiss::ipc_envelope& envelope) noexcept {
+gneiss::error handle(void* context, const gneiss::ipc::envelope& envelope) noexcept {
   (void)envelope;
   auto& state = *static_cast<handler_state*>(context);
   ++state.call_count;
   return state.result;
 }
 
-[[nodiscard]] gneiss::ipc_envelope make_control_request() {
-  return {.domain = gneiss::ipc_domain::control,
+[[nodiscard]] gneiss::ipc::envelope make_control_request() {
+  return {.domain = gneiss::protocol::domain::control,
           .operation = 1U,
-          .kind = gneiss::ipc_message_kind::request,
+          .kind = gneiss::ipc::message_kind::request,
           .request_id = 1U,
           .payload = {}};
 }
 
 [[nodiscard]] bool test_registration() {
   handler_state state;
-  constexpr std::array operations{gneiss::ipc_operation_descriptor{
+  constexpr std::array operations{gneiss::protocol::operation_descriptor{
       .operation = 1U,
-      .editor_to_runtime_kinds =
-          gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request),
+      .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
       .runtime_to_editor_kinds = 0U}};
-  const gneiss::ipc_domain_descriptor descriptor{
-      .domain = gneiss::ipc_domain::control,
+  const gneiss::protocol::domain_descriptor descriptor{
+      .domain = gneiss::protocol::domain::control,
       .version = 1U,
       .capability = "control_v1",
       .max_payload_size = 32U,
@@ -45,23 +44,22 @@ gneiss::error handle(void* context, const gneiss::ipc_envelope& envelope) noexce
       .handler = handle,
       .handler_context = &state,
   };
-  gneiss::ipc_domain_registry registry;
-  if (registry.register_domain(descriptor) != gneiss::error::success ||
-      registry.size() != 1U ||
+  gneiss::protocol::dispatcher registry;
+  if (registry.register_domain(descriptor) != gneiss::error::success || registry.size() != 1U ||
       registry.register_domain(descriptor) != gneiss::error::invalid_state) {
     return false;
   }
   auto invalid_operations = operations;
   invalid_operations[0].operation = 0U;
   auto invalid = descriptor;
-  invalid.domain = gneiss::ipc_domain::property;
+  invalid.domain = gneiss::protocol::domain::property;
   invalid.operations = invalid_operations;
   if (registry.register_domain(invalid) != gneiss::error::invalid_argument) {
     return false;
   }
   constexpr std::array duplicate_operations{
-      gneiss::ipc_operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U},
-      gneiss::ipc_operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U}};
+      gneiss::protocol::operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U},
+      gneiss::protocol::operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U}};
   invalid.operations = duplicate_operations;
   if (registry.register_domain(invalid) != gneiss::error::invalid_argument) {
     return false;
@@ -72,13 +70,12 @@ gneiss::error handle(void* context, const gneiss::ipc_envelope& envelope) noexce
 
 [[nodiscard]] bool test_dispatch_guards_and_handler() {
   handler_state state;
-  constexpr std::array operations{gneiss::ipc_operation_descriptor{
+  constexpr std::array operations{gneiss::protocol::operation_descriptor{
       .operation = 1U,
-      .editor_to_runtime_kinds =
-          gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request),
+      .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
       .runtime_to_editor_kinds = 0U}};
-  gneiss::ipc_domain_registry registry;
-  if (registry.register_domain({.domain = gneiss::ipc_domain::control,
+  gneiss::protocol::dispatcher registry;
+  if (registry.register_domain({.domain = gneiss::protocol::domain::control,
                                 .version = 2U,
                                 .capability = "control_v2",
                                 .max_payload_size = 2U,
@@ -87,57 +84,57 @@ gneiss::error handle(void* context, const gneiss::ipc_envelope& envelope) noexce
                                 .handler_context = &state}) != gneiss::error::success) {
     return false;
   }
-  const gneiss::ipc_dispatcher dispatcher(registry);
+  const auto& dispatcher = registry;
   auto envelope = make_control_request();
-  gneiss::ipc_dispatch_context context{.remote_role = gneiss::ipc_peer_role::editor,
-                                               .handshake_complete = false,
-                                               .negotiated_domains = {}};
+  gneiss::protocol::dispatch_context context{.remote_role = gneiss::protocol::peer_role::editor,
+                                             .handshake_complete = false,
+                                             .negotiated_domains = {}};
   envelope.request_id = 0U;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::invalid_envelope) {
+      gneiss::protocol::dispatch_rejection::invalid_envelope) {
     return false;
   }
   envelope.request_id = 1U;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::handshake_required) {
+      gneiss::protocol::dispatch_rejection::handshake_required) {
     return false;
   }
   context.handshake_complete = true;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::domain_not_negotiated) {
+      gneiss::protocol::dispatch_rejection::domain_not_negotiated) {
     return false;
   }
-  constexpr std::array old_capability{gneiss::ipc_domain_capability{
-      .domain = gneiss::ipc_domain::control, .version = 1U}};
+  constexpr std::array old_capability{gneiss::protocol::domain_capability{
+      .domain = gneiss::protocol::domain::control, .version = 1U}};
   context.negotiated_domains = old_capability;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::unsupported_domain_version) {
+      gneiss::protocol::dispatch_rejection::unsupported_domain_version) {
     return false;
   }
-  constexpr std::array capability{gneiss::ipc_domain_capability{
-      .domain = gneiss::ipc_domain::control, .version = 2U}};
+  constexpr std::array capability{gneiss::protocol::domain_capability{
+      .domain = gneiss::protocol::domain::control, .version = 2U}};
   context.negotiated_domains = capability;
-  context.remote_role = gneiss::ipc_peer_role::runtime;
+  context.remote_role = gneiss::protocol::peer_role::runtime;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::wrong_direction) {
+      gneiss::protocol::dispatch_rejection::wrong_direction) {
     return false;
   }
-  context.remote_role = gneiss::ipc_peer_role::editor;
-  envelope.kind = gneiss::ipc_message_kind::response;
+  context.remote_role = gneiss::protocol::peer_role::editor;
+  envelope.kind = gneiss::ipc::message_kind::response;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::wrong_kind) {
+      gneiss::protocol::dispatch_rejection::wrong_kind) {
     return false;
   }
-  envelope.kind = gneiss::ipc_message_kind::request;
+  envelope.kind = gneiss::ipc::message_kind::request;
   envelope.operation = 9U;
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::unknown_operation) {
+      gneiss::protocol::dispatch_rejection::unknown_operation) {
     return false;
   }
   envelope.operation = 1U;
   envelope.payload = {1U, 2U, 3U};
   if (dispatcher.dispatch(envelope, context).rejection !=
-      gneiss::ipc_dispatch_rejection::payload_too_large) {
+      gneiss::protocol::dispatch_rejection::payload_too_large) {
     return false;
   }
   envelope.payload.clear();
@@ -146,20 +143,18 @@ gneiss::error handle(void* context, const gneiss::ipc_envelope& envelope) noexce
   }
   state.result = gneiss::error::not_ready;
   const auto failed = dispatcher.dispatch(envelope, context);
-  return failed.rejection == gneiss::ipc_dispatch_rejection::handler_failed &&
+  return failed.rejection == gneiss::protocol::dispatch_rejection::handler_failed &&
          failed.handler_result == gneiss::error::not_ready && state.call_count == 2U;
 }
 
 [[nodiscard]] bool test_session_and_unknown_domain() {
   handler_state state;
-  constexpr std::array operations{gneiss::ipc_operation_descriptor{
+  constexpr std::array operations{gneiss::protocol::operation_descriptor{
       .operation = 1U,
-      .editor_to_runtime_kinds =
-          gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response),
-      .runtime_to_editor_kinds =
-          gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request)}};
-  gneiss::ipc_domain_registry registry;
-  if (registry.register_domain({.domain = gneiss::ipc_domain::session,
+      .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response),
+      .runtime_to_editor_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request)}};
+  gneiss::protocol::dispatcher registry;
+  if (registry.register_domain({.domain = gneiss::protocol::domain::session,
                                 .version = 1U,
                                 .capability = {},
                                 .max_payload_size = 16U,
@@ -168,18 +163,18 @@ gneiss::error handle(void* context, const gneiss::ipc_envelope& envelope) noexce
                                 .handler_context = &state}) != gneiss::error::success) {
     return false;
   }
-  const gneiss::ipc_dispatcher dispatcher(registry);
-  gneiss::ipc_envelope envelope{.domain = gneiss::ipc_domain::session,
-                                        .operation = 1U,
-                                        .kind = gneiss::ipc_message_kind::request,
-                                        .request_id = 1U,
-                                        .payload = {}};
+  const auto& dispatcher = registry;
+  gneiss::ipc::envelope envelope{.domain = gneiss::protocol::domain::session,
+                                 .operation = 1U,
+                                 .kind = gneiss::ipc::message_kind::request,
+                                 .request_id = 1U,
+                                 .payload = {}};
   if (!dispatcher.dispatch(envelope, {}).accepted() || state.call_count != 1U) {
     return false;
   }
-  envelope.domain = static_cast<gneiss::ipc_domain>(99U);
+  envelope.domain = static_cast<std::uint16_t>(99U);
   return dispatcher.dispatch(envelope, {}).rejection ==
-         gneiss::ipc_dispatch_rejection::unknown_domain;
+         gneiss::protocol::dispatch_rejection::unknown_domain;
 }
 
 } // namespace

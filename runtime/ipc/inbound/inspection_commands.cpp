@@ -9,7 +9,7 @@
 namespace gneiss::host {
 namespace {
 
-gneiss::error handle_resync(const gneiss::ipc_envelope& envelope,
+gneiss::error handle_resync(const gneiss::ipc::envelope& envelope,
                                     runtime_command_context& context) noexcept {
   const auto operation = decode_ipc_inspection_resync(envelope);
   if (operation == gneiss::error::success) {
@@ -22,7 +22,7 @@ gneiss::error handle_resync(const gneiss::ipc_envelope& envelope,
 
 gneiss::error
 register_runtime_inspection_commands(runtime_command_router& router) noexcept {
-  return router.bind(gneiss::ipc_domain::inspection,
+  return router.bind(gneiss::protocol::domain::inspection,
                      static_cast<std::uint16_t>(ipc_inspection_operation::resync), handle_resync);
 }
 

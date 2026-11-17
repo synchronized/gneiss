@@ -5,7 +5,7 @@
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_SESSION_IPC_SESSION_PROTOCOL_H_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/ipc_dispatcher.hpp>
+#include <gneiss/protocol/dispatcher.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -42,7 +42,7 @@ private:
 
 struct ipc_session_hello final {
   std::string token;
-  std::vector<gneiss::ipc_domain_capability> domains;
+  std::vector<gneiss::protocol::domain_capability> domains;
 };
 
 struct ipc_session_heartbeat final {
@@ -61,38 +61,38 @@ struct ipc_session_shutdown final {
 [[nodiscard]] gneiss::error encode_ipc_session_hello(const ipc_session_hello& message,
                                                              bool response,
                                                              std::uint32_t request_id,
-                                                             gneiss::ipc_envelope& output);
+                                                             gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_session_hello(const gneiss::ipc_envelope& envelope, ipc_session_hello& output);
+decode_ipc_session_hello(const gneiss::ipc::envelope& envelope, ipc_session_hello& output);
 
 [[nodiscard]] gneiss::error
 encode_ipc_session_heartbeat(const ipc_session_heartbeat& message, bool response,
-                             std::uint32_t request_id, gneiss::ipc_envelope& output);
+                             std::uint32_t request_id, gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_session_heartbeat(const gneiss::ipc_envelope& envelope,
+decode_ipc_session_heartbeat(const gneiss::ipc::envelope& envelope,
                              ipc_session_heartbeat& output) noexcept;
 
 [[nodiscard]] gneiss::error encode_ipc_session_error(const ipc_session_error& message,
                                                              std::uint32_t request_id,
-                                                             gneiss::ipc_envelope& output);
+                                                             gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_session_error(const gneiss::ipc_envelope& envelope, ipc_session_error& output);
+decode_ipc_session_error(const gneiss::ipc::envelope& envelope, ipc_session_error& output);
 
 [[nodiscard]] gneiss::error
 encode_ipc_session_shutdown(const ipc_session_shutdown& message,
-                            gneiss::ipc_envelope& output);
+                            gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error
-decode_ipc_session_shutdown(const gneiss::ipc_envelope& envelope,
+decode_ipc_session_shutdown(const gneiss::ipc::envelope& envelope,
                             ipc_session_shutdown& output) noexcept;
 
 /** 校验 Hello 令牌并按请求顺序协商双方均支持的域版本。 */
 [[nodiscard]] gneiss::error negotiate_ipc_session_hello(
     const ipc_session_hello& request, std::string_view expected_token,
-    std::span<const gneiss::ipc_domain_capability> supported_domains,
+    std::span<const gneiss::protocol::domain_capability> supported_domains,
     ipc_session_hello& acknowledgment);
 
 /** 返回 Session 域的固定方向与消息语义规则。 */
-[[nodiscard]] std::span<const gneiss::ipc_operation_descriptor>
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_session_operations() noexcept;
 
 } // namespace gneiss::host
