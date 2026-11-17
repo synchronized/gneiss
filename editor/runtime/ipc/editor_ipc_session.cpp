@@ -263,26 +263,24 @@ gneiss::error editor_ipc_session::send_property_write(const ipc_property_write& 
                                                      : operation;
 }
 
-gneiss::error editor_ipc_session::send_asset_cancel(std::uint64_t session,
-                                                            std::uint64_t revision) {
+gneiss::error editor_ipc_session::send_asset_cancel(std::uint64_t session, std::uint64_t revision) {
   if (!is_authenticated() || !supports_asset_reload())
     return gneiss::error::not_ready;
-  gneiss::ipc::envelope envelope;
-  const auto encoded = encode_ipc_asset_cancel(session, revision, envelope);
-  return encoded == gneiss::error::success ? implementation_->send(std::move(envelope))
-                                                   : encoded;
+  auto encoded = protocol::encode(asset_cancel, ipc_asset_cancel_request{session, revision});
+  return encoded ? implementation_->send(std::move(*encoded)) : encoded.error().error;
 }
 
 gneiss::error editor_ipc_session::send_asset_reload(const ipc_asset_reload_request& command,
-                                                            ipc_asset_operation operation) {
+                                                    ipc_asset_operation operation) {
   if (!is_authenticated() || !supports_asset_reload()) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc::envelope envelope;
+  if (operation != ipc_asset_operation::reload && operation != ipc_asset_operation::resync)
+    return error::invalid_argument;
   auto encoded =
-      make_asset_reload_command(command, operation, implementation_->next_request_id++, envelope);
-  return encoded == gneiss::error::success ? implementation_->send(std::move(envelope))
-                                                   : encoded;
+      protocol::encode(operation == ipc_asset_operation::reload ? asset_reload : asset_resync,
+                       command, implementation_->next_request_id++);
+  return encoded ? implementation_->send(std::move(*encoded)) : encoded.error().error;
 }
 
 bool editor_ipc_session::is_authenticated() const noexcept {

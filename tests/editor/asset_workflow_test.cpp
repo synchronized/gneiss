@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include "../support/async_document.hpp"
 #include "../support/async_editor_save.hpp"
 #include "../support/async_mesh_edit.hpp"
@@ -56,6 +58,7 @@ bool wait_for(gneiss::host::runtime_process& process, Predicate predicate) {
 }
 
 int main() try {
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
   using namespace gneiss;
   using namespace gneiss::editor;
   temporary_project temporary{

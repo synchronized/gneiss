@@ -22,7 +22,6 @@ add_library(
   runtime/ipc/inbound/session_events.cpp
   runtime/ipc/inbound/statistics_events.cpp
   runtime/ipc/outbound/editor_ipc_outbound.hpp
-  runtime/ipc/outbound/asset_reload_command.cpp
   runtime/ipc/outbound/heartbeat_command.cpp
   runtime/ipc/outbound/inspection_resync_command.cpp
   runtime/ipc/outbound/pause_command.cpp

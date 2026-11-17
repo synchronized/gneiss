@@ -3,6 +3,7 @@
 
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
 #include <gneiss/protocol/ipc_control_protocol.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
@@ -97,6 +98,93 @@ error register_types() {
                .property<&host::ipc_scene_progress::budget>(meta::property_id{7}, "budget")(
                    serialization::field_policy{.required = false})
                .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::enumeration<host::ipc_asset_type>()
+               .name("gneiss.protocol.ipc_asset_type")
+               .guid(guid::literal("a4af4397-04d0-4c88-8d9a-c2033e05fa36"))
+               .value("texture", host::ipc_asset_type::texture)
+               .value("material", host::ipc_asset_type::material)
+               .value("static_mesh", host::ipc_asset_type::static_mesh)
+               .value("scene", host::ipc_asset_type::scene)
+               .value("prefab", host::ipc_asset_type::prefab)
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::enumeration<host::ipc_asset_apply_status>()
+               .name("gneiss.protocol.ipc_asset_apply_status")
+               .guid(guid::literal("06910b77-0bab-4db5-80d4-bf787c425029"))
+               .value("applied", host::ipc_asset_apply_status::applied)
+               .value("failed", host::ipc_asset_apply_status::failed)
+               .value("stale", host::ipc_asset_apply_status::stale)
+               .value("restart_required", host::ipc_asset_apply_status::restart_required)
+               .value("preparing", host::ipc_asset_apply_status::preparing)
+               .value("uploading", host::ipc_asset_apply_status::uploading)
+               .value("cancelled", host::ipc_asset_apply_status::cancelled)
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_asset_revision>()
+               .property<&host::ipc_asset_revision::uri>(meta::property_id{1}, "uri")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_asset_revision::type>(meta::property_id{2}, "type")(
+                   serialization::field_policy{.required = true, .enum_name = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_asset_reload_request>()
+          .property<&host::ipc_asset_reload_request::session_id>(
+              meta::property_id{1}, "session_id")(serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_request::revision>(meta::property_id{2}, "revision")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_request::assets>(meta::property_id{3}, "assets")(
+              serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_asset_cancel_request>()
+          .property<&host::ipc_asset_cancel_request::session_id>(
+              meta::property_id{1}, "session_id")(serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_cancel_request::revision>(meta::property_id{2}, "revision")(
+              serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_asset_item_result>()
+               .property<&host::ipc_asset_item_result::asset>(meta::property_id{1}, "asset")(
+                   serialization::field_policy{.required = true})
+               .property<[](const host::ipc_asset_item_result& v) { return v.operation.code(); },
+                         [](host::ipc_asset_item_result& v, std::int32_t code) {
+                           v.operation = error{code};
+                         }>(meta::property_id{2},
+                            "operation")(serialization::field_policy{.required = true})
+               .property<&host::ipc_asset_item_result::applied>(meta::property_id{3}, "applied")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::ipc_asset_reload_result>()
+          .property<&host::ipc_asset_reload_result::session_id>(meta::property_id{1}, "session_id")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_result::revision>(meta::property_id{2}, "revision")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_result::status>(meta::property_id{3}, "status")(
+              serialization::field_policy{.required = true, .enum_name = true})
+          .property<&host::ipc_asset_reload_result::message>(meta::property_id{4}, "message")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_result::can_cancel>(meta::property_id{5}, "can_cancel")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_result::completed_assets>(meta::property_id{6},
+                                                                      "completed_assets")(
+              serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_result::total_assets>(
+              meta::property_id{7}, "total_assets")(serialization::field_policy{.required = true})
+          .property<&host::ipc_asset_reload_result::items>(meta::property_id{8}, "items")(
+              serialization::field_policy{.required = true})
+          .commit();
   if (status.failed())
     return status;
   return meta::registration::type<statistics>()

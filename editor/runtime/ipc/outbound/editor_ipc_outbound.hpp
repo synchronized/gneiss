@@ -26,9 +26,6 @@ make_inspection_resync_command(std::uint32_t request_id,
 [[nodiscard]] gneiss::error
 make_property_write_command(const ipc_property_write& command,
                             gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error
-make_asset_reload_command(const ipc_asset_reload_request& command, ipc_asset_operation operation,
-                          std::uint32_t request_id, gneiss::ipc::envelope& output) noexcept;
 
 } // namespace gneiss::host
 

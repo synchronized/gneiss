@@ -35,17 +35,17 @@ int main() {
       .revision = 4U,
       .status = gneiss::host::ipc_asset_apply_status::applied,
       .message = "已应用"};
-  if (gneiss::host::encode_ipc_asset_result_v2(asset_result,
-                                               gneiss::host::ipc_asset_operation::reload, 8U,
-                                               envelope) != gneiss::error::success ||
-      gneiss::host::decode_runtime_asset_event(envelope, event) != gneiss::error::success ||
+  auto encoded_asset =
+      gneiss::protocol::encode(gneiss::host::asset_reload_result, asset_result, 8U);
+  if (!encoded_asset)
+    return 4;
+  envelope = std::move(*encoded_asset);
+  if (gneiss::host::decode_runtime_asset_event(envelope, event) != gneiss::error::success ||
       !std::holds_alternative<gneiss::host::runtime_asset_result_event>(event) ||
       std::get<gneiss::host::runtime_asset_result_event>(event).value.revision != 4U) {
     return 4;
   }
   envelope.domain = gneiss::protocol::domain::property;
-  return gneiss::host::decode_runtime_property_event(envelope, event) !=
-                 gneiss::error::success
-             ? 0
-             : 5;
+  return gneiss::host::decode_runtime_property_event(envelope, event) != gneiss::error::success ? 0
+                                                                                                : 5;
 }

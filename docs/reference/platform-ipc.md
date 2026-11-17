@@ -61,3 +61,17 @@ Runtime 通过 `router.bind(scene_load, handler)` 注册处理器，签名为
 dispatch 保留原域回调方式供未迁移消费者使用。协议规则表与业务处理器表仍分离，
 不是所有域都已完成类型化绑定。原 Scene 四个 encode/decode 包装已移除。
 编解码入口保留序列化诊断；现有 dispatch_outcome 的处理失败仍只携带 error。
+
+## Asset 类型化消息
+
+Asset v5 使用 `asset_reload`、`asset_resync`、`asset_cancel`、`asset_reload_result`、
+`asset_resync_result`、`asset_progress` 六个消息描述；方向表由描述生成。
+Runtime 类型化处理器接收已校验的请求，不读取 envelope。每类命令的队列上限仍为 8 条。
+请求上限 1024 项、结果上限 256 项，继续检查资源分组、重复 URI、进度范围和部分成功语义。
+取消仅传 session_id/revision，大小上限 256 字节；其他消息上限 256 KiB。
+
+结果 items 直接保存 `{asset: {uri, type}, operation, applied}`，operation 是有符号错误码。
+枚举 type/status 按注册名称编码，error 通过字段 getter/setter 转换；不增加专用 JSON 编码器。
+preparing/uploading 只允许作为进度事件，其他有效状态作为结果响应；can_cancel 仅允许 preparing。
+取消不占用原请求响应，终态仍回到原 request_id。v4 与 v5 不兼容，同版本宿主需配套升级。
+旧 Asset 编解码函数及宿主转发发送包装已移除。

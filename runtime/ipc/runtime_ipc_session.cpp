@@ -320,10 +320,14 @@ runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_result& r
        implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc::envelope envelope;
-  const auto encoded = make_asset_reload_result(response, operation, request_id, envelope);
-  return encoded == gneiss::error::success ? implementation_->transport.send(envelope)
-                                                   : encoded;
+  if (operation != ipc_asset_operation::reload && operation != ipc_asset_operation::resync &&
+      operation != ipc_asset_operation::progress)
+    return error::invalid_argument;
+  const auto& message = operation == ipc_asset_operation::progress ? asset_progress
+                        : operation == ipc_asset_operation::reload ? asset_reload_result
+                                                                   : asset_resync_result;
+  auto encoded = protocol::encode(message, response, request_id);
+  return encoded ? implementation_->transport.send(*encoded) : encoded.error().error;
 }
 
 gneiss::error runtime_ipc_session::notify_scene_progress(const ipc_scene_progress& value,

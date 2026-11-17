@@ -96,14 +96,19 @@ int main() {
                                         .revision = 4U,
                                         .assets = {{.uri = "asset://imported/a/mesh-0.gneiss-mesh",
                                                     .type = ipc_asset_type::static_mesh}}};
-  if (encode_ipc_asset_request_v2(assets, ipc_asset_operation::reload, 10U, envelope) !=
-          gneiss::error::success ||
-      !router.dispatch(envelope, dispatch_context, context).accepted() ||
+  auto encoded_asset = protocol::encode(asset_reload, assets, 10U);
+  if (!encoded_asset)
+    return 4;
+  envelope = std::move(*encoded_asset);
+  if (!router.dispatch(envelope, dispatch_context, context).accepted() ||
       actions.asset_reloads.size() != 1U || actions.asset_reloads.front().request_id != 10U) {
     return 4;
   }
-  if (encode_ipc_asset_cancel(3U, 4U, envelope) != gneiss::error::success ||
-      !router.dispatch(envelope, dispatch_context, context).accepted() ||
+  auto encoded_cancel = protocol::encode(asset_cancel, ipc_asset_cancel_request{3, 4});
+  if (!encoded_cancel)
+    return 5;
+  envelope = std::move(*encoded_cancel);
+  if (!router.dispatch(envelope, dispatch_context, context).accepted() ||
       actions.asset_cancels.size() != 1U || actions.asset_cancels.front().session_id != 3U ||
       actions.asset_cancels.front().revision != 4U)
     return 5;
@@ -162,5 +167,29 @@ int main() {
   if (router.dispatch(envelope, scene_dispatch, context).handler_result != error::not_ready ||
       actions.scene_commands.size() != 8)
     return 18;
+  auto resync_message = protocol::encode(asset_resync, assets, 20U);
+  if (!resync_message || !router.dispatch(*resync_message, dispatch_context, context).accepted() ||
+      actions.asset_reloads.back().operation != ipc_asset_operation::resync)
+    return 19;
+  const auto asset_count = actions.asset_reloads.size();
+  resync_message->payload = {'{', '}'};
+  if (router.dispatch(*resync_message, dispatch_context, context).accepted() ||
+      actions.asset_reloads.size() != asset_count)
+    return 20;
+  auto reload_message = protocol::encode(asset_reload, assets, 21U);
+  if (!reload_message)
+    return 21;
+  actions.asset_reloads.resize(8);
+  if (router.dispatch(*reload_message, dispatch_context, context).handler_result !=
+          error::not_ready ||
+      actions.asset_reloads.size() != 8)
+    return 22;
+  actions.asset_cancels.resize(8);
+  auto cancel_asset = protocol::encode(asset_cancel, ipc_asset_cancel_request{3, 4});
+  if (!cancel_asset ||
+      router.dispatch(*cancel_asset, dispatch_context, context).handler_result !=
+          error::not_ready ||
+      actions.asset_cancels.size() != 8)
+    return 23;
   return 0;
 }

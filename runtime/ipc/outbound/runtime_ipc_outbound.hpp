@@ -47,9 +47,6 @@ make_property_write_result_event(const ipc_property_write_result& response,
                                  std::uint32_t request_id,
                                  gneiss::ipc::envelope& output) noexcept;
 [[nodiscard]] gneiss::error
-make_asset_reload_result(const ipc_asset_reload_result& response, ipc_asset_operation operation,
-                         std::uint32_t request_id, gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error
 make_statistics_event(const ipc_runtime_statistics& statistics,
                       gneiss::ipc::envelope& output) noexcept;
 

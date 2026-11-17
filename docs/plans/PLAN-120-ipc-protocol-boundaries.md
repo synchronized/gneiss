@@ -105,3 +105,22 @@ Scene 同一 load 操作的 request/response 必须可区分；终态响应和�
 错误方向/负载不入队和队满。未执行静态、Linux/Web 或远端验证。
 本次不改线格式；域协议规则表与处理器表仍分离，其他域使用旧入口，整体类型化消息注册任务
 仍未标记完成。下一步按实际收益评估迁移，不以所有负载都改成反射作为完成标准。
+
+## Asset 类型化迁移
+
+复用 Scene 消息描述，迁移 reload/resync 请求、cancel 事件、两种结果响应及 progress 事件。
+取消使用仅含 session_id/revision 的描述；Runtime 保留现有队列表示，不另建权威状态。
+逐项结果直接反射嵌套 asset，operation 经 getter/setter 转为整数码，域版本升为 v5。
+保留请求 1024 项、结果 256 项、URI 去重和资源分组规则，以及各类 8 条待处理命令的背压。
+保留部分成功语义；进度仅 preparing/uploading，can_cancel 仅在 preparing 允许。
+移除手写 JSON、旧编解码入口及仅转发的宿主发送包装；不扩展通用消息框架。
+
+### Asset 验收
+
+- [x] 六种消息描述、反射字段注册及实际 Runtime 类型化处理器接入。
+- [x] 删除手写 JSON、旧编解码入口及两个仅转发的宿主发送源文件。
+- [x] 保留部分成功、分组/去重、批次限制、取消和背压语义。
+- [x] Windows Clang Debug 共享构建及 19 项相关测试通过，包含 Editor 资产重导入实际工作流。
+
+资产工作流测试补齐冻结前协议注册，与宿主入口一致。未执行静态、Linux/Web 和远端验证。
+Property/Inspection/Session/Log 尚未完成类型化迁移，PLAN-120 整体仍在推进。
