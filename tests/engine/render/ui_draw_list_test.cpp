@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
 #include "function/asset/detail/asset_construction.hpp"
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/render/ui_draw_list.hpp>
 
@@ -39,11 +39,11 @@ int main() {
                       gneiss::ui_vertex{{0.0F, 1.0F}, {0.0F, 1.0F}, UINT32_C(0xffffffff)}};
   std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
   std::array commands{gneiss::ui_draw_command{.texture = texture,
-                                                      .clip_min = {0.0F, 0.0F},
-                                                      .clip_max = {640.0F, 480.0F},
-                                                      .first_index = 0U,
-                                                      .index_count = 3U,
-                                                      .vertex_offset = 0U}};
+                                              .clip_min = {0.0F, 0.0F},
+                                              .clip_max = {640.0F, 480.0F},
+                                              .first_index = 0U,
+                                              .index_count = 3U,
+                                              .vertex_offset = 0U}};
   gneiss::ui_draw_view desc;
   desc.display_width = 640.0F;
   desc.display_height = 480.0F;
@@ -101,7 +101,7 @@ int main() {
       draw_list.replace(desc, other_resources) != gneiss::error::invalid_handle)
     return fail_target("accept local target, reject foreign service");
   gneiss::render::frame_request request{
-      .window = {.width = 64, .height = 64}, .views = {{.scene = *scene}}, .ui = draw_list};
+      .surface = {.width = 64, .height = 64}, .views = {{.scene = *scene}}, .ui = draw_list};
   auto missing_producer = resources.render(std::move(request));
   if (missing_producer || missing_producer.error() != gneiss::error::invalid_argument ||
       request.ui.commands().size() != 1)

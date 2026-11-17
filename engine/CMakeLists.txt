@@ -38,7 +38,8 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/src/platform/files/memory_file_backend.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/window/service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/service.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/native_window_info.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/native_handle.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/surface_state.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/configuration.hpp"
 )
 

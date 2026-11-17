@@ -13,7 +13,7 @@
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/statistics.hpp>
 #include <gneiss/engine/function/render/ui_draw_list.hpp>
-#include <gneiss/engine/platform/window/native_window_info.hpp>
+#include <gneiss/engine/platform/window/native_handle.hpp>
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>
 #include <granit/pipeline/debug_draw_list.hpp>
@@ -49,8 +49,10 @@
 
 namespace gneiss::render::backend::granit {
 struct backend::implementation final {
-  error initialize_gpu(const gneiss::window::native_window_info&, std::span<const std::byte>, float,
-                       float);
+  error initialize_gpu(const gneiss::window::native_handle&, window::surface_state,
+                       std::span<const std::byte>, float, float);
+  std::uint64_t applied_surface_revision_{};
+  bool recreate_pending_{};
   error shutdown_gpu(device_stats&);
   error execute_frame(gneiss::render::detail::frame_packet&, execution_result&);
   error execute_view(gneiss::render::detail::frame_packet&,
@@ -811,9 +813,11 @@ void backend::implementation::release_invalid_materials(
   }
 }
 
-gneiss::error backend::implementation::initialize_gpu(
-    const gneiss::window::native_window_info& window, std::span<const std::byte> environment_asset,
-    float environment_intensity, float environment_rotation_radians) {
+gneiss::error backend::implementation::initialize_gpu(const gneiss::window::native_handle& window,
+                                                      window::surface_state surface,
+                                                      std::span<const std::byte> environment_asset,
+                                                      float environment_intensity,
+                                                      float environment_rotation_radians) {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .presentation = ::granit::presentation_mode::enabled});
@@ -838,15 +842,15 @@ gneiss::error backend::implementation::initialize_gpu(
   texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
-  case gneiss::window::native_window_backend::win32:
+  case gneiss::window::native_backend::win32:
     result = surface_.initialize(renderer_,
                                  ::granit::surface_desc::win32(window.display, window.window));
     break;
-  case gneiss::window::native_window_backend::xcb:
+  case gneiss::window::native_backend::xcb:
     result = surface_.initialize(renderer_,
                                  ::granit::surface_desc::xcb(window.display, window.xcb_window));
     break;
-  case gneiss::window::native_window_backend::wayland:
+  case gneiss::window::native_backend::wayland:
     result = surface_.initialize(renderer_,
                                  ::granit::surface_desc::wayland(window.display, window.window));
     break;
@@ -855,13 +859,15 @@ gneiss::error backend::implementation::initialize_gpu(
   }
   if (result.ok()) {
     result = swapchain_.initialize(renderer_, surface_,
-                                   {.width = window.width, .height = window.height});
+                                   {.width = surface.width, .height = surface.height});
   }
   ::granit::swapchain_info swapchain_info;
   if (result.ok()) {
     result = swapchain_.query_info(swapchain_info);
   }
   if (result.ok()) {
+    applied_surface_revision_ = surface.revision;
+    recreate_pending_ = false;
     swapchain_format_ = swapchain_info.format;
     result = initialize_pipeline();
     if (result.ok()) {
@@ -1078,14 +1084,11 @@ error backend::implementation::execute_frame(gneiss::render::detail::frame_packe
   for (const auto& view : packet.views)
     if (!view.target)
       ordered_views.push_back(&view);
-  output.needs_recreate = packet.window.needs_recreate;
   for (const auto* input : ordered_views) {
     const auto& view = *input;
     execution_result current;
     auto status = execute_view(packet, view, current);
     output.presented = output.presented || current.presented;
-    if (!view.target)
-      output.needs_recreate = current.needs_recreate;
     output.resource_prepare_ms += current.resource_prepare_ms;
     output.acquire_wait_ms += current.acquire_wait_ms;
     output.record_submit_ms += current.record_submit_ms;
@@ -1106,7 +1109,6 @@ error backend::implementation::execute_frame(gneiss::render::detail::frame_packe
     if (status.failed())
       return status;
   }
-  packet.window.needs_recreate = output.needs_recreate;
   return error::success;
 }
 
@@ -1124,19 +1126,16 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
   output.environment_fallback = environment_fallback_;
   output.environment_intensity = environment_intensity_;
   output.environment_rotation_radians = environment_rotation_radians_;
-  auto window = packet.window;
-  if (!view_input.target)
-    output.needs_recreate = window.needs_recreate;
-  window.width = view_input.width;
-  window.height = view_input.height;
+  const auto& extent = view_input;
   const auto& snapshot = view_input.scene;
   const auto& resources = packet.resources;
-  if (window.width == 0U || window.height == 0U)
+  if (extent.width == 0U || extent.height == 0U)
     return gneiss::error::success;
 
   const auto resource_prepare_started = std::chrono::steady_clock::now();
-  if (!view_input.target && window.needs_recreate) {
-    const auto recreate = swapchain_.recreate({.width = window.width, .height = window.height});
+  if (!view_input.target && !readback &&
+      (packet.surface.revision != applied_surface_revision_ || recreate_pending_)) {
+    const auto recreate = swapchain_.recreate({.width = extent.width, .height = extent.height});
     if (recreate == ::granit::result::not_ready)
       return gneiss::error::success;
     if (recreate.failed())
@@ -1146,13 +1145,13 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
     if (query.failed())
       return map_result(query);
     swapchain_format_ = info.format;
-    window.needs_recreate = false;
-    output.needs_recreate = false;
+    applied_surface_revision_ = packet.surface.revision;
+    recreate_pending_ = false;
   }
 
   const auto ui_result =
       view_input.target ? ui_canvas_.clear()
-                        : prepare_ui_draw_list(packet.ui, resources, window.width, window.height);
+                        : prepare_ui_draw_list(packet.ui, resources, extent.width, extent.height);
   if (ui_result.failed())
     return map_result(ui_result);
   auto result = debug_draw_.clear();
@@ -1190,8 +1189,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
   view.view.elements[15] = 1.0F;
   view.projection = view.view;
   view.view_projection = view.view;
-  view.viewport_width = static_cast<float>(window.width);
-  view.viewport_height = static_cast<float>(window.height);
+  view.viewport_width = static_cast<float>(extent.width);
+  view.viewport_height = static_cast<float>(extent.height);
   view.layer_mask = snapshot.layers;
   granit_scene_directional_light light{{-0.35F, 0.8F, 0.45F}, {3.0F, 3.0F, 3.0F}, UINT64_MAX};
   if (snapshot.has_camera) {
@@ -1202,8 +1201,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
     view.camera_position = {snapshot.camera.transform.translation[0],
                             snapshot.camera.transform.translation[1],
                             snapshot.camera.transform.translation[2]};
-    view.viewport_width = static_cast<float>(window.width);
-    view.viewport_height = static_cast<float>(window.height);
+    view.viewport_width = static_cast<float>(extent.width);
+    view.viewport_height = static_cast<float>(extent.height);
     view.layer_mask = snapshot.layers;
     {
       renderables.reserve(snapshot.instances.size());
@@ -1269,8 +1268,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
                                               .usage = ::granit::texture_usage::color_attachment |
                                                        ::granit::texture_usage::transfer_source |
                                                        ::granit::texture_usage::sampled,
-                                              .width = window.width,
-                                              .height = window.height});
+                                              .width = extent.width,
+                                              .height = extent.height});
       auto& target_view = destination.view;
       if (captured.ok() && !target_view.ref()) {
         captured = target_view.initialize(renderer_, target,
@@ -1281,8 +1280,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
         desc.scene = scene.ref();
         desc.output = target_view.ref();
         desc.output_format = ::granit::texture_format::rgba8_unorm;
-        desc.width = window.width;
-        desc.height = window.height;
+        desc.width = extent.width;
+        desc.height = extent.height;
         desc.draw_bindings = bindings;
         desc.canvas = ui_canvas_.ref();
         desc.debug_draw = debug_draw_.ref();
@@ -1293,7 +1292,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       if (!readback)
         return map_result(captured);
       ::granit::readback_batch batch;
-      const auto byte_count = static_cast<std::uint64_t>(window.width) * window.height * 4U;
+      const auto byte_count = static_cast<std::uint64_t>(extent.width) * extent.height * 4U;
       if (captured.ok()) {
         captured =
             batch.create(renderer_, {.max_result_bytes = byte_count, .max_operation_count = 1U});
@@ -1301,7 +1300,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       std::uint32_t index{};
       if (captured.ok()) {
         captured = batch.read_texture(target.ref(),
-                                      {.width = window.width, .height = window.height}, index);
+                                      {.width = extent.width, .height = extent.height}, index);
       }
       ::granit::async_operation operation;
       if (captured.ok()) {
@@ -1330,7 +1329,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       if (captured.failed()) {
         return map_result(captured);
       }
-      if (info.required_size != byte_count || info.bytes_per_row != window.width * 4U ||
+      if (info.required_size != byte_count || info.bytes_per_row != extent.width * 4U ||
           info.format != ::granit::texture_format::rgba8_unorm) {
         return gneiss::error::internal;
       }
@@ -1340,8 +1339,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       if (captured.failed()) {
         return map_result(captured);
       }
-      readback->width = window.width;
-      readback->height = window.height;
+      readback->width = extent.width;
+      readback->height = extent.height;
       return gneiss::error::success;
     }
   }
@@ -1353,24 +1352,23 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - acquire_started)
           .count();
   if (result == ::granit::result::out_of_date) {
-    output.needs_recreate = true;
+    recreate_pending_ = true;
     return gneiss::error::success;
   }
   if (result.failed())
     return map_result(result);
-  window.needs_recreate = window.needs_recreate || frame.needs_recreate();
+  recreate_pending_ = recreate_pending_ || frame.needs_recreate();
 
   ::granit::swapchain_backbuffer backbuffer;
   result = swapchain_.backbuffer(frame, backbuffer);
   if (result.ok()) {
     ::granit::swapchain_info actual;
     result = swapchain_.query_info(actual);
-    if (result.ok() && (actual.width != window.width || actual.height != window.height)) {
+    if (result.ok() && (actual.width != extent.width || actual.height != extent.height)) {
       // 连续 resize 时，排队帧的窗口尺寸可能已经落后于实际 Backbuffer。
       // 不将旧尺寸传给管线；归还已获取帧，下一帧按最新窗口事件重建。
       const auto cancelled = swapchain_.cancel(frame);
-      window.needs_recreate = true;
-      output.needs_recreate = true;
+      recreate_pending_ = true;
       return map_result(cancelled);
     }
   }
@@ -1380,8 +1378,8 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
     desc.scene = scene.ref();
     desc.output = backbuffer.view;
     desc.output_format = swapchain_format_;
-    desc.width = window.width;
-    desc.height = window.height;
+    desc.width = extent.width;
+    desc.height = extent.height;
     desc.draw_bindings = bindings;
     desc.frame = &frame;
     desc.canvas = ui_canvas_.ref();
@@ -1420,10 +1418,9 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
     static_cast<void>(swapchain_.cancel(frame));
   }
   if (result == ::granit::result::out_of_date) {
-    window.needs_recreate = true;
+    recreate_pending_ = true;
     result = ::granit::result::success;
   }
-  output.needs_recreate = window.needs_recreate;
   return map_result(result);
 }
 
@@ -1450,9 +1447,10 @@ error backend::implementation::set_environment(std::span<const std::byte> bytes,
 
 backend::backend() : impl_(std::make_unique<implementation>()) {}
 backend::~backend() = default;
-error backend::initialize(const gneiss::window::native_window_info& window,
-                          std::span<const std::byte> bytes, float intensity, float rotation) {
-  return impl_->initialize_gpu(window, bytes, intensity, rotation);
+error backend::initialize(const gneiss::window::native_handle& window,
+                          window::surface_state surface, std::span<const std::byte> bytes,
+                          float intensity, float rotation) {
+  return impl_->initialize_gpu(window, surface, bytes, intensity, rotation);
 }
 void backend::destroy_target(rid target) { impl_->targets_.erase(target); }
 error backend::shutdown(device_stats& stats) { return impl_->shutdown_gpu(stats); }

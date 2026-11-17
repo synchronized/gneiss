@@ -124,16 +124,15 @@ service::implementation::prepare_capture(const render::frame_request& request,
   if (scenes_closed)
     return error::invalid_state;
   if (sizes.empty())
-    sizes.assign(request.views.size(), {request.window.width, request.window.height});
-  if (sizes.size() != request.views.size())
-    return error::invalid_argument;
-  if (request.views.empty() && (!request.window.width || !request.window.height))
+    sizes.assign(request.views.size(), {request.surface.width, request.surface.height});
+  if (sizes.size() != request.views.size() && !(request.views.empty() && sizes.size() == 1))
     return error::invalid_argument;
   std::set<rid> targets;
   std::vector<std::shared_ptr<render::scene>> contents;
   for (std::size_t index = 0; index < request.views.size(); ++index) {
     const auto& view = request.views[index];
-    if (!sizes[index].width || !sizes[index].height || !targets.insert(view.target).second)
+    if ((view.target && (!sizes[index].width || !sizes[index].height)) ||
+        !targets.insert(view.target).second)
       return error::invalid_argument;
     for (auto element : math::matrix_elements(view.view_matrix))
       if (!std::isfinite(element))
@@ -155,13 +154,17 @@ service::implementation::prepare_capture(const render::frame_request& request,
   }
   return capture_operation{[request, contents = std::move(contents), sizes = std::move(sizes)] {
     detail::frame_packet packet;
-    packet.window = request.window;
+    packet.surface = request.surface;
     packet.ui = request.ui;
     packet.debug = request.debug;
     if (request.views.empty())
       packet.views.push_back(
-          {.width = request.window.width, .height = request.window.height, .scene = {}});
+          {.width = sizes.empty() ? request.surface.width : sizes.front().width,
+           .height = sizes.empty() ? request.surface.height : sizes.front().height,
+           .scene = {}});
     for (std::size_t i = 0; i < contents.size(); ++i) {
+      if (!sizes[i].width || !sizes[i].height)
+        continue;
       if (!contents[i]) {
         packet.views.push_back({.target = request.views[i].target,
                                 .width = sizes[i].width,

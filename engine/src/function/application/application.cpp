@@ -105,22 +105,27 @@ struct application::storage {
   bool is_updating_ = false;
   gneiss::input::service input_;
   std::unique_ptr<gneiss::window::service> window_service_;
-  result<render::frame_request>
-  make_render_request(const gneiss::window::native_window_info& window) {
+  result<render::frame_request> make_render_request(const window::surface_state& surface,
+                                                    render::target_description capture_size = {}) {
     auto synced = render_binding_->synchronize();
     if (!synced)
       return synced.error();
     render::frame_request request;
-    request.window = window;
+    request.surface = surface;
     bool has_window = false;
     for (const auto& view : views_) {
-      render::target_description extent{window.width, window.height};
+      render::target_description extent =
+          capture_size.width && capture_size.height
+              ? capture_size
+              : render::target_description{surface.width, surface.height};
       if (view.target) {
         auto target = render_service_->describe_target(view.target);
         if (!target)
           return target.error();
         extent = *target;
       } else {
+        if (!extent.width || !extent.height)
+          continue;
         has_window = true;
       }
       auto camera = select_render_camera(*world_, extent.width, extent.height,
@@ -138,7 +143,8 @@ struct application::storage {
         request.views.push_back({.target = view.target});
       }
     }
-    if (!has_window)
+    if (!has_window &&
+        ((surface.width && surface.height) || (capture_size.width && capture_size.height)))
       request.views.push_back({});
     request.ui = ui_draw_list_;
     request.debug = debug_draw_list_;
@@ -330,8 +336,8 @@ gneiss::error application::initialize() {
       throw;
     }
     const auto render_result = storage_->render_service_->initialize(
-        storage_->window_service_->native_window(), {}, storage_->config_.environment_intensity,
-        storage_->config_.environment_rotation_radians);
+        storage_->window_service_->native(), storage_->window_service_->surface(), {},
+        storage_->config_.environment_intensity, storage_->config_.environment_rotation_radians);
     if (render_result != gneiss::error::success) {
       report(gneiss::severity::error, gneiss::category::backend, render_result, "granit.render",
              "Granit 渲染服务初始化失败");
@@ -610,16 +616,14 @@ gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t heig
     return gneiss::error::unsupported;
   }
   {
-    auto window = storage_->window_service_->native_window();
-    window.width = width;
-    window.height = height;
-    window.needs_recreate = false;
+    const auto window = storage_->window_service_->surface();
     storage_->world_->flush_changes();
-    auto request = storage_->make_render_request(window);
+    auto request = storage_->make_render_request(window, {width, height});
     if (!request)
       return request.error();
     auto image = std::make_shared<gneiss::render::frame_image>();
-    auto submitted = storage_->render_service_->request_capture(std::move(*request), image);
+    auto submitted =
+        storage_->render_service_->request_capture(std::move(*request), image, {width, height});
     if (!submitted)
       return submitted.error();
     const auto sequence = *submitted;
@@ -644,8 +648,9 @@ gneiss::error application::render_frame() {
   if (storage_->window_service_ == nullptr) {
     return gneiss::error::success;
   }
-  auto& window = storage_->window_service_->native_window();
-  if (window.width == 0U || window.height == 0U) {
+  const auto window = storage_->window_service_->surface();
+  if ((window.width == 0U || window.height == 0U) &&
+      std::ranges::none_of(storage_->views_, [](const auto& view) { return bool(view.target); })) {
     auto synced = storage_->render_binding_->synchronize();
     return synced ? error{error::success} : synced.error();
   }
@@ -657,7 +662,6 @@ gneiss::error application::render_frame() {
   });
   if (!submitted)
     return submitted.error() == error::not_ready ? error{error::success} : submitted.error();
-  window.needs_recreate = false;
   if (storage_->loop_wakeup_)
     storage_->loop_wakeup_->notify();
   return error::success;
@@ -666,7 +670,7 @@ gneiss::error application::render_frame() {
 gneiss::error application::get_window_size(std::uint32_t& out_width,
                                            std::uint32_t& out_height) const noexcept {
   if (storage_->window_service_ != nullptr) {
-    const auto& window = storage_->window_service_->native_window();
+    const auto& window = storage_->window_service_->surface();
     out_width = window.width;
     out_height = window.height;
     return gneiss::error::success;

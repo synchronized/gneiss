@@ -3,9 +3,9 @@
 
 #include "../../support/value_result.hpp"
 #include "function/application/main_loop_wakeup.hpp"
-#include <gneiss/engine/error.hpp>
 #include "function/render/detail/executor.hpp"
 #include "function/render/detail/resource_identity.hpp"
+#include <gneiss/engine/error.hpp>
 
 #include <atomic>
 #include <condition_variable>
@@ -30,20 +30,20 @@ bool frame_input_budget() {
   if (executor
           .initialize(
               [&](auto& packet, auto&) {
-                if (packet.window.width == 1) {
+                if (packet.surface.width == 1) {
                   std::unique_lock lock(mutex);
                   started = true;
                   ready.notify_all();
                   ready.wait(lock, [&] { return release; });
                 }
-                drawn.push_back(packet.window.width);
+                drawn.push_back(packet.surface.width);
                 return error::success;
               },
               {.pending_frames = 1, .frame_input_bytes = 12})
           .failed())
     return false;
   frame_packet first;
-  first.window.width = 1;
+  first.surface.width = 1;
   auto running = executor.submit_frame(std::move(first), render::frame_policy::replaceable, {}, 8);
   if (!running)
     return false;
@@ -52,13 +52,13 @@ bool frame_input_budget() {
     ready.wait(lock, [&] { return started; });
   }
   frame_packet second;
-  second.window.width = 2;
+  second.surface.width = 2;
   auto waiting = executor.submit_frame(std::move(second), render::frame_policy::replaceable, {}, 3);
   auto full = executor.submit_frame({}, render::frame_policy::required, {}, 2);
   auto large = executor.submit_frame({}, render::frame_policy::replaceable, {}, 13);
   const bool preserved = !executor.try_take_frame_completion();
   frame_packet latest;
-  latest.window.width = 4;
+  latest.surface.width = 4;
   auto replacement =
       executor.submit_frame(std::move(latest), render::frame_policy::replaceable, {}, 1);
   auto dropped = executor.try_take_frame_completion();
@@ -368,8 +368,8 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
   auto rejected = executor.submit_command(retry);
   const bool backpressure = !rejected && rejected.error() == error::not_ready;
   std::uint64_t frame{};
-  const auto submitted =
-      gneiss::test_support::assign_value(executor.submit_frame({}, gneiss::render::frame_policy::required), frame);
+  const auto submitted = gneiss::test_support::assign_value(
+      executor.submit_frame({}, gneiss::render::frame_policy::required), frame);
   if (submitted != gneiss::error::success) {
     frame_executed.store(true);
   }
@@ -454,19 +454,18 @@ int main(int argc, char** argv) {
       empty_executor.query_command_status())
     return 25;
   gneiss::render::detail::frame_packet inline_packet;
-  inline_packet.window.width = 7U;
+  inline_packet.surface.width = 7U;
   inline_render_executor inline_executor(
       [](gneiss::render::detail::frame_packet& packet, gneiss::render::execution_result& output) {
-        output.needs_recreate = packet.window.width == 7U;
+        output.presented = packet.surface.width == 7U;
         if (packet.sequence == 0U) {
           return gneiss::error::invalid_state;
         }
         return gneiss::error::success;
       });
   gneiss::render::execution_result inline_result;
-  if (inline_executor.submit(std::move(inline_packet), inline_result) !=
-          gneiss::error::success ||
-      !inline_result.needs_recreate) {
+  if (inline_executor.submit(std::move(inline_packet), inline_result) != gneiss::error::success ||
+      !inline_result.presented) {
     return 1;
   }
 
@@ -480,17 +479,18 @@ int main(int argc, char** argv) {
       [&](gneiss::render::detail::frame_packet& packet, gneiss::render::execution_result& output) {
         {
           std::unique_lock lock(mutex);
-          executed.push_back(packet.window.width);
-          if (packet.window.width == 1U) {
+          executed.push_back(packet.surface.width);
+          if (packet.surface.width == 1U) {
             first_started = true;
             ready.notify_all();
             ready.wait(lock, [&] { return release_first; });
           }
         }
-        output.needs_recreate = packet.window.needs_recreate;
-        output.presented = packet.window.width == 3U;
+        output.presented = packet.surface.width == 3U;
         output.gpu_timing_supported = true;
-        if (packet.window.width == 3U) {
+        if (packet.surface.width == 3U) {
+          if (packet.surface.revision != 42U)
+            return gneiss::error::internal;
           output.gpu_timing_valid = true;
           output.gpu_timing_sample_sequence = 7U;
           output.gpu_frame_ms = 1.25F;
@@ -506,7 +506,7 @@ int main(int argc, char** argv) {
   }
 
   gneiss::render::detail::frame_packet first;
-  first.window.width = 1U;
+  first.surface.width = 1U;
   std::uint64_t first_sequence = 0U;
   if (gneiss::test_support::assign_value(executor.submit_frame(std::move(first)), first_sequence) !=
       gneiss::error::success) {
@@ -517,11 +517,11 @@ int main(int argc, char** argv) {
     ready.wait(lock, [&] { return first_started; });
   }
   gneiss::render::detail::frame_packet second;
-  second.window.width = 2U;
+  second.surface.width = 2U;
   std::uint64_t second_sequence = 0U;
   gneiss::render::detail::frame_packet third;
-  third.window.width = 3U;
-  third.window.needs_recreate = true;
+  third.surface.width = 3U;
+  third.surface.revision = 42U;
   third.capture.capture_ms = 2.5F;
   third.capture.copied_payload_bytes = 4096U;
   std::uint64_t third_sequence = 0U;
@@ -561,18 +561,17 @@ int main(int argc, char** argv) {
     return 6;
   }
   bool saw_dropped = false;
-  bool saw_recreate = false;
+  bool saw_presented = false;
   bool saw_capture_metrics = false;
   for (const auto& item : completions) {
     saw_dropped = saw_dropped || (item.sequence == second_sequence && item.dropped &&
                                   item.status == gneiss::error::not_ready);
-    saw_recreate =
-        saw_recreate || (item.sequence == third_sequence && item.execution.needs_recreate);
+    saw_presented = saw_presented || (item.sequence == third_sequence && item.execution.presented);
     saw_capture_metrics = saw_capture_metrics || (item.sequence == third_sequence &&
                                                   item.execution.frame_capture_ms == 2.5F &&
                                                   item.execution.copied_payload_bytes == 4096U);
   }
-  if (!saw_dropped || !saw_recreate || first_sequence == second_sequence ||
+  if (!saw_dropped || !saw_presented || first_sequence == second_sequence ||
       second_sequence == third_sequence || !saw_capture_metrics) {
     return 7;
   }
@@ -657,21 +656,21 @@ int main(int argc, char** argv) {
   threaded_render_executor required_executor;
   if (required_executor.initialize(
           [&](gneiss::render::detail::frame_packet& packet, gneiss::render::execution_result&) {
-            if (packet.window.width == 10U) {
+            if (packet.surface.width == 10U) {
               std::unique_lock lock(mutex);
               required_blocked = true;
               ready.notify_all();
               ready.wait(lock, [&] { return release_required; });
             }
             if (packet.readback)
-              packet.readback->width = packet.window.width;
+              packet.readback->width = packet.surface.width;
             return gneiss::error::success;
           },
           {.pending_frames = 1}) != gneiss::error::success) {
     return 16;
   }
   gneiss::render::detail::frame_packet blocking_packet;
-  blocking_packet.window.width = 10U;
+  blocking_packet.surface.width = 10U;
   std::uint64_t blocking_sequence{};
   if (gneiss::test_support::assign_value(required_executor.submit_frame(std::move(blocking_packet)),
                                          blocking_sequence) != gneiss::error::success) {
@@ -682,17 +681,18 @@ int main(int argc, char** argv) {
     ready.wait(lock, [&] { return required_blocked; });
   }
   gneiss::render::detail::frame_packet required_packet;
-  required_packet.window.width = 20U;
+  required_packet.surface.width = 20U;
   auto captured_image = std::make_shared<gneiss::render::frame_image>();
   required_packet.readback = captured_image;
   std::uint64_t required_sequence{};
   if (gneiss::test_support::assign_value(
-          required_executor.submit_frame(std::move(required_packet), gneiss::render::frame_policy::required),
+          required_executor.submit_frame(std::move(required_packet),
+                                         gneiss::render::frame_policy::required),
           required_sequence) != gneiss::error::success) {
     return 17;
   }
   gneiss::render::detail::frame_packet replaceable_packet;
-  replaceable_packet.window.width = 30U;
+  replaceable_packet.surface.width = 30U;
   std::uint64_t rejected_sequence{};
   if (gneiss::test_support::assign_value(
           required_executor.submit_frame(std::move(replaceable_packet)), rejected_sequence) !=
@@ -700,9 +700,10 @@ int main(int argc, char** argv) {
     return 18;
   }
   gneiss::render::detail::frame_packet second_required_packet;
-  second_required_packet.window.width = 40U;
+  second_required_packet.surface.width = 40U;
   if (gneiss::test_support::assign_value(
-          required_executor.submit_frame(std::move(second_required_packet), gneiss::render::frame_policy::required),
+          required_executor.submit_frame(std::move(second_required_packet),
+                                         gneiss::render::frame_policy::required),
           rejected_sequence) != gneiss::error::not_ready) {
     return 19;
   }
@@ -738,17 +739,15 @@ int main(int argc, char** argv) {
   required_executor.set_completion_wakeup(signal);
   const auto observed = signal->snapshot();
   std::uint64_t notified_sequence{};
-  if (gneiss::test_support::assign_value(required_executor.submit_command([](const auto&) {
-        return gneiss::error::internal;
-      }),
-                                         notified_sequence) != gneiss::error::success ||
+  if (gneiss::test_support::assign_value(
+          required_executor.submit_command([](const auto&) { return gneiss::error::internal; }),
+          notified_sequence) != gneiss::error::success ||
       !signal->wait(observed, std::chrono::seconds(2))) {
     return 22;
   }
   std::optional<render_command_completion> notified;
   if (!(notified = required_executor.try_take_command_completion()) ||
-      notified->sequence != notified_sequence ||
-      notified->status != gneiss::error::internal) {
+      notified->sequence != notified_sequence || notified->status != gneiss::error::internal) {
     return 23;
   }
   required_executor.stop();

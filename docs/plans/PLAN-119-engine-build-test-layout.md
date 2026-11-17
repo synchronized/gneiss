@@ -709,11 +709,11 @@ core/input/types.hpp，动作状态独立到 function/input/action.hpp，服务�
 动作映射保持 resource/input，类型统一进入 gneiss::input；窗口类型进入 gneiss::window。
 资产 GUID、文件格式与输入行为不变，不为目录新建链接目标。
 
-native_window_info 当前仍混合原生句柄、尺寸和 needs_recreate。源码链路为窗口 resize/scale
+本节迁移前，native_window_info 混合原生句柄、尺寸和 needs_recreate。源码链路为窗口 resize/scale
 置位，Application 成功提交帧后清位，Render 回执汇总后重试，后端 acquire/present 也可置位；
 capture_frame 还复制该结构并改写尺寸。当前协议本轮不修改。
 
-建议后续单独迁移（尚未实施）：
+本节最初提出的拆分建议（随后经用户确认，实施记录见下）：
 - 原生句柄是窗口生命周期内的借用，仅用于渲染初始化/表面重建，不每帧作为可写窗口状态传递。
 - 窗口尺寸和表面变化代次由 Window 单独维护，对外只读；同尺寸的缩放/表面变化也能推进代次。
 - Render 持有交换链实际尺寸、已采用代次和重试状态；仅成功重建后采用代次，拒绝/丢帧不丢失变化。
@@ -724,4 +724,24 @@ capture_frame 还复制该结构并改写尺寸。当前协议本轮不修改。
 本轮验证：Windows Clang Debug 全量构建通过；14 项输入、动作映射、默认注册表、边界、
 窗口/Application 与安装 Runtime 测试通过。异步启动与停止测试原先匹配旧 stage 日志，
 已更新为当前协议；启动同步改读实时 stdout，退出后仍检查文件日志中的停止与关闭记录。
-静态完整构建及 Web 本轮未验证；native_window_info 拆分仅为建议，未实施。
+静态完整构建及 Web 本轮未验证；当时 native_window_info 拆分仅为建议；本轮实施见下。
+
+
+### 2026-11-17：窗口表面快照与后端重建状态
+
+已确认边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。
+
+- [x] 原生句柄只用于初始化；Window 返回值快照，删除可写 native_window()。
+- [x] 通过 Granit get_state 的 framebuffer 字段统一像素尺寸；resize/scale 推进 revision。
+- [x] 帧请求仅携带 surface；Backend 独占重建重试状态，删除 Service/Application 旧标志链。
+- [x] 捕获请求显式指定输出尺寸，窗口零尺寸保留离屏执行路径。
+- [x] 验证队列替换保留表面代次、连续 resize、最小化/恢复、不同尺寸捕获与正常窗口呈现。
+- [x] 完成相关构建、测试及本地提交。
+
+不承诺模拟所有驱动错误：真实 resize 路径用于集成验收，GPU out_of_date/not_ready 分支需结合
+代码检查；没有稳定故障注入时不把它们宣称为已逐项触发。静态/Web 另行验收。
+
+本轮验证：Windows Clang Debug 全量构建通过，8 项相关测试通过（包含 render_executor、
+render_frame_packet、render_scene、ui_draw_list、真实窗口 smoke、原生应用流程、原生窗口资产
+集成及安装 Runtime smoke）。真实窗口 smoke 新增连续 resize、最小化时离屏捕获、恢复呈现、
+捕获尺寸不修改窗口尺寸的断言；执行器测试确认替换后的帧保留最新表面 revision。

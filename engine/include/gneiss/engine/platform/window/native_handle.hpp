@@ -7,16 +7,14 @@
 
 namespace gneiss::window {
 
-enum class native_window_backend { none, win32, xcb, wayland };
+enum class native_backend { none, win32, xcb, wayland };
 
-struct native_window_info {
-  native_window_backend backend{native_window_backend::none};
+/** 借用原生窗口；不负责释放。必须先销毁 Render 表面，再销毁所属窗口服务。 */
+struct native_handle {
+  native_backend backend{native_backend::none};
   void* display{};
   void* window{};
   std::uint32_t xcb_window{};
-  std::uint32_t width{};
-  std::uint32_t height{};
-  bool needs_recreate{};
 };
 
 } // namespace gneiss::window

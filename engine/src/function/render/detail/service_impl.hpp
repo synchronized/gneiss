@@ -34,11 +34,10 @@ public:
   using capture_operation = std::function<result<detail::frame_packet>()>;
   result<capture_operation> prepare_capture(const frame_request&, std::vector<target_description>);
   result<detail::scene_resource_pin> pin(const mesh_instance_description&);
-  [[nodiscard]] gneiss::error initialize(const gneiss::window::native_window_info& window,
-                                         std::span<const std::byte> environment_asset = {},
-                                         float environment_intensity = 1.0F,
-                                         float environment_rotation_radians = 0.0F,
-                                         queue_options queues = {});
+  [[nodiscard]] gneiss::error
+  initialize(const gneiss::window::native_handle& window, window::surface_state surface,
+             std::span<const std::byte> environment_asset = {}, float environment_intensity = 1.0F,
+             float environment_rotation_radians = 0.0F, queue_options queues = {});
   error request_environment(std::shared_ptr<const std::vector<std::byte>>, float, float);
   [[nodiscard]] gneiss::error shutdown(device_stats& stats);
   [[nodiscard]] gneiss::error finish_frames();
@@ -76,6 +75,5 @@ private:
   // 执行器先停止，后端及其资源才能析构。
   render::detail::threaded_render_executor executor_;
   std::deque<frame_completion> required_frame_completions_;
-  bool pending_recreate_{};
 };
 } // namespace gneiss::render

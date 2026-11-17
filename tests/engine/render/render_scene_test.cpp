@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "function/render/detail/executor.hpp"
 #include "function/render/detail/scene.hpp"
-#include <gneiss/engine/function/render/service.hpp>
 #include <barrier>
+#include <gneiss/engine/function/render/service.hpp>
 #include <iostream>
 #include <latch>
 #include <limits>
@@ -50,7 +50,7 @@ bool commands() {
   batch = {*group, {render::set_transform{{1}, invalid}}};
   CHECK(!owner.submit(std::move(batch)));
   // 未初始化 GPU 也能验证视图参数；有效请求才到设备就绪检查。
-  render::frame_request request{.window = {.width = 64, .height = 32},
+  render::frame_request request{.surface = {.width = 64, .height = 32},
                                 .views = {{.scene = *group}}};
   request.views[0].projection_matrix = invalid;
   CHECK(owner.render(std::move(request)).error() == error::invalid_argument &&

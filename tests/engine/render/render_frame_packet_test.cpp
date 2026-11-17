@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "function/render/detail/scene.hpp"
-#include <gneiss/engine/function/render/service.hpp>
 #include <array>
+#include <gneiss/engine/function/render/service.hpp>
 #include <iostream>
 #define CHECK(x)                                                                                   \
   do {                                                                                             \
@@ -20,10 +20,10 @@ int main() {
     texture = std::make_shared<gneiss::render::detail::resource_identity<texture_data>>();
   auto scene = std::make_unique<render::scene>();
   scene->apply({{render::create_instance{{1}, {.mesh = 1, .material = 2}}, {mesh, material}}});
-  render::frame_request request{.window = {.width = 640, .height = 480}, .views = {{}}};
+  render::frame_request request{.surface = {.width = 640, .height = 480}, .views = {{}}};
   auto capture = [&](const render::frame_request& input) -> result<render::detail::frame_packet> {
     render::detail::frame_packet packet;
-    packet.window = input.window;
+    packet.surface = input.surface;
     packet.ui = input.ui;
     packet.debug = input.debug;
     auto status = scene->extract(input.views.front(), {640, 480}, packet);
@@ -78,7 +78,7 @@ int main() {
                      resources)
             .ok());
   auto captured = capture(request);
-  CHECK(captured && captured->window.width == 640 &&
+  CHECK(captured && captured->surface.width == 640 &&
         captured->views.front().scene.instances.size() == 1 &&
         captured->debug.lines().size() == 1 && captured->resources.get_mesh(1) == vertices.get() &&
         captured->resources.get_material(2) == description.get() &&

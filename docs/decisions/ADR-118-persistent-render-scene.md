@@ -96,3 +96,21 @@ Service 的唯一 implementation 直接拥有场景 RID 表；私有 scene_slot 
 - [Unity BRG](https://docs.unity3d.com/6000.0/Documentation/Manual/batch-renderer-group-how.html)：实例数据与剔除输出分离，仅代表公开 BRG 路径，不推断全部内置实现。
 
 Granit 为当前后端，是否需要增量场景接口须另行核查；未经授权不修改其仓库。
+
+## 2026-11-17：窗口表面与交换链状态归属
+
+Window 独占原生窗口及表面状态。`window::native_handle` 仅用于 Render 初始化，是窗口生命周期
+内的借用；关闭时先释放 Render 表面和交换链，再销毁窗口。每帧只传 `window::surface_state`，
+包含 framebuffer 像素尺寸与窗口内递增 revision，不包含原生句柄或可写重建标志。
+
+Window 通过 Granit `window::get_state` 读取 framebuffer 尺寸，初始化及 resize/scale 事件更新
+快照并递增 revision；不能把逻辑坐标尺寸直接作为交换链像素尺寸。初始窗口创建仍需要有效尺寸。
+
+Backend 保存已成功采用的 revision 与 GPU 重试标志；最新请求尺寸直接取当前消费的帧，不再
+复制维护一份请求状态。实际交换链尺寸通过 Granit 查询，不建立第二份权威尺寸。recreate 成功且
+query_info 成功后才采用 revision；not_ready 保留待处理状态，out_of_date 留在 Backend 内重试，
+其他失败按既有错误协议报告。Application 不清标志，Service 不经完成回执回传重建状态。
+
+零尺寸暂停窗口呈现，离屏目标与捕获仍可执行。截图输出尺寸属于捕获请求，不改写窗口快照，也不
+推进已采用的窗口 revision。拒绝或替换帧不会清除后端重试状态，后续帧继续携带当前表面 revision。
+当前仍是一个窗口呈现表面；不借此增加多窗口支持或修改 Granit 仓库。

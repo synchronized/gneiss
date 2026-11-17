@@ -9,7 +9,8 @@
 #include <span>
 namespace gneiss {
 namespace window {
-struct native_window_info;
+struct native_handle;
+struct surface_state;
 }
 namespace render {
 struct device_stats;
@@ -29,8 +30,8 @@ public:
   ~backend();
   backend(const backend&) = delete;
   backend& operator=(const backend&) = delete;
-  error initialize(const gneiss::window::native_window_info&, std::span<const std::byte>, float,
-                   float);
+  error initialize(const gneiss::window::native_handle&, window::surface_state,
+                   std::span<const std::byte>, float, float);
   error shutdown(gneiss::render::device_stats&);
   void destroy_target(rid target);
   error draw(gneiss::render::detail::frame_packet&, gneiss::render::execution_result&);

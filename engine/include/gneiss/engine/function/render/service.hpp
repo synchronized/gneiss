@@ -10,7 +10,7 @@
 #include <gneiss/engine/function/render/frame_result.hpp>
 #include <gneiss/engine/function/render/queue_options.hpp>
 #include <gneiss/engine/function/render/render_resource_data.hpp>
-#include <gneiss/engine/platform/window/native_window_info.hpp>
+#include <gneiss/engine/platform/window/native_handle.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
 #include <gneiss/engine/result.hpp>
 #include <memory>
@@ -36,7 +36,8 @@ public:
   service& operator=(const service&) = delete;
   service(service&&) = delete;
   service& operator=(service&&) = delete;
-  [[nodiscard]] GNEISS_API error initialize(const gneiss::window::native_window_info& window,
+  [[nodiscard]] GNEISS_API error initialize(const gneiss::window::native_handle& window,
+                                            window::surface_state surface,
                                             std::span<const std::byte> environment_asset = {},
                                             float environment_intensity = 1.0F,
                                             float environment_rotation_radians = 0.0F,
@@ -73,10 +74,12 @@ public:
    * 支持多个离屏视图和最多一个窗口视图；帧级 UI 只绘制到窗口。 */
   [[nodiscard]] GNEISS_API result<void> render(render::frame_request&& request);
   /** 异步提交必达截图；多视图返回窗口合成结果，无窗口则 unsupported；失败不消费请求。
+   * capture_size 为零时使用目标尺寸；指定尺寸仅覆盖窗口合成截图，不修改窗口表面。
    * image 必须非空，成功接受后至对应完成回执前不得读写或复用于其他请求。
    * 暂复用 required completion，未来统一为独立回读请求。 */
   [[nodiscard]] GNEISS_API result<std::uint64_t>
-  request_capture(render::frame_request&& request, std::shared_ptr<frame_image> image);
+  request_capture(render::frame_request&& request, std::shared_ptr<frame_image> image,
+                  target_description capture_size = {});
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_API void close_resources() noexcept;
@@ -147,7 +150,8 @@ private:
   result<void> dispatch_render_work(std::function<void()>, std::size_t bytes = 0,
                                     std::weak_ptr<const void> payload = {});
   result<std::uint64_t> submit_request(render::frame_request&, frame_policy,
-                                       std::shared_ptr<frame_image>);
+                                       std::shared_ptr<frame_image>,
+                                       target_description capture_size = {});
   template <typename Resource>
   result<std::shared_ptr<const Resource>>
   track(std::shared_ptr<const Resource> resource,

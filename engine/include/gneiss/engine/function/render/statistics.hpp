@@ -8,7 +8,6 @@
 namespace gneiss::render {
 /** 单帧执行结果；后端填写绘制指标，执行器补充排队与线程耗时。 */
 struct execution_result final {
-  bool needs_recreate{};
   bool presented{};
   float frame_capture_ms{};
   std::size_t copied_payload_bytes{};

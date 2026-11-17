@@ -3,7 +3,8 @@
 
 #pragma once
 
-#include <gneiss/engine/platform/window/native_window_info.hpp>
+#include <gneiss/engine/platform/window/native_handle.hpp>
+#include <gneiss/engine/platform/window/surface_state.hpp>
 
 #include <gneiss/engine/core/input/types.hpp>
 #include <gneiss/engine/error.hpp>
@@ -28,8 +29,8 @@ public:
   [[nodiscard]] error poll_input(gneiss::input::event& out_event) noexcept;
   [[nodiscard]] error keyboard(gneiss::input::keyboard_state& out_state) const noexcept;
   [[nodiscard]] error pointer(gneiss::input::pointer_state& out_state) const noexcept;
-  [[nodiscard]] const native_window_info& native_window() const noexcept;
-  [[nodiscard]] native_window_info& native_window() noexcept;
+  [[nodiscard]] native_handle native() const noexcept;
+  [[nodiscard]] surface_state surface() const noexcept;
 
 private:
   struct implementation;

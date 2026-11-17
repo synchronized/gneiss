@@ -7,16 +7,15 @@
 #include <gneiss/engine/function/render/service.hpp>
 #include <limits>
 namespace gneiss::render {
-gneiss::error service::implementation::initialize(const gneiss::window::native_window_info& window,
+gneiss::error service::implementation::initialize(const gneiss::window::native_handle& window,
+                                                  window::surface_state surface,
                                                   std::span<const std::byte> environment_asset,
                                                   float environment_intensity,
                                                   float environment_rotation_radians,
                                                   queue_options queues) {
   const auto executor_result = executor_.initialize(
       [this](gneiss::render::detail::frame_packet& packet, execution_result& output) {
-        const auto result = backend_.draw(packet, output);
-        output.needs_recreate = output.needs_recreate || packet.window.needs_recreate;
-        return result;
+        return backend_.draw(packet, output);
       },
       queues);
   if (executor_result != gneiss::error::success) {
@@ -24,12 +23,14 @@ gneiss::error service::implementation::initialize(const gneiss::window::native_w
   }
 
   gneiss::error initialize_result = gneiss::error::unknown;
-  const auto submit_result = executor_.submit_command(
-      [this, window, environment_asset, environment_intensity, environment_rotation_radians,
-       &initialize_result](const render::detail::render_command_reporter& reporter) {
+  const auto submit_result =
+      executor_.submit_command([this, window, surface, environment_asset, environment_intensity,
+                                environment_rotation_radians, &initialize_result](
+                                   const render::detail::render_command_reporter& reporter) {
         reporter.report(render::detail::render_command_stage::uploading, 0U, 1U);
-        initialize_result = backend_.initialize(window, environment_asset, environment_intensity,
-                                                environment_rotation_radians);
+        initialize_result =
+            backend_.initialize(window, surface, environment_asset, environment_intensity,
+                                environment_rotation_radians);
         reporter.report(render::detail::render_command_stage::uploading, 1U, 1U);
         return initialize_result;
       });
@@ -86,7 +87,6 @@ gneiss::error service::implementation::collect_completions() {
     if (completion->dropped) {
       continue;
     }
-    pending_recreate_ = pending_recreate_ || completion->execution.needs_recreate;
     if (completion->status != gneiss::error::success) {
       return completion->status;
     }
@@ -115,20 +115,7 @@ result<std::uint64_t> service::implementation::submit(render::detail::render_fra
   if (completion_result != gneiss::error::success) {
     return completion_result;
   }
-  const bool recreate = pending_recreate_;
-  auto accepted = executor_.submit_frame(
-      {}, policy,
-      [prepare = std::move(prepare),
-       recreate]() mutable -> result<gneiss::render::detail::frame_packet> {
-        auto packet = prepare();
-        if (packet)
-          packet->window.needs_recreate = packet->window.needs_recreate || recreate;
-        return packet;
-      },
-      input_bytes);
-  if (accepted)
-    pending_recreate_ = false;
-  return accepted;
+  return executor_.submit_frame({}, policy, std::move(prepare), input_bytes);
 }
 
 result<std::optional<frame_completion>> service::implementation::try_take_required_completion() {
@@ -206,12 +193,13 @@ error service::request_environment(std::shared_ptr<const std::vector<std::byte>>
   return impl_->request_environment(std::move(bytes), intensity, rotation);
 }
 
-error service::initialize(const gneiss::window::native_window_info& window,
+error service::initialize(const gneiss::window::native_handle& window,
+                          window::surface_state surface,
                           std::span<const std::byte> environment_asset, float environment_intensity,
                           float environment_rotation_radians, queue_options queues) {
   if (!is_valid())
     return error::invalid_state;
-  return impl_->initialize(window, environment_asset, environment_intensity,
+  return impl_->initialize(window, surface, environment_asset, environment_intensity,
                            environment_rotation_radians, queues);
 }
 error service::shutdown(device_stats& stats) {
@@ -235,21 +223,27 @@ result<void> service::render(render::frame_request&& request) {
   return submitted ? result<void>{} : result<void>{submitted.error()};
 }
 result<std::uint64_t> service::request_capture(render::frame_request&& request,
-                                               std::shared_ptr<frame_image> image) {
-  if (!image)
+                                               std::shared_ptr<frame_image> image,
+                                               target_description capture_size) {
+  if (!image || bool(capture_size.width) != bool(capture_size.height))
     return error::invalid_argument;
-  return submit_request(request, frame_policy::required, std::move(image));
+  return submit_request(request, frame_policy::required, std::move(image), capture_size);
 }
 result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
-                                              std::shared_ptr<frame_image> image) {
+                                              std::shared_ptr<frame_image> image,
+                                              target_description capture_size) {
   if (image && request.views.size() > 1 &&
       std::ranges::none_of(request.views, [](const auto& view) { return !view.target; }))
     return error::unsupported; // 多视图截图明确返回窗口合成结果。
   std::vector<target_description> sizes;
   sizes.reserve(request.views.size());
+  if (request.views.empty() && image && capture_size.width && capture_size.height)
+    sizes.push_back(capture_size);
   for (const auto& view : request.views) {
     if (!view.target) {
-      sizes.push_back({request.window.width, request.window.height});
+      sizes.push_back(image && capture_size.width && capture_size.height
+                          ? capture_size
+                          : target_description{request.surface.width, request.surface.height});
       continue;
     }
     const auto* description = impl_->targets.get(view.target, resource_type::render_target);

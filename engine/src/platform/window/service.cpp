@@ -16,12 +16,21 @@ struct service::implementation {
   // 析构顺序：窗口先于窗口系统销毁；Application 先释放借用窗口的渲染服务。
   granit::window_system window_system_;
   granit::window window_;
-  native_window_info native_window_;
+  native_handle native_window_;
+  surface_state surface_;
+  error refresh_surface() {
+    granit::window_state state;
+    const auto status = window_.get_state(state);
+    if (status.failed())
+      return error::dependency_failed;
+    surface_ = {state.framebuffer_width, state.framebuffer_height, surface_.revision + 1};
+    return error::success;
+  }
 };
 service::service() : impl_(std::make_unique<implementation>()) {}
 service::~service() = default;
-const native_window_info& service::native_window() const noexcept { return impl_->native_window_; }
-native_window_info& service::native_window() noexcept { return impl_->native_window_; }
+native_handle service::native() const noexcept { return impl_->native_window_; }
+surface_state service::surface() const noexcept { return impl_->surface_; }
 
 namespace {
 
@@ -69,14 +78,15 @@ gneiss::error service::initialize(const configuration& config) noexcept {
   if (result.failed()) {
     return map_result(result);
   }
-  impl_->native_window_.width = config.width;
-  impl_->native_window_.height = config.height;
+  const auto refreshed = impl_->refresh_surface();
+  if (refreshed.failed())
+    return refreshed;
   granit::window_native_win32 win32{};
   result = granit::get_native(impl_->window_system_, impl_->window_.ref(), win32);
   if (result.ok()) {
     impl_->native_window_.display = win32.instance;
     impl_->native_window_.window = win32.window;
-    impl_->native_window_.backend = native_window_backend::win32;
+    impl_->native_window_.backend = native_backend::win32;
     return gneiss::error::success;
   }
   granit::window_native_xcb xcb{};
@@ -84,7 +94,7 @@ gneiss::error service::initialize(const configuration& config) noexcept {
   if (result.ok()) {
     impl_->native_window_.display = xcb.connection;
     impl_->native_window_.xcb_window = xcb.window;
-    impl_->native_window_.backend = native_window_backend::xcb;
+    impl_->native_window_.backend = native_backend::xcb;
     return gneiss::error::success;
   }
   granit::window_native_wayland wayland{};
@@ -92,7 +102,7 @@ gneiss::error service::initialize(const configuration& config) noexcept {
   if (result.ok()) {
     impl_->native_window_.display = wayland.display;
     impl_->native_window_.window = wayland.surface;
-    impl_->native_window_.backend = native_window_backend::wayland;
+    impl_->native_window_.backend = native_backend::wayland;
     return gneiss::error::success;
   }
   return map_result(result);
@@ -211,14 +221,14 @@ gneiss::error service::poll(bool& out_should_close, bool& out_focus_lost) noexce
       out_focus_lost = true;
     } else if (event.type == granit::window_event_type::resized &&
                event.window == impl_->window_.ref()) {
-      impl_->native_window_.width = event.data.resized.width;
-      impl_->native_window_.height = event.data.resized.height;
-      impl_->native_window_.needs_recreate = true;
+      const auto refreshed = impl_->refresh_surface();
+      if (refreshed.failed())
+        return refreshed;
     } else if (event.type == granit::window_event_type::scale_changed &&
                event.window == impl_->window_.ref()) {
-      impl_->native_window_.width = event.data.scale.width;
-      impl_->native_window_.height = event.data.scale.height;
-      impl_->native_window_.needs_recreate = true;
+      const auto refreshed = impl_->refresh_surface();
+      if (refreshed.failed())
+        return refreshed;
     }
     event = {};
     result = impl_->window_system_.poll(event);

@@ -361,4 +361,6 @@ Application 装配位于 src/application，application_configuration.hpp 与主�
 `core/input/types.hpp` 定义 `gneiss::input` 的原始事件、键码和设备状态；动作 ID/状态位于
 `function/input/action.hpp`，输入服务位于 `function/input/service.hpp`，动作映射资产位于
 `resource/input/action_map.hpp`。Application 负责协调窗口采集与输入消费。
-原生窗口信息目前仍包含尺寸和重建标记，后续拆分建议见 PLAN-119，尚未落地。
+`native_handle.hpp` 保存借用原生句柄，`surface_state.hpp` 保存只读像素尺寸和变化代次。
+交换链重建和重试状态属于 Render Backend，帧请求不携带原生句柄。详见
+[ADR-118](../decisions/ADR-118-persistent-render-scene.md)。

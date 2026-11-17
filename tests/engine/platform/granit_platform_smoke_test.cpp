@@ -193,6 +193,34 @@ int main() {
     std::fprintf(stderr, "Application 运行失败：%d\n", run_result.code());
     return 4;
   }
+  // 捕获尺寸独立于窗口；连续调整窗口后仍能正常呈现，最小化不阻止离屏捕获。
+  render::frame_image captured;
+  std::uint32_t original_width{}, original_height{};
+  if (application->get_window_size(original_width, original_height).failed() ||
+      application->capture_frame(64, 48, captured).failed() || captured.width != 64 ||
+      captured.height != 48)
+    return 13;
+  std::uint32_t current_width{}, current_height{};
+  if (application->get_window_size(current_width, current_height).failed() ||
+      current_width != original_width || current_height != original_height)
+    return 14;
+#ifdef _WIN32
+  for (int width : {400, 480, 360}) {
+    if (!SetWindowPos(window, nullptr, 0, 0, width, 300,
+                      SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) ||
+        application->run(2).failed() || resources.finish_frames().failed())
+      return 15;
+  }
+  ShowWindow(window, SW_MINIMIZE);
+  if (application->run(1).failed() ||
+      application->get_window_size(current_width, current_height).failed() || current_width != 0 ||
+      current_height != 0 || application->capture_frame(80, 60, captured).failed() ||
+      captured.width != 80 || captured.height != 60)
+    return 16;
+  ShowWindow(window, SW_SHOWNOACTIVATE);
+  if (application->run(2).failed() || resources.finish_frames().failed())
+    return 17;
+#endif
   native::rid replacement_mesh{};
   if (resources.destroy_mesh(mesh).failed() ||
       gneiss::test_support::take_value(resources_factory.create(mesh_desc), mesh_owner).failed()) {
