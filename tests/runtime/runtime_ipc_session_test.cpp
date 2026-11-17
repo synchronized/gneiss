@@ -274,10 +274,8 @@ bool test_control_lifecycle() {
             decoded_heartbeat.nonce == 42U) {
           received_pong = true;
         }
-        std::string decoded_log;
-        if (gneiss::host::decode_ipc_log_event(event.envelope, decoded_log) ==
-                gneiss::error::success &&
-            decoded_log.find("结构化日志") != std::string::npos) {
+        auto decoded_log = gneiss::protocol::decode(gneiss::host::log_record, event.envelope);
+        if (decoded_log && decoded_log->message.find("结构化日志") != std::string::npos) {
           received_log = true;
         }
       }

@@ -151,3 +151,19 @@ expected_revision 冲突检查、请求关联及成功结果的 canonical_value�
 Property 域升为 v2，失败结果也携带 value；GUID 文本遵循通用解析规则。格式及职责以
 [IPC 参考](../reference/platform-ipc.md#property-类型化消息)为准。此前 Property 接入评估已落实。
 Inspection/Session/Log 仍未完成类型化迁移，整体计划保持进行中。
+
+## Log IPC 收发链迁移验收
+
+- [x] 注册 runtime_log_record 字段，使用 log_record 类型化描述及派生域规则。
+- [x] Runtime 直接编码记录，Editor 直接消费独立记录，移除 IPC 内文本前缀和二次解析。
+- [x] 删除原 Log 信封编解码入口，保留日志丢弃分类、16 KiB 上限和控制台去重。
+- [x] Windows Clang Debug 共享构建及 19 项相关测试通过，覆盖日志字段往返、非法负载、
+  大小/版本限制、真实会话日志接收、Runtime 启停及 stdout 行协议。未做静态或跨平台验证。
+
+Log IPC 域升为 v2；记录版本与 stdout 前缀仍为 v2。当前两条日志通道的职责见
+[IPC 参考](../reference/platform-ipc.md#log-类型化记录)。发送适配器保留，因为它负责将借用的
+logging::record_view 转为拥有文本的协议记录，并非同类型转发。
+
+剩余：Inspection、Session 类型化迁移；stdout 手写文本编解码是否可安全复用反射，需要先
+核查 Meta 初始化前及关闭后的日志调用，不以统一编码为由引入启动或关闭依赖。
+整体阶段二仍未完成。

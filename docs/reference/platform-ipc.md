@@ -108,3 +108,19 @@ GUID 的文本解析使用通用序列化规则，不再额外要求输入文本
 检查；消息校验只验证身份字段及负载约束。写入队列仍最多 32 条，队满返回关联原请求的
 not_ready 结果，不阻塞停止命令。对象值按既有反射规则传输独立数据，不跨进程共享引用。
 旧 Property 编解码函数及仅转发的发送包装已删除。v1/v2 不兼容，同版本宿主须配套升级。
+
+## Log 类型化记录
+
+Log v2 的负载是反射 JSON 的 runtime_log_record，由 `log_record` 消息描述负责发送方向、
+事件 kind、零请求 ID、16 KiB 上限及记录版本检查。域规则由同一描述生成。负载直接包含
+version、severity、sequence、timestamp_ns、thread_id、context、source、category、message、
+result；不再包含 stdout 的前缀和行结束符。result 通过字段 getter/setter 转为有符号错误码。
+
+Runtime 发送适配器把 logging::record_view 的借用文本复制到协议记录，在当前调用中编码成
+信封；队列只持有编码字节，不保留日志视图。Editor 解码得到独立记录，直接交给控制台，
+继续按会话、source、sequence 去重。日志可丢弃策略仍由本地分类器决定。
+
+stdout 是独立的文本通道，继续支持 `@gneiss-log-v2 ` 前缀、分块拼行、截断和普通文本回退，
+用于 IPC 尚未可用时的输出。其手写文本编解码本轮未迁移，也不调用需要 Meta 初始化的 IPC
+编码入口。IPC 与 stdout 汇入相同控制台去重路径，但不再互相包裹编码结果。
+Log v1/v2 的 IPC 负载不兼容，须使用配套 Editor/Runtime；stdout 行协议版本未改变。

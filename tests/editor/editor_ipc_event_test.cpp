@@ -24,12 +24,12 @@ int main() {
           gneiss::host::ipc_control_state::paused) {
     return 2;
   }
-  if (gneiss::host::encode_ipc_log_event("测试日志", envelope) != gneiss::error::success ||
-      gneiss::host::decode_runtime_log_event(envelope, event) != gneiss::error::success ||
-      !std::holds_alternative<gneiss::host::runtime_log_event>(event) ||
-      std::get<gneiss::host::runtime_log_event>(event).value != "测试日志") {
-    return 3;
-  }
+  auto encoded_log = gneiss::protocol::encode(log_record, runtime_log_record{.source = "runtime", .category = "test", .message = "测试日志"});
+  if (!encoded_log) return 3;
+  envelope = std::move(*encoded_log);
+  if (decode_runtime_log_event(envelope, event).failed() ||
+      !std::holds_alternative<runtime_log_event>(event) ||
+      std::get<runtime_log_event>(event).value.message != "测试日志") return 3;
   const gneiss::host::ipc_asset_reload_result asset_result{
       .session_id = 9U,
       .revision = 4U,

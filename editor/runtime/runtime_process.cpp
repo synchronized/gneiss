@@ -354,15 +354,7 @@ struct runtime_process::implementation final {
                      std::get_if<runtime_protocol_error_event>(&decoded_event)) {
         last_result = gneiss::error(protocol_error->value.code);
       } else if (auto* log_event = std::get_if<runtime_log_event>(&decoded_event)) {
-        while (!log_event->value.empty() &&
-               (log_event->value.back() == '\n' || log_event->value.back() == '\r')) {
-          log_event->value.pop_back();
-        }
-        gneiss::host::runtime_log_record record;
-        if (gneiss::host::parse_runtime_log_line(log_event->value, record) ==
-            gneiss::host::runtime_log_parse_result::success) {
-          append_event_unique(std::move(record));
-        }
+        append_event_unique(std::move(log_event->value));
       } else if (std::holds_alternative<runtime_shutdown_event>(decoded_event)) {
         ipc_shutdown_complete = true;
         control_state = runtime_control_state::stopping;

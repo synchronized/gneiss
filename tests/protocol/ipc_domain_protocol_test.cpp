@@ -28,14 +28,31 @@ namespace {
 
 [[nodiscard]] bool test_log_and_statistics() {
   gneiss::ipc::envelope envelope;
-  const std::string event = R"({"level":"INFO","message":"运行中"})";
-  std::string decoded_event;
-  if (gneiss::host::encode_ipc_log_event(event, envelope) != gneiss::error::success ||
-      gneiss::host::decode_ipc_log_event(envelope, decoded_event) !=
-          gneiss::error::success ||
-      decoded_event != event) {
+  runtime_log_record record{.severity = 3, .sequence = 4, .timestamp_ns = 5,
+                            .thread_id = 6, .context = 7, .source = "runtime",
+                            .category = "scene", .message = "运行中\n多行\t测试",
+                            .operation = gneiss::error::invalid_argument};
+  auto encoded_log = gneiss::protocol::encode(log_record, record);
+  if (!encoded_log) return false;
+  auto decoded_log = gneiss::protocol::decode(log_record, *encoded_log);
+  if (!decoded_log || decoded_log->message != record.message || decoded_log->sequence != 4 ||
+      decoded_log->timestamp_ns != 5 || decoded_log->thread_id != 6 || decoded_log->context != 7 ||
+      decoded_log->severity != 3 || decoded_log->source != record.source ||
+      decoded_log->category != record.category || decoded_log->operation != record.operation)
     return false;
-  }
+  auto invalid = *encoded_log;
+  invalid.request_id = 1;
+  if (gneiss::protocol::decode(log_record, invalid)) return false;
+  invalid = *encoded_log;
+  invalid.payload = {'{', '}'};
+  if (gneiss::protocol::decode(log_record, invalid)) return false;
+  invalid.payload.resize(16385);
+  if (gneiss::protocol::decode(log_record, invalid)) return false;
+  record.version = 99;
+  if (gneiss::protocol::encode(log_record, record)) return false;
+  record.version = 2;
+  record.message.assign(16385, 'x');
+  if (gneiss::protocol::encode(log_record, record)) return false;
   const gneiss::host::ipc_runtime_statistics statistics{.session_id = 2U,
                                                         .sequence = 3U,
                                                         .frame_index = 4U,

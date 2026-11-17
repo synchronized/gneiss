@@ -5,6 +5,7 @@
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/protocol/ipc_asset_protocol.hpp>
 #include <gneiss/protocol/ipc_control_protocol.hpp>
+#include <gneiss/protocol/ipc_log_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
@@ -226,6 +227,36 @@ error register_types() {
               serialization::field_policy{.required = true})
           .property<&host::ipc_property_write_result::canonical_value>(
               meta::property_id{5}, "value")(serialization::field_policy{.required = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<host::runtime_log_record>()
+          .name("gneiss.protocol.runtime_log_record")
+          .guid(guid::literal("3e2a92e9-3643-42b7-a0a7-74879e3b4960"))
+          .property<&host::runtime_log_record::version>(meta::property_id{1}, "version")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::severity>(meta::property_id{2}, "severity")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::sequence>(meta::property_id{3}, "sequence")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::timestamp_ns>(meta::property_id{4}, "timestamp_ns")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::thread_id>(meta::property_id{5}, "thread_id")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::context>(meta::property_id{6}, "context")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::source>(meta::property_id{7}, "source")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::category>(meta::property_id{8}, "category")(
+              serialization::field_policy{.required = true})
+          .property<&host::runtime_log_record::message>(meta::property_id{9}, "message")(
+              serialization::field_policy{.required = true})
+          .property<[](const host::runtime_log_record& record) { return record.operation.code(); },
+                    [](host::runtime_log_record& record, std::int32_t code) {
+                      record.operation = error{code};
+                    }>(meta::property_id{10},
+                       "result")(serialization::field_policy{.required = true})
           .commit();
   if (status.failed())
     return status;

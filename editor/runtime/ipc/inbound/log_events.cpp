@@ -9,9 +9,12 @@
 namespace gneiss::host {
 
 gneiss::error decode_runtime_log_event(const gneiss::ipc::envelope& envelope,
-                                               runtime_ipc_event& output) {
-  return gneiss::host::detail::decode_value<runtime_log_event>(
-      envelope, output, [&](auto& value) { return decode_ipc_log_event(envelope, value); });
+                                       runtime_ipc_event& output) {
+  auto decoded = protocol::decode(log_record, envelope);
+  if (!decoded)
+    return decoded.error().error;
+  output = runtime_log_event{envelope.request_id, std::move(*decoded)};
+  return error::success;
 }
 
 } // namespace gneiss::host
