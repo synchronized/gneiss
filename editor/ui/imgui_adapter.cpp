@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ui/imgui_adapter.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
 
@@ -29,63 +29,63 @@ constexpr std::uint32_t premultiply_color(std::uint32_t color) noexcept {
 static_assert(premultiply_color(0x80ffffffU) == 0x80808080U);
 
 ImGuiKey map_key(std::uint32_t key) noexcept {
-  if (key >= gneiss::physical_key_a && key <= gneiss::physical_key_z) {
-    return static_cast<ImGuiKey>(ImGuiKey_A + key - gneiss::physical_key_a);
+  if (key >= gneiss::input::physical_key_a && key <= gneiss::input::physical_key_z) {
+    return static_cast<ImGuiKey>(ImGuiKey_A + key - gneiss::input::physical_key_a);
   }
-  if (key >= gneiss::physical_key_1 && key <= gneiss::physical_key_9) {
-    return static_cast<ImGuiKey>(ImGuiKey_1 + key - gneiss::physical_key_1);
+  if (key >= gneiss::input::physical_key_1 && key <= gneiss::input::physical_key_9) {
+    return static_cast<ImGuiKey>(ImGuiKey_1 + key - gneiss::input::physical_key_1);
   }
-  if (key >= gneiss::physical_key_f1 && key <= gneiss::physical_key_f12) {
-    return static_cast<ImGuiKey>(ImGuiKey_F1 + key - gneiss::physical_key_f1);
+  if (key >= gneiss::input::physical_key_f1 && key <= gneiss::input::physical_key_f12) {
+    return static_cast<ImGuiKey>(ImGuiKey_F1 + key - gneiss::input::physical_key_f1);
   }
   switch (key) {
-  case gneiss::physical_key_0:
+  case gneiss::input::physical_key_0:
     return ImGuiKey_0;
-  case gneiss::physical_key_enter:
+  case gneiss::input::physical_key_enter:
     return ImGuiKey_Enter;
-  case gneiss::physical_key_escape:
+  case gneiss::input::physical_key_escape:
     return ImGuiKey_Escape;
-  case gneiss::physical_key_backspace:
+  case gneiss::input::physical_key_backspace:
     return ImGuiKey_Backspace;
-  case gneiss::physical_key_tab:
+  case gneiss::input::physical_key_tab:
     return ImGuiKey_Tab;
-  case gneiss::physical_key_space:
+  case gneiss::input::physical_key_space:
     return ImGuiKey_Space;
-  case gneiss::physical_key_insert:
+  case gneiss::input::physical_key_insert:
     return ImGuiKey_Insert;
-  case gneiss::physical_key_home:
+  case gneiss::input::physical_key_home:
     return ImGuiKey_Home;
-  case gneiss::physical_key_page_up:
+  case gneiss::input::physical_key_page_up:
     return ImGuiKey_PageUp;
-  case gneiss::physical_key_delete:
+  case gneiss::input::physical_key_delete:
     return ImGuiKey_Delete;
-  case gneiss::physical_key_end:
+  case gneiss::input::physical_key_end:
     return ImGuiKey_End;
-  case gneiss::physical_key_page_down:
+  case gneiss::input::physical_key_page_down:
     return ImGuiKey_PageDown;
-  case gneiss::physical_key_right:
+  case gneiss::input::physical_key_right:
     return ImGuiKey_RightArrow;
-  case gneiss::physical_key_left:
+  case gneiss::input::physical_key_left:
     return ImGuiKey_LeftArrow;
-  case gneiss::physical_key_down:
+  case gneiss::input::physical_key_down:
     return ImGuiKey_DownArrow;
-  case gneiss::physical_key_up:
+  case gneiss::input::physical_key_up:
     return ImGuiKey_UpArrow;
-  case gneiss::physical_key_left_control:
+  case gneiss::input::physical_key_left_control:
     return ImGuiKey_LeftCtrl;
-  case gneiss::physical_key_left_shift:
+  case gneiss::input::physical_key_left_shift:
     return ImGuiKey_LeftShift;
-  case gneiss::physical_key_left_alt:
+  case gneiss::input::physical_key_left_alt:
     return ImGuiKey_LeftAlt;
-  case gneiss::physical_key_left_super:
+  case gneiss::input::physical_key_left_super:
     return ImGuiKey_LeftSuper;
-  case gneiss::physical_key_right_control:
+  case gneiss::input::physical_key_right_control:
     return ImGuiKey_RightCtrl;
-  case gneiss::physical_key_right_shift:
+  case gneiss::input::physical_key_right_shift:
     return ImGuiKey_RightShift;
-  case gneiss::physical_key_right_alt:
+  case gneiss::input::physical_key_right_alt:
     return ImGuiKey_RightAlt;
-  case gneiss::physical_key_right_super:
+  case gneiss::input::physical_key_right_super:
     return ImGuiKey_RightSuper;
   default:
     return ImGuiKey_None;
@@ -93,27 +93,27 @@ ImGuiKey map_key(std::uint32_t key) noexcept {
 }
 
 void update_modifiers(ImGuiIO& io, std::uint32_t modifiers) noexcept {
-  io.AddKeyEvent(ImGuiMod_Ctrl, (modifiers & (gneiss::modifier_left_control_bit |
-                                              gneiss::modifier_right_control_bit)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Shift, (modifiers & (gneiss::modifier_left_shift_bit |
-                                               gneiss::modifier_right_shift_bit)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Alt, (modifiers & (gneiss::modifier_left_alt_bit |
-                                             gneiss::modifier_right_alt_bit)) != 0U);
-  io.AddKeyEvent(ImGuiMod_Super, (modifiers & (gneiss::modifier_left_super_bit |
-                                               gneiss::modifier_right_super_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Ctrl, (modifiers & (gneiss::input::modifier_left_control_bit |
+                                              gneiss::input::modifier_right_control_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Shift, (modifiers & (gneiss::input::modifier_left_shift_bit |
+                                               gneiss::input::modifier_right_shift_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Alt, (modifiers & (gneiss::input::modifier_left_alt_bit |
+                                             gneiss::input::modifier_right_alt_bit)) != 0U);
+  io.AddKeyEvent(ImGuiMod_Super, (modifiers & (gneiss::input::modifier_left_super_bit |
+                                               gneiss::input::modifier_right_super_bit)) != 0U);
 }
 
 int map_mouse_button(std::uint32_t button) noexcept {
   switch (button) {
-  case gneiss::pointer_primary_bit:
+  case gneiss::input::pointer_primary_bit:
     return ImGuiMouseButton_Left;
-  case gneiss::pointer_secondary_bit:
+  case gneiss::input::pointer_secondary_bit:
     return ImGuiMouseButton_Right;
-  case gneiss::pointer_middle_bit:
+  case gneiss::input::pointer_middle_bit:
     return ImGuiMouseButton_Middle;
-  case gneiss::pointer_x1_bit:
+  case gneiss::input::pointer_x1_bit:
     return 3;
-  case gneiss::pointer_x2_bit:
+  case gneiss::input::pointer_x2_bit:
     return 4;
   default:
     return -1;
@@ -141,9 +141,9 @@ gneiss::error synchronize_input_state(runtime::application& application) noexcep
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
   }
   constexpr std::uint32_t pointer_buttons[] = {
-      gneiss::pointer_primary_bit, gneiss::pointer_secondary_bit,
-      gneiss::pointer_middle_bit,  gneiss::pointer_x1_bit,
-      gneiss::pointer_x2_bit,
+      gneiss::input::pointer_primary_bit, gneiss::input::pointer_secondary_bit,
+      gneiss::input::pointer_middle_bit,  gneiss::input::pointer_x1_bit,
+      gneiss::input::pointer_x2_bit,
   };
   for (const auto button : pointer_buttons) {
     io.AddMouseButtonEvent(map_mouse_button(button), (pointer.buttons & button) != 0U);
@@ -257,7 +257,7 @@ void imgui_adapter::shutdown(runtime::application& application) noexcept {
 }
 
 gneiss::error imgui_adapter::begin_frame(runtime::application& application,
-                                                 const gneiss::frame_time& time) {
+                                         const gneiss::frame_time& time) {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return gneiss::error::invalid_state;
   }
@@ -265,7 +265,7 @@ gneiss::error imgui_adapter::begin_frame(runtime::application& application,
     return gneiss::error::invalid_state;
   }
   ImGui::SetCurrentContext(context_);
-  gneiss::input_event event;
+  gneiss::input::event event;
   auto poll_result = application.poll_input(event);
   while (poll_result == gneiss::error::success) {
     process_input(event);
@@ -300,27 +300,27 @@ gneiss::error imgui_adapter::begin_frame(runtime::application& application,
   return gneiss::error::success;
 }
 
-void imgui_adapter::process_input(const gneiss::input_event& event) {
+void imgui_adapter::process_input(const gneiss::input::event& event) {
   auto& io = ImGui::GetIO();
   switch (event.type) {
-  case gneiss::event_type::key: {
+  case gneiss::input::event_type::key: {
     update_modifiers(io, event.data.key.modifiers);
     const auto key = map_key(event.data.key.physical_key);
-    if (key != ImGuiKey_None && event.data.key.action != gneiss::key_action::repeated) {
-      io.AddKeyEvent(key, event.data.key.action == gneiss::key_action::pressed);
+    if (key != ImGuiKey_None && event.data.key.action != gneiss::input::key_action::repeated) {
+      io.AddKeyEvent(key, event.data.key.action == gneiss::input::key_action::pressed);
     }
     break;
   }
-  case gneiss::event_type::text: {
+  case gneiss::input::event_type::text: {
     const auto length = std::min<std::size_t>(event.data.text.length, sizeof(event.data.text.utf8));
     const std::string utf8{event.data.text.utf8, length};
     io.AddInputCharactersUTF8(utf8.c_str());
     break;
   }
-  case gneiss::event_type::pointer_moved:
+  case gneiss::input::event_type::pointer_moved:
     io.AddMousePosEvent(event.data.pointer_moved.x, event.data.pointer_moved.y);
     break;
-  case gneiss::event_type::pointer_button: {
+  case gneiss::input::event_type::pointer_button: {
     io.AddMousePosEvent(event.data.pointer_button.x, event.data.pointer_button.y);
     const auto button = map_mouse_button(event.data.pointer_button.button);
     if (button >= 0) {
@@ -328,11 +328,11 @@ void imgui_adapter::process_input(const gneiss::input_event& event) {
     }
     break;
   }
-  case gneiss::event_type::pointer_wheel:
+  case gneiss::input::event_type::pointer_wheel:
     io.AddMousePosEvent(event.data.pointer_wheel.x, event.data.pointer_wheel.y);
     io.AddMouseWheelEvent(event.data.pointer_wheel.delta_x, event.data.pointer_wheel.delta_y);
     break;
-  case gneiss::event_type::pointer_left:
+  case gneiss::input::event_type::pointer_left:
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     break;
   default:

@@ -4,13 +4,13 @@
 #pragma once
 
 #include <gneiss/engine/core/logging/record.hpp>
-#include <gneiss/engine/core/window/configuration.hpp>
+#include <gneiss/engine/platform/window/configuration.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <functional>
 #include <gneiss/engine/core/diagnostics/diagnostic.hpp>
 #include <gneiss/engine/core/types/frame_time.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
-#include <functional>
+#include <gneiss/engine/error.hpp>
 #include <string_view>
 
 namespace gneiss::runtime {
@@ -31,7 +31,7 @@ struct application_callbacks final {
 struct application_configuration final {
   application_callbacks callbacks;
   bool enable_window = false;
-  gneiss::window_configuration window;
+  gneiss::window::configuration window;
   std::string_view asset_root;
   /** 编辑器显式允许单文件保存；Runtime 默认只读，远程 Fetch 不支持写入。 */
   bool writable_assets = false;

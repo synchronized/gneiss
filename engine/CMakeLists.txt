@@ -36,10 +36,10 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_read_stream.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/files/file_service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/files/memory_file_backend.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/window/service.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/window/service.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/window/native_window_info.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/window/configuration.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/platform/window/service.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/service.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/native_window_info.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/configuration.hpp"
 )
 
 target_sources(
@@ -69,7 +69,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/src/core/types/value.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/value_edit.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/detail/canonical_type_name.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/input/input_types.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/input/types.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.hpp"
@@ -220,8 +220,9 @@ target_sources(
   gneiss_engine
   PRIVATE
 
-    "${PROJECT_SOURCE_DIR}/engine/src/function/input/input_service.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/input/input_service.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/function/input/service.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/input/service.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/input/action.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/asset/asset_loader.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/loader_factory.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_loader.cpp"

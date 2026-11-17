@@ -2,13 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>
 #include <memory>
 #include <span>
 namespace gneiss {
+namespace window {
 struct native_window_info;
+}
 namespace render {
 struct device_stats;
 struct execution_result;
@@ -27,7 +29,8 @@ public:
   ~backend();
   backend(const backend&) = delete;
   backend& operator=(const backend&) = delete;
-  error initialize(const native_window_info&, std::span<const std::byte>, float, float);
+  error initialize(const gneiss::window::native_window_info&, std::span<const std::byte>, float,
+                   float);
   error shutdown(gneiss::render::device_stats&);
   void destroy_target(rid target);
   error draw(gneiss::render::detail::frame_packet&, gneiss::render::execution_result&);

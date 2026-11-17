@@ -354,3 +354,11 @@ engine/function/render/render_extraction 在 World 所属线程提取渲染快�
 Application 装配位于 src/application，application_configuration.hpp 与主类相邻，
 主循环唤醒实现位于 detail/main_loop_wakeup.hpp。C++ 命名空间仍为 gneiss::runtime。
 旧 src/runtime/loading 协调代码已删除，不存在另一套 Application 所有者。
+
+## Window 与 Input
+
+`platform/window` 的 `gneiss::window::service` 创建窗口并采集平台事件，Granit 类型隐藏在实现中。
+`core/input/types.hpp` 定义 `gneiss::input` 的原始事件、键码和设备状态；动作 ID/状态位于
+`function/input/action.hpp`，输入服务位于 `function/input/service.hpp`，动作映射资产位于
+`resource/input/action_map.hpp`。Application 负责协调窗口采集与输入消费。
+原生窗口信息目前仍包含尺寸和重建标记，后续拆分建议见 PLAN-119，尚未落地。

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include "../../support/async_application.hpp"
 #include <gneiss/engine/function/application/application.hpp>
@@ -138,8 +138,7 @@ gneiss::error advance_scene(gneiss::runtime::application& app, response_context&
   return error::success;
 }
 
-gneiss::error advance_scene_observed(gneiss::runtime::application& app,
-                                             response_context& state) {
+gneiss::error advance_scene_observed(gneiss::runtime::application& app, response_context& state) {
   if (!state.trace) {
     return advance_scene(app, state);
   }
@@ -160,17 +159,16 @@ gneiss::error advance_scene_observed(gneiss::runtime::application& app,
   return result;
 }
 
-gneiss::error native_update(gneiss::runtime::application& app,
-                                    response_context& state) try {
+gneiss::error native_update(gneiss::runtime::application& app, response_context& state) try {
   if (state.stall && state.sent.load() == 1U && state.keys.load() == 0U) {
     std::this_thread::sleep_for(50ms);
     state.stall = false;
   }
-  gneiss::input_event event;
+  gneiss::input::event event;
   while (gneiss::error{app.poll_input(event)} == gneiss::error::success) {
-    if (event.type == gneiss::event_type::key &&
+    if (event.type == gneiss::input::event_type::key &&
         event.data.key.physical_key == 4U /* USB HID A */ &&
-        event.data.key.action == gneiss::key_action::pressed) {
+        event.data.key.action == gneiss::input::key_action::pressed) {
       const probe_sample sample{
           .index = state.keys.load() + 1U,
           .sent_ns = state.key_sent.load(),

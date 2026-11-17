@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <string_view>
 
-namespace gneiss {
+namespace gneiss::window {
 
 /** 已校验的窗口配置；title 仅在初始化调用期间借用，不包含 Application 生命周期或 ABI 字段。 */
-struct window_configuration final {
+struct configuration final {
   std::string_view title = "Gneiss";
   std::uint32_t width = 1280U;
   std::uint32_t height = 720U;
@@ -18,4 +18,4 @@ struct window_configuration final {
   bool high_dpi = true;
 };
 
-} // namespace gneiss
+} // namespace gneiss::window

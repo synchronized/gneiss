@@ -2,18 +2,18 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "backend.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
 #include "function/render/backend/granit/pbr_shader_resolver.hpp"
-#include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include "function/render/detail/frame_packet.hpp"
-#include <gneiss/engine/function/render/statistics.hpp>
-#include <gneiss/engine/function/render/ui_draw_list.hpp>
-#include <gneiss/engine/core/window/native_window_info.hpp>
 #include <array>
 #include <atomic>
 #include <deque>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/render/debug_draw_list.hpp>
+#include <gneiss/engine/function/render/statistics.hpp>
+#include <gneiss/engine/function/render/ui_draw_list.hpp>
+#include <gneiss/engine/platform/window/native_window_info.hpp>
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>
 #include <granit/pipeline/debug_draw_list.hpp>
@@ -49,7 +49,8 @@
 
 namespace gneiss::render::backend::granit {
 struct backend::implementation final {
-  error initialize_gpu(const native_window_info&, std::span<const std::byte>, float, float);
+  error initialize_gpu(const gneiss::window::native_window_info&, std::span<const std::byte>, float,
+                       float);
   error shutdown_gpu(device_stats&);
   error execute_frame(gneiss::render::detail::frame_packet&, execution_result&);
   error execute_view(gneiss::render::detail::frame_packet&,
@@ -810,10 +811,9 @@ void backend::implementation::release_invalid_materials(
   }
 }
 
-gneiss::error backend::implementation::initialize_gpu(const native_window_info& window,
-                                                      std::span<const std::byte> environment_asset,
-                                                      float environment_intensity,
-                                                      float environment_rotation_radians) {
+gneiss::error backend::implementation::initialize_gpu(
+    const gneiss::window::native_window_info& window, std::span<const std::byte> environment_asset,
+    float environment_intensity, float environment_rotation_radians) {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .presentation = ::granit::presentation_mode::enabled});
@@ -838,15 +838,15 @@ gneiss::error backend::implementation::initialize_gpu(const native_window_info& 
   texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
-  case native_window_backend::win32:
+  case gneiss::window::native_window_backend::win32:
     result = surface_.initialize(renderer_,
                                  ::granit::surface_desc::win32(window.display, window.window));
     break;
-  case native_window_backend::xcb:
+  case gneiss::window::native_window_backend::xcb:
     result = surface_.initialize(renderer_,
                                  ::granit::surface_desc::xcb(window.display, window.xcb_window));
     break;
-  case native_window_backend::wayland:
+  case gneiss::window::native_window_backend::wayland:
     result = surface_.initialize(renderer_,
                                  ::granit::surface_desc::wayland(window.display, window.window));
     break;
@@ -1450,8 +1450,8 @@ error backend::implementation::set_environment(std::span<const std::byte> bytes,
 
 backend::backend() : impl_(std::make_unique<implementation>()) {}
 backend::~backend() = default;
-error backend::initialize(const native_window_info& window, std::span<const std::byte> bytes,
-                          float intensity, float rotation) {
+error backend::initialize(const gneiss::window::native_window_info& window,
+                          std::span<const std::byte> bytes, float intensity, float rotation) {
   return impl_->initialize_gpu(window, bytes, intensity, rotation);
 }
 void backend::destroy_target(rid target) { impl_->targets_.erase(target); }

@@ -3,10 +3,9 @@
 
 #include "../support/scene_activation.hpp"
 #include "../support/scope_exit.hpp"
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
@@ -30,8 +29,8 @@ constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
   gneiss::entity_id camera_node;
-  gneiss::action_id orbit;
-  gneiss::action_id quit;
+  gneiss::input::action_id orbit;
+  gneiss::input::action_id quit;
   double angle = 0.0;
   bool measure = false;
   std::array<gneiss::rid, 2> targets{};
@@ -66,8 +65,8 @@ gneiss::error update_sample(gneiss::runtime::application& application,
     }
     state->previous_update = current_update;
   }
-  gneiss::action_state orbit{};
-  gneiss::action_state quit{};
+  gneiss::input::action_state orbit{};
+  gneiss::input::action_state quit{};
   const auto orbit_result = application.get_action_state(state->orbit, orbit);
   if (orbit_result.failed()) {
     return orbit_result;

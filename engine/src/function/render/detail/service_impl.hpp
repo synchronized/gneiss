@@ -6,8 +6,8 @@
 #include "function/render/detail/executor.hpp"
 #include "function/render/detail/resource_storage.hpp"
 #include "function/render/detail/scene.hpp"
-#include <gneiss/engine/function/render/service.hpp>
 #include <deque>
+#include <gneiss/engine/function/render/service.hpp>
 #include <set>
 namespace gneiss::render {
 struct service::implementation final {
@@ -34,7 +34,7 @@ public:
   using capture_operation = std::function<result<detail::frame_packet>()>;
   result<capture_operation> prepare_capture(const frame_request&, std::vector<target_description>);
   result<detail::scene_resource_pin> pin(const mesh_instance_description&);
-  [[nodiscard]] gneiss::error initialize(const native_window_info& window,
+  [[nodiscard]] gneiss::error initialize(const gneiss::window::native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F,

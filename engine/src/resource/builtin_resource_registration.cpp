@@ -292,29 +292,29 @@ error register_builtin_resource_types() {
     return status;
 
   status =
-      meta::registration::type<action_binding>()
-          .property<&action_binding::physical_key>(meta::property_id{1}, "key")(
+      meta::registration::type<input::action_binding>()
+          .property<&input::action_binding::physical_key>(meta::property_id{1}, "key")(
               gneiss::serialization::field_policy{.required = true})
-          .property<&action_binding::scale>(meta::property_id{2}, "scale")(
-              gneiss::serialization::field_policy{.required = true})
-          .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
-          .commit();
-  if (status.failed())
-    return status;
-  status =
-      meta::registration::type<action_definition>()
-          .property<&action_definition::name>(meta::property_id{1}, "name")(
-              gneiss::serialization::field_policy{.required = true})
-          .property<&action_definition::bindings>(meta::property_id{2}, "bindings")(
+          .property<&input::action_binding::scale>(meta::property_id{2}, "scale")(
               gneiss::serialization::field_policy{.required = true})
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit();
   if (status.failed())
     return status;
   status =
-      meta::registration::type<action_map_description>()
+      meta::registration::type<input::action_definition>()
+          .property<&input::action_definition::name>(meta::property_id{1}, "name")(
+              gneiss::serialization::field_policy{.required = true})
+          .property<&input::action_definition::bindings>(meta::property_id{2}, "bindings")(
+              gneiss::serialization::field_policy{.required = true})
+          .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
+          .commit();
+  if (status.failed())
+    return status;
+  status =
+      meta::registration::type<input::action_map_description>()
           .schema_version(1)
-          .property<&action_map_description::actions>(meta::property_id{1}, "actions")(
+          .property<&input::action_map_description::actions>(meta::property_id{1}, "actions")(
               gneiss::serialization::field_policy{.required = true})
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit();

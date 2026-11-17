@@ -2,17 +2,17 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/export.hpp>
-#include <gneiss/engine/result.hpp>
+#include <functional>
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
 #include <gneiss/engine/function/render/frame_request.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
 #include <gneiss/engine/function/render/queue_options.hpp>
 #include <gneiss/engine/function/render/render_resource_data.hpp>
-#include <gneiss/engine/core/window/native_window_info.hpp>
+#include <gneiss/engine/platform/window/native_window_info.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
-#include <functional>
+#include <gneiss/engine/result.hpp>
 #include <memory>
 #include <optional>
 #include <span>
@@ -36,7 +36,7 @@ public:
   service& operator=(const service&) = delete;
   service(service&&) = delete;
   service& operator=(service&&) = delete;
-  [[nodiscard]] GNEISS_API error initialize(const native_window_info& window,
+  [[nodiscard]] GNEISS_API error initialize(const gneiss::window::native_window_info& window,
                                             std::span<const std::byte> environment_asset = {},
                                             float environment_intensity = 1.0F,
                                             float environment_rotation_radians = 0.0F,

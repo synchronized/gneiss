@@ -4,16 +4,17 @@
 #ifndef GNEISS_RUNTIME_APPLICATION_HPP_
 #define GNEISS_RUNTIME_APPLICATION_HPP_
 
-#include <gneiss/engine/core/input/input_types.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/input/types.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/action.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
+#include <gneiss/engine/result.hpp>
 
-#include <gneiss/engine/function/application/configuration.hpp>
 #include <gneiss/engine/core/logging/record.hpp>
+#include <gneiss/engine/function/application/configuration.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_batch_types.hpp>
 #include <gneiss/engine/function/render/camera.hpp>
@@ -68,8 +69,7 @@ public:
    * 失败保留旧列表；与单视图便捷接口共享同一份状态。 */
   [[nodiscard]] GNEISS_API result<void> set_views(std::span<const application_view> views);
   /** 修改首个视图的相机；空指针恢复 World 主相机。 */
-  [[nodiscard]] GNEISS_API gneiss::error
-  set_view_camera(const gneiss::view_camera* camera);
+  [[nodiscard]] GNEISS_API gneiss::error set_view_camera(const gneiss::view_camera* camera);
   /** 修改首个视图的借用目标；零表示窗口。调用方负责目标生命周期。 */
   [[nodiscard]] GNEISS_API gneiss::error set_view_target(gneiss::rid target);
   [[nodiscard]] GNEISS_API gneiss::error capture_frame(std::uint32_t width, std::uint32_t height,
@@ -114,32 +114,28 @@ public:
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] GNEISS_API gneiss::asset_manager& assets() noexcept;
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
-  [[nodiscard]] GNEISS_API std::shared_ptr<gneiss::files::service>
-  async_files() const noexcept;
-  [[nodiscard]] GNEISS_API const gneiss::keyboard_state& keyboard_state() const noexcept;
-  [[nodiscard]] GNEISS_API const gneiss::pointer_state& pointer_state() const noexcept;
-  [[nodiscard]] GNEISS_API gneiss::error
-  poll_input(gneiss::input_event& out_event) noexcept;
-  [[nodiscard]] GNEISS_API gneiss::error
-  get_window_size(std::uint32_t& out_width, std::uint32_t& out_height) const noexcept;
+  [[nodiscard]] GNEISS_API std::shared_ptr<gneiss::files::service> async_files() const noexcept;
+  [[nodiscard]] GNEISS_API const gneiss::input::keyboard_state& keyboard_state() const noexcept;
+  [[nodiscard]] GNEISS_API const gneiss::input::pointer_state& pointer_state() const noexcept;
+  [[nodiscard]] GNEISS_API gneiss::error poll_input(gneiss::input::event& out_event) noexcept;
+  [[nodiscard]] GNEISS_API gneiss::error get_window_size(std::uint32_t& out_width,
+                                                         std::uint32_t& out_height) const noexcept;
   /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
   [[nodiscard]] GNEISS_API gneiss::error begin_action_map(std::string_view uri);
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
   [[nodiscard]] GNEISS_API gneiss::error action_map_status() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::error cancel_action_map() noexcept;
   [[nodiscard]] GNEISS_API gneiss::error
-  find_action(std::string_view name, gneiss::action_id& out_action) const noexcept;
+  find_action(std::string_view name, gneiss::input::action_id& out_action) const noexcept;
   [[nodiscard]] GNEISS_API gneiss::error
-  get_action_state(gneiss::action_id action,
-                   gneiss::action_state& out_state) const noexcept;
+  get_action_state(gneiss::input::action_id action,
+                   gneiss::input::action_state& out_state) const noexcept;
   [[nodiscard]] GNEISS_API bool can_submit_draw_lists() const noexcept;
-  [[nodiscard]] GNEISS_API gneiss::error
-  submit_ui_draw_list(const gneiss::ui_draw_view& desc);
+  [[nodiscard]] GNEISS_API gneiss::error submit_ui_draw_list(const gneiss::ui_draw_view& desc);
   [[nodiscard]] GNEISS_API gneiss::error
   submit_debug_draw_list(std::span<const gneiss::debug_line> lines);
-  GNEISS_API void report(gneiss::severity severity, gneiss::category category,
-                         gneiss::error result, std::string_view module,
-                         std::string_view message);
+  GNEISS_API void report(gneiss::severity severity, gneiss::category category, gneiss::error result,
+                         std::string_view module, std::string_view message);
   GNEISS_API void request_exit() noexcept;
   GNEISS_API void set_paused(bool value) noexcept;
 

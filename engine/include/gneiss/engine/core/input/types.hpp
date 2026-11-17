@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 
-namespace gneiss {
+namespace gneiss::input {
 
 /** 物理键采用 USB HID 编号；修饰键与指针按钮采用位集合。 */
 inline constexpr std::uint32_t modifier_left_alt_bit = (1U << 4U);
@@ -53,19 +53,6 @@ inline constexpr std::uint32_t pointer_secondary_bit = (1U << 1U);
 inline constexpr std::uint32_t pointer_x1_bit = (1U << 3U);
 inline constexpr std::uint32_t pointer_x2_bit = (1U << 4U);
 
-/** 只在所属输入服务及映射代次内有效；零值无效。 */
-struct action_id final {
-  std::uint64_t value{};
-  friend bool operator==(action_id, action_id) = default;
-};
-
-struct action_state final {
-  bool pressed{};
-  bool held{};
-  bool released{};
-  float value{};
-};
-
 /** 平台与输入服务共享的值类型，不包含 ABI 布局或后端类型。 */
 enum class event_type : std::uint32_t {
   none,
@@ -106,7 +93,7 @@ union event_data {
   pointer_motion pointer_wheel;
 };
 /** type 指定 data 的活动成员；文本长度不得超过 utf8 容量。 */
-struct input_event {
+struct event {
   event_type type{};
   std::uint64_t window_id{}, timestamp_ns{};
   event_data data{};
@@ -120,4 +107,4 @@ struct pointer_state {
   float x{}, y{};
   bool is_inside{};
 };
-} // namespace gneiss
+} // namespace gneiss::input

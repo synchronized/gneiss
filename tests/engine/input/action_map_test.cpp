@@ -4,17 +4,17 @@
 #include "../../support/async_asset.hpp"
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include <cstring>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/platform/files/file_service.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
-#include <cstring>
 
 namespace {
 std::span<const std::byte> bytes(std::string_view text) {
@@ -27,15 +27,14 @@ void advance_assets_for_test(gneiss::asset_manager& assets) {
   assets.advance();
 }
 gneiss::error load_map_for_test(gneiss::asset_manager& assets,
-                                        gneiss::tasks::task_scheduler& executor,
-                                        std::string_view uri,
-                                        gneiss::action_map_description& output) {
-  gneiss::asset_request<gneiss::action_map> request;
+                                gneiss::tasks::task_scheduler& executor, std::string_view uri,
+                                gneiss::input::action_map_description& output) {
+  gneiss::asset_request<gneiss::input::action_map> request;
   auto status = gneiss::test_support::assign_value(
       assets.reload<typename std::remove_cvref_t<decltype(request)>::value_type>(uri), request);
   if (status.failed())
     return status;
-  gneiss::asset_ref<const gneiss::action_map> value;
+  gneiss::asset_ref<const gneiss::input::action_map> value;
   for (unsigned i = 0; i < 32; ++i) {
     advance_assets_for_test(assets);
     (void)executor.run_ready();
@@ -58,7 +57,7 @@ public:
     return gneiss::error::internal; // 测试禁止回退到无界读取。
   }
   gneiss::error read_bounded(std::string_view, std::size_t limit,
-                                     std::vector<std::byte>& output) const noexcept override {
+                             std::vector<std::byte>& output) const noexcept override {
     last_limit = limit;
     const auto& text = reads++ == 0 ? first : second;
     if (fail_verify && reads > 1)
@@ -79,12 +78,11 @@ public:
 int main() {
   if (gneiss::initialize_meta().failed())
     return 99;
-  gneiss::action_map_description map;
+  gneiss::input::action_map_description map;
   constexpr auto valid =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":-1.0},{"key":7,"scale":1.0}]}]})";
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::deserialize<gneiss::action_map_description>(
-              bytes(valid)),
+          gneiss::asset_file::deserialize<gneiss::input::action_map_description>(bytes(valid)),
           map) != gneiss::error::success ||
       map.actions.size() != 1U || map.actions[0].bindings.size() != 2U) {
     return 1;
@@ -97,15 +95,14 @@ int main() {
   constexpr auto invalid_scale =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":0}]}]})";
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::deserialize<gneiss::action_map_description>(
-              bytes(duplicate)),
+          gneiss::asset_file::deserialize<gneiss::input::action_map_description>(bytes(duplicate)),
           map) != gneiss::error::invalid_argument ||
       gneiss::test_support::assign_decoded(
-          gneiss::asset_file::deserialize<gneiss::action_map_description>(
+          gneiss::asset_file::deserialize<gneiss::input::action_map_description>(
               bytes(unknown_key)),
           map) != gneiss::error::invalid_argument ||
       gneiss::test_support::assign_decoded(
-          gneiss::asset_file::deserialize<gneiss::action_map_description>(
+          gneiss::asset_file::deserialize<gneiss::input::action_map_description>(
               bytes(invalid_scale)),
           map) != gneiss::error::invalid_argument ||
       map.actions[0].bindings.size() != original_size) {
@@ -120,39 +117,37 @@ int main() {
   assets.configure(executor);
   backend->first = valid;
   backend->second = valid;
-  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
-          gneiss::error::success ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) != gneiss::error::success ||
       backend->reads != 1)
     return 4;
   // 本次读取完成后来源变化或后续读取失败，不触发二次读取。
   backend->reads = 0;
   backend->second.replace(backend->second.find("move"), 4, "turn");
-  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
-          gneiss::error::success ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) != gneiss::error::success ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 5;
   backend->reads = 0;
   backend->fail_verify = true;
-  if (load_map_for_test(assets, executor, "asset://input/map", map) !=
-          gneiss::error::success ||
+  if (load_map_for_test(assets, executor, "asset://input/map", map) != gneiss::error::success ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 6;
   backend->reads = 0;
-  backend->first.assign(gneiss::maximum_action_map_bytes + 1, ' ');
+  backend->first.assign(gneiss::input::maximum_action_map_bytes + 1, ' ');
   if (load_map_for_test(assets, executor, "asset://input/map", map) !=
           gneiss::error::invalid_argument ||
       backend->reads != 1 || map.actions[0].name != "move")
     return 7;
   using namespace gneiss;
   // 编码、解码与资源加载共用默认表；字段保持 input-map v1 布局。
-  auto codec = serialization::find_policies(runtime_type_of<action_map_description>());
+  auto codec =
+      serialization::find_policies(runtime_type_of<gneiss::input::action_map_description>());
   if (!codec || codec->content.decode || codec->content.encode)
     return 9;
   serialization::diagnostic diagnostic;
   for (auto version : {2, 3}) {
     const auto text = std::string("{\"format\":\"gneiss.input-map\",\"version\":") +
                       std::to_string(version) + ",\"actions\":[]}";
-    auto unsupported = gneiss::asset_file::deserialize<action_map_description>(text);
+    auto unsupported = gneiss::asset_file::deserialize<gneiss::input::action_map_description>(text);
     if (unsupported || unsupported.error().error != error::unsupported ||
         unsupported.error().path != "/version")
       return 28;
@@ -168,13 +163,16 @@ int main() {
 
   auto view = meta::view(std::as_const(map));
   if (!view || !asset_file::serialize_instance(ctx, exact, *view) ||
-      !asset_file::deserialize_object(read_ctx, exact, runtime_type_of<action_map_description>(),
+      !asset_file::deserialize_object(read_ctx, exact,
+                                      runtime_type_of<gneiss::input::action_map_description>(),
                                       *saved_bytes) ||
       asset_file::serialize_instance(ctx, short_limit, *view) ||
       asset_file::deserialize_object(read_ctx, short_limit,
-                                     runtime_type_of<action_map_description>(), *saved_bytes))
+                                     runtime_type_of<gneiss::input::action_map_description>(),
+                                     *saved_bytes))
     return 31;
-  auto roundtrip = gneiss::asset_file::deserialize<action_map_description>(*saved_bytes);
+  auto roundtrip =
+      gneiss::asset_file::deserialize<gneiss::input::action_map_description>(*saved_bytes);
   if (!roundtrip || roundtrip->actions.front().name != "move" ||
       roundtrip->actions.front().bindings.front().physical_key != 4 ||
       roundtrip->actions.front().bindings.front().scale != -1)
@@ -184,8 +182,8 @@ int main() {
         R"({"format":"gneiss.input-map","version":1,"version":1,"actions":[]})",
         R"({"format":"wrong","version":1,"actions":[]})",
         R"({"format":"gneiss.input-map","version":"1","actions":[]})"}) {
-    auto result = gneiss::asset_file::deserialize<gneiss::action_map_description>(
-        bytes(malformed));
+    auto result =
+        gneiss::asset_file::deserialize<gneiss::input::action_map_description>(bytes(malformed));
     if (result || result.error().error != error::invalid_argument)
       return 30;
   }
@@ -198,7 +196,7 @@ int main() {
   if (gneiss::asset_file::serialize_bytes(bad_map))
     return 22;
   bad_map = map;
-  bad_map.actions.front().name.assign(maximum_action_map_bytes, 'x');
+  bad_map.actions.front().name.assign(gneiss::input::maximum_action_map_bytes, 'x');
   if (gneiss::asset_file::serialize_bytes(bad_map))
     return 23;
   for (const std::string_view body :
@@ -209,8 +207,7 @@ int main() {
     const std::string malformed =
         std::string(R"({"format":"gneiss.input-map","version":1,"actions":[)") + std::string(body) +
         "]}";
-    if (gneiss::asset_file::deserialize<gneiss::action_map_description>(
-            bytes(malformed)))
+    if (gneiss::asset_file::deserialize<gneiss::input::action_map_description>(bytes(malformed)))
       return 24;
   }
   const auto invalid = std::as_bytes(std::span{invalid_scale, std::strlen(invalid_scale)});
@@ -223,7 +220,7 @@ int main() {
   backend->reads = 0;
   backend->fail_verify = false;
   backend->first = backend->second = valid;
-  asset_ref<const action_map> shared;
+  asset_ref<const gneiss::input::action_map> shared;
   if (gneiss::test_support::load_asset(assets, "asset://input/shared", shared).failed())
     return 12;
   auto previous = shared;
@@ -240,19 +237,22 @@ int main() {
       shared != previous || shared->snapshot()->actions.front().name != "jump" ||
       old_snapshot->actions.front().name != "move" ||
       shared->source().uri != "asset://input/shared" ||
-      shared->type() != runtime_type_of<action_map>())
+      shared->type() != runtime_type_of<gneiss::input::action_map>())
     return 26;
-  if (assets.load<action_map_description>("asset://input/shared").error() != error::unsupported ||
-      assets.find<action_map_description>("asset://input/shared").error() != error::unsupported ||
-      assets.store<action_map_description>("asset://input/shared", old_snapshot.shared()).error() !=
-          error::unsupported)
+  if (assets.load<gneiss::input::action_map_description>("asset://input/shared").error() !=
+          error::unsupported ||
+      assets.find<gneiss::input::action_map_description>("asset://input/shared").error() !=
+          error::unsupported ||
+      assets.store<gneiss::input::action_map_description>("asset://input/shared",
+                                                          old_snapshot.shared())
+              .error() != error::unsupported)
     return 27;
   backend->first = backend->second = valid;
   asset_manager asynchronous(gneiss::test_support::test_files(files));
   asynchronous.configure(executor);
-  asset_request<action_map> request;
-  if (gneiss::test_support::assign_value(asynchronous.reload<action_map>("asset://input/map"),
-                                         request)
+  asset_request<gneiss::input::action_map> request;
+  if (gneiss::test_support::assign_value(
+          asynchronous.reload<gneiss::input::action_map>("asset://input/map"), request)
           .failed())
     return 14;
   auto status = error::not_ready;
@@ -266,8 +266,8 @@ int main() {
     return 16;
   previous = shared;
   backend->first = backend->second = invalid_scale;
-  if (gneiss::test_support::assign_value(asynchronous.reload<action_map>("asset://input/map"),
-                                         request)
+  if (gneiss::test_support::assign_value(
+          asynchronous.reload<gneiss::input::action_map>("asset://input/map"), request)
           .failed())
     return 17;
   status = error::not_ready;
@@ -280,9 +280,9 @@ int main() {
       diagnostic.path != "/actions/0/bindings/0")
     return 18;
   // 异步读取在打开来源后检查字节上限，不再依赖旧 read_bounded 的参数传递。
-  backend->first = backend->second = std::string(maximum_action_map_bytes + 1, ' ');
-  if (gneiss::test_support::assign_value(asynchronous.reload<action_map>("asset://input/oversized"),
-                                         request)
+  backend->first = backend->second = std::string(gneiss::input::maximum_action_map_bytes + 1, ' ');
+  if (gneiss::test_support::assign_value(
+          asynchronous.reload<gneiss::input::action_map>("asset://input/oversized"), request)
           .failed())
     return 24;
   status = error::not_ready;
@@ -296,33 +296,35 @@ int main() {
   backend->first = backend->second = invalid_scale;
   asset_manager custom(gneiss::test_support::test_files(files));
   custom.configure(executor);
-  const auto override_decode =
-      +[](std::span<const std::byte>) -> result<action_map_description, serialization::diagnostic> {
-    action_map_description output;
+  const auto override_decode = +[](std::span<const std::byte>)
+      -> result<gneiss::input::action_map_description, serialization::diagnostic> {
+    gneiss::input::action_map_description output;
     output.actions = {{.name = "override", .bindings = {{.physical_key = 4, .scale = 1.0F}}}};
     return output;
   };
-  if (custom.register_decoder<action_map_description>(override_decode).failed() ||
+  if (custom.register_decoder<gneiss::input::action_map_description>(override_decode).failed() ||
       load_map_for_test(custom, executor, "asset://input/map", map).failed() ||
       map.actions.front().name != "override")
     return 19;
   // 通用 JSON 只负责结构；领域入口拒绝不可用的输入绑定。
-  action_map_description unchecked;
+  gneiss::input::action_map_description unchecked;
   unchecked.actions = {{.name = "bad", .bindings = {{.physical_key = 4, .scale = 0}}}};
   auto unchecked_bytes = serialization::json::encode_bytes(unchecked);
-  if (!unchecked_bytes || !serialization::json::decode<action_map_description>(*unchecked_bytes) ||
-      validate_action_map(unchecked).error != error::invalid_argument ||
+  if (!unchecked_bytes ||
+      !serialization::json::decode<gneiss::input::action_map_description>(*unchecked_bytes) ||
+      gneiss::input::validate_action_map(unchecked).error != error::invalid_argument ||
       asset_file::serialize_bytes(unchecked))
     return 32;
-  const auto invalid_decode =
-      +[](std::span<const std::byte>) -> result<action_map_description, serialization::diagnostic> {
-    action_map_description output;
+  const auto invalid_decode = +[](std::span<const std::byte>)
+      -> result<gneiss::input::action_map_description, serialization::diagnostic> {
+    gneiss::input::action_map_description output;
     output.actions = {{.name = "bad", .bindings = {{.physical_key = 4, .scale = 0}}}};
     return output;
   };
   asset_manager invalid_custom(gneiss::test_support::test_files(files));
   invalid_custom.configure(executor);
-  if (invalid_custom.register_decoder<action_map_description>(invalid_decode).failed() ||
+  if (invalid_custom.register_decoder<gneiss::input::action_map_description>(invalid_decode)
+          .failed() ||
       load_map_for_test(invalid_custom, executor, "asset://input/invalid-custom", map) !=
           error::invalid_argument)
     return 33;

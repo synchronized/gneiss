@@ -4,14 +4,14 @@
 #ifndef GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
 #define GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
 
-#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/render/camera.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 #include <gneiss/engine/function/render/ui_draw_list.hpp>
-#include <gneiss/engine/core/window/native_window_info.hpp>
+#include <gneiss/engine/platform/window/native_window_info.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -87,7 +87,7 @@ struct draw_view {
 struct frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
-  native_window_info window;
+  gneiss::window::native_window_info window;
   std::vector<draw_view> views;
   resource_snapshot resources;
   ui_draw_list ui;

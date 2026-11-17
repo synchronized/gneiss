@@ -2,26 +2,25 @@
 // Copyright (c) 2026 Granit contributors
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/asset/asset_manager.hpp>
 #include "detail/asset_construction.hpp"
 #include "detail/dependency_graph.hpp"
 #include "detail/load_operation.hpp"
 #include "detail/render_load_operation.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
+#include "function/asset/detail/loader_factory.hpp"
+#include "resource/material/detail/material_resource_access.hpp"
+#include "resource/mesh/detail/mesh_resource_access.hpp"
+#include "resource/scene/detail/scene_asset_access.hpp"
+#include "resource/texture/detail/texture_resource_access.hpp"
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
-#include "function/asset/detail/loader_factory.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/platform/files/file_service.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
-#include "resource/material/detail/material_resource_access.hpp"
-#include "resource/mesh/detail/mesh_resource_access.hpp"
-#include "resource/scene/detail/scene_asset_access.hpp"
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
-#include "resource/texture/detail/texture_resource_access.hpp"
 #include <gneiss/engine/resource/texture/texture_decoder.hpp>
 
 #include "function/asset/resource_cache.hpp"
@@ -278,7 +277,7 @@ asset_manager::asset_manager(std::shared_ptr<gneiss::files::service> files)
   bind.template operator()<material>();
   bind.template operator()<scene>();
   bind.template operator()<prefab>();
-  bind.template operator()<action_map>();
+  bind.template operator()<gneiss::input::action_map>();
   auto frozen = meta::is_frozen();
   if (!frozen || !*frozen)
     throw std::invalid_argument("资源 Registry 必须冻结");
@@ -322,8 +321,8 @@ bool asset_manager::loading_configured() const noexcept {
 error asset_manager::configure(gneiss::tasks::task_executor& executor) {
   return configure(executor, impl_->profile, impl_->scope);
 }
-error asset_manager::configure(gneiss::tasks::task_executor& executor, texture_prepare_profile profile,
-                               gneiss::tasks::task_scope scope) {
+error asset_manager::configure(gneiss::tasks::task_executor& executor,
+                               texture_prepare_profile profile, gneiss::tasks::task_scope scope) {
   auto& state = *impl_;
   if (state.stopped)
     return error::invalid_state;
@@ -369,7 +368,7 @@ error asset_manager::register_loader(type_id type, loader_factory factory,
   if (!factory || type == runtime_type_of<void>() || type == runtime_type_of<scene>() ||
       type == runtime_type_of<prefab>() || type == runtime_type_of<mesh>() ||
       type == runtime_type_of<texture>() || type == runtime_type_of<material>() ||
-      type == runtime_type_of<action_map>())
+      type == runtime_type_of<gneiss::input::action_map>())
     return error::invalid_argument;
   if (state.loaders.contains(type) || !reference)
     return error::invalid_argument;
@@ -396,7 +395,7 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
   // 内置多阶段 Loader 不接受单缓冲区解码器覆盖。
   if (type == runtime_type_of<mesh_data>() || type == runtime_type_of<texture_data>() ||
       type == runtime_type_of<scene>() || type == runtime_type_of<prefab>() ||
-      type == runtime_type_of<action_map>())
+      type == runtime_type_of<gneiss::input::action_map>())
     return error::invalid_argument;
   return state.decoders.emplace(type, loader).second ? error::success : error::invalid_argument;
 }
@@ -443,12 +442,13 @@ error asset_manager::request(type_id type, std::string_view uri, asset_load_opti
                 type, std::string(uri), options,
                 [&]() -> result<std::shared_ptr<const asset_decoder>> {
                   std::shared_ptr<const asset_decoder> decoder;
-                  auto status =
-                      type == runtime_type_of<action_map>()
-                          ? resolve_decoder(runtime_type_of<action_map_description>(),
-                                            &detail::make_reflected_decoder<action_map_description>,
-                                            decoder)
-                          : resolve_decoder(type, fallback, decoder);
+                  auto status = type == runtime_type_of<gneiss::input::action_map>()
+                                    ? resolve_decoder(
+                                          runtime_type_of<gneiss::input::action_map_description>(),
+                                          &detail::make_reflected_decoder<
+                                              gneiss::input::action_map_description>,
+                                          decoder)
+                                    : resolve_decoder(type, fallback, decoder);
                   return status.failed() ? result<std::shared_ptr<const asset_decoder>>{status}
                                          : decoder;
                 },

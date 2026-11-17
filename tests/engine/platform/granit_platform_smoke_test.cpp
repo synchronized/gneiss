@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
@@ -8,7 +9,6 @@
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
-#include "../../support/value_result.hpp"
 #include <memory>
 
 #ifdef _WIN32
@@ -30,11 +30,11 @@ struct smoke_context final {
 };
 
 native::error submit_ui(gneiss::runtime::application& application, smoke_context& context) {
-  native::input_event event;
+  gneiss::input::event event;
   while (application.poll_input(event) == native::error::success) {
     // USB HID 物理键编号：A 为 4。
-    if (event.type == native::event_type::key && event.data.key.physical_key == 4U &&
-        event.data.key.action == native::key_action::pressed) {
+    if (event.type == gneiss::input::event_type::key && event.data.key.physical_key == 4U &&
+        event.data.key.action == gneiss::input::key_action::pressed) {
       context.received_key = true;
     }
   }

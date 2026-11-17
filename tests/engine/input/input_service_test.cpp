@@ -2,28 +2,28 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/function/input/input_service.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 
 using namespace gneiss;
 using namespace gneiss;
 #include <limits>
 
 int main() {
-  gneiss::input_service input;
-  input_event key = {};
-  key.type = event_type::key;
+  gneiss::input::service input;
+  gneiss::input::event key = {};
+  key.type = gneiss::input::event_type::key;
   key.window_id = 1;
   key.data.key.physical_key = 26U;
   key.data.key.modifiers = 1U;
-  key.data.key.action = key_action::pressed;
+  key.data.key.action = gneiss::input::key_action::pressed;
   if (!input.push(key) ||
       (input.keyboard().pressed_keys[26U / 64U] & (UINT64_C(1) << (26U % 64U))) == 0U ||
       input.keyboard().modifiers != 1U) {
     return 1;
   }
 
-  input_event pointer = {};
-  pointer.type = event_type::pointer_button;
+  gneiss::input::event pointer = {};
+  pointer.type = gneiss::input::event_type::pointer_button;
   pointer.data.pointer_button.x = 10.0F;
   pointer.data.pointer_button.y = 20.0F;
   pointer.data.pointer_button.buttons = 1U;
@@ -32,10 +32,11 @@ int main() {
     return 2;
   }
 
-  input_event output = {};
-  if (input.poll(output) != gneiss::error::success || output.type != event_type::key ||
+  gneiss::input::event output = {};
+  if (input.poll(output) != gneiss::error::success ||
+      output.type != gneiss::input::event_type::key ||
       input.poll(output) != gneiss::error::success ||
-      output.type != event_type::pointer_button ||
+      output.type != gneiss::input::event_type::pointer_button ||
       input.poll(output) != gneiss::error::not_ready) {
     return 3;
   }
@@ -55,22 +56,22 @@ int main() {
     return 6;
   }
 
-  gneiss::action_map_description map;
+  gneiss::input::action_map_description map;
   map.actions.push_back({.name = "move", .bindings = {{26U, 1.0F}}});
   input.clear_focus();
   if (input.replace_action_map(std::move(map)) != gneiss::error::success) {
     return 7;
   }
-  gneiss::action_id action;
-  gneiss::action_state state;
+  gneiss::input::action_id action;
+  gneiss::input::action_state state;
   input.begin_frame();
-  key.data.key.action = key_action::pressed;
+  key.data.key.action = gneiss::input::key_action::pressed;
   if (input.find_action("move", action) != gneiss::error::success || !input.push(key) ||
-      input.get_action_state(action, state) != gneiss::error::success ||
-      state.pressed == 0U || state.held == 0U || state.value != 1.0F) {
+      input.get_action_state(action, state) != gneiss::error::success || state.pressed == 0U ||
+      state.held == 0U || state.value != 1.0F) {
     return 7;
   }
-  key.data.key.action = key_action::released;
+  key.data.key.action = gneiss::input::key_action::released;
   if (!input.push(key) || input.get_action_state(action, state) != gneiss::error::success ||
       state.pressed == 0U || state.released == 0U || state.held != 0U) {
     return 8;
@@ -79,7 +80,7 @@ int main() {
   using namespace gneiss;
   using namespace gneiss;
   const auto original = action;
-  gneiss::action_map_description candidate{{{"move", {{26U, 1.0F}}}}};
+  gneiss::input::action_map_description candidate{{{"move", {{26U, 1.0F}}}}};
   auto invalid = candidate;
   invalid.actions[0].bindings[0].physical_key = 256U;
   if (input.replace_action_map(invalid) != gneiss::error::invalid_argument ||
@@ -98,20 +99,20 @@ int main() {
       input.find_action("move", action) != gneiss::error::success || action != original) {
     return 11;
   }
-  input_service other;
+  gneiss::input::service other;
   if (other.replace_action_map(candidate) != gneiss::error::success ||
       other.get_action_state(original, state) != gneiss::error::invalid_handle ||
       input.get_action_state({}, state) != gneiss::error::invalid_handle ||
       input.replace_action_map(candidate) != gneiss::error::success ||
-      input.get_action_state(original, state) != gneiss::error::invalid_handle ||
-      state.pressed || state.held || state.released || state.value != 0.0F) {
+      input.get_action_state(original, state) != gneiss::error::invalid_handle || state.pressed ||
+      state.held || state.released || state.value != 0.0F) {
     return 12;
   }
   input.begin_frame();
   if (input.find_action("move", action) != gneiss::error::success) {
     return 13;
   }
-  key.data.key.action = key_action::pressed;
+  key.data.key.action = gneiss::input::key_action::pressed;
   if (!input.push(key)) {
     return 14;
   }
@@ -126,28 +127,29 @@ int main() {
     return 16;
   }
   input.begin_frame();
-  input_event invalid_event{};
-  invalid_event.type = event_type::text;
+  gneiss::input::event invalid_event{};
+  invalid_event.type = gneiss::input::event_type::text;
   invalid_event.data.text = {};
   invalid_event.data.text.length = 49;
   if (input.push(invalid_event))
     return 17;
-  invalid_event.type = static_cast<event_type>(99);
+  invalid_event.type = static_cast<gneiss::input::event_type>(99);
   if (input.push(invalid_event))
     return 18;
-  invalid_event.type = event_type::key;
-  invalid_event.data.key = {26, 0, 0, static_cast<key_action>(99)};
+  invalid_event.type = gneiss::input::event_type::key;
+  invalid_event.data.key = {26, 0, 0, static_cast<gneiss::input::key_action>(99)};
   if (input.push(invalid_event) || input.poll(output) != gneiss::error::not_ready)
     return 19;
-  input_event enter{};
-  enter.type = event_type::pointer_entered;
+  gneiss::input::event enter{};
+  enter.type = gneiss::input::event_type::pointer_entered;
   if (!input.push(enter) || !input.pointer().is_inside)
     return 20;
-  enter.type = event_type::pointer_left;
+  enter.type = gneiss::input::event_type::pointer_left;
   if (!input.push(enter) || input.pointer().is_inside)
     return 21;
   input.begin_frame();
-  if (input.poll(output) != gneiss::error::not_ready || output.type != event_type::none)
+  if (input.poll(output) != gneiss::error::not_ready ||
+      output.type != gneiss::input::event_type::none)
     return 22;
   return 0;
 }

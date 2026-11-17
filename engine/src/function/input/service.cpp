@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/input/input_service.hpp>
 #include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -12,9 +12,9 @@ namespace {
 std::atomic_uint32_t next_action_generation{1};
 }
 
-namespace gneiss {
+namespace gneiss::input {
 
-void input_service::begin_frame() noexcept {
+void service::begin_frame() noexcept {
   read_index_ = 0;
   event_count_ = 0;
   for (auto& state : action_states_) {
@@ -23,7 +23,7 @@ void input_service::begin_frame() noexcept {
   }
 }
 
-bool input_service::push(const input_event& event) noexcept {
+bool service::push(const event& event) noexcept {
   if (event.type > event_type::pointer_left ||
       (event.type == event_type::text && event.data.text.length > sizeof(event.data.text.utf8)) ||
       (event.type == event_type::key && event.data.key.action > key_action::repeated) ||
@@ -36,7 +36,7 @@ bool input_service::push(const input_event& event) noexcept {
   return true;
 }
 
-error input_service::poll(input_event& out_event) noexcept {
+error service::poll(event& out_event) noexcept {
   out_event = {};
   if (read_index_ == event_count_) {
     return error::not_ready;
@@ -45,20 +45,20 @@ error input_service::poll(input_event& out_event) noexcept {
   return error::success;
 }
 
-void input_service::clear_focus() noexcept {
+void service::clear_focus() noexcept {
   keyboard_ = {};
   pointer_.buttons = 0;
   pointer_.is_inside = false;
   update_actions();
 }
 
-error input_service::replace_action_map(action_map_description map) {
+error service::replace_action_map(action_map_description map) {
   if (const auto valid = validate_action_map(map); valid.error.failed()) {
     return valid.error;
   }
-  std::vector<gneiss::action_state> states;
+  std::vector<action_state> states;
   {
-    states.assign(map.actions.size(), gneiss::action_state{});
+    states.assign(map.actions.size(), action_state{});
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -70,9 +70,8 @@ error input_service::replace_action_map(action_map_description map) {
   return error::success;
 }
 
-error input_service::find_action(std::string_view name,
-                                 gneiss::action_id& out_action) const noexcept {
-  out_action = gneiss::action_id{};
+error service::find_action(std::string_view name, action_id& out_action) const noexcept {
+  out_action = action_id{};
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     if (action_map_.actions[index].name == name) {
       out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
@@ -82,9 +81,8 @@ error input_service::find_action(std::string_view name,
   return error::not_found;
 }
 
-error input_service::get_action_state(gneiss::action_id action,
-                                      gneiss::action_state& out_state) const noexcept {
-  out_state = gneiss::action_state{};
+error service::get_action_state(action_id action, action_state& out_state) const noexcept {
+  out_state = action_state{};
   const auto generation = static_cast<std::uint32_t>(action.value >> 32U);
   const auto slot = static_cast<std::uint32_t>(action.value);
   if (generation == 0U || generation != action_generation_ || slot == 0U ||
@@ -95,7 +93,7 @@ error input_service::get_action_state(gneiss::action_id action,
   return error::success;
 }
 
-void input_service::update_actions() noexcept {
+void service::update_actions() noexcept {
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     auto& state = action_states_[index];
     const bool was_held = state.held;
@@ -116,7 +114,7 @@ void input_service::update_actions() noexcept {
   }
 }
 
-void input_service::apply(const input_event& event) {
+void service::apply(const event& event) {
   if (event.type == event_type::key && event.data.key.physical_key < 256U) {
     const auto key = event.data.key.physical_key;
     const auto mask = UINT64_C(1) << (key % 64U);
@@ -142,4 +140,4 @@ void input_service::apply(const input_event& event) {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::input

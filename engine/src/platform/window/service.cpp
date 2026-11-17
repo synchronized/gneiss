@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/window/service.hpp>
 #include <gneiss/engine/core/diagnostics/loop_timing.hpp>
 #include <gneiss/engine/error.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 
 #include <granit/window.hpp>
 #include <granit/window/native.hpp>
@@ -11,19 +11,17 @@
 #include <cstring>
 #include <string_view>
 
-namespace gneiss {
-struct window_service::implementation {
+namespace gneiss::window {
+struct service::implementation {
   // 析构顺序：窗口先于窗口系统销毁；Application 先释放借用窗口的渲染服务。
   granit::window_system window_system_;
   granit::window window_;
   native_window_info native_window_;
 };
-window_service::window_service() : impl_(std::make_unique<implementation>()) {}
-window_service::~window_service() = default;
-const native_window_info& window_service::native_window() const noexcept {
-  return impl_->native_window_;
-}
-native_window_info& window_service::native_window() noexcept { return impl_->native_window_; }
+service::service() : impl_(std::make_unique<implementation>()) {}
+service::~service() = default;
+const native_window_info& service::native_window() const noexcept { return impl_->native_window_; }
+native_window_info& service::native_window() noexcept { return impl_->native_window_; }
 
 namespace {
 
@@ -52,7 +50,7 @@ gneiss::error map_result(granit::result result) noexcept {
 
 } // namespace
 
-gneiss::error window_service::initialize(const window_configuration& config) noexcept {
+gneiss::error service::initialize(const configuration& config) noexcept {
   auto result = impl_->window_system_.initialize();
   if (result.failed()) {
     return map_result(result);
@@ -100,14 +98,14 @@ gneiss::error window_service::initialize(const window_configuration& config) noe
   return map_result(result);
 }
 
-gneiss::error window_service::poll_input(input_event& out_event) noexcept {
+gneiss::error service::poll_input(gneiss::input::event& out_event) noexcept {
   granit::input_event source{};
   const auto result = impl_->window_system_.poll(source);
   if (result.failed()) {
     return map_result(result);
   }
   out_event = {};
-  out_event.type = static_cast<event_type>(source.type);
+  out_event.type = static_cast<gneiss::input::event_type>(source.type);
   out_event.window_id = UINT64_C(1);
   out_event.timestamp_ns = source.timestamp_ns;
   switch (source.type) {
@@ -115,7 +113,7 @@ gneiss::error window_service::poll_input(input_event& out_event) noexcept {
     out_event.data.key.physical_key = static_cast<std::uint32_t>(source.data.key.physical);
     out_event.data.key.logical_key = static_cast<std::uint32_t>(source.data.key.logical);
     out_event.data.key.modifiers = source.data.key.modifiers;
-    out_event.data.key.action = static_cast<key_action>(source.data.key.action);
+    out_event.data.key.action = static_cast<gneiss::input::key_action>(source.data.key.action);
     break;
   case granit::input_event_type::text:
     static_assert(sizeof(out_event.data.text.utf8) == sizeof(source.data.text.utf8));
@@ -150,13 +148,13 @@ gneiss::error window_service::poll_input(input_event& out_event) noexcept {
   case granit::input_event_type::pointer_left:
     break;
   default:
-    out_event.type = event_type::none;
+    out_event.type = gneiss::input::event_type::none;
     break;
   }
   return gneiss::error::success;
 }
 
-gneiss::error window_service::keyboard(keyboard_state& out_state) const noexcept {
+gneiss::error service::keyboard(gneiss::input::keyboard_state& out_state) const noexcept {
   granit::keyboard_state source{};
   const auto result = impl_->window_system_.keyboard(impl_->window_.ref(), source);
   if (result == granit::result::invalid_handle) {
@@ -174,7 +172,7 @@ gneiss::error window_service::keyboard(keyboard_state& out_state) const noexcept
   return gneiss::error::success;
 }
 
-gneiss::error window_service::pointer(pointer_state& out_state) const noexcept {
+gneiss::error service::pointer(gneiss::input::pointer_state& out_state) const noexcept {
   granit::pointer_state source{};
   const auto result = impl_->window_system_.pointer(impl_->window_.ref(), source);
   if (result == granit::result::invalid_handle) {
@@ -192,7 +190,7 @@ gneiss::error window_service::pointer(pointer_state& out_state) const noexcept {
   return gneiss::error::success;
 }
 
-gneiss::error window_service::poll(bool& out_should_close, bool& out_focus_lost) noexcept {
+gneiss::error service::poll(bool& out_should_close, bool& out_focus_lost) noexcept {
   out_should_close = false;
   out_focus_lost = false;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
@@ -228,4 +226,4 @@ gneiss::error window_service::poll(bool& out_should_close, bool& out_focus_lost)
   return result == granit::result::not_ready ? gneiss::error::success : map_result(result);
 }
 
-} // namespace gneiss
+} // namespace gneiss::window

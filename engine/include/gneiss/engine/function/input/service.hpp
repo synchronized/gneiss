@@ -4,23 +4,24 @@
 #ifndef GNEISS_INPUT_INPUT_SERVICE_HPP_
 #define GNEISS_INPUT_INPUT_SERVICE_HPP_
 
+#include <gneiss/engine/core/input/types.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/input/input_types.hpp>
+#include <gneiss/engine/function/input/action.hpp>
 
 #include <gneiss/engine/resource/input/action_map.hpp>
 
 #include <array>
 #include <cstddef>
 
-namespace gneiss {
+namespace gneiss::input {
 
-class input_service final {
+class service final {
 public:
   static constexpr std::size_t event_capacity = 256;
 
   void begin_frame() noexcept;
-  [[nodiscard]] bool push(const input_event& event) noexcept;
-  [[nodiscard]] error poll(input_event& out_event) noexcept;
+  [[nodiscard]] bool push(const event& event) noexcept;
+  [[nodiscard]] error poll(event& out_event) noexcept;
   void set_keyboard(const keyboard_state& state) noexcept { keyboard_ = state; }
   void set_pointer(const pointer_state& state) noexcept { pointer_ = state; }
   void clear_focus() noexcept;
@@ -31,10 +32,10 @@ public:
   [[nodiscard]] const pointer_state& pointer() const noexcept { return pointer_; }
 
 private:
-  void apply(const input_event& event);
+  void apply(const event& event);
   void update_actions() noexcept;
 
-  std::array<input_event, event_capacity> events_{};
+  std::array<event, event_capacity> events_{};
   std::size_t read_index_{};
   std::size_t event_count_{};
   keyboard_state keyboard_ = {};
@@ -44,6 +45,6 @@ private:
   std::uint32_t action_generation_{};
 };
 
-} // namespace gneiss
+} // namespace gneiss::input
 
 #endif

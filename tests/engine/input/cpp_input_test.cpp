@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/core/types/entity_id.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include "../../support/async_input.hpp"
 #include "../../support/value_result.hpp"
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/types/entity_id.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <thread>
 #include <type_traits>
 
 int main() {
   using gneiss::error;
-  static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::action_id>);
-  static_assert(!std::is_convertible_v<std::uint64_t, gneiss::action_id>);
+  static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::input::action_id>);
+  static_assert(!std::is_convertible_v<std::uint64_t, gneiss::input::action_id>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://input/default.input-map.json";
   gneiss::runtime::application_configuration config;
@@ -20,9 +20,9 @@ int main() {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app, other;
-  gneiss::action_id action;
-  gneiss::action_state state{};
-  gneiss::input_event event{};
+  gneiss::input::action_id action;
+  gneiss::input::action_state state{};
+  gneiss::input::event event{};
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
           .failed() ||
       action.value != 0 || app->get_action_state(action, state) != error::invalid_handle ||

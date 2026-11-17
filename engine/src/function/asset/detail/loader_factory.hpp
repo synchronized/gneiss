@@ -34,7 +34,7 @@ make_asset_loader(type_id type, std::string uri, asset_load_options options, Res
   auto decoder = resolve();
   if (!decoder)
     return decoder.error();
-  if (type == runtime_type_of<action_map>())
+  if (type == runtime_type_of<gneiss::input::action_map>())
     return make_action_map_loader({std::move(domain), std::move(uri), 0}, std::move(*decoder));
   return make_object_loader(std::move(uri), std::move(*decoder));
 }

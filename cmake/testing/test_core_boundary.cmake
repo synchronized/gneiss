@@ -368,7 +368,7 @@ foreach(content IN ITEMS "#include <gneiss/engine/input.h>" "gneiss_input_event 
     message(FATAL_ERROR "输入边界检查未拒绝违规输入：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/engine/src/function/input/probe.cpp" "#include <engine/core/input/input_types.hpp>\n")
+file(WRITE "${fixture}/engine/src/function/input/probe.cpp" "#include <engine/core/input/types.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/testing/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

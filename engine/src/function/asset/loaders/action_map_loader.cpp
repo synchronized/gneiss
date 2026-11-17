@@ -9,24 +9,26 @@ struct action_map_loader final : asset_loader {
   action_map_loader(asset_identity identity, std::shared_ptr<const asset_decoder> parser)
       : asset_loader(identity.uri), source(std::move(identity)), decoder(std::move(parser)) {}
   std::shared_ptr<const asset> reserve() override {
-    return std::shared_ptr<const action_map>(new action_map(source, {}));
+    return std::shared_ptr<const gneiss::input::action_map>(
+        new gneiss::input::action_map(source, {}));
   }
   void decode(const std::vector<std::byte>& bytes) override {
     auto decoded = decoder->decode(bytes);
     status = decoded ? error::success : decoded.error().error;
     if (decoded) {
-      auto content = std::static_pointer_cast<const action_map_description>(std::move(*decoded));
+      auto content = std::static_pointer_cast<const gneiss::input::action_map_description>(
+          std::move(*decoded));
       if (!content) {
         status = error::internal;
         return;
       }
-      diagnostic = validate_action_map(*content);
+      diagnostic = gneiss::input::validate_action_map(*content);
       if (diagnostic.error.failed()) {
         status = diagnostic.error;
         return;
       }
-      value = std::shared_ptr<const action_map>(
-          new action_map(source, ref<const action_map_description>{std::move(content)}));
+      value = std::shared_ptr<const gneiss::input::action_map>(new gneiss::input::action_map(
+          source, ref<const gneiss::input::action_map_description>{std::move(content)}));
     } else
       diagnostic = std::move(decoded).error();
     metrics.bytes = input_bytes;
@@ -34,8 +36,8 @@ struct action_map_loader final : asset_loader {
   void adopt(const std::shared_ptr<const void>& previous) override {
     if (!previous)
       return;
-    auto target = std::static_pointer_cast<const action_map>(previous);
-    target->content_ = std::static_pointer_cast<const action_map>(value)->content_;
+    auto target = std::static_pointer_cast<const gneiss::input::action_map>(previous);
+    target->content_ = std::static_pointer_cast<const gneiss::input::action_map>(value)->content_;
     value = std::move(target);
   }
 };

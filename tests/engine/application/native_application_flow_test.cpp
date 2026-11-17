@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include "../../support/async_input.hpp"
 #include "../../support/value_result.hpp"
 #include <cstdio>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <source_location>
 #include <stdexcept>
 namespace {
@@ -46,9 +46,9 @@ void loop() {
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   std::uint32_t width{}, height{};
   check(app->get_window_size(width, height).ok() && width == 1280 && height == 720);
-  gneiss::input_event event;
+  gneiss::input::event event;
   check(app->poll_input(event) == gneiss::error::not_ready &&
-        event.type == gneiss::event_type::none);
+        event.type == gneiss::input::event_type::none);
   check(app->keyboard_state().modifiers == 0 && app->keyboard_state().pressed_keys[0] == 0);
   check(app->pointer_state().buttons == 0 && !app->pointer_state().is_inside);
   check(app->run(8).ok() && updates == 3);
@@ -67,14 +67,15 @@ void loop() {
   check(shutdowns == 3);
 }
 void action_maps() {
-  gneiss::tasks::task_scheduler scheduler({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   config.asset_root = GNEISS_TEST_ASSET_ROOT;
   std::shared_ptr<runtime::application> app, other;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   constexpr auto uri = "asset://input/default.input-map.json";
-  gneiss::action_id action;
-  gneiss::action_state state;
+  gneiss::input::action_id action;
+  gneiss::input::action_state state;
   check(gneiss::test_support::load_input_for_test(*app, scheduler, uri).ok());
   check(app->find_action("move_horizontal", action).ok() && action.value != 0);
   check(app->get_action_state(action, state).ok() && !state.held && state.value == 0);
@@ -110,7 +111,8 @@ void creation_failures() {
   config.asset_root = "gneiss-test-directory-does-not-exist";
   // 挂载只配置来源；缺失目录在实际异步读取时报告，不在创建阶段同步探测。
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  gneiss::tasks::task_scheduler scheduler({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   check(test_support::load_input_for_test(
             *app, scheduler, "asset://input/missing.input-map.json") == gneiss::error::not_found);
   app.reset();

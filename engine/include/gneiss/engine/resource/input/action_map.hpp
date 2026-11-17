@@ -4,8 +4,8 @@
 #ifndef GNEISS_ASSET_ACTION_MAP_HPP_
 #define GNEISS_ASSET_ACTION_MAP_HPP_
 
-#include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 
 #include <cstdint>
@@ -18,7 +18,11 @@ namespace gneiss::serialization {
 struct diagnostic;
 }
 
-namespace gneiss {
+namespace gneiss::detail {
+struct action_map_loader;
+}
+
+namespace gneiss::input {
 
 struct action_binding final {
   inline static constexpr std::string_view type_name = "action_binding";
@@ -37,7 +41,7 @@ struct action_definition final {
 /** 输入文件及反射解码统一上限。 */
 inline constexpr std::size_t maximum_action_map_bytes = 1024U * 1024U;
 
-/** 可共享的只读描述；实时输入状态由 InputService 单独管理。 */
+/** 可共享的只读描述；实时输入状态由 input::service 单独管理。 */
 struct action_map_description final {
   inline static constexpr std::string_view type_name = "action_map_description";
   inline static constexpr gneiss::guid type_guid{
@@ -46,9 +50,6 @@ struct action_map_description final {
   std::vector<action_definition> actions;
 };
 
-namespace detail {
-struct action_map_loader;
-}
 /** 共享输入映射资产；输入服务采用独立描述，不跟随重载自动改变。 */
 class action_map final : public asset {
 public:
@@ -56,7 +57,7 @@ public:
   [[nodiscard]] ref<const action_map_description> snapshot() const { return content_; }
 
 private:
-  friend struct detail::action_map_loader;
+  friend struct gneiss::detail::action_map_loader;
   action_map(asset_identity source, ref<const action_map_description> content)
       : asset(runtime_type_of<action_map>()), content_(std::move(content)) {
     identity_ = std::move(source);
@@ -67,6 +68,6 @@ private:
 /** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
 [[nodiscard]] serialization::diagnostic validate_action_map(const action_map_description& map);
 
-} // namespace gneiss
+} // namespace gneiss::input
 
 #endif

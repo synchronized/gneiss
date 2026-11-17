@@ -26,9 +26,10 @@ while ([DateTime]::UtcNow -lt $startupDeadline) {
   if ($process.HasExited) {
     throw "Runtime exited before accepting the stop request with code $($process.ExitCode)"
   }
-  if (Test-Path -LiteralPath $log) {
-    $startupLog = Get-Content -LiteralPath $log -Raw
-    if ($startupLog -match "stage=application_create") {
+  if (Test-Path -LiteralPath $stdout) {
+    # 启动同步读取实时协议输出；文件 sink 可以缓冲到退出时刷新。
+    $startupLog = Get-Content -LiteralPath $stdout -Raw
+    if ($startupLog -match '"category":"application_create"') {
       # 使用已观察到的状态，避免重复读取正在追加的日志产生瞬时空快照。
       $startupObserved = $true
       break
@@ -55,6 +56,6 @@ if (-not (Test-Path -LiteralPath $log)) {
   throw "Runtime did not write the stop protocol log"
 }
 $content = Get-Content -LiteralPath $log -Raw
-if ($content -notmatch "stage=stop_request" -or $content -notmatch "stage=shutdown") {
+if ($content -notmatch "category=stop_request " -or $content -notmatch "category=shutdown ") {
   throw "Runtime did not record stop_request and shutdown: $content"
 }

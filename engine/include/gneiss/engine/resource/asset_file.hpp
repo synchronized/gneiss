@@ -6,7 +6,9 @@
 namespace gneiss {
 struct material_description;
 struct mesh_description;
+namespace input {
 struct action_map_description;
+}
 struct scene_description;
 struct prefab_description;
 struct texture_description;
@@ -32,7 +34,7 @@ template <> struct format_traits<material_description> {
   static constexpr bool enabled = true;
   static GNEISS_API format get();
 };
-template <> struct format_traits<action_map_description> {
+template <> struct format_traits<gneiss::input::action_map_description> {
   static constexpr bool enabled = true;
   static GNEISS_API format get();
 };

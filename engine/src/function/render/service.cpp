@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/render/service.hpp>
 #include "function/render/detail/service_impl.hpp"
 #include <algorithm>
 #include <cmath>
+#include <gneiss/engine/function/render/service.hpp>
 #include <limits>
 namespace gneiss::render {
-gneiss::error service::implementation::initialize(const native_window_info& window,
+gneiss::error service::implementation::initialize(const gneiss::window::native_window_info& window,
                                                   std::span<const std::byte> environment_asset,
                                                   float environment_intensity,
                                                   float environment_rotation_radians,
@@ -206,7 +206,7 @@ error service::request_environment(std::shared_ptr<const std::vector<std::byte>>
   return impl_->request_environment(std::move(bytes), intensity, rotation);
 }
 
-error service::initialize(const native_window_info& window,
+error service::initialize(const gneiss::window::native_window_info& window,
                           std::span<const std::byte> environment_asset, float environment_intensity,
                           float environment_rotation_radians, queue_options queues) {
   if (!is_valid())

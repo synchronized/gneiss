@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/resource/asset_file.hpp>
 #include "core/serialization/detail/json_adapter.hpp"
+#include <array>
+#include <cstdlib>
 #include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_description.hpp>
@@ -10,8 +12,6 @@
 #include <gneiss/engine/resource/scene/scene_description.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 #include <gneiss/engine/resource/texture/texture_description.hpp>
-#include <array>
-#include <cstdlib>
 #include <yyjson.h>
 namespace gneiss::asset_file {
 namespace {
@@ -84,12 +84,13 @@ format format_traits<material_description>::get() {
           .version = 6,
           .validate = &validate_description<material_description, validate_material_description>};
 }
-format format_traits<action_map_description>::get() {
+format format_traits<gneiss::input::action_map_description>::get() {
   return {"gneiss.input-map",
           1,
-          maximum_action_map_bytes,
+          gneiss::input::maximum_action_map_bytes,
           {},
-          &validate_description<action_map_description, validate_action_map>};
+          &validate_description<gneiss::input::action_map_description,
+                                gneiss::input::validate_action_map>};
 }
 format format_traits<scene_description>::get() {
   return {"gneiss.scene", 5, scene_description::maximum_source_bytes, retired_fields,

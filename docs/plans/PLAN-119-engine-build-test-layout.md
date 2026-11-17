@@ -701,3 +701,27 @@ project、protocol 七个自有源码根。Engine include/src 归一为逻辑领
   Engine 自身数学依赖，不能把源码复用误判为平台目标仍依赖数学。
 - GUID、字符串驻留表、类型身份表、完整日志实现尚未迁移；共享状态归属保持在 Engine。
   静态完整 Engine/安装、Web 未验收。本阶段边界及后续限制见 ADR-121，不标记完整计划完成。
+
+### Window/Input 归属与 native_window_info 复核
+
+本轮实施：Window 配置、服务与原生窗口信息迁往 platform/window；Input 基础类型位于
+core/input/types.hpp，动作状态独立到 function/input/action.hpp，服务归 function/input/service。
+动作映射保持 resource/input，类型统一进入 gneiss::input；窗口类型进入 gneiss::window。
+资产 GUID、文件格式与输入行为不变，不为目录新建链接目标。
+
+native_window_info 当前仍混合原生句柄、尺寸和 needs_recreate。源码链路为窗口 resize/scale
+置位，Application 成功提交帧后清位，Render 回执汇总后重试，后端 acquire/present 也可置位；
+capture_frame 还复制该结构并改写尺寸。当前协议本轮不修改。
+
+建议后续单独迁移（尚未实施）：
+- 原生句柄是窗口生命周期内的借用，仅用于渲染初始化/表面重建，不每帧作为可写窗口状态传递。
+- 窗口尺寸和表面变化代次由 Window 单独维护，对外只读；同尺寸的缩放/表面变化也能推进代次。
+- Render 持有交换链实际尺寸、已采用代次和重试状态；仅成功重建后采用代次，拒绝/丢帧不丢失变化。
+- 捕获/离屏目标尺寸属于视图请求，不伪造窗口尺寸。移除可写 native_window() 前迁移这些消费者。
+- 验收连续 resize、最小化零尺寸、背压/替换帧、GPU out-of-date 重试及离屏捕获。
+  像素尺寸与窗口坐标尺寸的转换须核对 Granit 契约，不把名称变化等同于行为完成。
+
+本轮验证：Windows Clang Debug 全量构建通过；14 项输入、动作映射、默认注册表、边界、
+窗口/Application 与安装 Runtime 测试通过。异步启动与停止测试原先匹配旧 stage 日志，
+已更新为当前协议；启动同步改读实时 stdout，退出后仍检查文件日志中的停止与关闭记录。
+静态完整构建及 Web 本轮未验证；native_window_info 拆分仅为建议，未实施。
