@@ -427,6 +427,15 @@ Windows Clang Debug 两个目标构建、render_asset_loader 与 texture-load-se
 prepare_render.hpp 暂仍承载 decode/adopt 白盒辅助，未删除该文件；旧场景包装与重复编译生产
 源码仍待后续处理。未运行 GPU、静态库及跨平台配置。
 
+Prefab 结构重载测试直接使用加载回执定位 game_object，删除场景全量枚举、排序和
+scene_node_info 副本转换；保留同源双实例、重载身份、覆盖恢复及场景卸载检查。
+实例化夹具直接通过 world.create_scene / scene_instance.unload 管理创建失败的清理，
+删除测试包装额外要求的场景 UUID；async_application 不再传递包含 scene_access。
+共享夹具回归发现 component_adapter 仍引用旧 src 私有包含根，已修正为 engine/src；
+该测试为自定义组件装配白盒，未扩大引擎导出接口。
+Windows Clang Debug 五个相关目标构建通过，Prefab 结构重载、场景实例、实例化、场景 Prefab
+实例及组件装配五项回归通过。未运行 GPU、静态库及跨平台验证，其他 scene_access 消费者仍待迁移。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

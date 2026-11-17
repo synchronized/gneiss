@@ -3,29 +3,26 @@
 #pragma once
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
-#include "scene_access.hpp"
+#include <gneiss/engine/function/scene/world.hpp>
 #include "scene_application.hpp"
 // 测试夹具保留便捷创建，不作为引擎实例化接口。
 namespace gneiss::test_support::scene_fixture {
 using namespace gneiss;
 namespace {
 inline result<scene_instantiation_result>
-instantiate_effective(world& world, scene_access scenes, guid uuid, const composed_scene& composed,
+instantiate_effective(world& world, const composed_scene& composed,
                       const scene_resource_bindings& assets) {
-  auto created = scenes.create_empty(uuid);
+  auto created = world.create_scene();
   if (!created)
     return created.error();
   struct creation_guard {
-    scene_access owner;
     scene_instance instance;
     ~creation_guard() {
       if (instance.id()) {
-        (void)owner.unload(instance);
+        (void)instance.unload();
       }
     }
-  } guard{scenes, *created};
-  if (created->owner() != &world)
-    return error::invalid_handle;
+  } guard{*created};
   auto receipt = instantiate(*created, composed, assets);
   if (!receipt)
     return receipt.error();
@@ -41,8 +38,7 @@ inline result<scene_instantiation_result> instantiate_scene(world& owner,
   auto composed = gneiss::test_support::compose(prepared);
   if (!composed)
     return composed.error();
-  return instantiate_effective(owner, *gneiss::test_support::scene_access{owner},
-                               prepared.description->uuid, *composed, assets);
+  return instantiate_effective(owner, *composed, assets);
 }
 
 inline result<scene_instantiation_result, scene_diagnostic>

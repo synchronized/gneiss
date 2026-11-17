@@ -3,7 +3,6 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/error.hpp>
@@ -53,25 +52,19 @@ gneiss::error find_source(const std::shared_ptr<gneiss::runtime::application>& a
                           gneiss::scene_instance scene,
                           const std::vector<gneiss::scene_object_binding>& objects,
                           gneiss::guid instance_uuid, gneiss::guid source_uuid,
-                          gneiss::test_support::scene_node_info& output) {
+                          gneiss::game_object& output) {
   const auto binding = std::ranges::find_if(objects, [&](const auto& object) {
     return object.object == instance_uuid && object.source == source_uuid;
   });
   if (binding == objects.end())
     return gneiss::error::not_found;
-  auto count = gneiss::test_support::scene_access{*application}->get_node_count(scene);
-  if (!count)
-    return count.error();
-  for (std::size_t index = 0; index < *count; ++index) {
-    auto info = gneiss::test_support::scene_access{*application}->get_node_info(scene, index);
-    if (!info)
-      return info.error();
-    if (info->entity == binding->entity) {
-      output = *info;
-      return gneiss::error::success;
-    }
-  }
-  return gneiss::error::not_found;
+  output = application->native_world()->find(binding->entity);
+  if (!output)
+    return gneiss::error::not_found;
+  auto member = scene.contains(output);
+  if (!member)
+    return member.error();
+  return *member ? gneiss::error::success : gneiss::error::invalid_handle;
 }
 
 } // namespace
@@ -117,8 +110,8 @@ int main() try {
   scene = loaded.scene;
   auto objects = loaded.objects;
 
-  gneiss::test_support::scene_node_info first_before;
-  gneiss::test_support::scene_node_info second_before;
+  gneiss::game_object first_before;
+  gneiss::game_object second_before;
   if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
                   first_before) != gneiss::error::success ||
       find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
@@ -133,19 +126,18 @@ int main() try {
                                                   &objects) != gneiss::error::success) {
     return 4;
   }
-  gneiss::test_support::scene_node_info first_after;
-  gneiss::test_support::scene_node_info second_after;
-  gneiss::test_support::scene_node_info child;
+  gneiss::game_object first_after;
+  gneiss::game_object second_after;
+  gneiss::game_object child;
 
   if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
                   first_after) != gneiss::error::success ||
       find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
                   second_after) != gneiss::error::success ||
-      first_after.node != first_before.node || first_after.entity != first_before.entity ||
-      second_after.node != second_before.node || second_after.entity != second_before.entity ||
-      first_after.name != "Reloaded Root" || second_after.name != "Reloaded Root" ||
-      first_after.local_transform.translation[0] != 3.0F ||
-      second_after.local_transform.translation[0] != 2.0F ||
+      first_after != first_before || second_after != second_before ||
+      first_after.name() != "Reloaded Root" || second_after.name() != "Reloaded Root" ||
+      first_after.local_transform()->translation[0] != 3.0F ||
+      second_after.local_transform()->translation[0] != 2.0F ||
       find_source(application, scene, objects, first_instance_uuid, source_child_uuid, child) !=
           gneiss::error::success ||
       find_source(application, scene, objects, second_instance_uuid, source_child_uuid, child) !=
@@ -175,12 +167,11 @@ int main() try {
           .failed() ||
       find_source(application, scene, objects, first_instance_uuid, source_root_uuid, first_after)
           .failed() ||
-      first_after.local_transform.translation.x != 3)
+      first_after.local_transform()->translation.x != 3)
     return 8;
 
-  const bool destroyed = gneiss::test_support::scene_access{*application}->unload(scene) ==
-                             gneiss::error::success &&
-                         application->shutdown() == gneiss::error::success;
+  const bool destroyed =
+      scene.unload() == gneiss::error::success && application->shutdown() == gneiss::error::success;
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 7;
 } catch (...) {

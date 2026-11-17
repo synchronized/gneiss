@@ -7,7 +7,6 @@
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/resource/scene.hpp>
-#include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 #include "value_result.hpp"
 #include <chrono>
