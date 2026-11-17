@@ -209,8 +209,7 @@ void run() {
   }
   // 通用应用只消费显式引用；缺失绑定不得隐式创建资产请求或访问文件。
   {
-    auto empty =
-        gneiss::test_support::scene_access{*active}->create_empty(gneiss::guid::generate());
+    auto empty = active->create_scene();
     check(bool(empty));
     gneiss::composed_scene target;
     gneiss::composed_object object;
@@ -224,7 +223,7 @@ void run() {
     auto applied = gneiss::apply_scene(*empty, associations, {}, target, {});
     check(!applied && applied.error() == gneiss::error::not_ready);
     check(active_assets.cached_count() == cached && files->reads == before_reads);
-    check(gneiss::test_support::scene_access{*active}->unload(*empty).ok());
+    empty->unload();
   }
   const auto reads_before_instantiation = files->reads;
   auto direct = gneiss::test_support::scene_fixture::instantiate_scene(*active.get(), active_assets,
@@ -236,7 +235,7 @@ void run() {
   auto second_instance = gneiss::test_support::scene_fixture::instantiate_scene(
       *active.get(), active_assets, initial_asset);
   check(bool(second_instance) && second_instance->instance != old_scene);
-  check(gneiss::test_support::scene_access{*active}->unload(second_instance->instance).ok());
+  second_instance->instance.unload();
   check(gneiss::test_support::scene_access{*active}->get_node_count(old_scene).ok());
   check(gneiss::test_support::scene_fixture::instantiate_scene(*active.get(), active_assets, {})
             .error()
@@ -335,13 +334,12 @@ void run() {
   check(new_scene != gneiss::scene_instance{});
   // 投影重建使用通用应用：即使输入包含 Prefab，运行节点也不持有来源绑定。
   {
-    auto empty =
-        gneiss::test_support::scene_access{*candidate}->create_empty(gneiss::guid::generate());
+    auto empty = candidate->create_scene();
     check(bool(empty));
     auto rebuilt = gneiss::test_support::scene_fixture::instantiate_scene(
         *candidate.get(), instantiation_input, bindings);
     check(bool(rebuilt));
-    check(gneiss::test_support::scene_access{*candidate}->unload(*empty).ok());
+    empty->unload();
     check(bool(rebuilt) && rebuilt->instance != *empty &&
           rebuilt->node_count == created->node_count);
     bool source_address = false;
@@ -353,7 +351,7 @@ void run() {
           gneiss::test_support::scene_access{*candidate}->get_node_info(rebuilt->instance, index);
       check(bool(info));
     }
-    check(gneiss::test_support::scene_access{*candidate}->unload(rebuilt->instance).ok());
+    rebuilt->instance.unload();
     check(files->reads == reads);
   }
   check(active.get()->entity_count() == 1U);
@@ -394,10 +392,8 @@ void run() {
                                              *candidate.get(), std::move(prepared), bindings),
                                          duplicate_scene)
             .ok());
-  check(gneiss::test_support::scene_access{*candidate}->unload(duplicate_scene) ==
-        gneiss::error::success);
-  check(gneiss::test_support::scene_access{*candidate}->unload(additional) ==
-        gneiss::error::success);
+  duplicate_scene.unload();
+  additional.unload();
   material = {};
   candidate_render.collect_unused();
   check(resources.get_material(selected_material) != nullptr &&

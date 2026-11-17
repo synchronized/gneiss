@@ -314,7 +314,7 @@ int main() try {
   auto saved_components = e::capture_components(world, node);
   check(bool(saved_components));
   const auto old_node = node;
-  check(scenes.destroy_subtree(instance, node).ok());
+  world.find(node).destroy();
   check(lifetime.expired() && !world.object(gneiss::entity_id{old_node.get()}));
   auto recreated_node = borrowed->create_object({first.name, {}});
   check(bool(recreated_node) && recreated_node->entity() != old_node);
@@ -331,7 +331,7 @@ int main() try {
   check(!borrowed_object->is_valid());
   check(lifetime.expired());
   // 动态成员经借用场景创建，直接 World 删除后查询清理失效索引。
-  auto dynamic_scene = scenes.create_empty(e::guid::from_bytes({20}));
+  auto dynamic_scene = world.create_scene();
   check(dynamic_scene.has_value());
   auto dynamic = e::scene_instance::borrow(world, (*dynamic_scene).id());
   check(dynamic.has_value());
@@ -488,7 +488,7 @@ int main() try {
   check(!e::instantiate(*destination, malformed, {}));
   check(world.entity_count() == before_append_failure);
   check(!e::instantiate(e::scene_instance{}, *append_composed, {}));
-  auto foreign_scene_id = scenes.create_empty(e::guid::generate());
+  auto foreign_scene_id = world.create_scene();
   check(foreign_scene_id.has_value());
   auto foreign_scene = e::scene_instance::borrow(world, (*foreign_scene_id).id());
   check(foreign_scene.has_value());
@@ -496,7 +496,7 @@ int main() try {
   check(append_foreign_parent.has_value());
   check(!e::instantiate(*destination, *append_composed, {}, *append_foreign_parent));
   foreign_scene->unload();
-  check(scenes.unload(camera_instance->instance).ok());
+  camera_instance->instance.unload();
   // Prefab 覆盖使用同一适配入口，不认识测试组件的类型。
   auto prefab = std::make_shared<e::prefab_description>();
   prefab->uuid = e::guid::from_bytes({4});
@@ -538,12 +538,12 @@ int main() try {
   check(source.objects[0].components.empty());
   check(source.objects[0].prefab->overrides.size() == 1);
   check(prefab->objects[0].components.get<movement_description>()->speed == 2);
-  auto empty_reload = scenes.create_empty(e::guid::generate());
+  auto empty_reload = world.create_scene();
   check(empty_reload.has_value());
   std::map<e::object_address, e::scene_object_association> empty_mapping;
   auto empty_applied = e::apply_scene(*empty_reload, empty_mapping, {}, {}, {});
   check(empty_applied && *empty_applied);
-  check(*scenes.get_node_count(*empty_reload) == 0U);
+  check(empty_reload->size() == 0U);
   // 替换保留场景句柄，但旧实体释放，归属不能停留在临时实例 ID 上。
   e::scene_description replacement_source;
   replacement_source.uuid = e::guid::generate();
@@ -563,7 +563,7 @@ int main() try {
   auto replaced = gneiss::test_support::scene_fixture::instantiate_scene(
       world, prepare(replacement_source), {});
   check(replaced.has_value());
-  check(scenes.unload(replacing->instance).ok());
+  replacing->instance.unload();
   check(!stable->is_valid());
   check(replaced->instance != replacing->instance);
   stable = e::scene_instance::borrow(world, (replaced->instance).id());

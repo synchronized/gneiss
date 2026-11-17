@@ -4,7 +4,6 @@
 #include "async_application.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/function/scene/instantiation.hpp>
-#include "scene_access.hpp"
 #include "scene_instantiation.hpp"
 namespace gneiss::test_support {
 inline gneiss::error open_document(editor::scene_edit_session& document, runtime::application& app,
@@ -29,7 +28,7 @@ inline gneiss::error open_document(editor::scene_edit_session& document, runtime
   const auto instance = created->instance;
   status = document.adopt(app, instance, *initial, created->objects);
   if (status.failed())
-    (void)gneiss::test_support::scene_access{app}->unload(instance);
+    instance.unload();
   return status;
 }
 }

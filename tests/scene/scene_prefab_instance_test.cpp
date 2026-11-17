@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_application.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/scene_application.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
@@ -41,33 +40,32 @@ int main() try {
       composition->objects, [&](const auto& object) { return object.address.source == source_id; });
   check(member != composition->objects.end());
   check(member->effective.transform.translation.x == 3);
-  const auto child = mapping.at(member->address).entity;
-  const auto root = mapping.at(member->parent).entity;
-  check(app->native_world()->find(gneiss::entity_id{(child).get()}).parent().entity() == root);
+  const auto child = app->native_world()->find(mapping.at(member->address).entity);
+  const auto root = app->native_world()->find(mapping.at(member->parent).entity);
+  check(child.parent() == root);
   // 来源信息只在调用方组合结果中；运行对象只保存名称和普通组件。
-  auto identity = app->native_world()->find(gneiss::entity_id{(root).get()}).name();
-  check(app->native_world()->find(root).is_valid());
+  auto identity = root.name();
+  check(root.is_valid());
   auto second = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
                                                                        prepared, assets);
   check(bool(second));
   auto second_mapping = gneiss::test_support::associations(second->objects);
-  check(second_mapping.at(member->address).entity != child);
+  check(second_mapping.at(member->address).entity != child.entity());
   auto second_identity =
       app->native_world()
-          ->find(gneiss::entity_id{(second_mapping.at(member->parent).entity).get()})
+          ->find(second_mapping.at(member->parent).entity)
           .name();
-  check(second_identity == identity && second_mapping.at(member->parent).entity != root);
-  app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit");
-  check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
-  check(!app->native_world()->find(gneiss::entity_id{(child).get()}).parent());
+  check(second_identity == identity && second_mapping.at(member->parent).entity != root.entity());
+  child.set_name("Runtime edit");
+  check(child.reparent({}).ok());
+  check(!child.parent());
   check(member->effective.transform.translation.x == 3);
-  check(
-      gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, root).ok());
-  check(gneiss::test_support::scene_access{*app}->destroy_subtree(created->instance, root).ok());
-  check(!app->native_world()->object(gneiss::entity_id{child.get()}));
+  check(child.reparent(root).ok());
+  root.destroy();
+  check(!child.is_valid());
   check(app->native_world()->object(second_mapping.at(member->address).entity).has_value());
-  check(gneiss::test_support::scene_access{*app}->unload(created->instance).ok());
-  check(gneiss::test_support::scene_access{*app}->unload(second->instance).ok());
+  created->instance.unload();
+  second->instance.unload();
   check(app->native_world()->entity_count() == 0);
   e::scene_content missing;
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/missing-prefab.scene.json",

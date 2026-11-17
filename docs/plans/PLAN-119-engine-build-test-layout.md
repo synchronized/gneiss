@@ -467,6 +467,18 @@ git diff --check 通过。未运行 Release、静态库和跨平台验证。
 资产加载/纹理服务测试仍调用私有解码与资源接入辅助，不能直接照搬此次源清单删除；
 这些白盒边界及 scene_access 消费者仍待清理，PLAN-119 未完成。
 
+### 场景测试直接使用对象与场景句柄
+
+2026-11-17：场景实例化、组件装配测试中有效场景的创建、卸载与子树删除直接调用原生 API，
+不再为创建空场景制造无用途 UUID，也不通过 scene_access 将 void 生命周期操作包装回错误码。
+scene_prefab_instance 完全移除 scene_access 依赖，直接持有 game_object 执行改名、改父和
+删除，保留同源实例独立、子树失效、其他实例存活及最终实体回收检查。
+async_document 在文档接管失败后直接卸载场景；已核查 adopt 失败仍由调用方持有场景。
+Windows Clang Debug 四个目标构建通过，scene-instantiation、scene_prefab_instance、
+component-adapter、editor.transform-gizmo-drag 四项测试通过；git diff --check 通过。
+未运行完整编辑器测试、Release 或跨平台矩阵。scene_access 的旧查询及非法句柄模拟仍有
+消费者，尚未删除该辅助类，后续应按真实查询与外部边界分别迁移。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。
