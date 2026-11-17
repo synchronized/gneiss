@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_prefab_edit.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
@@ -92,10 +91,8 @@ int main() try {
       return 36;
     if (session.capture_nodes()->nodes.size() != before->nodes.size())
       return 37;
-    if (gneiss::test_support::scene_access{*application}
-            ->destroy_node(session.scene_handle(), created->entity())
-            .failed() ||
-        session.is_dirty())
+    created->destroy();
+    if (created->is_valid() || session.is_dirty())
       return 38;
   }
   // 接管时拒绝同 World 的其他场景对象，失败不改变既有会话。

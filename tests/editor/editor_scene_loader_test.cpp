@@ -12,7 +12,6 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 
-#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
@@ -118,7 +117,6 @@ void run(gneiss::tasks::execution_mode mode) {
   check(world == current && !session.selection().is_valid() && !history.can_undo());
   check(camera.is_valid() && gneiss::test_support::scene_query(session).nodes.size() == 2U);
   tick();
-  std::uint64_t count{};
   // World 保持不变，旧场景对象由文档关闭时卸载。
   check(!world->object(node));
 
@@ -174,10 +172,10 @@ void run(gneiss::tasks::execution_mode mode) {
   check(unresolved && unresolved->missing.size() == 2);
   check(session.scene_handle() == stable_scene &&
         after.description()->objects.front().name == "Snapshot edit");
-  // 无效场景的原生查询拒绝，不影响活动场景。
-  check(gneiss::error{gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->get_node_count(gneiss::scene_instance{}),
-            count)} == gneiss::error::invalid_handle);
+  // 外部 ID 借用失败不影响活动场景。
+  auto invalid_scene = gneiss::scene_instance::borrow(*app->native_world(), {});
+  check(!invalid_scene && invalid_scene.error() == gneiss::error::invalid_handle);
+  check(session.scene_handle().is_valid());
   camera.shutdown();
   session.close();
   // 在途任务随 Application 关闭；执行器必须最后销毁。

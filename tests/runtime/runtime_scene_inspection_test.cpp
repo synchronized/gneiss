@@ -14,7 +14,6 @@
 #include "inspection/runtime_property_editor.hpp"
 #include "inspection/runtime_scene_inspection.hpp"
 
-#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
@@ -196,8 +195,7 @@ bool test_capture_prefab_scene() {
   gneiss::scene_resource_bindings resources;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, resources).failed())
     return false;
-  auto empty = gneiss::test_support::scene_access{*application}->create_empty(
-      gneiss::guid::generate());
+  auto empty = application->native_world()->create_scene();
   if (!empty)
     return false;
   // 使用无运行 Prefab 绑定的重建路径，证明来源只来自显式回执。
@@ -205,8 +203,7 @@ bool test_capture_prefab_scene() {
       *application->native_world(), std::move(prepared), resources);
   if (!created)
     return false;
-  if (gneiss::test_support::scene_access{*application}->unload(*empty).failed())
-    return false;
+  empty->unload();
   scene = created->instance;
   gneiss::host::runtime_scene_inspection inspection(5U);
   if (inspection.set_source_bindings(created->objects).failed())
@@ -233,9 +230,8 @@ bool test_capture_prefab_scene() {
   worker.join();
   if (foreign != gneiss::error::invalid_state || snapshot.changes.size() != changes)
     return false;
-  const bool unloaded =
-      gneiss::error{gneiss::test_support::scene_access{*application}->unload(scene)} ==
-      gneiss::error::success;
+  scene.unload();
+  const bool unloaded = !scene.is_valid();
   const bool destroyed =
       gneiss::error{application->shutdown()} == gneiss::error::success;
   return valid && unloaded && destroyed;

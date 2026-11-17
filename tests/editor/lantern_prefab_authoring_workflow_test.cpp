@@ -3,7 +3,6 @@
 
 #include "../support/async_application.hpp"
 #include "../support/async_editor_save.hpp"
-#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/prefab_authoring.hpp"
 #include <gneiss/engine/error.hpp>

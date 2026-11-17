@@ -11,7 +11,6 @@
 #include <gneiss/tooling/import/asset_writer.hpp>
 #include <gneiss/tooling/import/gltf_importer.hpp>
 
-#include "../support/scene_access.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <array>
@@ -124,11 +123,13 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
                                          application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) != gneiss::error::success ||
-      application->native_world()->entity_count() != 1U ||
-      gneiss::test_support::scene_access{*application}->unload(scene) != gneiss::error::success ||
-      application->shutdown() != gneiss::error::success) {
+      application->native_world()->entity_count() != 1U) {
     return 6;
   }
+  scene.unload();
+  if (scene.is_valid() || application->native_world()->entity_count() != 0U ||
+      application->shutdown() != gneiss::error::success)
+    return 6;
 
   auto multi_data = imported.data;
   auto second_primitive = multi_data.meshes[0].primitives[0];
@@ -146,11 +147,13 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
                                          application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*application, scene_uri, &scene) != gneiss::error::success ||
-      application->native_world()->entity_count() != 3U ||
-      gneiss::test_support::scene_access{*application}->unload(scene) != gneiss::error::success ||
-      application->shutdown() != gneiss::error::success) {
+      application->native_world()->entity_count() != 3U) {
     return 8;
   }
+  scene.unload();
+  if (scene.is_valid() || application->native_world()->entity_count() != 0U ||
+      application->shutdown() != gneiss::error::success)
+    return 8;
   const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /
                                                  "pbr_triangle.gltf");
   const auto pbr_output = root / "pbr";

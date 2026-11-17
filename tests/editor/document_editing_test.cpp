@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/async_editor_save.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/document_editing.hpp"

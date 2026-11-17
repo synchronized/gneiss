@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_prefab_edit.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>

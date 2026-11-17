@@ -547,6 +547,17 @@ Windows Clang Debug 两个目标构建成功、两项测试通过；git diff --c
 本轮不重复全量矩阵。scene_access 仍被其他 Scene/Editor/Runtime/Tooling 测试使用，
 其剩余迁移和删除仍未完成。
 
+### 编辑器与工具消费者退出场景测试包装
+
+2026-11-17：10 个 Editor、Runtime、Tooling 测试文件移除 scene_access 依赖。
+创建、计数、销毁和卸载直接使用 World、GameObject、SceneInstance 原生接口；
+卸载检查实际句柄失效与实体回收，非法 ID 检查使用正式 borrow 边界。
+同时清除四个已无调用的包含，不新增替代包装，不改变生产 API。
+
+Windows Clang Debug 对应 10 个目标构建成功，10 项测试全部通过；git diff --check 通过。
+本轮未重复完整矩阵。scene_access 仍被 10 个测试/基准源文件使用，后续继续迁移，
+在最后一个消费者退出前保留辅助文件；PLAN-119 尚未整体完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。
