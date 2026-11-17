@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+cmake_minimum_required(VERSION 3.25)
+project(gneiss_task_web LANGUAGES CXX)
+if(NOT EMSCRIPTEN)
+  message(FATAL_ERROR "此最小宿主须使用 Emscripten 工具链")
+endif()
+set(GNEISS_TASK_THREADS OFF CACHE BOOL "" FORCE)
+get_filename_component(GNEISS_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+include("${GNEISS_ROOT}/cmake/gneiss_utility.cmake")
+add_library(gneiss_result_interface INTERFACE)
+target_include_directories(gneiss_result_interface INTERFACE "${GNEISS_ROOT}/engine/include")
+target_compile_features(gneiss_result_interface INTERFACE cxx_std_20)
+add_library(gneiss_fatal STATIC "${GNEISS_ROOT}/engine/src/fatal.cpp")
+target_link_libraries(gneiss_fatal PUBLIC gneiss_result_interface)
+add_subdirectory("${GNEISS_ROOT}/engine/src/core/tasks" tasks)
+target_compile_options(gneiss_tasks PRIVATE -fexceptions)
+add_executable(task_web main.cpp)
+target_link_libraries(task_web PRIVATE gneiss_tasks)
+target_compile_options(task_web PRIVATE -fexceptions -Wall -Wextra -Werror)
+target_link_options(task_web PRIVATE -fexceptions -sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1)
+set_target_properties(task_web PROPERTIES SUFFIX ".html")

@@ -38,10 +38,10 @@ jobs:
         shell: bash
         run: |
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
-          emcmake cmake -S tests/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          emcmake cmake -S tests/engine/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
           cmake --build build/task-web
           google-chrome --version
-          python3 tests/task_web/run_browser.py --build build/task-web --browser "$(command -v google-chrome)"
+          python3 tests/engine/task_web/run_browser.py --build build/task-web --browser "$(command -v google-chrome)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

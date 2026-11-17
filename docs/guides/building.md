@@ -360,9 +360,9 @@ Request、手动远端验证、修复阻塞问题、合并到 `main`、创建并
 本机验证工具链为 Emscripten 5.0.6；保留 C++ 异常处理，显式禁用工作线程后端。
 
 ```sh
-emcmake cmake -S tests/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
+emcmake cmake -S tests/engine/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build/task-web
-python tests/task_web/run_browser.py --build build/task-web --browser <Chrome或Chromium可执行文件>
+python tests/engine/task_web/run_browser.py --build build/task-web --browser <Chrome或Chromium可执行文件>
 ```
 
 Windows 的 Emscripten PowerShell 入口需要 `EMSDK_PYTHON` 指向 SDK 的 Python，并按 SDK 配置
@@ -612,7 +612,7 @@ Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
 测试源码、脚本及专用夹具统一存放在根目录 `tests/`，`src/` 下不再放置 tests 子目录。
 共享项目配置与协议测试分别位于 `tests/project` 和 `tests/protocol`；
 Runtime 与 Editor 宿主测试分别位于 `tests/runtime` 和 `tests/editor`；
-IPC 与 libuv 测试分别位于 `tests/platform/ipc` 和 `tests/platform/io/uv`。
+IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/platform/io/uv`。
 
 项目配置与协议测试由各自测试目录的 CMake 声明；其他测试按现有模块条件启用，依赖和编译权限保持在模块边界内。
 目录迁移不改变目标名、CTest 名称或测试运行命令。

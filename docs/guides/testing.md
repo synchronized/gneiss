@@ -9,6 +9,14 @@
 已有测试逐步按本指南审查，不要求一次重写；首轮整理见
 [PLAN-114](../plans/PLAN-114-test-maintenance.md)。
 
+## 目录归属
+
+引擎测试位于 `tests/engine/`，按 core、meta、serialization、asset、scene、render、
+application、platform 等领域就近维护 CMake 目标；World 与场景层级测试统一归 scene。
+Tooling、Editor、Runtime、Project、Protocol 测试位于同名目录，跨模块流程归 integration。
+共享辅助和输入保留在 support、data、fixtures；不要为目录迁移复制夹具或生产源码。
+独立浏览器任务宿主位于 `tests/engine/task_web/`，不加入桌面默认构建。
+
 ## 测试什么
 
 - 保护可观察行为、所有权、数据格式和错误边界，优先覆盖可能导致数据丢失、悬空引用、

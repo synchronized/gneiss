@@ -98,10 +98,7 @@ cmake/
   package/                  # config/export/install 模板与规则
   scripts/                  # embed_binary 等生成工具
   testing/                  # CMake 本身与 package 的验收脚本
-tests/
-  CMakeLists.txt
-  core/ meta/ serialization/ asset/ scene/ render/
-  host/ tooling/ support/
+tests/                     # 统一布局见下节，不另维护一套引擎测试平铺目录
 ```
 
 消费者只链接对应目标并包含 <gneiss/engine/function/scene/world.hpp> 等入口；
@@ -151,7 +148,15 @@ protocol/
   src/                       # 双方共享消息及编解码，不含应用命令执行
   CMakeLists.txt
 tests/
-  engine/ tooling/ editor/ runtime/ project/ protocol/ integration/ support/
+  CMakeLists.txt             # 引擎与编辑器测试装配
+  engine/
+    CMakeLists.txt           # 启用领域分组与跨领域装配
+    core/ meta/ serialization/ asset/ scene/ render/
+    application/ platform/ input/ log/ headers/
+    task_web/                # 独立 Emscripten 浏览器宿主
+  tooling/ editor/ runtime/ project/ protocol/ integration/
+  support/                   # 跨领域夹具与等待辅助
+  data/ fixtures/            # 共享输入资产与进程夹具
 ```
 
 Engine 及 cmake 布局沿用上节。Editor/Runtime 是应用，内部头就近放置，不强行建立
@@ -478,6 +483,27 @@ Windows Clang Debug 四个目标构建通过，scene-instantiation、scene_prefa
 component-adapter、editor.transform-gizmo-drag 四项测试通过；git diff --check 通过。
 未运行完整编辑器测试、Release 或跨平台矩阵。scene_access 的旧查询及非法句柄模拟仍有
 消费者，尚未删除该辅助类，后续应按真实查询与外部边界分别迁移。
+
+### 测试目录与领域 CMake 归位
+
+2026-11-17：完成本轮目录归位。原根目录的引擎测试及 core/meta/serialization/asset/scene/
+world/render/platform/input/log/headers/task_web 归入 tests/engine，World 合并到 scene；
+主循环唤醒用例从 tests/runtime 归入 engine/application。各领域 CMakeLists 就近声明目标，
+根 tests/CMakeLists 只装配 Engine 与 Editor；原散落的材质编辑器目标回到 tests/editor。
+共享 support/data/fixtures 保留原位置，更新相对包含、平台目标源路径、浏览器工作流和指南。
+删除本文旧的平铺测试布局示意，以上述统一树为权威目标。
+
+Windows Clang Debug 配置成功；迁移前后 CTest 均为 235 项，名称、超时和标签无增删变化。
+16 个代表目标（包含头文件编译目标）构建通过，15 项定向运行测试最终通过，覆盖 Core、Meta、
+序列化、资产 URI、场景、Render CPU 状态、平台动态库/UV、输入、日志、唤醒和材质编辑器。
+验证同时修复动态库头遗留的多余 endif、测试 DLL 导出设置误加到 executable，以及 UV、
+Render Scene、材质编辑器白盒测试的旧私有包含路径。git diff --check 通过。
+
+尝试完整构建时仍被 integration/assets/file_service_test 的旧私有包含路径阻断；本轮未将
+该测试的实现依赖迁移扩展为接口改造。未完成完整构建/测试、Release、静态库、GPU 和浏览器
+运行验证。独立浏览器宿主已改用真实任务库目录及显式最小依赖，尚待 Emscripten 验证。
+P4 的目录组织部分已落实；旧辅助、白盒边界、准确标签与剩余构建问题仍未结束，不能据此关闭
+PLAN-119。平台 IO/IPC 测试目标仍由对应生产子目录声明，后续继续收回测试侧。
 
 ## 决策边界
 

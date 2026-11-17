@@ -157,3 +157,13 @@ target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_fat
 target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_fatal)
 
 include(host_targets.cmake)
+
+if(TARGET gneiss_editor_ui)
+  add_executable(gneiss_material_editor_test material_editor_test.cpp)
+  target_link_libraries(gneiss_material_editor_test PRIVATE gneiss_editor_ui)
+  target_include_directories(gneiss_material_editor_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
+  gneiss_target_compile_warnings(gneiss_material_editor_test)
+  gneiss_target_output_directories(gneiss_material_editor_test)
+  set_target_properties(gneiss_material_editor_test PROPERTIES FOLDER "Tests")
+  add_test(NAME gneiss.editor.material-editor COMMAND gneiss_material_editor_test)
+endif()

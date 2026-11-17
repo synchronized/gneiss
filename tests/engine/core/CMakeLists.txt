@@ -1,0 +1,248 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+add_executable(gneiss_file_log_sink_test file_log_sink_test.cpp)
+target_include_directories(gneiss_file_log_sink_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_file_log_sink_test PRIVATE gneiss_file_log_sink)
+target_compile_features(gneiss_file_log_sink_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_file_log_sink_test)
+gneiss_target_output_directories(gneiss_file_log_sink_test)
+set_target_properties(gneiss_file_log_sink_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.file-log-sink COMMAND gneiss_file_log_sink_test)
+set_tests_properties(gneiss.file-log-sink PROPERTIES TIMEOUT 15)
+
+add_executable(gneiss_signal_test signal_test.cpp)
+target_link_libraries(gneiss_signal_test PRIVATE gneiss_events)
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  target_link_libraries(gneiss_signal_test PRIVATE Threads::Threads)
+  target_compile_definitions(gneiss_signal_test PRIVATE GNEISS_SIGNAL_TEST_THREADS)
+endif()
+gneiss_target_compile_warnings(gneiss_signal_test)
+gneiss_target_output_directories(gneiss_signal_test)
+set_target_properties(gneiss_signal_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.signal COMMAND gneiss_signal_test)
+set_tests_properties(gneiss.signal PROPERTIES TIMEOUT 15)
+
+add_executable(gneiss_profiling_disabled_test profiling_disabled_test.cpp)
+target_include_directories(gneiss_profiling_disabled_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_profiling_disabled_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_profiling_disabled_test)
+gneiss_target_output_directories(gneiss_profiling_disabled_test)
+set_target_properties(gneiss_profiling_disabled_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.profiling-disabled COMMAND gneiss_profiling_disabled_test)
+
+if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_profiling_capture profiling_capture.cpp)
+  target_link_libraries(gneiss_profiling_capture PRIVATE gneiss::engine gneiss_tasks gneiss_native_interface)
+  gneiss_target_profiling(gneiss_profiling_capture)
+  gneiss_target_compile_warnings(gneiss_profiling_capture)
+  gneiss_target_output_directories(gneiss_profiling_capture)
+  set_target_properties(gneiss_profiling_capture PROPERTIES FOLDER "Tests")
+  add_test(NAME gneiss.profiling-capture COMMAND gneiss_profiling_capture)
+  set_tests_properties(gneiss.profiling-capture PROPERTIES TIMEOUT 15)
+endif()
+
+add_executable(gneiss_task_scheduler_test task_scheduler_test.cpp)
+target_link_libraries(gneiss_task_scheduler_test PRIVATE gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_task_scheduler_test)
+gneiss_target_output_directories(gneiss_task_scheduler_test)
+set_target_properties(gneiss_task_scheduler_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.task-scheduler COMMAND gneiss_task_scheduler_test)
+set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
+
+add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
+target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::engine gneiss_value_interface)
+target_include_directories(gneiss_cpp_version_test PRIVATE "${PROJECT_BINARY_DIR}/src/generated/include")
+target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_version_test)
+gneiss_target_output_directories(gneiss_cpp_version_test)
+set_target_properties(gneiss_cpp_version_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
+
+add_executable(gneiss_rid_table_test rid_table_test.cpp)
+target_include_directories(gneiss_rid_table_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/engine/src")
+target_link_libraries(gneiss_rid_table_test PRIVATE gneiss::engine gneiss_fatal)
+target_compile_features(gneiss_rid_table_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_rid_table_test)
+gneiss_target_output_directories(gneiss_rid_table_test)
+set_target_properties(gneiss_rid_table_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.rid_table COMMAND gneiss_rid_table_test)
+
+add_executable(
+  gneiss_service_registry_test
+  service_registry_test.cpp
+  "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.cpp"
+)
+target_include_directories(gneiss_service_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_service_registry_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_service_registry_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_service_registry_test)
+gneiss_target_output_directories(gneiss_service_registry_test)
+set_target_properties(gneiss_service_registry_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
+
+add_executable(gneiss_version_test version_test.cpp)
+target_link_libraries(gneiss_version_test PRIVATE gneiss::engine gneiss_value_interface)
+gneiss_target_compile_warnings(gneiss_version_test)
+gneiss_target_output_directories(gneiss_version_test)
+set_target_properties(gneiss_version_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.version COMMAND gneiss_version_test)
+set_tests_properties(gneiss.version PROPERTIES
+  PASS_REGULAR_EXPRESSION "gneiss ${PROJECT_VERSION_MAJOR}\\.${PROJECT_VERSION_MINOR}\\.${PROJECT_VERSION_PATCH}")
+
+add_executable(gneiss_task_header_visibility_test task_header_visibility_test.cpp)
+target_link_libraries(gneiss_task_header_visibility_test PRIVATE gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_task_header_visibility_test)
+gneiss_target_output_directories(gneiss_task_header_visibility_test)
+set_target_properties(gneiss_task_header_visibility_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.task-header-visibility COMMAND gneiss_task_header_visibility_test)
+
+add_executable(gneiss_native_result_test native_result_test.cpp)
+target_include_directories(gneiss_native_result_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_native_result_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_native_result_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_result_test)
+gneiss_target_output_directories(gneiss_native_result_test)
+set_target_properties(gneiss_native_result_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.native_result COMMAND gneiss_native_result_test)
+
+# 基础身份类型通过 Engine 链接，避免消费者自行编译出第二张字符串表。
+add_executable(gneiss_core_identity_test core_identity_test.cpp)
+target_link_libraries(gneiss_core_identity_test PRIVATE gneiss::engine gneiss_native_interface)
+if(GNEISS_TASK_THREADS)
+  target_link_libraries(gneiss_core_identity_test PRIVATE Threads::Threads)
+  target_compile_definitions(gneiss_core_identity_test PRIVATE GNEISS_IDENTITY_TEST_THREADS)
+endif()
+gneiss_target_compile_warnings(gneiss_core_identity_test)
+gneiss_target_output_directories(gneiss_core_identity_test)
+set_target_properties(gneiss_core_identity_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.core-identity COMMAND gneiss_core_identity_test)
+
+# 直接编译用户工程模板，保证它只依赖最小游戏模块协议。
+
+# 同一 Engine 中的类型名注册、并发首次注册及跨翻译单元身份。
+add_executable(gneiss_type_id_test type_id_test.cpp type_id_other.cpp)
+target_link_libraries(gneiss_type_id_test PRIVATE gneiss::engine gneiss_native_interface Threads::Threads)
+gneiss_target_compile_warnings(gneiss_type_id_test)
+gneiss_target_output_directories(gneiss_type_id_test)
+set_target_properties(gneiss_type_id_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.type_id COMMAND gneiss_type_id_test)
+
+# 数学类型、四元数分量顺序及 TRS 边界契约。
+add_executable(gneiss_math_test math_test.cpp)
+target_link_libraries(gneiss_math_test PRIVATE gneiss_value_interface)
+target_compile_features(gneiss_math_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_math_test)
+gneiss_target_output_directories(gneiss_math_test)
+set_target_properties(gneiss_math_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.math COMMAND gneiss_math_test)
+
+add_executable(gneiss_value_test value_test.cpp)
+target_link_libraries(gneiss_value_test PRIVATE gneiss::engine gneiss_value_interface)
+target_compile_features(gneiss_value_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_value_test)
+gneiss_target_output_directories(gneiss_value_test)
+set_target_properties(gneiss_value_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.value COMMAND gneiss_value_test)
+
+add_executable(gneiss_binary_io_test binary_io_test.cpp)
+target_include_directories(gneiss_binary_io_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_binary_io_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_binary_io_test)
+gneiss_target_output_directories(gneiss_binary_io_test)
+set_target_properties(gneiss_binary_io_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.binary_io COMMAND gneiss_binary_io_test)
+
+# 通用 UTF-8 编码边界，不依赖平台或引擎服务。
+add_executable(gneiss_utf8_test utf8_test.cpp)
+target_link_libraries(gneiss_utf8_test PRIVATE gneiss_value_interface)
+target_compile_features(gneiss_utf8_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_utf8_test)
+gneiss_target_output_directories(gneiss_utf8_test)
+set_target_properties(gneiss_utf8_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.utf8 COMMAND gneiss_utf8_test)
+
+add_executable(gneiss_value_edit_test value_edit_test.cpp)
+target_link_libraries(gneiss_value_edit_test PRIVATE gneiss::engine gneiss_native_interface)
+target_compile_features(gneiss_value_edit_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_value_edit_test)
+gneiss_target_output_directories(gneiss_value_edit_test)
+set_target_properties(gneiss_value_edit_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.value_edit COMMAND gneiss_value_edit_test)
+
+# 本地替换分配器只用于故障注入，不影响 Engine 或其他测试进程。
+if(NOT EMSCRIPTEN)
+  add_executable(gneiss_value_allocation_test value_allocation_test.cpp
+    "${PROJECT_SOURCE_DIR}/engine/src/core/types/value.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/value_edit.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/types/guid.cpp")
+  target_link_libraries(gneiss_value_allocation_test PRIVATE gneiss_native_interface gneiss_fatal)
+  target_compile_definitions(gneiss_value_allocation_test PRIVATE GNEISS_STATIC_DEFINE)
+  target_compile_features(gneiss_value_allocation_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_value_allocation_test)
+  gneiss_target_output_directories(gneiss_value_allocation_test)
+  set_target_properties(gneiss_value_allocation_test PROPERTIES FOLDER "Tests")
+  add_test(NAME gneiss.value-allocation COMMAND gneiss_value_allocation_test)
+  add_test(NAME gneiss.value-allocation-oom COMMAND "${CMAKE_COMMAND}"
+    "-DPROGRAM=$<TARGET_FILE:gneiss_value_allocation_test>" "-DMODE=allocation-boundary"
+    -P "${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake")
+endif()
+
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_fatal_test fatal_test.cpp)
+  target_link_libraries(gneiss_fatal_test PRIVATE gneiss_fatal gneiss_tasks)
+  gneiss_target_compile_warnings(gneiss_fatal_test)
+  gneiss_target_output_directories(gneiss_fatal_test)
+  set_target_properties(gneiss_fatal_test PROPERTIES FOLDER "Tests")
+  foreach(mode direct host oom terminate worker worker-oom cooperative)
+    add_test(NAME gneiss.fatal-${mode} COMMAND "${CMAKE_COMMAND}"
+      "-DPROGRAM=$<TARGET_FILE:gneiss_fatal_test>" "-DMODE=${mode}"
+      -P "${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake")
+    set_tests_properties(gneiss.fatal-${mode} PROPERTIES TIMEOUT 15)
+  endforeach()
+endif()
+
+# 显式覆盖有/无 NDEBUG，不依赖宿主构建配置；失败分支在子进程验证。
+if(NOT EMSCRIPTEN)
+  foreach(mode IN ITEMS debug release)
+    add_executable(gneiss_assert_${mode}_test assert_test.cpp)
+    target_include_directories(gneiss_assert_${mode}_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_link_libraries(gneiss_assert_${mode}_test PRIVATE gneiss_libassert)
+    target_compile_features(gneiss_assert_${mode}_test PRIVATE cxx_std_20)
+    if(mode STREQUAL "release")
+      target_compile_definitions(gneiss_assert_${mode}_test PRIVATE GNEISS_TEST_RELEASE_ASSERT)
+      set(release_assert ON)
+    else()
+      set(release_assert OFF)
+    endif()
+    gneiss_target_compile_warnings(gneiss_assert_${mode}_test)
+    gneiss_target_output_directories(gneiss_assert_${mode}_test)
+    set_target_properties(gneiss_assert_${mode}_test PROPERTIES FOLDER "Tests")
+    add_test(NAME gneiss.assert-${mode} COMMAND "${CMAKE_COMMAND}"
+      "-DPROGRAM=$<TARGET_FILE:gneiss_assert_${mode}_test>" "-DRELEASE_ASSERT=${release_assert}"
+      -P "${PROJECT_SOURCE_DIR}/cmake/check_assert.cmake")
+    set_tests_properties(gneiss.assert-${mode} PROPERTIES LABELS "cpu" TIMEOUT 90)
+  endforeach()
+endif()
+
+# 普通消费者只链接 Engine，不能继承实现目录。
+add_executable(gneiss_engine_header_boundary_test engine_header_boundary_test.cpp)
+target_link_libraries(gneiss_engine_header_boundary_test PRIVATE gneiss::engine)
+gneiss_target_compile_warnings(gneiss_engine_header_boundary_test)
+gneiss_target_output_directories(gneiss_engine_header_boundary_test)
+add_test(NAME gneiss.engine-header-boundary COMMAND gneiss_engine_header_boundary_test)
+set_tests_properties(gneiss.engine-header-boundary PROPERTIES LABELS cpu)
+
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_resource_retirement_queue_test resource_retirement_queue_test.cpp)
+  target_include_directories(gneiss_resource_retirement_queue_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_features(gneiss_resource_retirement_queue_test PRIVATE cxx_std_20)
+  target_link_libraries(gneiss_resource_retirement_queue_test PRIVATE Threads::Threads)
+  gneiss_target_compile_warnings(gneiss_resource_retirement_queue_test)
+  gneiss_target_output_directories(gneiss_resource_retirement_queue_test)
+  set_target_properties(gneiss_resource_retirement_queue_test PROPERTIES FOLDER "Tests")
+  add_test(NAME gneiss.resource-retirement-queue COMMAND gneiss_resource_retirement_queue_test)
+  set_tests_properties(gneiss.resource-retirement-queue PROPERTIES TIMEOUT 30)
+
+endif()
