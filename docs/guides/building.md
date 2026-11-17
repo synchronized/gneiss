@@ -618,3 +618,19 @@ IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/p
 目录迁移不改变目标名、CTest 名称或测试运行命令。
 
 测试目标的 IDE 分组、目录归属和维护规则见[测试维护指南](testing.md#测试目标的-cmake-约定)。
+
+## CMake 文件与装配入口
+
+根 `CMakeLists.txt` 负责选项、依赖解析和生产模块装配；生产目标仍在所属模块声明。
+`cmake/` 按职责组织：
+
+- `dependencies/`：第三方依赖解析、源码缓存与版本选择。
+- `targets/`：跨模块目标约定、内部接口目标与可选 profiling 配置。
+- `package/`：安装、导出与 package 配置模板；不安装内部 C++ 头文件。
+- `scripts/`：构建阶段执行的代码/数据生成脚本。
+- `testing/`：CMake 验收脚本及其专用配置夹具。
+
+所有生产模块建立后，根目录只通过 `add_subdirectory(tests)` 装配测试。
+模块测试是否启用由 `tests/CMakeLists.txt` 按生产模块选项决定，具体测试目标仍在对应领域目录声明。
+移动脚本时同步检查 `-P`、自定义命令 `DEPENDS`、独立测试工程和 CI 缓存键，
+不保留只转发旧路径的兼容脚本。

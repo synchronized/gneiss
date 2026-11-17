@@ -220,7 +220,7 @@ if(NOT EMSCRIPTEN)
     set_target_properties(gneiss_assert_${mode}_test PROPERTIES FOLDER "Tests")
     add_test(NAME gneiss.assert-${mode} COMMAND "${CMAKE_COMMAND}"
       "-DPROGRAM=$<TARGET_FILE:gneiss_assert_${mode}_test>" "-DRELEASE_ASSERT=${release_assert}"
-      -P "${PROJECT_SOURCE_DIR}/cmake/check_assert.cmake")
+      -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_assert.cmake")
     set_tests_properties(gneiss.assert-${mode} PROPERTIES LABELS "cpu" TIMEOUT 90)
   endforeach()
 endif()

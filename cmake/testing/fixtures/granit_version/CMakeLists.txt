@@ -8,4 +8,4 @@ if(NOT DEFINED GNEISS_SOURCE_DIR)
   message(FATAL_ERROR "缺少 GNEISS_SOURCE_DIR")
 endif()
 
-include("${GNEISS_SOURCE_DIR}/cmake/granit_version.cmake")
+include("${GNEISS_SOURCE_DIR}/cmake/dependencies/granit_version.cmake")

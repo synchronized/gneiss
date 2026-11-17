@@ -162,7 +162,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
       "-DGNEISS_ASSETC=$<TARGET_FILE:gneiss_assetc>"
       "-DGNEISS_SOURCE=${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
       "-DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/tests/assetc-cook"
-      -P "${PROJECT_SOURCE_DIR}/cmake/check_assetc_cook.cmake"
+      -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_assetc_cook.cmake"
   )
   set_tests_properties(
     gneiss.tooling.assetc_inspect
@@ -175,7 +175,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
       "-DGNEISS_ASSETC=$<TARGET_FILE:gneiss_assetc>"
       "-DGNEISS_LANTERN_SOURCE=${PROJECT_SOURCE_DIR}/examples/lantern_gallery/assets/source/Lantern.glb"
       "-DGNEISS_LANTERN_OUTPUT=${PROJECT_BINARY_DIR}/tests/lantern-import"
-      -P "${PROJECT_SOURCE_DIR}/cmake/check_lantern_import.cmake"
+      -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_lantern_import.cmake"
   )
 endif()
 

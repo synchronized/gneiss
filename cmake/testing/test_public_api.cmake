@@ -12,7 +12,7 @@ file(REMOVE_RECURSE "${fixture}")
 file(MAKE_DIRECTORY "${fixture}/include" "${fixture}/abi" "${fixture}/src/engine/api" "${fixture}/src/runtime/api")
 function(check expected)
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
-    -P "${GNEISS_SOURCE_DIR}/cmake/check_public_api.cmake"
+    -P "${GNEISS_SOURCE_DIR}/cmake/testing/check_public_api.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_VARIABLE error)
   if(expected STREQUAL "pass" AND NOT status EQUAL 0)
     message(FATAL_ERROR "合法公共接口被拒绝：${error}")

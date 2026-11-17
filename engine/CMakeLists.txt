@@ -315,10 +315,10 @@ foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
     COMMAND
       "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_asset_dir}/${granit_pbr_asset}"
       "-DOUTPUT=${gneiss_pbr_embedded_source}"
-      -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+      -P "${PROJECT_SOURCE_DIR}/cmake/scripts/embed_binary.cmake"
     DEPENDS
       "${granit_pbr_asset_dir}/${granit_pbr_asset}"
-      "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+      "${PROJECT_SOURCE_DIR}/cmake/scripts/embed_binary.cmake"
     VERBATIM
   )
   list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_embedded_source}")
@@ -330,8 +330,8 @@ add_custom_command(
   COMMAND
     "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_material_archive}"
     "-DOUTPUT=${gneiss_pbr_material_include}"
-    -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
-  DEPENDS "${granit_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    -P "${PROJECT_SOURCE_DIR}/cmake/scripts/embed_binary.cmake"
+  DEPENDS "${granit_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/scripts/embed_binary.cmake"
   VERBATIM
 )
 add_custom_command(

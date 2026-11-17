@@ -9,7 +9,7 @@ if(GNEISS_ENABLE_PROFILING)
     message(FATAL_ERROR "Tracy profiling 配置当前仅用于原生宿主")
   endif()
   include(FetchContent)
-  include("${CMAKE_CURRENT_LIST_DIR}/dependency_source_cache.cmake")
+  include("${CMAKE_CURRENT_LIST_DIR}/../dependencies/dependency_source_cache.cmake")
   if(NOT FETCHCONTENT_SOURCE_DIR_GNEISS_TRACY_SOURCE)
     gneiss_cached_archive(tracy
       "https://codeload.github.com/wolfpld/tracy/tar.gz/05cceee0df3b8d7c6fa87e9638af311dbabc63cb"

@@ -99,7 +99,7 @@ if(TARGET gneiss_assetc)
             -DGNEISS_CORRUPT=$<TARGET_FILE:gneiss_corrupt_texture_fixture>
             -DGNEISS_PROJECT=${lantern_gallery_project_root}
             -DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/lantern-cooked-test
-            -P "${PROJECT_SOURCE_DIR}/cmake/check_lantern_cooked.cmake"
+            -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_lantern_cooked.cmake"
         )
         set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES TIMEOUT 210)
       endif()

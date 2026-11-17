@@ -15,7 +15,7 @@ if(NOT packed EQUAL 0)
 endif()
 file(SHA256 "${root}/demo.tar.gz" hash)
 set(child_template [=[
-include("@GNEISS_SOURCE_DIR@/cmake/dependency_source_cache.cmake")
+include("@GNEISS_SOURCE_DIR@/cmake/dependencies/dependency_source_cache.cmake")
 gneiss_cached_archive(demo "file://@root@/demo.tar.gz" ${HASH} CMakeLists.txt source)
 file(WRITE "@root@/result-${ID}" "${source}")
 ]=])

@@ -10,7 +10,7 @@
 最新定向验收中，共享构建的安装/打包 Runtime smoke 已通过（已修正旧日志匹配）。
 
 剩余收尾按以下顺序推进，不把历史阶段记录当作当前待办：
-1. 继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
+1. CMake 文件分层、安装规则分离与测试统一装配已落地；继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
 2. 逐项审核测试标签：当前 235 项中 213 项尚无标签，不能以排除 gpu 代替 CPU 安全集合。
 3. core-boundary 扫描规则及反例已迁移并通过；继续完成静态构建和相应安装验收。
 4. 单独处理已复现于修改前基线的两个 GPU 失败；未运行的浏览器/跨平台项明确记录。
@@ -33,7 +33,7 @@ P2–P5 仍未全部验收，PLAN-118 P2/P3 暂不穿插。
   包含模板实现。不能仅依据 detail 名称认定它们应从 include 删除。
 - engine/CMakeLists.txt 仍列 engine/core/... 等旧相对源路径，版本头输入仍指向 src/engine；
   私有包含根仍有 PROJECT_SOURCE_DIR/src。原 src/CMakeLists.txt 已基本清空。
-- cmake/internal_interfaces.cmake 部分清单已改成 engine/include，但 core/tasks 等仍引用旧路径。
+- cmake/targets/internal_interfaces.cmake 部分清单已改成 engine/include，但 core/tasks 等仍引用旧路径。
   internal_headers.cmake 通过 COPYONLY 和哈希目录复制契约头，现有真实 include 根出现后职责重叠。
 - logging 的 CMake 已位于 engine/src/core/logging，却仍声明 file_sink.cpp 和旧 platform/logging
   头路径，需按实际文件与职责核对，不能仅修改目录前缀。
@@ -653,3 +653,16 @@ project、protocol 七个自有源码根。Engine include/src 归一为逻辑领
 本计划未授权改变稳定 ABI、安装全部 C++ 头或新增 Core 独立运行时所有者。
 若实施发现必须拆出独立二进制 Core 才能解决真实多消费者依赖，先给出链接与单例归属方案并更新 ADR；
 否则优先保留现有所有权。不需要用户再次为普通文件移动、源清单修复或测试去重逐项确认。
+
+### 2026-11-17：CMake 分层与统一测试装配
+
+- CMake 文件迁入 dependencies、targets、package、scripts、testing；安装/导出规则由
+  package/install.cmake 集中维护，根 CMake 只保留装配入口。
+- 测试统一经 tests/CMakeLists.txt 按模块选项启用；同步迁移脚本调用、生成依赖、配置夹具、
+  CI 缓存键及文档链接，不保留旧路径转发层。
+- 修正独立 task_web 测试工程根路径回溯层数；本轮未执行 Emscripten 构建。
+- Windows Clang Debug 配置、全量构建通过；11 项相关测试通过，含安装 Runtime smoke、
+  cook/import、依赖/版本缓存、边界及反例、Debug/Release 断言。
+- 迁移前后均为 235 项 CTest，名称集合、标签/超时等属性一致；201 个测试构建目标均属 Tests。
+- 尚未完成：接口依赖目标收敛、白盒重复编译审核、标签补齐、静态与跨平台验收；
+  两个既有 GPU 基线失败不在本轮宣称修复。PLAN-119 保持实施中。

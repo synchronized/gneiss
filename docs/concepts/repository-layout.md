@@ -193,11 +193,11 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 
 ## 同源码内部接口的可见范围
 
-- `cmake/internal_interfaces.cmake` 是宿主与离线工具获准头文件清单的权威来源；
-  `gneiss_native_interface`、`gneiss_tooling_interface` 只提供构建期契约，不属于安装 SDK。
-- Task 目标独立导出 `task_scheduler.hpp` 与进度通知，不能通过其依赖获取 Engine 功能层。
-- `cmake/internal_headers.cmake` 在构建树生成清单限定的包含目录；消费者通过 target 依赖获得它。
-  新增跨模块头依赖时须更新清单并审查方向，不能恢复 PUBLIC `src` 或相对路径越过模块根。
+- 跨模块原生契约直接来自各模块的 `include` 目录，通过真实 target 依赖传播，不再复制头文件。
+- `cmake/targets/internal_interfaces.cmake` 暂保留 Engine 的接口依赖目标；它不是逐头文件授权清单，
+  也不属于安装 SDK。目标闭包的后续收敛见 PLAN-119。
+- Task 的实现与目标位于 `engine/src/core/tasks`；不得借其依赖恢复全局公开源码路径。
+- 构建装配和 CMake 文件归属见[构建指南](../guides/building.md#cmake-文件与装配入口)。
 - Engine 与资产工具编译自身实现时保留 PRIVATE 源码路径。白盒测试显式申请私有路径；
   普通宿主的可见性测试不获得此权限。
 - Application 不导出场景专用请求；宿主加载状态与回执由各自模块定义。
