@@ -140,11 +140,7 @@ int main() try {
   }
   created_node = session.find_node(created_uuid)->node;
   // 运行时名称变化不得进入文档子树快照。
-  if (application->native_world()
-          ->find(gneiss::entity_id{(created_node).get()})
-          .set_name("Live snapshot")
-          .failed())
-    return 20;
+  application->native_world()->find(created_node).set_name("Live snapshot");
   gneiss::editor::scene_subtree_snapshot snapshot;
   if (session.destroy_subtree(created_node, snapshot) != gneiss::error::success ||
       snapshot.description()->objects.size() != 1U ||

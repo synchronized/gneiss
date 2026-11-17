@@ -205,9 +205,7 @@ result<bool> apply_scene(scene_instance destination,
     }
     if (previous_object != old.end() &&
         previous_object->second->effective.name != object.effective.name) {
-      auto status = world.find(entity_id{node.get()}).set_name(object.effective.name);
-      if (status.failed())
-        return status;
+      world.find(entity_id{node.get()}).set_name(object.effective.name);
     }
   }
   const auto prepared_binding = [&](const composed_object& object) {

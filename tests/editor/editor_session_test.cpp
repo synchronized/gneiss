@@ -63,8 +63,7 @@ int main() try {
     if (!before)
       return 30;
     const auto original = before->nodes.front();
-    if (world->object(gneiss::entity_id{original.node.get()})->set_name("Direct").failed())
-      return 31;
+    world->object(gneiss::entity_id{original.node.get()})->set_name("Direct");
     auto latest = session.find_node(original.uuid);
     if (!latest || latest->display_name != original.display_name ||
         before->nodes.front().display_name != original.display_name)
@@ -79,10 +78,8 @@ int main() try {
     if (!latest ||
         latest->local_transform.translation[0] != original.local_transform.translation[0])
       return 34;
-    if (world->object(gneiss::entity_id{original.node.get()})
-            ->set_name(original.display_name)
-            .failed() ||
-        world->find(gneiss::entity_id{(original.node).get()})
+    world->object(gneiss::entity_id{original.node.get()})->set_name(original.display_name);
+    if (world->find(gneiss::entity_id{(original.node).get()})
             .set_local_transform(original.local_transform)
             .failed())
       return 35;

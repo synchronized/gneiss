@@ -28,8 +28,9 @@ int main(void) {
   if (!root_object)
     return 1;
   auto child_object = object_scene->create_object({root_object->name()}, *root_object);
-  if (!child_object || child_object->name() != "root" || child_object->set_name("child").failed())
+  if (!child_object || child_object->name() != "root")
     return 1;
+  child_object->set_name("child");
   root = gneiss::entity_id{root_object->entity().get()};
   child = gneiss::entity_id{child_object->entity().get()};
   entity = child_object->entity();

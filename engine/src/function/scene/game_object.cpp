@@ -88,17 +88,11 @@ error game_object::set_local_transform(const math::transform& transform) const {
   (*state)->mark_transform_changed(entity_);
   return error::success;
 }
-error game_object::set_name(std::string_view name) const {
-  if (!owner_)
-    return error::invalid_handle;
+void game_object::set_name(std::string_view name) const {
+  GNEISS_ASSERT(is_valid(), "GameObject 修改要求有效句柄及所属线程");
   auto state = detail::world_component_access::get(*owner_);
-  if (!state)
-    return state.error();
   auto* object = (*state)->get<detail::object_state>(entity_.get());
-  if (!object)
-    return error::invalid_handle;
   object->name = std::string(name);
-  return error::success;
 }
 game_object game_object::parent() const {
   GNEISS_ASSERT(is_valid(), "GameObject 查询要求有效句柄及所属线程");

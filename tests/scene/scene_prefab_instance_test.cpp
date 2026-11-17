@@ -57,7 +57,7 @@ int main() try {
           ->find(gneiss::entity_id{(second_mapping.at(member->parent).entity).get()})
           .name();
   check(second_identity == identity && second_mapping.at(member->parent).entity != root);
-  check(app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit").ok());
+  app->native_world()->object(gneiss::entity_id{child.get()})->set_name("Runtime edit");
   check(gneiss::test_support::scene_access{*app}->reparent_node(created->instance, child, {}).ok());
   check(!app->native_world()->find(gneiss::entity_id{(child).get()}).parent());
   check(member->effective.transform.translation.x == 3);

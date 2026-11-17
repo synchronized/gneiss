@@ -348,7 +348,7 @@ int main() try {
   auto recreated = dynamic->create_object({"recreated", {}});
   check(recreated && recreated->entity() != dynamic_root->entity());
   const auto recreated_entity = recreated->entity();
-  check(recreated->set_name("renamed").ok());
+  recreated->set_name("renamed");
   auto renamed = recreated->name();
   check(renamed == "renamed");
   auto transform = recreated->local_transform();
@@ -357,26 +357,19 @@ int main() try {
   check(recreated->entity() == recreated_entity);
   auto moved = recreated->world_transform();
   check(moved && moved->translation.x == 7.0F);
-  check(recreated->set_name("recreated").ok());
+  recreated->set_name("recreated");
   auto dynamic_members = dynamic->size();
   check(dynamic_members == 1);
-  e::error cross_thread_mutation;
-  std::thread dynamic_worker([&] { cross_thread_mutation = recreated->set_name("wrong thread"); });
-  dynamic_worker.join();
-  check(cross_thread_mutation == e::error::invalid_state);
   auto preserved_identity = recreated->name();
   check(preserved_identity == "recreated");
   auto detached = dynamic->create_object({"detached", {}}, *recreated);
   check(detached && detached->reparent({}).ok());
   check(dynamic->unload().ok() && !recreated->is_valid() && !detached->is_valid());
-  check(recreated->set_name("deleted") == e::error::invalid_handle);
   check(recreated->set_local_transform({}) == e::error::invalid_handle);
   check(e::remove_component({*recreated}, movement_description::type_guid) ==
         e::error::invalid_handle);
   check(e::add_component({}, e::make_ref<movement_description>(1)) == e::error::invalid_handle);
   check(e::resolve_component_references({}, {}) == e::error::invalid_handle);
-
-  check(e::game_object{}.set_name("empty") == e::error::invalid_handle);
 
   // 运行注册无需编辑属性回调；编辑不可删除不影响运行移除。
   auto runtime_scene = world.create_scene();

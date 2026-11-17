@@ -254,12 +254,10 @@ int main() try {
           gneiss::test_support::scene_access{*second_application}->find_node(play_objects,
                                                                              camera_uuid),
           play_camera)
-          .failed() ||
-      second_application->native_world()
-          ->object(gneiss::entity_id{play_camera.get()})
-          ->set_name("Play Camera")
-          .failed() ||
-      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name() !=
+          .failed())
+    return 35;
+  second_application->native_world()->find(play_camera).set_name("Play Camera");
+  if (application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name() !=
           camera_name ||
       gneiss::test_support::scene_access{*second_application}->unload(play_scene).failed())
     return 35;
@@ -349,11 +347,10 @@ int main() try {
   generic_transform.translation[1] = 2.0F;
   gneiss::entity_id generic_node;
   if (gneiss::test_support::assign_value(destination->create_object({"Empty", generic_transform}),
-                                         generic_node) != gneiss::error::success ||
-      application->native_world()
-              ->object(gneiss::entity_id{generic_node.get()})
-              ->set_name("Group") != gneiss::error::success ||
-      gneiss::test_support::scene_access{*application}->reparent_node(
+                                         generic_node) != gneiss::error::success)
+    return 13;
+  application->native_world()->find(generic_node).set_name("Group");
+  if (gneiss::test_support::scene_access{*application}->reparent_node(
           scene, triangle, generic_node) != gneiss::error::success ||
       gneiss::test_support::scene_access{*application}->reparent_node(
           scene, generic_node, triangle) != gneiss::error::invalid_argument ||
@@ -431,10 +428,10 @@ int main() try {
       camera_object.set_local_transform(transform) !=
           gneiss::error::success ||
       !(camera_object.try_component<gneiss::camera_component>()->settings = camera).valid() ||
-      camera_object.set_name("Runtime Camera").failed() ||
       !world->find(gneiss::entity_id{(camera_node).get()}).is_valid()) {
     return 7;
   }
+  camera_object.set_name("Runtime Camera");
   auto runtime_camera = gneiss::test_support::scene_access{*application}->get_node_info(scene, 0);
   auto runtime_mesh =
       application->native_world()->find(gneiss::entity_id{(created_node).get()}).name();

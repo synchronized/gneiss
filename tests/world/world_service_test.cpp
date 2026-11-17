@@ -45,7 +45,10 @@ bool scene_object_storage() {
   entity_id child_entity;
   if (gneiss::test_support::assign_value(child, child_entity).failed())
     return false;
-  if (child->name() != "子节点" || child->set_name("新名称").failed() || child->name() != "新名称")
+  if (child->name() != "子节点")
+    return false;
+  child->set_name("新名称");
+  if (child->name() != "新名称")
     return false;
   if (owner.find(child->entity()).try_component<gneiss::mesh_component>() != nullptr)
     return false;

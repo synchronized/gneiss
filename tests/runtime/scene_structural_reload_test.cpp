@@ -108,8 +108,8 @@ int main() try {
     return 23;
 
   // 直接修改 World 后重载同一文件，差异必须基于当前对象而非加载时描述。
-  if (camera_before.set_name("Edited").failed() ||
-      camera_before.remove_component<gneiss::camera_component>().failed() ||
+  camera_before.set_name("Edited");
+  if (camera_before.remove_component<gneiss::camera_component>().failed() ||
       old_child.reparent({}).failed() ||
       gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state, uri,
                                                   false, &loaded.objects)

@@ -171,7 +171,7 @@ result<game_object> scene_instance::create_object(const object_options& options,
   try {
     status = owner_->find(*created).set_local_transform(options.transform);
     if (status.ok())
-      status = owner_->find(*created).set_name(name);
+      owner_->find(*created).set_name(name);
     if (status.failed()) {
       (void)state.destroy_entity(created->get());
       return status;
