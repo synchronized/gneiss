@@ -535,6 +535,18 @@ Tests；235 个 CTest 用例的名称与属性完全不变。git diff --check �
 本轮仅改文档与 IDE 组织属性，没有新增源码行为测试，也未重复运行完整构建或运行测试。
 独立浏览器目标仅核查源码设置，未执行 Emscripten 配置；PLAN-119 其余事项继续保持未完成。
 
+### 场景装配测试退出旧查询包装
+
+2026-11-17：component_adapter 与 scene_instantiation 两个测试完全移除 scene_access 包含和
+调用。组件测试使用已有回执映射及正式 capture_components；实例化测试按回执区分普通对象和
+Prefab 成员，直接使用 game_object、scene_instance::contains/size 验证，不依赖排序后的节点
+索引。删除未使用的节点描述采集、只验证旧包装自身的查询错误断言和无操作间隔的读计数自比较。
+非法场景借用转为正式 borrow 检查；跨线程、跨场景、组件身份、组件析构、资源保活及实例
+失效行为继续保留。未新增业务辅助或改变生产 API。
+Windows Clang Debug 两个目标构建成功、两项测试通过；git diff --check 通过。
+本轮不重复全量矩阵。scene_access 仍被其他 Scene/Editor/Runtime/Tooling 测试使用，
+其剩余迁移和删除仍未完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

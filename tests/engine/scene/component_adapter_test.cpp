@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/movement_component.hpp"
-#include "../../support/scene_access.hpp"
 #include "../../support/scene_application.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
@@ -152,7 +151,6 @@ int main() try {
   auto owner = e::create_native();
   check(owner.has_value());
   auto& world = **owner;
-  gneiss::test_support::scene_access scenes{world};
   check(!e::scene_instance{}.is_valid());
   e::scene_description source;
   source.uuid = e::guid::from_bytes({1});
@@ -189,8 +187,9 @@ int main() try {
   check(another_scene.has_value());
   auto another_handle = e::scene_instance::borrow(world, (another_scene->instance).id());
   check(another_handle.has_value());
-  auto first_object = scenes.find_object(created->objects, first.uuid);
-  auto foreign_parent = scenes.find_object(another_scene->objects, first.uuid);
+  auto mapping = associations(created->objects);
+  auto first_object = world.object(mapping.at({first.uuid, {}}).entity);
+  auto foreign_parent = world.object(associations(another_scene->objects).at({first.uuid, {}}).entity);
   check(first_object && foreign_parent);
   check(first_object->reparent(*foreign_parent) == e::error::invalid_argument);
   check(world.find(gneiss::entity_id{(created->objects[0].entity).get()})
@@ -225,18 +224,12 @@ int main() try {
   scene_worker.join();
   check(wrong_thread == e::error::invalid_state);
   check(borrowed_copy.is_valid());
-  auto found = scenes.find_node(created->objects, first.uuid);
-  check(found.has_value());
-  auto node = *found;
-  auto queried = scenes.get_node_info(instance, 0);
-  check(queried && queried->components.get<movement_description>() &&
-        queried->components.get<movement_description>()->speed == 2);
-  auto invalid = scenes.get_node_count({});
-  check(!invalid && invalid.error() == e::error::invalid_handle);
-  auto missing = scenes.find_node(created->objects, {});
-  check(!missing && missing.error() == e::error::not_found);
+  auto node = first_object->entity();
+  check(!e::scene_instance::borrow(world, {}));
   auto captured = e::capture_components(world, node);
   check(bool(captured));
+  check(captured->get<movement_description>() &&
+        captured->get<movement_description>()->speed == 2);
   check(captured->identity(movement_description::type_guid) ==
         first.components.identity(movement_description::type_guid));
   auto id = entity(world, node);
@@ -258,9 +251,7 @@ int main() try {
   // 文件往返使用调用方描述，显式采集需要保留的组件，不捕获整个运行场景。
   e::scene_description saved = source;
   for (auto& object : saved.objects) {
-    auto member = scenes.find_node(created->objects, object.uuid);
-    check(bool(member));
-    auto components = e::capture_components(world, *member);
+    auto components = e::capture_components(world, mapping.at({object.uuid, {}}).entity);
     check(bool(components));
     object.components = std::move(*components);
   }
@@ -273,7 +264,6 @@ int main() try {
   check(restored.has_value());
   auto baseline = e::compose_scene(source, {});
   check(bool(baseline));
-  auto mapping = associations(created->objects);
   const auto apply = [&](const e::scene_description& description) {
     auto next = e::compose_scene(description, {});
     if (!next)
@@ -431,7 +421,8 @@ int main() try {
   // 同一组合结果重复追加到非空场景，保留旧对象并提供各自的来源回执。
   auto destination = e::scene_instance::borrow(world, (camera_instance->instance).id());
   check(destination.has_value());
-  auto existing_parent = scenes.find_object(camera_instance->objects, camera_object.uuid);
+  auto existing_parent =
+      world.object(associations(camera_instance->objects).at({camera_object.uuid, {}}).entity);
   check(existing_parent.has_value());
   e::scene_description append_source;
   append_source.uuid = e::guid::generate();
@@ -544,7 +535,7 @@ int main() try {
   auto empty_applied = e::apply_scene(*empty_reload, empty_mapping, {}, {}, {});
   check(empty_applied && *empty_applied);
   check(empty_reload->size() == 0U);
-  // 替换保留场景句柄，但旧实体释放，归属不能停留在临时实例 ID 上。
+  // 新建场景后卸载旧场景：旧句柄失效，独立实例保持存活。
   e::scene_description replacement_source;
   replacement_source.uuid = e::guid::generate();
   replacement_source.objects = {first};
@@ -556,8 +547,8 @@ int main() try {
   auto stable = e::scene_instance::borrow(world, (replacing->instance).id());
   auto other = e::scene_instance::borrow(world, (independent->instance).id());
   check(stable && other);
-  auto old_object = scenes.find_object(replacing->objects, first.uuid);
-  auto other_object = scenes.find_object(independent->objects, first.uuid);
+  auto old_object = world.object(associations(replacing->objects).at({first.uuid, {}}).entity);
+  auto other_object = world.object(associations(independent->objects).at({first.uuid, {}}).entity);
   check(old_object && other_object);
   replacement_source.objects.front().name = "replacement";
   auto replaced = gneiss::test_support::scene_fixture::instantiate_scene(
@@ -569,7 +560,7 @@ int main() try {
   stable = e::scene_instance::borrow(world, (replaced->instance).id());
   check(stable && stable->is_valid());
   check(!old_object->is_valid() && other_object->is_valid());
-  auto new_object = scenes.find_object(replaced->objects, first.uuid);
+  auto new_object = world.object(associations(replaced->objects).at({first.uuid, {}}).entity);
   check(new_object && new_object->name() == "replacement");
   check(stable->size() == 1 && other->size() == 1);
   stable->unload();

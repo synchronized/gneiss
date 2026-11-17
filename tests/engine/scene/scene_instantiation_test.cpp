@@ -5,7 +5,6 @@
 #include "../../support/async_scene.hpp"
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/mesh_objects.hpp"
-#include "../../support/scene_access.hpp"
 #include "../../support/scene_application.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
@@ -236,7 +235,7 @@ void run() {
       *active.get(), active_assets, initial_asset);
   check(bool(second_instance) && second_instance->instance != old_scene);
   second_instance->instance.unload();
-  check(gneiss::test_support::scene_access{*active}->get_node_count(old_scene).ok());
+  check(old_scene.is_valid() && old_scene.size() == direct->node_count);
   check(gneiss::test_support::scene_fixture::instantiate_scene(*active.get(), active_assets, {})
             .error()
             .error == gneiss::error::invalid_argument);
@@ -257,10 +256,6 @@ void run() {
   foreign_thread.join();
   check(foreign_reload == gneiss::error::invalid_state);
   initial_bindings.clear();
-  gneiss::test_support::scene_node_info old_info;
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*active}->get_node_info(old_scene, 0U), old_info) ==
-        gneiss::error::success);
   gneiss::render_resource_ref old_material;
   gneiss::asset_diagnostic diagnostic;
   check(gneiss::test_support::load_render(
@@ -346,10 +341,9 @@ void run() {
     for (const auto& object : rebuilt->objects)
       source_address = source_address || bool(object.source);
     check(source_address);
-    for (std::size_t index = 0; index < rebuilt->node_count; ++index) {
-      auto info =
-          gneiss::test_support::scene_access{*candidate}->get_node_info(rebuilt->instance, index);
-      check(bool(info));
+    for (const auto& binding : rebuilt->objects) {
+      auto object = candidate->object(binding.entity);
+      check(object && rebuilt->instance.contains(*object));
     }
     rebuilt->instance.unload();
     check(files->reads == reads);
@@ -401,24 +395,18 @@ void run() {
   gneiss::render_resource_ref next_version;
   check(gneiss::test_support::take_value(candidate_render.find(requests.back()), next_version) ==
         gneiss::error::success);
-  gneiss::test_support::scene_node_info ordinary;
-  gneiss::test_support::scene_node_info prefab_node;
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*candidate}->get_node_info(new_scene, 0U),
-            ordinary) == gneiss::error::success);
+  const auto ordinary_member = std::ranges::find_if(
+      created->objects, [](const auto& object) { return !object.source; });
+  check(ordinary_member != created->objects.end());
+  auto ordinary_result = candidate->object(ordinary_member->entity);
+  check(bool(ordinary_result));
+  const auto ordinary = *ordinary_result;
+  check(new_scene.contains(ordinary));
   const auto prefab_member = std::ranges::find_if(
       created->objects, [](const auto& object) { return bool(object.source); });
   check(prefab_member != created->objects.end());
-  bool found_prefab_member = false;
-  for (std::size_t index = 0; index < created->node_count; ++index) {
-    auto info = gneiss::test_support::scene_access{*candidate}->get_node_info(new_scene, index);
-    check(bool(info));
-    if (info->entity == prefab_member->entity) {
-      prefab_node = *info;
-      found_prefab_member = true;
-    }
-  }
-  check(found_prefab_member);
+  auto prefab_object = candidate->object(prefab_member->entity);
+  check(prefab_object && new_scene.contains(*prefab_object));
   gneiss::ref<const gneiss::mesh> current_mesh;
   check(gneiss::test_support::take_value(
             candidate_render.find<gneiss::mesh>("asset://m.mesh"), current_mesh)
@@ -426,18 +414,18 @@ void run() {
   const gneiss::mesh_component expected{.mesh = current_mesh,
                                         .material = next_version.as<gneiss::material>()};
   auto matches = [&](const gneiss::mesh_component& expected_value) {
-    auto current = candidate->find(ordinary.entity).try_component<gneiss::mesh_component>();
+    auto current = ordinary.try_component<gneiss::mesh_component>();
     return current && current->mesh == expected_value.mesh &&
            current->material == expected_value.material;
   };
   const auto edit_reads = files->reads;
   check(gneiss::test_support::assign_mesh(*candidate.get(), candidate_assets, new_scene,
-                                          ordinary.node, "asset://m.mesh",
+                                          ordinary.entity(), "asset://m.mesh",
                                           "asset://m.material") == gneiss::error::success);
   check(files->reads == edit_reads);
   check(matches(expected));
   check(gneiss::test_support::assign_mesh(
-            *candidate.get(), candidate_assets, new_scene, ordinary.node, "asset://m.mesh",
+            *candidate.get(), candidate_assets, new_scene, ordinary.entity(), "asset://m.mesh",
             "asset://missing.material") == gneiss::error::not_found);
   check(matches(expected));
   files->files["other.material"] = files->files["m.material"];
@@ -447,7 +435,7 @@ void run() {
                                           "asset://other.material", edited_material,
                                           diagnostic) == gneiss::error::success);
   check(gneiss::test_support::assign_mesh(
-            *candidate.get(), candidate_assets, new_scene, ordinary.node, "asset://m.mesh",
+            *candidate.get(), candidate_assets, new_scene, ordinary.entity(), "asset://m.mesh",
             "asset://other.material") == gneiss::error::success);
   const gneiss::mesh_component edited{.mesh = current_mesh,
                                       .material = edited_material.as<gneiss::material>()};
@@ -459,7 +447,7 @@ void run() {
   candidate_render.collect_unused();
   check(resources.get_material(selected_material) != nullptr);
   {
-    auto object = candidate->find(ordinary.entity);
+    auto object = ordinary;
     auto* borrowed = object.try_component<gneiss::mesh_component>();
     check(borrowed != nullptr);
     const auto before = *borrowed;
@@ -474,25 +462,15 @@ void run() {
         [&](auto& component) noexcept { component = before; }).ok());
     check(files->reads == binding_reads);
   }
-  check(candidate.get()
-            ->find(gneiss::entity_id{ordinary.node.get()})
-            .remove_component<gneiss::mesh_component>() == gneiss::error::success);
+  check(ordinary.remove_component<gneiss::mesh_component>() == gneiss::error::success);
   bool modified_missing = false;
-  check(candidate->find(ordinary.entity).modify_component<gneiss::mesh_component>(
+  check(ordinary.modify_component<gneiss::mesh_component>(
             [&](auto&) noexcept { modified_missing = true; }) == gneiss::error::not_found);
   check(!modified_missing);
-  const auto snapshot_reads = files->reads;
-  check(files->reads == snapshot_reads);
   active.swap(candidate);
-  std::uint64_t count{};
-  check(active.get()->entity_count() == 2U);
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*active}->get_node_count(old_scene), count) ==
-        gneiss::error::invalid_handle);
-  check(gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*active}->get_node_count(new_scene), count) ==
-            gneiss::error::success &&
-        count == 2U);
+  check(active->entity_count() == 2U);
+  check(old_scene.owner() != active.get() && old_scene.is_valid());
+  check(new_scene.owner() == active.get() && new_scene.size() == 2U);
   old_material = {};
   candidate.reset();
   // 旧域已析构；此前借用的 World 指针不再可访问。
