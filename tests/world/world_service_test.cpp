@@ -65,11 +65,6 @@ bool scene_object_storage() {
       child->try_component<mesh_component>() ||
       child->remove_component<mesh_component>() != error::not_found)
     return false;
-  error add_from_worker;
-  std::thread add_worker([&] { add_from_worker = child->add_component<mesh_component>(); });
-  add_worker.join();
-  if (add_from_worker != error::invalid_state)
-    return false;
   math::transform invalid;
   invalid.scale.x = 0;
   auto failed = object_scene->create_object({"失败", invalid}, *root);
@@ -92,7 +87,7 @@ bool scene_object_storage() {
   if (count != 0 || owner.find(child_entity).is_valid())
     return false;
   if (children.front().is_valid() ||
-      child->add_component<mesh_component>() != error::invalid_handle || child->is_valid() ||
+      child->is_valid() ||
       root->is_valid())
     return false;
   auto replacement = object_scene->create_object({"新节点", {}});

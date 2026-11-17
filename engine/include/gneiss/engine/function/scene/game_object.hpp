@@ -48,10 +48,11 @@ public:
    * 任何组件增删、替换、对象销毁或场景卸载后须重新获取；复制对象句柄不保活组件。
    * 修改后调用 notify_component_modified<T>()；受约束组件仍通过自身方法校验。 */
   template <class T> [[nodiscard]] GNEISS_API T* try_component() const;
-  /** 新增组件；重复类型返回 invalid_state，不覆盖原值。 */
+  /** 要求有效对象及所属线程；新增组件，重复类型返回 invalid_state，不覆盖原值。 */
   template <class T, class... Args> [[nodiscard]] error add_component(Args&&... args) const {
     return insert_component<T>(T{std::forward<Args>(args)...});
   }
+  /** 要求有效对象及所属线程；移除组件，缺失返回 not_found。 */
   template <class T> [[nodiscard]] GNEISS_API error remove_component() const;
   /** 修改普通组件并通知同步消费者；对象有效且限所属线程，缺失返回 not_found。
    * 回调必须 noexcept、返回 void，只修改当前组件，不得增删组件、销毁对象或重入结构操作。
@@ -67,7 +68,8 @@ public:
     return notify_component_modified<T>();
   }
 
-  /** 借用修改后显式通知同步消费者；组件缺失返回 not_found，增删已自动通知。 */
+  /** 要求有效对象及所属线程；借用修改后显式通知同步消费者。
+   * 组件缺失返回 not_found，增删已自动通知。 */
   template <class T> [[nodiscard]] GNEISS_API error notify_component_modified() const;
   friend bool operator==(game_object, game_object) noexcept = default;
 

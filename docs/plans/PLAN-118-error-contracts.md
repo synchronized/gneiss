@@ -210,3 +210,16 @@ Runtime 激活、Editor 投影/关闭、示例与失败清理直接卸载；可�
 Windows Clang Debug 场景查看器与十二测试目标构建通过，十二项相关回归全部通过；
 git diff --check 通过。查看器未运行，未进行 GPU、Release、静态库或跨平台验证。
 P1 的组件操作、world_transform 等剩余契约尚待审查，计划未完成。
+
+### P1 模板组件接口实施结果
+
+GameObject 模板组件访问、增删与通知共用有效对象/所属线程的项目断言；内部 component_state
+直接返回存储引用，删除仅用于契约失败的 result 拆包。try_component 不再使用标准 assert
+及 Release 下的无效对象空指针回退；组件正常缺失仍返回 nullptr。
+重复添加保留 invalid_state；移除、修改及通知的缺失保留 not_found。修改缺失组件不执行回调。
+已核查描述装配的 valid_target、反射读写的 world.object 验证，外部输入错误仍返回调用方。
+测试删除直接对失效对象/工作线程操作组件期待错误码的旧契约，保留边界线程检查、重复添加
+不覆盖、借用副本、析构与渲染通知验证，并覆盖缺失组件通知返回 not_found。
+Windows Clang Debug 八个目标构建与八项相关测试通过；git diff --check 通过。
+未运行 Release、静态库、跨平台或 GPU 验证。world_transform 和 P1 其他剩余接口尚待审查，
+PLAN-118 未完成。

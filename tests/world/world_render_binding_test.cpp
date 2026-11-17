@@ -64,7 +64,8 @@ int main() {
     return fail("消费者独立确认");
   bool called = false;
   if (child->modify_component<camera_component>([&](auto&) noexcept { called = true; }) !=
-          error::not_found || called)
+          error::not_found || called ||
+      child->notify_component_modified<camera_component>() != error::not_found)
     return fail("缺失组件不得调用修改回调");
   const auto type = runtime_type_of<mesh_component>();
   if (child->remove_component<mesh_component>().failed() ||

@@ -474,11 +474,6 @@ void run() {
         [&](auto& component) noexcept { component = cleared; }).ok());
     auto* empty = object.try_component<gneiss::mesh_component>();
     check(empty && empty->mesh == before.mesh && !empty->material);
-    gneiss::error worker_result;
-    std::thread worker(
-        [&] { worker_result = object.add_component<gneiss::mesh_component>(before); });
-    worker.join();
-    check(worker_result == gneiss::error::invalid_state);
     check(object.modify_component<gneiss::mesh_component>(
         [&](auto& component) noexcept { component = before; }).ok());
     check(files->reads == binding_reads);

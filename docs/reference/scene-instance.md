@@ -90,7 +90,7 @@ component_adapter 保存运行回调及可选的 component_property_adapter，�
 未提供编辑策略的运行组件仍可检视，但没有添加默认值和删除按钮权限。
 removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_component、场景同步或卸载。
 
-组件操作先校验所属线程及对象有效性；空对象和已销毁对象返回 invalid_handle，
+通过描述/反射入口进行的组件操作先校验所属线程及对象有效性；空对象和已销毁对象返回 invalid_handle，
 跨线程访问返回 invalid_state，目标 World 必须覆盖上下文的使用期。
 组件上下文通过 lookup_resource 查询固定资源；提供回调时不回退到当前缓存，
 网格组件自行解释 mesh/material URI。未提供回调的普通编辑优先保留现有资源引用。
@@ -101,6 +101,12 @@ removable 仅控制编辑命令与文档删除入口，不限制引擎 remove_co
 相机参数先通过 camera_settings::valid() 校验，再赋给借用的 camera_component::settings，
 最后调用对象的组件修改通知；
 相机和网格组件的增删使用 game_object 的通用组件接口，World 不提供对应业务转发。
+
+`game_object` 的模板组件接口要求有效 GameObject 及所属线程，通过项目断言检查。
+`try_component<T>()` 在组件缺失时返回 nullptr；`add_component<T>()` 重复添加返回
+invalid_state，保留原值；移除、修改和修改通知在缺失时返回 not_found。
+修改缺失组件不会执行回调；增删自动通知消费者，借用指针修改后须显式通知。
+借用不得跨组件结构修改、对象销毁或场景卸载长期保留。
 
 ## 编辑入口边界
 

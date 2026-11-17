@@ -83,7 +83,7 @@ int main(void) {
     return 33;
   gneiss::error thread_status;
   std::thread worker(
-      [&] { thread_status = object.add_component<gneiss::camera_component>(captured); });
+      [&] { thread_status = first->object(entity).error(); });
   worker.join();
   if (thread_status != gneiss::error::invalid_state)
     return 34;
@@ -93,8 +93,7 @@ int main(void) {
   if (first->object(entity).error() != gneiss::error::invalid_handle) {
     return 6;
   }
-  if (object.is_valid() || object.remove_component<gneiss::camera_component>() !=
-                               gneiss::error::invalid_handle)
+  if (object.is_valid())
     return 35;
   if (first->find(entity).is_valid() || gneiss::get_active_camera(*first, active_camera) !=
                                             gneiss::error::not_ready) {
