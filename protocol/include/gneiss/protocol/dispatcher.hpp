@@ -85,6 +85,8 @@ class dispatcher final {
 public:
   [[nodiscard]] gneiss::error register_domain(const domain_descriptor& descriptor);
   [[nodiscard]] dispatch_outcome dispatch(const ipc::envelope&, const dispatch_context&) const;
+  /** 仅校验协议规则，不调用处理器，供类型化路由使用。 */
+  [[nodiscard]] dispatch_outcome validate(const ipc::envelope&, const dispatch_context&) const;
   void clear() noexcept;
   [[nodiscard]] std::size_t size() const noexcept;
 

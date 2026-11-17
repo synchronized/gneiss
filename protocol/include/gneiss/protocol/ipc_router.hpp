@@ -8,6 +8,8 @@
 #include <gneiss/protocol/ipc_protocol_domains.hpp>
 
 #include <algorithm>
+#include <functional>
+#include <gneiss/protocol/message.hpp>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -96,7 +98,7 @@ private:
 /**
  * 按“协议域 + 操作”将信封交给强类型上下文处理器。
  *
- * Router 不拥有调用上下文，且 dispatch 期间不可重入；适合由单一主线程驱动的会话组合层。
+ * Router 不拥有调用上下文，上下文仅在当前调用期间借用；绑定修改与分发由所属线程串行执行。
  */
 template <typename Context> class ipc_operation_router final {
 public:
@@ -109,8 +111,7 @@ public:
   ipc_operation_router(const ipc_operation_router&) = delete;
   ipc_operation_router& operator=(const ipc_operation_router&) = delete;
 
-  [[nodiscard]] gneiss::error bind(std::uint16_t domain,
-                                           std::uint16_t operation, handler handle) {
+  [[nodiscard]] gneiss::error bind(std::uint16_t domain, std::uint16_t operation, handler handle) {
     const auto duplicate = std::ranges::find_if(bindings_, [&](const binding& value) {
       return value.domain == domain && value.operation == operation;
     });
@@ -123,47 +124,64 @@ public:
     }
   }
 
-  [[nodiscard]] gneiss::protocol::dispatch_outcome
-  dispatch(const gneiss::ipc::envelope& envelope,
-           const gneiss::protocol::dispatch_context& dispatch_context, Context& handler_context) {
-    if (!initialized_ || pending_context_ != nullptr) {
-      return {.rejection = gneiss::protocol::dispatch_rejection::handler_failed,
-              .handler_result = gneiss::error::invalid_state};
-    }
-    pending_context_ = &handler_context;
-    try {
-      auto outcome = dispatcher_.dispatch(envelope, dispatch_context);
-      pending_context_ = nullptr;
+  template <class T, class Handler>
+  [[nodiscard]] error bind(const protocol::message_descriptor<T>& message, Handler handle) {
+    const auto duplicate = std::ranges::find_if(bindings_, [&](const binding& value) {
+      return value.domain == message.domain && value.operation == message.operation &&
+             (!value.kind || *value.kind == message.kind);
+    });
+    if (!initialized_ || duplicate != bindings_.end())
+      return error::invalid_argument;
+    bindings_.push_back(
+        {message.domain, message.operation,
+         [message, handle](const ipc::envelope& envelope, Context& context) -> error {
+           auto value = protocol::decode(message, envelope);
+           if (!value)
+             return value.error().error;
+           return handle(context, protocol::request_context{envelope.request_id},
+                         std::move(*value));
+         },
+         message.kind, message.sender});
+    return error::success;
+  }
+
+  [[nodiscard]] protocol::dispatch_outcome
+  dispatch(const ipc::envelope& envelope, const protocol::dispatch_context& dispatch_context,
+           Context& context) {
+    if (!initialized_)
+      return {.rejection = protocol::dispatch_rejection::handler_failed,
+              .handler_result = error::invalid_state};
+    auto outcome = dispatcher_.validate(envelope, dispatch_context);
+    if (!outcome.accepted())
       return outcome;
-    } catch (...) {
-      pending_context_ = nullptr;
-      throw;
-    }
+    const auto match = std::ranges::find_if(bindings_, [&](const binding& value) {
+      return value.domain == envelope.domain && value.operation == envelope.operation &&
+             (!value.kind || *value.kind == envelope.kind);
+    });
+    if (match != bindings_.end() && match->sender && *match->sender != dispatch_context.remote_role)
+      return {.rejection = protocol::dispatch_rejection::wrong_direction};
+    const auto status =
+        match == bindings_.end() ? error::unsupported : match->handle(envelope, context);
+    return status.ok() ? protocol::dispatch_outcome{}
+                       : protocol::dispatch_outcome{
+                             .rejection = protocol::dispatch_rejection::handler_failed,
+                             .handler_result = status};
   }
 
 private:
   struct binding final {
     std::uint16_t domain = gneiss::protocol::domain::session;
     std::uint16_t operation = 0U;
-    handler handle = nullptr;
+    std::function<error(const ipc::envelope&, Context&)> handle;
+    std::optional<ipc::message_kind> kind{};
+    std::optional<protocol::peer_role> sender{};
   };
 
-  static gneiss::error accept(void* context, const gneiss::ipc::envelope& envelope) {
-    auto& self = *static_cast<ipc_operation_router*>(context);
-    if (self.pending_context_ == nullptr) {
-      return gneiss::error::invalid_state;
-    }
-    const auto match = std::ranges::find_if(self.bindings_, [&](const binding& value) {
-      return value.domain == envelope.domain && value.operation == envelope.operation;
-    });
-    return match == self.bindings_.end() ? gneiss::error::unsupported
-                                         : match->handle(envelope, *self.pending_context_);
-  }
+  static error accept(void*, const ipc::envelope&) { return error::unsupported; }
 
   gneiss::protocol::dispatcher dispatcher_;
   bool initialized_{};
   std::vector<binding> bindings_;
-  Context* pending_context_ = nullptr;
 };
 
 } // namespace gneiss::host

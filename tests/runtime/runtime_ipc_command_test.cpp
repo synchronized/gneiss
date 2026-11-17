@@ -111,10 +111,12 @@ int main() {
   if (router.dispatch(envelope, dispatch_context, context).accepted())
     return 6;
   const ipc_scene_request scene{3U, 5U, "asset://scenes/main.scene.json"};
-  if (encode_ipc_scene_request(scene, ipc_scene_operation::load, 11U, envelope) !=
-          gneiss::error::success ||
-      router.dispatch(envelope, dispatch_context, context).rejection !=
-          gneiss::protocol::dispatch_rejection::domain_not_negotiated)
+  auto load_message = protocol::encode(scene_load, scene, 11U);
+  if (!load_message)
+    return 7;
+  envelope = std::move(*load_message);
+  if (router.dispatch(envelope, dispatch_context, context).rejection !=
+      gneiss::protocol::dispatch_rejection::domain_not_negotiated)
     return 7;
   std::array scene_domains{gneiss::protocol::domain_capability{
       .domain = gneiss::protocol::domain::scene, .version = ipc_scene_domain_version}};
@@ -125,9 +127,11 @@ int main() {
       actions.scene_commands.front().request_id != 11U ||
       actions.scene_commands.front().request.uri != scene.uri)
     return 8;
-  if (encode_ipc_scene_request(scene, ipc_scene_operation::cancel, 0U, envelope) !=
-          gneiss::error::success ||
-      !router.dispatch(envelope, scene_dispatch, context).accepted() ||
+  auto cancel_message = protocol::encode(scene_cancel, scene);
+  if (!cancel_message)
+    return 9;
+  envelope = std::move(*cancel_message);
+  if (!router.dispatch(envelope, scene_dispatch, context).accepted() ||
       actions.scene_commands.size() != 2U || !actions.scene_commands.back().cancel)
     return 9;
   // 通用分发器把能力版本视为可理解的最高版本，不能把更高版本误当作不兼容。
@@ -138,5 +142,25 @@ int main() {
   if (router.dispatch(envelope, scene_dispatch, context).rejection !=
       gneiss::protocol::dispatch_rejection::unsupported_domain_version)
     return 11;
+  scene_domains.front().version = ipc_scene_domain_version;
+  // 结构错误和业务数据错误不得入队，队满仍返回背压。
+  const auto count = actions.scene_commands.size();
+  envelope.payload = {'{', '}'};
+  if (router.dispatch(envelope, scene_dispatch, context).accepted() ||
+      actions.scene_commands.size() != count)
+    return 15;
+  auto encoded_scene = protocol::encode(scene_load, scene, 12U);
+  if (!encoded_scene)
+    return 16;
+  envelope = std::move(*encoded_scene);
+  auto wrong_sender = scene_dispatch;
+  wrong_sender.remote_role = protocol::peer_role::runtime;
+  if (router.dispatch(envelope, wrong_sender, context).accepted() ||
+      actions.scene_commands.size() != count)
+    return 17;
+  actions.scene_commands.resize(8);
+  if (router.dispatch(envelope, scene_dispatch, context).handler_result != error::not_ready ||
+      actions.scene_commands.size() != 8)
+    return 18;
   return 0;
 }

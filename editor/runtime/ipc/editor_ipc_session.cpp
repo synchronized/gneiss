@@ -299,12 +299,9 @@ gneiss::error editor_ipc_session::send_scene_request(const ipc_scene_request& va
                                                              bool cancel) {
   if (!is_authenticated() || !supports_scene_loading())
     return gneiss::error::not_ready;
-  gneiss::ipc::envelope envelope;
-  const auto encoded = encode_ipc_scene_request(
-      value, cancel ? ipc_scene_operation::cancel : ipc_scene_operation::load,
-      cancel ? 0U : implementation_->next_request_id++, envelope);
-  return encoded == gneiss::error::success ? implementation_->send(std::move(envelope))
-                                                   : encoded;
+  auto encoded = protocol::encode(cancel ? scene_cancel : scene_load, value,
+                                  cancel ? 0U : implementation_->next_request_id++);
+  return encoded ? implementation_->send(std::move(*encoded)) : encoded.error().error;
 }
 
 bool editor_ipc_session::supports_property_editing() const noexcept {

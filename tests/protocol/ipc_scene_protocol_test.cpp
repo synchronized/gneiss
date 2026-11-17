@@ -5,9 +5,9 @@
 #include <gneiss/protocol/ipc_protocol_domains.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
 
-#include <gneiss/protocol/registration.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
 #include <cstdio>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/protocol/registration.hpp>
 #include <source_location>
 #include <stdexcept>
 
@@ -20,169 +20,113 @@ void check(bool value, std::source_location location = std::source_location::cur
     throw std::runtime_error("场景协议契约失败，行=" + std::to_string(location.line()));
   }
 }
-void cleanup_updates() {
-  const ipc_scene_request source{
-      .session = 5U,
-      .revision = 7U,
-      .uri = "asset://scenes/main.scene.json",
-  };
-  gneiss::ipc::envelope envelope;
-  ipc_scene_progress invalid_progress;
-  ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};
-  draining.budget.emplace();
-  draining.budget->cleanup_pending = true;
-  check(encode_ipc_scene_progress(draining, 9U, envelope) == gneiss::error::success);
-  check(decode_ipc_scene_progress(envelope, invalid_progress) == gneiss::error::success &&
-        invalid_progress.budget && invalid_progress.budget->cleanup_pending);
-  auto cleaned = draining;
-  cleaned.budget->cleanup_pending = false;
-  cleaned.budget->cleanup_complete = true;
-  cleaned.message = "资源清理完成";
-  for (unsigned mismatch = 0; mismatch < 4; ++mismatch) {
-    auto stale = cleaned;
-    if (mismatch == 0) {
-      ++stale.source.session;
-    }
-    if (mismatch == 1) {
-      ++stale.source.revision;
-    }
-    if (mismatch == 2) {
-      stale.source.uri += ".other";
-    }
-    if (mismatch == 3) {
-      stale.phase = ipc_scene_phase::applied;
-    }
-    check(!apply_scene_cleanup_update(draining, stale));
-    check(draining.budget->cleanup_pending);
-  }
-  check(encode_ipc_scene_progress(cleaned, 0U, envelope) == gneiss::error::success &&
-        envelope.kind == gneiss::ipc::message_kind::event);
-  auto terminal = draining;
-  check(apply_scene_cleanup_update(terminal, cleaned));
-  check(terminal.phase == ipc_scene_phase::cancelled && terminal.message == draining.message &&
-        terminal.budget->cleanup_complete && !terminal.budget->cleanup_pending);
-  check(!apply_scene_cleanup_update(terminal, cleaned));
-  draining.budget->cleanup_complete = true;
-  check(encode_ipc_scene_progress(draining, 9U, envelope) ==
-        gneiss::error::invalid_argument);
-}
 void run() {
-  cleanup_updates();
   const ipc_scene_request source{5U, 7U, "asset://scenes/main.scene.json"};
-  gneiss::ipc::envelope envelope;
-  ipc_scene_request request;
-  check(encode_ipc_scene_request(source, ipc_scene_operation::load, 9U, envelope) ==
-        gneiss::error::success);
-  check(decode_ipc_scene_request(envelope, request) == gneiss::error::success);
-  check(request.session == source.session && request.revision == source.revision &&
-        request.uri == source.uri);
-  check(encode_ipc_scene_request(source, ipc_scene_operation::load, 0U, envelope) ==
-        gneiss::error::invalid_argument);
-  check(encode_ipc_scene_request(source, ipc_scene_operation::cancel, 0U, envelope) ==
-        gneiss::error::success);
-  check(decode_ipc_scene_request(envelope, request) == gneiss::error::success);
-  envelope.kind = gneiss::ipc::message_kind::request;
-  check(decode_ipc_scene_request(envelope, request) == gneiss::error::invalid_argument);
-  auto invalid = source;
-  invalid.uri = "asset://../escape";
-  check(encode_ipc_scene_request(invalid, ipc_scene_operation::load, 9U, envelope) ==
-        gneiss::error::invalid_argument);
-  for (unsigned index = 0U; index <= static_cast<unsigned>(ipc_scene_phase::cancelled); ++index) {
+  auto request = protocol::encode(scene_load, source, 9U);
+  check(bool(request));
+  auto decoded = protocol::decode(scene_load, *request);
+  check(decoded && decoded->session == source.session && decoded->revision == source.revision &&
+        decoded->uri == source.uri);
+  check(!protocol::encode(scene_load, source));
+  check(!protocol::encode(scene_cancel, source, 9U));
+  auto cancel = protocol::encode(scene_cancel, source);
+  check(cancel && protocol::decode(scene_cancel, *cancel));
+  check(!protocol::decode(scene_load, *cancel));
+  auto invalid_source = source;
+  invalid_source.uri = "asset://../escape";
+  check(!protocol::encode(scene_load, invalid_source, 9U));
+  for (const std::string_view malformed :
+       {"{}", R"({"session":0,"revision":7,"uri":"asset://scene.json"})",
+        R"({"session":5,"revision":7,"uri":"asset://../escape"})"}) {
+    request->payload.assign(malformed.begin(), malformed.end());
+    check(!protocol::decode(scene_load, *request));
+  }
+  for (unsigned index = 0; index <= static_cast<unsigned>(ipc_scene_phase::cancelled); ++index) {
     const auto phase = static_cast<ipc_scene_phase>(index);
     ipc_scene_progress progress{.source = source,
                                 .phase = phase,
-                                .completed = 512U,
-                                .total = 65536U,
+                                .completed = 512,
+                                .total = 65536,
                                 .can_cancel = !scene_phase_terminal(phase),
                                 .message = "阶段信息"};
-    check(encode_ipc_scene_progress(progress, 9U, envelope) == gneiss::error::success);
-    check(envelope.kind == (scene_phase_terminal(phase) ? gneiss::ipc::message_kind::response
-                                                        : gneiss::ipc::message_kind::event));
-    ipc_scene_progress decoded;
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::error::success);
-    check(decoded.phase == phase && decoded.total == progress.total &&
-          decoded.source.uri == source.uri);
-    check(encode_ipc_scene_progress(progress, 0U, envelope) == gneiss::error::success &&
-          envelope.kind == gneiss::ipc::message_kind::event);
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::error::success);
-    check(!decoded.budget.has_value());
-    progress.budget = ipc_scene_budget{
-        .candidate_logical_bytes = UINT64_MAX,
-        .candidate_cpu_data_bytes = 2U,
-        .application_logical_bytes = 3U,
-        .application_cpu_data_bytes = 4U,
-        .available_bytes = 5U,
-        .cleanup_complete = true,
-    };
-    check(encode_ipc_scene_progress(progress, 0U, envelope) == gneiss::error::success);
-    check(decode_ipc_scene_progress(envelope, decoded) == gneiss::error::success);
-    check(decoded.budget && decoded.budget->candidate_logical_bytes == UINT64_MAX &&
-          decoded.budget->candidate_cpu_data_bytes == 2U &&
-          decoded.budget->application_logical_bytes == 3U &&
-          decoded.budget->application_cpu_data_bytes == 4U &&
-          decoded.budget->available_bytes == 5U && decoded.budget->cleanup_complete);
-    const std::string encoded(envelope.payload.begin(), envelope.payload.end());
+    auto event = protocol::encode(scene_progress, progress);
+    check(bool(event));
+    auto value = protocol::decode(scene_progress, *event);
+    check(value && value->phase == phase && value->source.uri == source.uri && !value->budget);
+    auto response = protocol::encode(scene_result, progress, 9U);
+    check(bool(response) == scene_phase_terminal(phase));
+    if (response) {
+      check(bool(protocol::decode(scene_result, *response)));
+      check(!protocol::decode(scene_progress, *response));
+    }
+    progress.budget = ipc_scene_budget{UINT64_MAX, 2, 3, 4, 5, true, false};
+    event = protocol::encode(scene_progress, progress);
+    check(bool(event));
+    value = protocol::decode(scene_progress, *event);
+    check(value && value->budget && value->budget->candidate_logical_bytes == UINT64_MAX &&
+          value->budget->candidate_cpu_data_bytes == 2 &&
+          value->budget->application_logical_bytes == 3 &&
+          value->budget->application_cpu_data_bytes == 4 && value->budget->available_bytes == 5 &&
+          value->budget->cleanup_complete && !value->budget->cleanup_pending);
+    const std::string text(event->payload.begin(), event->payload.end());
     for (const auto field : {std::string_view{",\"cleanup_complete\":true"},
                              std::string_view{",\"cleanup_pending\":false"}}) {
-      auto missing = encoded;
-      const auto offset = missing.find(field);
+      auto malformed = text;
+      const auto offset = malformed.find(field);
       check(offset != std::string::npos);
-      missing.erase(offset, field.size());
-      envelope.payload.assign(missing.begin(), missing.end());
-      check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::error::invalid_argument);
+      malformed.erase(offset, field.size());
+      event->payload.assign(malformed.begin(), malformed.end());
+      check(!protocol::decode(scene_progress, *event));
     }
-    for (const auto* replacement : {"true", "0", "null"}) {
-      auto malformed = encoded;
-      const auto offset = malformed.find("\"cleanup_pending\":false");
-      check(offset != std::string::npos);
-      malformed.replace(offset + std::string_view{"\"cleanup_pending\":"}.size(), 5U, replacement);
-      envelope.payload.assign(malformed.begin(), malformed.end());
-      check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::error::invalid_argument);
+    for (const auto field :
+         {std::string_view{"cleanup_pending"}, std::string_view{"cleanup_complete"}}) {
+      for (const auto replacement : {"0", "null", "\"true\""}) {
+        auto malformed = text;
+        const auto marker = std::string("\"") + std::string(field) + "\":";
+        const auto start = malformed.find(marker);
+        check(start != std::string::npos);
+        malformed.replace(start + marker.size(), field == "cleanup_pending" ? 5 : 4, replacement);
+        event->payload.assign(malformed.begin(), malformed.end());
+        check(!protocol::decode(scene_progress, *event));
+      }
     }
-    for (const auto* replacement : {"0", "null", "\"true\""}) {
-      auto malformed = encoded;
-      malformed.replace(encoded.find(",\"cleanup_complete\":true") +
-                            std::string_view{",\"cleanup_complete\":"}.size(),
-                        4U, replacement);
-      envelope.payload.assign(malformed.begin(), malformed.end());
-      check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::error::invalid_argument);
-      check(decoded.budget && decoded.budget->cleanup_complete);
+    for (const auto replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
+      auto malformed = text;
+      malformed.replace(malformed.find("18446744073709551615"), 20, replacement);
+      event->payload.assign(malformed.begin(), malformed.end());
+      check(!protocol::decode(scene_progress, *event));
     }
-    for (const auto* replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
-      auto malformed = encoded;
-      const auto begin = malformed.find("18446744073709551615");
-      check(begin != std::string::npos);
-      malformed.replace(begin, 20U, replacement);
-      envelope.payload.assign(malformed.begin(), malformed.end());
-      check(decode_ipc_scene_progress(envelope, decoded) ==
-            gneiss::error::invalid_argument);
-      check(decoded.budget && decoded.budget->candidate_logical_bytes == UINT64_MAX);
-    }
-    progress.total = 65537U;
-    check(encode_ipc_scene_progress(progress, 9U, envelope) ==
-          gneiss::error::invalid_argument);
+    progress.budget->cleanup_pending = true;
+    check(!protocol::encode(scene_progress, progress));
+    progress.budget.reset();
+    progress.total = 65537;
+    check(!protocol::encode(scene_progress, progress));
   }
-  // 独立候选必须通过业务检查后才能覆盖已有请求。
-  check(encode_ipc_scene_request(source, ipc_scene_operation::load, 9U, envelope).ok());
-  for (const std::string_view malformed : {
-      R"({"session":5,"revision":7})",
-      R"({"session":0,"revision":7,"uri":"asset://scenes/main.scene.json"})",
-      R"({"session":5,"revision":7,"uri":"asset://../escape"})"}) {
-    envelope.payload.assign(malformed.begin(), malformed.end());
-    request = source;
-    check(decode_ipc_scene_request(envelope, request).failed());
-    check(request.session == source.session && request.uri == source.uri);
+  ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};
+  draining.budget.emplace();
+  draining.budget->cleanup_pending = true;
+  auto cleaned = draining;
+  cleaned.budget->cleanup_pending = false;
+  cleaned.budget->cleanup_complete = true;
+  for (unsigned mismatch = 0; mismatch < 4; ++mismatch) {
+    auto stale = cleaned;
+    if (mismatch == 0)
+      ++stale.source.session;
+    if (mismatch == 1)
+      ++stale.source.revision;
+    if (mismatch == 2)
+      stale.source.uri += ".other";
+    if (mismatch == 3)
+      stale.phase = ipc_scene_phase::applied;
+    check(!apply_scene_cleanup_update(draining, stale));
   }
-  ipc_scene_progress invalid_progress{
-      .source = source, .phase = ipc_scene_phase::applied, .can_cancel = true, .message = {}};
-  check(encode_ipc_scene_progress(invalid_progress, 9U, envelope) ==
-        gneiss::error::invalid_argument);
-  envelope.payload.assign(ipc_scene_max_payload_size + 1U, 0U);
-  check(decode_ipc_scene_progress(envelope, invalid_progress) ==
-        gneiss::error::invalid_argument);
+  check(apply_scene_cleanup_update(draining, cleaned));
+  check(draining.phase == ipc_scene_phase::cancelled && draining.budget->cleanup_complete);
+  check(!apply_scene_cleanup_update(draining, cleaned));
+  draining.can_cancel = true;
+  check(!protocol::encode(scene_progress, draining));
+  request->payload.assign(ipc_scene_max_payload_size + 1, 0);
+  check(!protocol::decode(scene_load, *request));
 }
 }
 int main() try {

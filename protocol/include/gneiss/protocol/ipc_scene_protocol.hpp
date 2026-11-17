@@ -5,7 +5,7 @@
 
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/protocol/dispatcher.hpp>
+#include <gneiss/protocol/message.hpp>
 
 #include <optional>
 #include <string>
@@ -55,23 +55,15 @@ struct ipc_scene_progress {
   std::string message;
   std::optional<ipc_scene_budget> budget{};
 };
+/** 同一负载的不同消息语义由描述区分，不复制操作码到负载。 */
+extern const protocol::message_descriptor<ipc_scene_request> scene_load;
+extern const protocol::message_descriptor<ipc_scene_request> scene_cancel;
+extern const protocol::message_descriptor<ipc_scene_progress> scene_progress;
+extern const protocol::message_descriptor<ipc_scene_progress> scene_result;
 /** 仅补报同一已取消请求的清理账本，不改变终态或请求身份。 */
 [[nodiscard]] bool apply_scene_cleanup_update(ipc_scene_progress& current,
                                               const ipc_scene_progress& incoming) noexcept;
 [[nodiscard]] bool scene_phase_terminal(ipc_scene_phase phase) noexcept;
-[[nodiscard]] gneiss::error encode_ipc_scene_request(const ipc_scene_request& value,
-                                                     ipc_scene_operation operation,
-                                                     std::uint32_t request_id,
-                                                     gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_scene_request(const gneiss::ipc::envelope& envelope,
-                                                     ipc_scene_request& output);
-/** 启动场景及进度使用事件；外部切换的唯一终态使用原 request_id 的响应；后续清理账本使用
- * request_id=0 的事件。 */
-[[nodiscard]] gneiss::error encode_ipc_scene_progress(const ipc_scene_progress& value,
-                                                      std::uint32_t request_id,
-                                                      gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_scene_progress(const gneiss::ipc::envelope& envelope,
-                                                      ipc_scene_progress& output);
 [[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_scene_operations() noexcept;
 } // namespace gneiss::host

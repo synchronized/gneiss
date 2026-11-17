@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_library(gneiss_protocol STATIC
+  include/gneiss/protocol/message.hpp
   src/registration.cpp
   include/gneiss/protocol/registration.hpp
   include/gneiss/protocol/payload.hpp

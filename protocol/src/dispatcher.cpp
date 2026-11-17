@@ -65,7 +65,7 @@ const dispatcher::registered_domain* dispatcher::find(std::uint16_t domain) cons
   return match == domains_.end() ? nullptr : &*match;
 }
 
-dispatch_outcome dispatcher::dispatch(const ipc::envelope& envelope,
+dispatch_outcome dispatcher::validate(const ipc::envelope& envelope,
                                       const dispatch_context& context) const {
   if (ipc::validate_envelope(envelope) != error::success) {
     return {.rejection = dispatch_rejection::invalid_envelope};
@@ -104,6 +104,15 @@ dispatch_outcome dispatcher::dispatch(const ipc::envelope& envelope,
   if ((allowed_kinds & kind_mask(envelope.kind)) == 0U) {
     return {.rejection = dispatch_rejection::wrong_kind};
   }
+  return {};
+}
+
+dispatch_outcome dispatcher::dispatch(const ipc::envelope& envelope,
+                                      const dispatch_context& context) const {
+  auto outcome = validate(envelope, context);
+  if (!outcome.accepted())
+    return outcome;
+  const auto* domain = find(envelope.domain);
   const auto handled = domain->handler(domain->handler_context, envelope);
   if (handled != error::success) {
     return {.rejection = dispatch_rejection::handler_failed, .handler_result = handled};

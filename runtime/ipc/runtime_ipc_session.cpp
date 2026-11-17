@@ -332,10 +332,10 @@ gneiss::error runtime_ipc_session::notify_scene_progress(const ipc_scene_progres
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused))
     return gneiss::error::not_ready;
-  gneiss::ipc::envelope envelope;
-  const auto encoded = encode_ipc_scene_progress(value, request_id, envelope);
-  return encoded == gneiss::error::success ? implementation_->transport.send(envelope)
-                                                   : encoded;
+  const bool terminal = request_id != 0 && scene_phase_terminal(value.phase);
+  auto encoded = protocol::encode(terminal ? scene_result : scene_progress, value,
+                                  terminal ? request_id : 0U);
+  return encoded ? implementation_->transport.send(*encoded) : encoded.error().error;
 }
 
 void runtime_ipc_session::discard_pending_inspection() noexcept {

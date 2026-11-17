@@ -37,3 +37,27 @@ Control v1 不兼容该格式，同版本宿主须配对使用。Scene v2 的加
 进度保存嵌套 `source`、枚举名称 `phase`、进度字段与可选 `budget`。负载上限仍为 16 KiB。
 终态响应、取消和清理补报语义不变。其余域尚未迁移。反射消息迁移进度见
 [PLAN-120](../plans/PLAN-120-ipc-protocol-boundaries.md)。
+
+## Scene 类型化调用
+
+`protocol/message.hpp` 的消息描述统一负载类型、域、操作、kind、发送方、负载上限及数据校验。
+Scene 提供 `scene_load`、`scene_cancel`、`scene_progress`、`scene_result`；域操作方向表由这些
+描述生成。同一 load 操作的 request 和 response 使用不同描述，分别绑定处理器。
+
+```cpp
+auto envelope = protocol::encode(scene_load, request, request_id);
+if (!envelope)
+  return envelope.error().error;
+return transport.send(*envelope);
+```
+
+Runtime 通过 `router.bind(scene_load, handler)` 注册处理器，签名为
+`error(runtime_command_context&, protocol::request_context, ipc_scene_request)`。
+路由先校验握手、协商版本和方向，再解码独立候选并验证数据，成功后才调用业务处理器。
+处理器仅借用当前上下文；可将请求移动到现有命令队列，队满仍返回 not_ready。
+绑定与分发须在所属线程串行执行；处理器捕获的借用对象须活到解绑或 Router 销毁。
+
+操作路由直接传递 Context，不保存 pending_context；dispatcher 的 validate 只校验规则，
+dispatch 保留原域回调方式供未迁移消费者使用。协议规则表与业务处理器表仍分离，
+不是所有域都已完成类型化绑定。原 Scene 四个 encode/decode 包装已移除。
+编解码入口保留序列化诊断；现有 dispatch_outcome 的处理失败仍只携带 error。
