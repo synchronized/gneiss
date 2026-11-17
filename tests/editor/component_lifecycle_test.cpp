@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/document_prefab.hpp"
 #include "../support/movement_editor.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
@@ -14,6 +13,7 @@
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
+#include <algorithm>
 #include <cstdio>
 #include <source_location>
 #include <thread>
@@ -135,17 +135,19 @@ int main() try {
       gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(), prepared, {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
-  gneiss::entity_id loaded_node;
-  check(
-      gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*app}->find_node(receipt->objects, uuid), loaded_node)
-          .ok());
-  check(state(world).get<movement_component>(entity(world, loaded_node))->data.speed == 4);
-  check(gneiss::test_support::scene_access{*app}->validate_editable_node(
-            document.scene_handle(), loaded_node) == e::error::invalid_handle);
-  check(state(world).get<movement_component>(entity(world, loaded_node)) != nullptr);
-  check(e::remove_component({*world.object(gneiss::entity_id{loaded_node.get()})}, type).ok());
-  check(gneiss::test_support::scene_access{*app}->unload(loaded).ok());
+  const auto binding = std::ranges::find_if(receipt->objects, [&](const auto& entry) {
+    return entry.object == uuid && !entry.source;
+  });
+  check(binding != receipt->objects.end());
+  const auto loaded_object = world.object(binding->entity);
+  check(loaded_object && loaded.contains(*loaded_object));
+  const auto* loaded_component =
+      state(world).get<movement_component>(entity(world, binding->entity));
+  check(loaded_component && loaded_component->data.speed == 4);
+  check(!document.scene_handle().contains(*loaded_object));
+  check(e::remove_component({*loaded_object}, type).ok());
+  loaded.unload();
+  check(!loaded.is_valid() && !loaded_object->is_valid());
   e::error cross_thread = e::error::success;
   auto borrowed_target = world.object(gneiss::entity_id{node.get()});
   check(borrowed_target.has_value());
@@ -169,7 +171,7 @@ int main() try {
   const auto previous_scene = document.scene_handle();
   check(document.synchronize() == e::error::invalid_state);
   check(document.scene_handle() == previous_scene);
-  check(gneiss::test_support::scene_access{*app}->get_node_count(previous_scene).has_value());
+  check(previous_scene.is_valid());
   auto after_failure = document.serialize();
   check(after_failure && *after_failure == *failed_content);
   check(document
@@ -179,7 +181,7 @@ int main() try {
   const auto previous_node = node;
   node = document.find_node(uuid)->node;
   check(document.scene_handle() != previous_scene);
-  check(!gneiss::test_support::scene_access{*app}->get_node_count(previous_scene));
+  check(!previous_scene.is_valid());
   check(node != previous_node && document.projection_status().ok() && current()->data.speed == 4);
   check(document.remove_component_description(node, type).ok());
   check(add().ok());
@@ -228,8 +230,8 @@ int main() try {
                               e::camera_description::type_guid)) == e::error::success);
   check(history.clear().ok());
   lifetime = current()->lifetime;
-  check(gneiss::test_support::scene_access{*app}->unload(document.scene_handle()).ok() &&
-        lifetime.expired());
+  document.scene_handle().unload();
+  check(!document.scene_handle().is_valid() && lifetime.expired());
   check(history.clear().ok());
   return 0;
 } catch (const std::exception& failure) {

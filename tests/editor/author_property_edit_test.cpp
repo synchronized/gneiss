@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/document_prefab.hpp"
-#include "../support/scene_access.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
@@ -217,33 +216,24 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return 44;
   const auto loaded = receipt->instance;
   bool found_ordinary = false, found_prefab = false, found_child = false;
-  std::uint64_t count{};
-  if (gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{app}->get_node_count(loaded), count)
-          .failed())
-    return 45;
-  for (std::uint64_t i = 0; i < count; ++i) {
-    gneiss::test_support::scene_node_info node;
-    if (gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{app}->get_node_info(loaded, i), node)
-            .failed())
+  for (const auto& address : receipt->objects) {
+    auto node = app.native_world()->object(address.entity);
+    if (!node || !loaded.contains(*node))
       return 46;
-    const auto address =
-        std::ranges::find(receipt->objects, node.entity, &e::scene_object_binding::entity);
-    if (address == receipt->objects.end())
-      return 46;
-    if (address->object == author.uuid) {
-      if (address->source == source->root_uuid)
-        found_prefab = read(node.entity).fov == 1.3F && node.local_transform.translation.x == 5;
-      else if (address->source == child.uuid)
-        found_child = node.local_transform.translation.x == 6;
-    } else if (address->object == ordinary_uuid) {
-      const auto camera = read(node.entity);
+    const auto transform = node->local_transform();
+    if (address.object == author.uuid) {
+      if (address.source == source->root_uuid)
+        found_prefab = read(node->entity()).fov == 1.3F && transform.translation.x == 5;
+      else if (address.source == child.uuid)
+        found_child = transform.translation.x == 6;
+    } else if (address.object == ordinary_uuid) {
+      const auto camera = read(node->entity());
       found_ordinary =
-          camera.near_plane == 200.0F && camera.far_plane == 400.0F && node.local_transform.translation.x == 6;
+          camera.near_plane == 200.0F && camera.far_plane == 400.0F && transform.translation.x == 6;
     }
   }
-  if (gneiss::test_support::scene_access{app}->unload(loaded).failed() || !found_ordinary ||
+  loaded.unload();
+  if (loaded.is_valid() || !found_ordinary ||
       !found_prefab || !found_child)
     return 47;
   // 移除后不把旧历史应用到另一个节点。

@@ -570,6 +570,23 @@ Windows Clang Debug 四个目标构建成功，对应四项测试全部通过；
 scene_access 剩余六个测试/基准源文件消费者，包含三个渲染用例和三个场景/编辑器用例。
 本轮没有运行 GPU 基准或完整矩阵，PLAN-119 其余验收项保持未完成。
 
+### 编辑器生命周期与渲染对象选择退出旧包装
+
+2026-11-17：author_property_edit、component_lifecycle、asset_pixel 和
+texture_load_window_benchmark 移除 scene_access。编辑器直接按装配回执验证属性和场景归属，
+以句柄失效验证卸载；像素测试与窗口基准按实际组件选择对象，不再假定排序后的相机/网格索引。
+自定义 movement_component 保留既有白盒读取：当前动态库未导出其 try_component 模板实例，
+不为此扩大生产接口。
+
+四个 Windows Clang Debug 目标构建成功，两个编辑器测试通过。两个 GPU 用例运行失败：
+asset-pixel 在资源等待处失败，pbr-negative-scale 的可见性对照像素相同。
+临时使用 HEAD 原版 asset_pixel_test.cpp 构建运行，对照也在相同检查失败；随后恢复本轮源码
+并重新构建成功。该结果说明当前基线同样失败，不能认定 GPU 验收通过，根因仍待排查。
+窗口基准仅构建，未执行交互基准。git diff --check 通过。
+
+scene_access 仅剩 scene_instance_test 与 scene_load_baseline 两个消费者；辅助删除和计划
+其他验收尚未完成。
+
 ## 决策边界
 
 已采用：根 engine 延续、include/src 按消费者分界、减少复制清单和重复实现、测试按行为价值清理。

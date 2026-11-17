@@ -7,7 +7,7 @@
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
-#include "../../support/scene_access.hpp"
+#include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
@@ -188,19 +188,14 @@ int main(int argc, char** argv) try {
           *app, scene, &state.scene, &scheduler)} != gneiss::error::success) {
     return 2;
   }
-  gneiss::test_support::scene_node_info info;
-  if (gneiss::error{gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*app}->get_node_info(state.scene, 0U), info)} !=
-      gneiss::error::success) {
-    return 3;
+  for (auto object : state.scene.objects()) {
+    if (object.try_component<gneiss::camera_component>())
+      state.camera = object.entity();
+    if (object.try_component<gneiss::mesh_component>())
+      state.mesh = object.entity();
   }
-  state.camera = info.node;
-  if (gneiss::error{gneiss::test_support::take_value(
-          gneiss::test_support::scene_access{*app}->get_node_info(state.scene, 1U), info)} !=
-      gneiss::error::success) {
+  if (!state.camera || !state.mesh)
     return 3;
-  }
-  state.mesh = info.node;
   state.start = state.previous = std::chrono::steady_clock::now();
   const auto result = gneiss::error{app->run(0U)};
   app.reset();

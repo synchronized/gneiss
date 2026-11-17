@@ -3,7 +3,6 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/codec_result.hpp"
-#include "../../support/scene_access.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/error.hpp>
@@ -188,13 +187,16 @@ void run_pending_resources() {
                 material_desc.parameters,
                 {gneiss::ref<const gneiss::texture>{}, {}, {}, {}, texture_ref}),
             material_ref)} == gneiss::error::success);
-  gneiss::test_support::scene_node_info info;
-  check(gneiss::error{gneiss::test_support::take_value(
-            gneiss::test_support::scene_access{*app}->get_node_info(scene, 1U), info)} ==
-        gneiss::error::success);
-  check(info.components.get<gneiss::mesh_component_description>() != nullptr);
+  gneiss::game_object mesh_object;
+  gneiss::mesh_component* target{};
+  for (auto object : scene.objects()) {
+    if (auto* component = object.try_component<gneiss::mesh_component>()) {
+      check(target == nullptr);
+      target = component;
+      mesh_object = object;
+    }
+  }
   const gneiss::mesh_component binding{.mesh = mesh_ref, .material = material_ref};
-  auto* target = native->native_world()->find(info.entity).try_component<gneiss::mesh_component>();
   check(target != nullptr);
   *target = binding;
   const auto pixel = [&] {
@@ -260,7 +262,7 @@ void run_pending_resources() {
   check(app->capture_frame(128U, 128U, invalid) == gneiss::error::invalid_handle);
   check(!resources.replace_texture(texture, red));
   check(gneiss::error{
-            native->native_world()->find(info.entity).remove_component<gneiss::mesh_component>()} ==
+            mesh_object.remove_component<gneiss::mesh_component>()} ==
         gneiss::error::success);
   check(pixel() == hidden);
   check(gneiss::error{resources.destroy_material(resource_handle(material_ref))} ==
@@ -818,13 +820,13 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
       request->cancel();
       check(!bool(*request));
       check(capture() == active_pixels);
-      check(bool(test_support::scene_access{*app}.get_node_count(old_scene)));
+      check(old_scene.is_valid());
     } else {
       auto content = request->snapshot();
       check(bool(request->take()) && bool(content));
       auto activated = test_support::activate_scene(*app, *content);
       check(bool(activated));
-      check(test_support::scene_access{*app}.unload(old_scene).ok());
+      old_scene.unload();
       scene = activated->instance.instance;
       while (activated->visuals && !activated->visuals.ready())
         step();
@@ -836,8 +838,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
       const auto changed = capture();
       check(changed == active_pixels);
       active_pixels = changed;
-      auto old_count = test_support::scene_access{*app}.get_node_count(old_scene);
-      check(!old_count && old_count.error() == gneiss::error::invalid_handle);
+      check(!old_scene.is_valid());
     }
     check(app->render().live_resource_count() == 3U);
   };
