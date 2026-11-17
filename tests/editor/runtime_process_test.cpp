@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
@@ -143,7 +144,7 @@ bool test_property_adapter() {
 } // namespace
 
 int main() try {
-  if (gneiss::initialize_meta().failed())
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
     return 98;
   if (!test_scene_adapter() || !test_property_adapter()) {
     return 91;
@@ -226,9 +227,10 @@ int main() try {
   process.update();
   const auto failure_log = process.log_file();
   if (process.is_running() || process.exit_code() != 2 ||
-      process.output().find("stage=startup_scene") == std::string::npos ||
+      process.output().find(R"("category":"startup_scene")") == std::string::npos ||
       process.output().find("missing.scene.json") == std::string::npos ||
       !std::filesystem::is_regular_file(failure_log)) {
+    std::fprintf(stderr, "runtime exit=%d output=%s\n", process.exit_code(), process.output().c_str());
     return 4;
   }
 
@@ -487,7 +489,7 @@ int main() try {
   const auto first_inspection_session = process.scene_mirror().session_id();
   if (process.is_running() || process.exit_code() != 0 || !process.received_shutdown_complete() ||
       process.output().find("收到 Editor IPC 停止请求") == std::string::npos ||
-      process.output().find("stage=shutdown") == std::string::npos ||
+      process.output().find(R"("category":"shutdown")") == std::string::npos ||
       process.request_stop() != gneiss::error::not_ready) {
     return 8;
   }

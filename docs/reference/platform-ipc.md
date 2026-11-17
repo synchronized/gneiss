@@ -25,5 +25,10 @@
 `protocol::dispatcher` 直接拥有域规则及处理器，负责握手、方向、版本和负载上限检查。
 域处理器及上下文须活到分发结束；Router 不再单独维护注册表与动态分发器。
 
-本次不改变域负载格式。反射消息迁移进度见
+统计负载通过反射 JSON 编解码，字段名称保持不变。Editor/Runtime 入口先调用
+`initialize_meta(protocol::register_types)`，再创建应用；普通编解码不触发注册。
+`protocol/payload.hpp` 的 `encode_payload(value, limit)` 与 `decode_payload<T>(bytes, limit)`
+返回带序列化诊断的 result。解码前检查大小并构造独立候选；业务层验证成功后才更新输出。
+编码大小检查发生在 JSON 生成后，并非内存分配预算。统计域上限为 64 KiB，仍验证
+session_id 和 sequence 非零。其他域尚未迁移。反射消息迁移进度见
 [PLAN-120](../plans/PLAN-120-ipc-protocol-boundaries.md)。

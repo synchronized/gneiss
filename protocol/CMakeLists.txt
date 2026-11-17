@@ -2,6 +2,9 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_library(gneiss_protocol STATIC
+  src/registration.cpp
+  include/gneiss/protocol/registration.hpp
+  include/gneiss/protocol/payload.hpp
   src/dispatcher.cpp
   include/gneiss/protocol/dispatcher.hpp
   include/gneiss/protocol/domains.hpp

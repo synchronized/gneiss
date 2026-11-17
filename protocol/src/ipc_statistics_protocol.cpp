@@ -1,93 +1,33 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
-#include <gneiss/protocol/ipc_statistics_protocol.hpp>
-#include <gneiss/engine/error.hpp>
-
-#include <yyjson.h>
-
 #include <array>
-#include <cstdlib>
-#include <memory>
-#include <new>
+#include <gneiss/protocol/ipc_statistics_protocol.hpp>
+#include <gneiss/protocol/payload.hpp>
 #include <utility>
-
 namespace gneiss::host {
-
 namespace {
-
 constexpr std::size_t max_json_size = 64U * 1024U;
-
-} // namespace
-
-gneiss::error encode_ipc_runtime_statistics(const ipc_runtime_statistics& value,
-                                                    std::vector<std::uint8_t>& output) {
-  if (value.session_id == 0U || value.sequence == 0U) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)> document(
-        yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-    auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    if (root == nullptr ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "session_id", value.session_id) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "sequence", value.sequence) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "frame_index", value.frame_index) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "frame_delta_ns", value.frame_delta_ns) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "scene_node_count",
-                                 value.scene_node_count) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "entity_count", value.entity_count) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "ipc_pending_writes",
-                                 value.ipc_pending_writes) ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "ipc_dropped_events",
-                                 value.ipc_dropped_events)) {
-      return gneiss::error::out_of_memory;
-    }
-    yyjson_mut_doc_set_root(document.get(), root);
-    std::size_t length = 0U;
-    std::unique_ptr<char, decltype(&std::free)> json(
-        yyjson_mut_write(document.get(), YYJSON_WRITE_NOFLAG, &length), &std::free);
-    if (!json || length > max_json_size) {
-      return json ? gneiss::error::invalid_argument : gneiss::error::out_of_memory;
-    }
-    std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
-                                      reinterpret_cast<const std::uint8_t*>(json.get()) + length);
-    output = std::move(encoded);
-    return gneiss::error::success;
-  }
 }
-
-gneiss::error decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
-                                                    ipc_runtime_statistics& output) {
-  if (payload.size() > max_json_size) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document(
-        yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
-                    YYJSON_READ_NOFLAG),
-        &yyjson_doc_free);
-    auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
-    constexpr const char* names[] = {"session_id",         "sequence",          "frame_index",
-                                     "frame_delta_ns",     "scene_node_count",  "entity_count",
-                                     "ipc_pending_writes", "ipc_dropped_events"};
-    std::uint64_t values[8]{};
-    for (std::size_t index = 0U; index < std::size(names); ++index) {
-      auto* field = yyjson_is_obj(root) ? yyjson_obj_get(root, names[index]) : nullptr;
-      if (!yyjson_is_uint(field)) {
-        return gneiss::error::invalid_argument;
-      }
-      values[index] = yyjson_get_uint(field);
-    }
-    if (values[0] == 0U || values[1] == 0U) {
-      return gneiss::error::invalid_argument;
-    }
-    output = {values[0], values[1], values[2], values[3],
-              values[4], values[5], values[6], values[7]};
-    return gneiss::error::success;
-  }
+error encode_ipc_runtime_statistics(const ipc_runtime_statistics& value,
+                                    std::vector<std::uint8_t>& output) {
+  if (value.session_id == 0 || value.sequence == 0)
+    return error::invalid_argument;
+  auto encoded = protocol::encode_payload(value, max_json_size);
+  if (!encoded)
+    return encoded.error().error;
+  output = std::move(*encoded);
+  return error::success;
 }
-
+error decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
+                                    ipc_runtime_statistics& output) {
+  auto decoded = protocol::decode_payload<ipc_runtime_statistics>(payload, max_json_size);
+  if (!decoded)
+    return decoded.error().error;
+  if (decoded->session_id == 0 || decoded->sequence == 0)
+    return error::invalid_argument;
+  output = std::move(*decoded);
+  return error::success;
+}
 namespace {
 
 constexpr auto statistics_event_kind =
@@ -100,7 +40,7 @@ constexpr std::array statistics_operations{gneiss::protocol::operation_descripto
 } // namespace
 
 gneiss::error encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                                               gneiss::ipc::envelope& output) {
+                                       gneiss::ipc::envelope& output) {
   std::vector<std::uint8_t> payload;
   const auto operation = encode_ipc_runtime_statistics(statistics, payload);
   if (operation != gneiss::error::success) {
@@ -115,7 +55,7 @@ gneiss::error encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
 }
 
 gneiss::error decode_ipc_statistics_v2(const gneiss::ipc::envelope& envelope,
-                                               ipc_runtime_statistics& output) {
+                                       ipc_runtime_statistics& output) {
   if (envelope.domain != gneiss::protocol::domain::statistics ||
       envelope.operation != static_cast<std::uint16_t>(ipc_statistics_operation::snapshot) ||
       envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U) {

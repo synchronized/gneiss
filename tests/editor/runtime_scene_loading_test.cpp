@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include "runtime/runtime_process.hpp"
@@ -117,7 +118,7 @@ void run() {
 }
 int main() try {
   // 接收端也需注册组件描述；子进程的 Meta 注册表不会跨进程共享。
-  check(gneiss::initialize_meta().ok());
+  check(gneiss::initialize_meta(gneiss::protocol::register_types).ok());
   run();
   return 0;
 } catch (const std::exception& error) {

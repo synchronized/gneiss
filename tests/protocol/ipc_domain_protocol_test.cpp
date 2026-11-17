@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/protocol/registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/game_object_description.hpp>
@@ -9,6 +10,7 @@
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
 
+#include <gneiss/protocol/payload.hpp>
 #include <array>
 #include <string>
 
@@ -170,6 +172,27 @@ namespace {
          decoded_response.revision == response.revision;
 }
 
+[[nodiscard]] bool test_reflected_statistics() {
+  ipc_runtime_statistics original{1, 2, 3, 4, 5, 6, 7, 8};
+  auto bytes = gneiss::protocol::encode_payload(original, 65536);
+  if (!bytes || gneiss::protocol::encode_payload(original, 1)) return false;
+  if (gneiss::protocol::decode_payload<ipc_runtime_statistics>(*bytes, bytes->size()-1)) return false;
+  for (const std::string& text : {std::string("{}"), std::string("{"),
+       std::string(R"({"session_id":-1})")}) {
+    const auto input = std::span{reinterpret_cast<const std::uint8_t*>(text.data()), text.size()};
+    auto result = gneiss::protocol::decode_payload<ipc_runtime_statistics>(input, 65536);
+    if (result || result.error().message.empty()) return false;
+    auto output = original;
+    if (decode_ipc_runtime_statistics(input, output).ok() || output.sequence != original.sequence) return false;
+  }
+  auto invalid = original;
+  invalid.session_id = 0;
+  auto encoded_invalid = gneiss::protocol::encode_payload(invalid, 65536);
+  auto output = original;
+  return encoded_invalid && decode_ipc_runtime_statistics(*encoded_invalid, output).failed() &&
+         output.session_id == original.session_id && output.sequence == original.sequence;
+}
+
 [[nodiscard]] bool test_rules_and_rejections() {
   gneiss::ipc::envelope envelope;
   gneiss::host::ipc_property_write command;
@@ -189,9 +212,9 @@ namespace {
 
 int main() {
   try {
-    if (gneiss::initialize_meta().failed())
+    if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
       return 2;
-    return test_log_and_statistics() && test_inspection() && test_inspection_guid_boundary() &&
+    return test_reflected_statistics() && test_log_and_statistics() && test_inspection() && test_inspection_guid_boundary() &&
                    test_property_request_and_response() && test_rules_and_rejections()
                ? 0
                : 1;
