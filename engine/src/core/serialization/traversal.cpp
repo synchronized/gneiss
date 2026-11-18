@@ -563,8 +563,8 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
     if (!reference_slot)
       return failure(reference_slot.error());
     if (context_access::input(ctx)->is_null(input)) {
-      auto status = reference_slot->reset();
-      return status.failed() ? failure(status) : serialization::diagnostic{};
+      reference_slot->reset();
+      return {};
     }
     auto target = value_type.element_type();
     if (!target || target.kind() != type_kind::object)
@@ -577,8 +577,10 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       if (!resolved)
         return std::move(resolved).error();
       if (!*resolved) {
-        if (ctx.references() && ctx.references()->collecting())
-          return failure(reference_slot->reset());
+        if (ctx.references() && ctx.references()->collecting()) {
+          reference_slot->reset();
+          return {};
+        }
         return failure(error::invalid_argument, "", "非空引用解析结果为空");
       }
       return failure(reference_slot->assign_owner(target.id(), *resolved));

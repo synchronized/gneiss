@@ -419,7 +419,7 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 
 `meta::view(T&)` 返回可写视图；`as_const()` 转为只读视图，不提供反向转换。
 assign 的目标实例、实例复制的来源实例以及 replace 的目标必须有效且借用存活；
-默认空实例操作触发契约断言。类型不匹配、非法标量内容、能力缺失和 setter 拒绝仍返回错误。
+这些写操作使用默认空实例时触发契约断言。类型不匹配、非法标量内容、能力缺失和 setter 拒绝仍返回错误。
 replace 在独立候选中初始化，初始化失败直接返回其错误且不调用 setter；成功才提交给 setter。
 属性候选构造器必须返回非空对象，分配异常向执行边界传播，不以空指针伪装 out_of_memory。
 
@@ -535,7 +535,7 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 
 `mutable_reference_view::assign(source)` 接受只读引用视图，对完全相同的 ref 类型共享控制块，不复制目标；
 不同目标类型（包括 const 差异）返回 invalid_argument，不隐式推断派生转换。
-引用视图的 `reset()` 释放当前引用，不影响其他强引用；视图不会自动延长目标寿命，
+引用视图的 `reset()` 返回 void，释放当前引用，不影响其他强引用；视图不会自动延长目标寿命，
 重置/替换后应重新获取目标视图。
 `reference_view::has_value()` 直接返回 bool；`owner()` 直接返回 `ref<const void>`，
 空引用对应空强引用，非空结果显式保活目标；`actual_type()` 查询实际运行类型。
@@ -689,3 +689,14 @@ Meta 不解释扩展内容；其用途及策略优先级由消费模块定义。
 名称排序仍按文本；按名称查询不会将未知文本加入字符串池。
 序列化仍输出名称文本，不保存指针或运行期哈希。
 条目不单独回收，因此对象名称、URI、用户输入等动态字符串不自动迁移到此池。
+
+### 能力查询与适配器前置条件
+
+`member()`、`as_sequence/as_associative/as_optional/as_reference/as_variant()` 和
+`property::get()` 是检查式入口：空实例/空属性返回 invalid_state，能力缺失返回 unsupported，
+成员缺失返回 not_found；跨注册表或不匹配的属性身份仍返回 invalid_argument。
+它们用于从动态类型逐步取得借用，与要求有效借用的 read_value/assign/replace 区分。
+
+内部适配器在索引、存在性及能力检查通过后必须返回有效存储；返回空地址属于契约违例，
+由实例构造入口断言。外部类型擦除入口 from_object 仍验证空地址、注册状态和对象类型。
+借用失效不一定能被检测，调用方仍须遵守容器修改、引用替换及对象销毁后的有效期约定。

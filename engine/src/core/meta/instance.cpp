@@ -42,8 +42,7 @@ template <bool Mutable>
 result<basic_instance<Mutable>> basic_instance<Mutable>::from_access(registry_ref registry,
                                                                      const detail::type_ops& access,
                                                                      pointer data) {
-  if (!data)
-    return error::invalid_argument;
+  GNEISS_ASSERT(data, "实例适配器必须提供有效存储");
   basic_instance output;
   output.type_ = detail::resolve_type(registry, access);
   if (!output.type_)

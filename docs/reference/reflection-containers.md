@@ -153,3 +153,13 @@ Variant 本身不支持 read_value，须先 value() 取得当前分支。此能�
 `meta::property_step` 显式使用 property/index/key/element 标签；property_id 作为范围受限的 uint32 数值编解码。
 `gneiss::value` 使用同一 variant 包装，variant_traits 将访问转交给 payload。
 自定义包装类型可提供 storage_type 与可变/只读 storage()；分支名仍通过 variant_case_traits 配置。
+
+### 修改操作的失败边界
+
+- sequence resize/replace 保留错误：固定长度或容量限制、缺少写能力、初始化回调拒绝都可能失败。
+- associative insert/erase/clear 保留错误：键校验、键缺失或适配器不提供修改能力。
+- optional reset/ensure 保留错误：适配器可不提供重置或创建能力，非默认可构造元素不能自动创建。
+- variant select 保留错误：分支索引非法或分支不可默认构造；index/value 在 valueless 状态返回错误。
+- reference reset 的能力是必备的，直接返回 void；清空不销毁其他强引用持有的目标。
+
+这些操作不把分配异常伪装成普通结果码，也不因常见标准容器支持某项操作而要求所有扩展适配器支持。

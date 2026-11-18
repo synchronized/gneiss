@@ -68,11 +68,10 @@ public:
     return target_.assign(source.target_);
   }
   /** 只清空当前引用；最后一次释放遵循原删除器。 */
-  [[nodiscard]] error reset() const
+  void reset() const
     requires(Mutable)
   {
     ops()->reset(target_.mutable_data());
-    return error::success;
   }
 };
 }

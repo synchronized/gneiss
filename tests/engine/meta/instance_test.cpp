@@ -78,8 +78,10 @@ bool object_values() {
   if (!retained || retained.get() != original.get() ||
       slot->assign_owner(e::runtime_type_of<unrelated_probe>(), original) !=
           e::error::invalid_argument ||
-      holder.item != original || slot->reset().failed() || holder.item || slot->owner() ||
-      retained.get() != original.get() ||
+      holder.item != original)
+    return false;
+  slot->reset();
+  if (holder.item || slot->owner() || retained.get() != original.get() ||
       slot->assign_owner(e::runtime_type_of<shared_probe>(), original).failed() ||
       holder.item != original)
     return false;
@@ -530,8 +532,10 @@ bool reference_properties() {
   auto copied_view = copied_instance->as_reference();
   if (!copied_view || copied_view->has_value() ||
       copied_view->assign(reference->as_const()).failed() || copied.get() != target.get() ||
-      copied_view->assign(readonly->as_reference()->as_const()) != e::error::invalid_argument ||
-      copied_view->reset().failed() || copied || !owner.target)
+      copied_view->assign(readonly->as_reference()->as_const()) != e::error::invalid_argument)
+    return false;
+  copied_view->reset();
+  if (copied || !owner.target)
     return false;
   // 引用按值内联保存；文件内重复引用与再次加载均产生独立对象。
   auto encoded = gneiss::serialization::json::encode_bytes(
@@ -574,12 +578,13 @@ bool reference_properties() {
       std::as_bytes(std::span{input.data(), input.size()}));
   if (!decoded || decoded->target || decoded->readonly)
     return false;
-  if (field->as_reference()->reset().failed() || owner.target || !owner.readonly ||
-      target->number != 42)
+  field->as_reference()->reset();
+  if (owner.target || !owner.readonly || target->number != 42)
     return false;
   if (field->as_reference()->get().error() != e::error::not_found)
     return false;
-  return readonly->as_reference()->reset().ok() && !owner.readonly;
+  readonly->as_reference()->reset();
+  return !owner.readonly;
 }
 struct polymorphic_base : m::object {
   static constexpr std::string_view type_name = "polymorphic_base";

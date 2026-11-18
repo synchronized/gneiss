@@ -374,8 +374,10 @@ struct restore_state {
       auto reference_slot = target.as_reference();
       if (!reference_slot)
         return reference_slot.error();
-      if (data.kind() == value_kind::invalid)
-        return reference_slot->reset();
+      if (data.kind() == value_kind::invalid) {
+        reference_slot->reset();
+        return error::success;
+      }
       const auto& registry = target.registry();
       auto policy = reference_policy_for(target.type(), override);
       if (!policy)
@@ -387,8 +389,10 @@ struct restore_state {
         auto element = target.type().element_type();
         if (!type || !element || type.id() != element.id())
           return error::invalid_argument;
-        if (asset->uri.empty())
-          return reference_slot->reset();
+        if (asset->uri.empty()) {
+          reference_slot->reset();
+          return error::success;
+        }
         if (!ctx.references())
           return error::invalid_state;
         auto owner = ctx.references()->resolve(type.id(), asset->uri, ctx.property_path());
