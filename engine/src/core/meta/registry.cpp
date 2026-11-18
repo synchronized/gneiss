@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/assert.hpp>
 #include <gneiss/engine/core/meta/detail/type_ops.hpp>
+#include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
 #include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <algorithm>
 #include <array>
@@ -458,9 +459,9 @@ public:
     if (result != error::success) {
       return result;
     }
-    if (output.kind() != accessor->kind || !is_valid_property_value(output)) {
-      return error::internal;
-    }
+    GNEISS_ASSERT(output.kind() == accessor->kind, "getter 成功时必须返回登记的值类型");
+    if (!is_valid_property_value(output))
+      return error::invalid_argument;
     return output;
   }
 

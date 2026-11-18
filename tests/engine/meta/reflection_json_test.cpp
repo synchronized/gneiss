@@ -87,6 +87,45 @@ struct enum_sample {
   named_number named{named_number::negative};
   named_number numeric{named_number::negative};
 };
+bool enum_getter_failure_contract() {
+  constexpr auto enum_guid = e::guid::literal("ca845e68-c391-45b5-8357-bb350a66fdae");
+  auto registry = m::create_registry();
+  if (!registry || m::registration::enumeration<named_number>(*registry)
+                       .guid(enum_guid)
+                       .value("negative", named_number::negative)
+                       .commit()
+                       .failed())
+    return false;
+  m::metadata policy;
+  if (policy.insert(e::serialization::field_policy{.enum_name = true}).failed())
+    return false;
+  const m::property_definition field{m::property_id{1}, enum_guid, m::property_access::read_write,
+                                     "named", std::move(policy)};
+  if (m::register_type(*registry, {enum_sample::type_guid,
+                                   e::runtime_type_of<enum_sample>(),
+                                   1,
+                                   enum_sample::type_name,
+                                   {&field, 1}})
+          .failed() ||
+      m::bind_property(*registry, enum_sample::type_guid, m::property_id{1},
+                       {.kind = e::value_kind::int64,
+                        .getter = [](void*, const void*, e::value&) { return e::error::not_ready; },
+                        .setter = [](void*, void*, const e::value&) { return e::error::success; },
+                        .enum_type = e::runtime_type_of<named_number>()})
+          .failed() ||
+      m::freeze(*registry).failed())
+    return false;
+  const enum_sample object;
+  auto root = m::const_instance::from_object(*registry, e::runtime_type_of<enum_sample>(), &object);
+  if (!root)
+    return false;
+  auto member = root->member(m::property_id{1});
+  if (!member || member->read_value().error() != e::error::not_ready)
+    return false;
+  auto encoded = e::serialization::json::encode_instance(*root);
+  return !encoded && encoded.error().error == e::error::not_ready &&
+         encoded.error().path == "/named";
+}
 bool enum_json_contract() {
   auto registry = m::create_registry();
   if (!registry ||
@@ -347,7 +386,7 @@ int main() try {
     return 28;
   if (!field_reference_contract())
     return 27;
-  if (!enum_json_contract())
+  if (!enum_json_contract() || !enum_getter_failure_contract())
     return 26;
   if (!nested_json_contract())
     return 25;
@@ -451,8 +490,9 @@ int main() try {
   original.speed = std::numeric_limits<float>::infinity();
   auto invalid = gneiss::serialization::json::encode_bytes(
       gneiss::serialization::write_context{registry}, original);
-  // getter 产生非法属性值沿用 Meta 的 internal 语义，并保留字段位置。
-  if (invalid || invalid.error().error != e::error::internal || invalid.error().path != "/speed")
+  // getter 返回类型正确但数值非法，保留数据错误及字段位置。
+  if (invalid || invalid.error().error != e::error::invalid_argument ||
+      invalid.error().path != "/speed")
     return 10;
   original.speed = -1;
   invalid = gneiss::serialization::json::encode_bytes(

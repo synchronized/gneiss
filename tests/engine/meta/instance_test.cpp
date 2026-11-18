@@ -979,8 +979,7 @@ int main() try {
       editable_config->assign_object(e::runtime_type_of<settings>(), &replacement).failed() ||
       source.config.speed != 9)
     return 19;
-  if (m::const_instance{}.read_value().error() != e::error::invalid_state ||
-      m::instance{}.assign(e::value{1.0F}) != e::error::invalid_state)
+  if (m::instance{}.assign(e::value{1.0F}) != e::error::invalid_state)
     return 20;
   {
     settings other{7};

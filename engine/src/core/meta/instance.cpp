@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/meta/instance.hpp>
 #include <algorithm>
+#include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/meta/instance.hpp>
 
 namespace gneiss::meta {
 bool type::is_fixed_sequence() const noexcept {
@@ -106,8 +107,7 @@ result<basic_instance<Mutable>> basic_instance<Mutable>::member(property_id id) 
       output.data_ = binding->object_mutator(mutable_data());
     }
   }
-  if (!output.data_)
-    return error::internal;
+  GNEISS_ASSERT(output.data_, "已绑定成员访问器必须返回有效成员地址");
   return output;
 }
 template <bool Mutable>
@@ -125,8 +125,7 @@ basic_instance<Mutable>::object_data() const noexcept {
     return data_;
 }
 template <bool Mutable> result<value> basic_instance<Mutable>::read_value() const {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
+  GNEISS_ASSERT(kind() != type_kind::invalid, "读取值要求有效的借用实例");
   if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && data_)
     return *static_cast<const value*>(data_);
   if (kind() == type_kind::reference && access()) {
@@ -138,8 +137,9 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
     return error::unsupported;
   if (data_ && access() && access()->template get<scalar_ops>()->read) {
     auto output = access()->template get<scalar_ops>()->read(data_);
-    if (output.kind() != scalar_kind() || !valid_scalar(output))
-      return error::internal;
+    GNEISS_ASSERT(output.kind() == scalar_kind(), "标量读取必须遵守登记的值类型");
+    if (!valid_scalar(output))
+      return error::invalid_argument;
     return output;
   }
   return read_property(registry(), parent_type_, property_, parent_);

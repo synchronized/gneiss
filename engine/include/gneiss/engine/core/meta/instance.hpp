@@ -49,6 +49,8 @@ public:
   [[nodiscard]] property_range properties() const noexcept { return type_.properties(); }
   [[nodiscard]] GNEISS_API result<basic_instance> member(property_id) const;
   [[nodiscard]] GNEISS_API result<basic_instance> member(std::string_view) const;
+  /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
+   * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
   [[nodiscard]] GNEISS_API result<value> read_value() const;
   [[nodiscard]] GNEISS_API result<pointer> object_data() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_sequence_view<Mutable>> as_sequence() const noexcept;

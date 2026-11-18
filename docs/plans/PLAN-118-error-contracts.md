@@ -10,12 +10,14 @@
 最新验证为 Windows Clang Debug 编辑器和相关目标构建、八项定向回归通过；此前分组验证
 见下文。Release、静态库及跨平台验收未完成，纳入 P4，不将 Debug 结果等同于完整矩阵。
 
-PLAN-119 的测试集中整理已完成，接续 P2 的首条链为
-`instance::read_value` → Registry getter → 属性面板/序列化消费者：
+PLAN-119 的测试集中整理已完成。P2 首条链
+`instance::read_value` → Registry getter → 属性面板/序列化消费者已实施：
 
-- 分开审查返回 kind 与登记 kind 不符、空对象返回、数值内容非法，不能将这些来源合并判定为契约违例。
-- 保留用户 getter 返回的可恢复失败、未注册/能力缺失与外部输入错误。
-- 先检查既有 Meta/序列化用例和实际消费者，再决定签名或断言；本段是执行顺序，不代表 P2 已实现。
+- 默认空实例读取、成功 getter 的 kind 失配及空成员存储地址按契约断言。
+- 数值/文本内容非法返回 invalid_argument；getter 显式失败、能力缺失仍保留诊断。
+- 保留 read_value 的 result 签名和面板失败处理；修复枚举名称编码吞掉 getter 原错误的问题。
+- 验证范围见[读取链路记录](../records/2026-11-18-meta-read-contracts.md)。
+  P2 其余 ops、写入与覆盖应用链尚待审计，不代表整个 P2 完成。
 
 P3 在 P2 完整调用链后处理；P4 的相关跨平台与最终回归仍未完成。
 

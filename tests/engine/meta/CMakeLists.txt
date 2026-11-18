@@ -8,6 +8,12 @@ gneiss_target_compile_warnings(gneiss_property_access_test)
 gneiss_target_output_directories(gneiss_property_access_test)
 set_target_properties(gneiss_property_access_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.property_access COMMAND gneiss_property_access_test)
+if(NOT EMSCRIPTEN)
+  add_test(NAME gneiss.meta-read-contract COMMAND "${CMAKE_COMMAND}"
+    "-DPROGRAM=$<TARGET_FILE:gneiss_property_access_test>"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/check_read_contract.cmake")
+  set_tests_properties(gneiss.meta-read-contract PROPERTIES LABELS "cpu;death" TIMEOUT 30)
+endif()
 
 add_executable(gneiss_reflection_boundary_test type_registry_boundary_test.cpp)
 target_link_libraries(gneiss_reflection_boundary_test PRIVATE gneiss::engine)

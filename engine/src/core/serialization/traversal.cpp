@@ -274,9 +274,11 @@ result<writer::node, serialization::diagnostic> encode_enum_name(const const_ins
                                                                  writer* doc) {
   const auto type = view.type();
   const auto entries = type.enum_entries();
-  auto scalar = view.read_value();
-  if (!type.is_enum() || !type.registered() || !scalar)
+  if (!type.is_enum() || !type.registered())
     return failure(error::invalid_argument, "", "属性必须是已注册枚举");
+  auto scalar = view.read_value();
+  if (!scalar)
+    return failure(scalar.error());
   const auto found = std::ranges::find(entries, *scalar, &enum_entry::data);
   if (found == entries.end())
     return failure(error::invalid_argument, "", "未知枚举值");

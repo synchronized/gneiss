@@ -161,8 +161,8 @@ getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，
 不再存在借用值和拥有值之间的转换。`read_property` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
 `write_property` 直接传递同一份 const 值。
 
-未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 返回非法类别/值时返回
-`internal`，`read_property` 不交付属性快照。getter/setter 抛出的异常（包括 bad_alloc）直接传播，
+未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 成功时必须返回登记的值类别，违反此约定触发断言；数值非有限或文本非法返回
+`invalid_argument`，`read_property` 不交付属性快照。getter 显式失败保留原始错误码。getter/setter 抛出的异常（包括 bad_alloc）直接传播，
 由执行边界按致命异常策略处理，不转换为普通属性错误。
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
@@ -253,7 +253,7 @@ GUID 值不能为 nil。四元数的归一化等业务约束由类型校验器�
 null 不等于缺失。只读属性不输出，也不从输入写入；read_only 与 required 不能组合，序列化入口返回带字段路径的 invalid_argument；Meta 注册不解释该格式策略。
 未知字段忽略，重复 JSON 键拒绝；普通类型不会自动保留未知字段。
 字段错误路径使用 JSON Pointer 转义，语法错误提供字节偏移。
-沿用属性访问语义：getter 返回非法值为 internal，输入值非法为 invalid_argument。
+沿用属性访问语义：getter 成功但数值/文本内容非法返回 invalid_argument；显式失败保留原始错误码和字段路径。
 
 `.extend(serialization::validation<Fn>)` 接受返回 error 或 serialization::diagnostic 的只读校验函数。
 成功诊断的 error 为 success。编码前、解码填充结束后各校验一次，适用于自定义 codec 与反射 JSON。
@@ -288,7 +288,8 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
 `read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
-getter 显式失败或返回不匹配／无效值时返回错误；抛出的异常直接传播，两者均不交付部分属性快照。
+getter 显式失败或数值/文本内容非法时返回错误；成功却返回错误类别属于适配器契约违例，触发断言。
+抛出的异常直接传播，不交付部分属性快照。
 写属性仍返回 error；编解码与序列化模板返回 result。
 
 ## 无 GUID 对象边界
@@ -404,6 +405,9 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
 `member(name)` 和 `member(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
+`read_value()` 要求有效且仍存活的借用实例，默认空实例读取触发断言。
+已绑定对象访问器必须返回成员存储地址；空强引用仍是合法值，不等于空成员地址。
+读取继续返回 `result<value>`，保留 getter 失败、内容校验和不支持该能力的诊断。
 基础属性支持 `read_value()`；`kind()` 区分 invalid、empty、scalar、object、sequence、associative、optional、reference、variant；
 `scalar_kind()` 区分基础值类别。`guid()` 返回静态稳定身份，容器通常为空；
 `type_id()` 为对象、容器和容器元素提供运行期身份，普通标量属性仍通过 value_kind/GUID 标识。
