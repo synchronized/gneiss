@@ -18,11 +18,11 @@ error cap::representation::decode(const std::function<error(const instance&)>& r
   return type_.access_->representation->decode(
       [&](void* p, const type_ops& ops) {
         auto view = instance::from_access(type_.registry_, ops, p);
-        return view ? read(*view) : view.error();
+        return read(view);
       },
       [&](void* p, const type_ops& ops) {
         auto view = instance::from_access(type_.registry_, ops, p);
-        return view ? consume(*view) : view.error();
+        return consume(view);
       });
 }
 error cap::representation::encode(
@@ -34,7 +34,7 @@ error cap::representation::encode(
   const auto* ops = type_.access_->representation;
   auto visit = [&](const void* p, const type_ops& representation) {
     auto view = const_instance::from_access(type_.registry_, representation, p);
-    return view ? consume(*view) : view.error();
+    return consume(view);
   };
   if (source.data_)
     return ops->encode(source.data_, visit);
@@ -90,13 +90,12 @@ result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(meta::type 
 }
 
 template <bool Mutable>
-result<basic_instance<Mutable>>
-basic_instance<Mutable>::from_access(registry_ref registry, const type_ops& access, pointer data) {
+basic_instance<Mutable> basic_instance<Mutable>::from_access(registry_ref registry,
+                                                             const type_ops& access, pointer data) {
   GNEISS_ASSERT(data, "实例适配器必须提供有效存储");
   basic_instance output;
   output.type_ = detail::resolve_type(registry, access);
-  if (!output.type_)
-    return error::invalid_state;
+  GNEISS_ASSERT(output.type_, "静态类型能力必须提供有效类型");
   output.data_ = data;
   return output;
 }
@@ -320,9 +319,7 @@ error basic_instance<Mutable>::replace(
   auto storage = binding->object_construct();
   GNEISS_ASSERT(storage, "属性构造器必须返回有效候选对象，分配失败通过异常传播");
   auto temporary = instance::from_access(target.registry(), *binding->access, storage.get());
-  if (!temporary)
-    return temporary.error();
-  auto status = initialize(*temporary);
+  auto status = initialize(temporary);
   return status.failed() ? status : binding->object_setter(target.mutable_parent(), storage.get());
 }
 template <type_kind Kind, template <bool> class View>

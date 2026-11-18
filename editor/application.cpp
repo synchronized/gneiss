@@ -1083,11 +1083,7 @@ void draw_component_descriptions(editor_state& state) {
     if (!value)
       return {};
     auto view = meta::view(std::as_const(*value));
-    if (!view) {
-      state.inspector_error = view.error();
-      return {};
-    }
-    return *view;
+    return view;
   };
   auto transform_source = source_view(source_transform ? &source_object->transform : nullptr);
   identity.component_type = math::transform::type_guid;
@@ -1099,12 +1095,8 @@ void draw_component_descriptions(editor_state& state) {
   }
   auto transform = ordinary ? ordinary->local_transform : prefab_node->local_transform;
   auto transform_view = meta::view(std::as_const(transform));
-  if (!transform_view) {
-    state.inspector_error = transform_view.error();
-    return;
-  }
   auto transform_edit = gneiss::editor::draw_reflected_properties(
-      *transform_view, "Transform", state.property_edit_serial, state.inspector_error, {},
+      transform_view, "Transform", state.property_edit_serial, state.inspector_error, {},
       transform_source ? &*transform_source : nullptr);
   if (transform_edit)
     state.inspector_error =

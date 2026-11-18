@@ -392,14 +392,14 @@ for (auto property : fields) {
 分别是 false/true 特化。两者共用类型句柄及访问位置布局，不新增对象所有者或注册表。
 写操作仅在 Mutable 为 true 时可用；as_const() 借用原位置，不复制业务对象。
 根视图通过 `meta::view(registry, object)` 创建，也可省略 registry 使用默认表；
-可写对象返回 result<instance>，const 对象返回 result<const_instance>，需要主动只读时传 std::as_const(object)；仅接受实际对象的左值，
+可写对象直接返回 `instance`，const 对象直接返回 `const_instance`；需要主动只读时传 `std::as_const(object)`。仅接受实际对象的左值，
 不接受临时对象。模板 view 可访问未注册类型的原生能力；属性访问需要已发布的注册数据。
-运行期 from_object 入口要求已注册对象类型和冻结注册表。
+静态借用不返回错误包装；类型能力查询或分配异常仍向外传播，不承诺 noexcept。
+运行期 from_object 入口要求已注册对象类型和冻结注册表，仍通过 result 表达查找失败。
 
 ```cpp
 auto root = meta::view(registry, std::as_const(camera));
-if (!root) return root.error();
-auto object = root->capability<meta::cap::object>();
+auto object = root.capability<meta::cap::object>();
 if (!object) return object.error();
 auto settings = object->member("settings");
 if (!settings) return settings.error();

@@ -580,16 +580,14 @@ int main() try {
     int ref_width, ref_height;
     ref_io.Fonts->GetTexDataAsRGBA32(&ref_pixels, &ref_width, &ref_height);
     auto ref_view = e::meta::view(std::as_const(input));
-    check(bool(ref_view));
     std::uint64_t ref_serial = 0;
     e::error ref_status = e::error::success;
     ImGui::NewFrame();
     ImGui::Begin("References");
-    auto emitted = ed::draw_reflected_properties(*ref_view, "Object", ref_serial, ref_status);
+    auto emitted = ed::draw_reflected_properties(ref_view, "Object", ref_serial, ref_status);
     e::ref<reference_settings> empty;
     auto empty_view = e::meta::view(std::as_const(empty));
-    check(bool(empty_view));
-    (void)ed::draw_reflected_properties(*empty_view, "Empty", ref_serial, ref_status);
+    (void)ed::draw_reflected_properties(empty_view, "Empty", ref_serial, ref_status);
     ImGui::End();
     ImGui::Render();
     ImGui::DestroyContext();

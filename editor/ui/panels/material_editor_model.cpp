@@ -47,11 +47,9 @@ error material_editor_model::apply(const property_path& path, const value* input
   if (!current_ || path.empty())
     return error::invalid_argument;
   auto candidate = current_->description;
-  auto target = meta::view(candidate);
-  if (!target)
-    return target.error();
+  auto root = meta::view(candidate);
   std::string key = meta::property_path_text(path);
-  target = meta::resolve_path(*target, path);
+  auto target = meta::resolve_path(root, path);
   if (!target)
     return target.error();
   auto status = source ? target->assign(*source) : target->assign(*input);

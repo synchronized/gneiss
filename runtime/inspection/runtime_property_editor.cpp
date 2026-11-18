@@ -28,8 +28,6 @@ gneiss::error runtime_property_editor::initialize(gneiss::world& world,
   }
   auto frozen = gneiss::meta::is_frozen();
   if (!frozen)
-    return frozen.error();
-  if (!*frozen)
     return gneiss::error::not_ready;
   world_ = &world;
   inspection_ = &inspection;

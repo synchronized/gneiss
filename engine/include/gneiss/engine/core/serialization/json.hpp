@@ -41,9 +41,7 @@ encode_bytes(const write_context& ctx, const T& object) {
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
   auto view = gneiss::meta::view(*registry, std::as_const(object));
-  if (!view)
-    return serialization::diagnostic{.error = view.error()};
-  return encode_instance(ctx, *view);
+  return encode_instance(ctx, view);
 }
 /** 解码返回独立对象；失败不向调用方暴露半成品。 */
 template <class T>

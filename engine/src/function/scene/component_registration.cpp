@@ -495,9 +495,7 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
     return target.error();
   auto object = target->local_transform();
   auto root = meta::view(std::as_const(object));
-  if (!root)
-    return root.error();
-  auto bound = root->capability<meta::cap::object>();
+  auto bound = root.capability<meta::cap::object>();
   if (!bound)
     return bound.error();
   auto member = bound->member(field);
@@ -512,9 +510,7 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
     return edit_runtime_component({*target}, type, field, value);
   auto transform = target->local_transform();
   auto root = meta::view(transform);
-  if (!root)
-    return root.error();
-  auto bound = root->capability<meta::cap::object>();
+  auto bound = root.capability<meta::cap::object>();
   if (!bound)
     return bound.error();
   auto member = bound->member(field);

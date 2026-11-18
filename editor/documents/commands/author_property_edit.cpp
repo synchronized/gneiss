@@ -42,11 +42,9 @@ gneiss::error edit_description(scene_edit_session& document, editor_command_hist
   using namespace gneiss;
   error status = error::success;
   auto candidate = before;
-  auto target = meta::view(candidate);
-  if (!target)
-    return target.error();
+  auto root = meta::view(candidate);
   std::string key = meta::property_path_text(edit.path);
-  target = meta::resolve_path(*target, edit.path);
+  auto target = meta::resolve_path(root, edit.path);
   if (!target)
     return target.error();
   if (edit.object) {

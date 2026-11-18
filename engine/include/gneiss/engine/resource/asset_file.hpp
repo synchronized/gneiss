@@ -62,9 +62,7 @@ serialize_bytes(const serialization::write_context& ctx, const T& object) {
   if (!registry)
     return serialization::diagnostic{.error = registry.error()};
   auto view = meta::view(*registry, std::as_const(object));
-  if (!view)
-    return serialization::diagnostic{.error = view.error()};
-  return serialize_instance(ctx, format_traits<T>::get(), *view);
+  return serialize_instance(ctx, format_traits<T>::get(), view);
 }
 template <class T>
 result<std::vector<std::byte>, serialization::diagnostic> serialize_bytes(const T& object) {

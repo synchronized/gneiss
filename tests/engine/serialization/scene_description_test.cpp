@@ -53,7 +53,7 @@ bool format_node_contract() {
 
   const auto encode = [&](const format_probe& object) {
     auto view = m::view(registry, std::as_const(object));
-    return e::asset_file::serialize_instance(ctx, probe_format, *view);
+    return e::asset_file::serialize_instance(ctx, probe_format, view);
   };
   const auto decode = [&](std::span<const std::byte> input) {
     return e::asset_file::deserialize_object(read_ctx, probe_format,
@@ -532,10 +532,8 @@ int main() try {
     if (!null_prefab || null_prefab->objects[0].prefab)
       return 97;
     auto slot = meta::view(std::as_const(scene.objects[1]));
-    if (!slot)
-      return 98;
     auto reference =
-        slot->template capability<gneiss::meta::cap::object>()->member("prefab")->as_optional();
+        slot.template capability<gneiss::meta::cap::object>()->member("prefab")->as_optional();
     if (!reference || !reference->has_value())
       return 98;
     auto contents = reference->get();

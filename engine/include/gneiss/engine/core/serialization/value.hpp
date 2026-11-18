@@ -23,9 +23,7 @@ result<gneiss::value, diagnostic> capture_value(const write_context& context, co
   if (!registry)
     return diagnostic{.error = registry.error()};
   auto view = meta::view(*registry, std::as_const(source));
-  if (!view)
-    return diagnostic{.error = view.error()};
-  return capture_value(context, *view);
+  return capture_value(context, view);
 }
 template <class T>
   requires(!std::same_as<std::remove_cvref_t<T>, meta::const_instance> &&
@@ -41,9 +39,7 @@ result<T, diagnostic> restore_value(const read_context& context, const gneiss::v
     return diagnostic{.error = registry.error()};
   T candidate{};
   auto view = meta::view(*registry, candidate);
-  if (!view)
-    return diagnostic{.error = view.error()};
-  auto status = apply_value(context, *view, source);
+  auto status = apply_value(context, view, source);
   if (status.error.failed())
     return status;
   return candidate;

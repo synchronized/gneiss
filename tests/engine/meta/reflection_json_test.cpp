@@ -357,7 +357,7 @@ bool native_allocation_contract() {
   auto view = m::view(registry, number);
   const std::string invalid_json = "{";
   auto decoded = e::serialization::json::read_into(
-      e::serialization::read_context{registry}, *view,
+      e::serialization::read_context{registry}, view,
       std::as_bytes(std::span(invalid_json.data(), invalid_json.size())));
   if (decoded || decoded.error().error != e::error::invalid_argument || number != 7) {
     std::fprintf(stderr, "invalid input: %d\n", decoded ? 0 : decoded.error().error.code());
@@ -476,9 +476,7 @@ int main() try {
       !fails(R"({"enabled":true,"uv":[1,"bad"]})", "/uv/1"))
     return 31;
   auto view = m::view(registry, original);
-  if (!view)
-    return 32;
-  auto uv = view->template capability<gneiss::meta::cap::object>()->member(m::property_id{11});
+  auto uv = view.template capability<gneiss::meta::cap::object>()->member(m::property_id{11});
   if (!uv || uv->read_value()->kind() != e::value_kind::vec2 ||
       uv->assign(e::value{e::math::vector2{2, 3}}).failed() || original.uv.x != 2 ||
       uv->assign(e::value{e::math::vector3{2, 3, 4}}).ok())
@@ -522,19 +520,17 @@ int main() try {
   // 无 registry 的视图编解码必须保留隔离表的字段名，不能查询默认表。
   sample isolated_value;
   auto isolated_view = m::view(other, isolated_value);
-  if (!isolated_view ||
-      gneiss::serialization::json::read_into(
-          *isolated_view, bytes(R"({"enabled":true,"a/b~c":"isolated"})"))
+  if (gneiss::serialization::json::read_into(isolated_view,
+                                             bytes(R"({"enabled":true,"a/b~c":"isolated"})"))
           .failed() ||
       isolated_value.name != "isolated")
     return 90;
-  auto isolated_bytes =
-      gneiss::serialization::json::encode_instance(isolated_view->as_const());
+  auto isolated_bytes = gneiss::serialization::json::encode_instance(isolated_view.as_const());
   if (!isolated_bytes || std::string_view(reinterpret_cast<const char*>(isolated_bytes->data()),
                                           isolated_bytes->size())
                                  .find("a/b~c") == std::string_view::npos)
     return 91;
-  isolated_view = e::error::invalid_state;
+  isolated_view = {};
   // CPU 资源入口统一使用默认表；独立表不再由解码适配器持有。
   auto shared = m::default_registry();
   if (!shared || register_sample(shared).failed() || m::freeze().failed())

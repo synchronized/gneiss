@@ -18,16 +18,10 @@ int main() try {
     return 6;
   gneiss::camera_description camera{{1.0F, 0.1F, 100.0F}};
   auto camera_view = gneiss::meta::view(std::as_const(camera));
-  if (!camera_view)
-    return 7;
   gneiss::math::transform transform;
   auto transform_view = gneiss::meta::view(std::as_const(transform));
-  if (!transform_view)
-    return 8;
   gneiss::mesh_component_description mesh{"asset://mesh.json", "asset://material.json"};
   auto mesh_view = gneiss::meta::view(std::as_const(mesh));
-  if (!mesh_view)
-    return 9;
   unsigned writes = 0;
   std::uint64_t serial = 0;
   gneiss::error error = gneiss::error::success;
@@ -44,12 +38,12 @@ int main() try {
     ImGui::NewFrame();
     ImGui::SetNextWindowSize({800.0F, 500.0F});
     ImGui::Begin("Inspector");
-    if (draw_reflected_properties(*transform_view, "Transform", serial, error))
+    if (draw_reflected_properties(transform_view, "Transform", serial, error))
       ++writes;
     const std::array readonly{gneiss::meta::property_id{4}};
-    if (draw_reflected_properties(*camera_view, "Camera", serial, error, readonly))
+    if (draw_reflected_properties(camera_view, "Camera", serial, error, readonly))
       ++writes;
-    if (draw_reflected_properties(*mesh_view, "Mesh Renderer", serial, error))
+    if (draw_reflected_properties(mesh_view, "Mesh Renderer", serial, error))
       ++writes;
     ImGui::End();
     ImGui::Render();
@@ -61,12 +55,10 @@ int main() try {
                            gneiss::value expected) {
     auto current_view = gneiss::meta::view(std::as_const(current));
     auto source_view = gneiss::meta::view(std::as_const(source));
-    if (!current_view || !source_view)
-      return false;
     auto current_property =
-        current_view->template capability<gneiss::meta::cap::object>()->member(property);
+        current_view.template capability<gneiss::meta::cap::object>()->member(property);
     auto source_property =
-        source_view->template capability<gneiss::meta::cap::object>()->member(property);
+        source_view.template capability<gneiss::meta::cap::object>()->member(property);
     if (!current_property || !source_property)
       return false;
     std::optional<property_edit> requested;
@@ -92,8 +84,8 @@ int main() try {
     io.AddMouseButtonEvent(0, false);
     frame();
     auto unchanged =
-        current_view->template capability<gneiss::meta::cap::object>()->member(property);
-    auto original = source_view->template capability<gneiss::meta::cap::object>()->member(property);
+        current_view.template capability<gneiss::meta::cap::object>()->member(property);
+    auto original = source_view.template capability<gneiss::meta::cap::object>()->member(property);
     if (!unchanged || !original)
       return false;
     auto actual = unchanged->read_value();
@@ -129,14 +121,11 @@ int main() try {
     return 15;
   std::vector<choice> choices{choice::second};
   auto choices_view = e::meta::view(registry, std::as_const(choices));
-  if (!choices_view || draw_reflected_properties(*choices_view, "Enum elements", serial, error) ||
-      !error.ok())
+  if (draw_reflected_properties(choices_view, "Enum elements", serial, error) || !error.ok())
     return 16;
   e::value uv{e::math::vector2{0.25F, 0.75F}};
   auto uv_view = e::meta::view(std::as_const(std::get<e::math::vector2>(uv.payload)));
-  if (!uv_view)
-    return 14;
-  if (draw_property_value("UV", uv, uv_view->type(), serial, error) || !error.ok() ||
+  if (draw_property_value("UV", uv, uv_view.type(), serial, error) || !error.ok() ||
       uv.kind() != e::value_kind::vec2)
     return 13;
   ImGui::End();

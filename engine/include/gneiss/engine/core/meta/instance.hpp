@@ -88,16 +88,16 @@ private:
   friend class cap::object;
   template <bool> friend class basic_object_view;
   template <type_kind, template <bool> class> friend class cap::container;
-  template <class T> friend result<const_instance> view(const registry_ref&, const T&);
+  template <class T> friend const_instance view(const registry_ref&, const T&);
   template <class T>
     requires(!std::is_const_v<T>)
-  friend result<instance> view(const registry_ref&, T&);
+  friend instance view(const registry_ref&, T&);
   template <bool> friend class basic_sequence_view;
   template <bool> friend class basic_associative_view;
   template <bool> friend class basic_optional_view;
   template <bool> friend class basic_variant_view;
   template <bool> friend class basic_reference_view;
-  static GNEISS_API result<basic_instance> from_access(registry_ref, const type_ops&, pointer);
+  static GNEISS_API basic_instance from_access(registry_ref, const type_ops&, pointer);
   [[nodiscard]] const type_ops* access() const noexcept { return type_.access_; }
   [[nodiscard]] void* mutable_data() const noexcept
     requires(Mutable)
@@ -126,22 +126,20 @@ template <bool Mutable> const_instance basic_instance<Mutable>::as_const() const
 }
 
 /** 借用只读左值，视图保活注册表但不保活目标对象。 */
-template <class T> result<const_instance> view(const registry_ref& registry, const T& object) {
+template <class T> const_instance view(const registry_ref& registry, const T& object) {
   return const_instance::from_access(registry, detail::ops_of<std::remove_cv_t<T>>(),
                                      std::addressof(object));
 }
 /** 借用可写左值，沿用目标 getter/setter 与失效规则。 */
 template <class T>
   requires(!std::is_const_v<T>)
-result<instance> view(const registry_ref& registry, T& object) {
+instance view(const registry_ref& registry, T& object) {
   return instance::from_access(registry, detail::ops_of<T>(), std::addressof(object));
 }
-template <class T> result<const_instance> view(const T& object) {
-  return view(default_registry(), object);
-}
+template <class T> const_instance view(const T& object) { return view(default_registry(), object); }
 template <class T>
   requires(!std::is_const_v<T>)
-result<instance> view(T& object) {
+instance view(T& object) {
   return view(default_registry(), object);
 }
 template <class T>

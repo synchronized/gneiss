@@ -448,15 +448,13 @@ bool verify_reference_serialization(gneiss::asset_manager& assets) {
       references.dependencies()[1].path != "/2")
     return false;
   auto source_view = meta::view(std::as_const((*values)[0]));
-  if (!source_view)
-    return false;
-  auto captured = serialization::capture_value(write, *source_view);
+  auto captured = serialization::capture_value(write, source_view);
   if (!captured || captured->kind() != value_kind::asset_reference ||
       std::get<asset_reference_value>(captured->payload).uri != "asset://not-present.texture.json")
     return false;
   ref<const gneiss::texture> restored_texture;
   auto destination = meta::view(restored_texture);
-  if (!destination || serialization::apply_value(ctx, *destination, *captured).error.failed() ||
+  if (serialization::apply_value(ctx, destination, *captured).error.failed() ||
       restored_texture != (*values)[0])
     return false;
   auto saved = serialization::json::encode(write, *values);

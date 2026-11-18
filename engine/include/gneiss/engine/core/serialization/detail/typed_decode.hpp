@@ -20,9 +20,7 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
         (meta::representation_traits<T>::enabled && !meta::type_of<T>(*registry).registered())) {
       T object{};
       auto view = meta::view(*registry, object);
-      if (!view)
-        return diagnostic{.error = view.error()};
-      auto status = decode_view(*view);
+      auto status = decode_view(view);
       if (!status)
         return std::move(status).error();
       return object;

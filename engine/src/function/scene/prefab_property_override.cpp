@@ -225,9 +225,7 @@ gneiss::error apply_candidate_object(const prefab_property_override& value,
   if (is_type(math::transform::type_guid)) {
     auto transform = object.transform;
     auto root = meta::view(transform);
-    if (!root)
-      return root.error();
-    auto field = meta::resolve_path(*root, value.key.path);
+    auto field = meta::resolve_path(root, value.key.path);
     result = field ? field->assign(native) : field.error();
     if (result != gneiss::error::success) {
       return result;

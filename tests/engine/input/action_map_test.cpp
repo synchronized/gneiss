@@ -162,11 +162,11 @@ int main() {
   serialization::read_context read_ctx;
 
   auto view = meta::view(std::as_const(map));
-  if (!view || !asset_file::serialize_instance(ctx, exact, *view) ||
+  if (!asset_file::serialize_instance(ctx, exact, view) ||
       !asset_file::deserialize_object(read_ctx, exact,
                                       runtime_type_of<gneiss::input::action_map_description>(),
                                       *saved_bytes) ||
-      asset_file::serialize_instance(ctx, short_limit, *view) ||
+      asset_file::serialize_instance(ctx, short_limit, view) ||
       asset_file::deserialize_object(read_ctx, short_limit,
                                      runtime_type_of<gneiss::input::action_map_description>(),
                                      *saved_bytes))

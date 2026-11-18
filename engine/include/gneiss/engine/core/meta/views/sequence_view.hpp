@@ -85,7 +85,7 @@ public:
       return error::invalid_argument;
     return ops()->replace(target_.mutable_data(), [&](void* data, const type_ops& access) {
       auto candidate = instance::from_access(readonly().registry(), access, data);
-      return candidate ? initialize(*candidate) : candidate.error();
+      return initialize(candidate);
     });
   }
   [[nodiscard]] error resize(std::size_t count) const

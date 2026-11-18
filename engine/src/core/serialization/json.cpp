@@ -419,9 +419,7 @@ write_value(const write_context& ctx, yyjson_mut_doc* doc, const value& v) {
   if (!registry)
     return failure(registry.error());
   auto view = gneiss::meta::view(*registry, std::as_const(v));
-  if (!view)
-    return failure(view.error());
-  return write(ctx, doc, *view);
+  return write(ctx, doc, view);
 }
 result<value, serialization::diagnostic> read_value(const read_context& ctx, yyjson_val* node) {
   auto registry = ctx.registry();
@@ -429,9 +427,7 @@ result<value, serialization::diagnostic> read_value(const read_context& ctx, yyj
     return failure(registry.error());
   value output;
   auto view = gneiss::meta::view(*registry, output);
-  if (!view)
-    return failure(view.error());
-  auto status = read(ctx, node, *view);
+  auto status = read(ctx, node, view);
   if (status.error.failed())
     return status;
   return output;

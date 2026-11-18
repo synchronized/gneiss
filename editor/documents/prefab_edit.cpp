@@ -241,14 +241,8 @@ prepare_prefab_transform_edit(const prefab_description& source,
   auto before = meta::view(std::as_const(object->transform));
   auto now = meta::view(std::as_const(current));
   auto after = meta::view(std::as_const(replacement));
-  if (!before)
-    return before.error();
-  if (!now)
-    return now.error();
-  if (!after)
-    return after.error();
-  return prepare_property_edit(source, reference, source_node, math::transform::type_guid, *before,
-                               *now, *after);
+  return prepare_property_edit(source, reference, source_node, math::transform::type_guid, before,
+                               now, after);
 }
 result<std::vector<prefab_property_override>>
 prepare_mesh_component_overrides(guid source_node, guid component_uuid,

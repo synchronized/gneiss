@@ -138,11 +138,11 @@ bool inherited_properties() {
     return false;
   auto view = gneiss::meta::view(registry, input);
   auto properties = find_type(registry, e::runtime_type_of<inherited_leaf>());
-  if (!view || !properties ||
+  if (!properties ||
       properties.template capability<gneiss::meta::cap::object>().properties().size() != 5)
     return false;
-  auto number = view->template capability<gneiss::meta::cap::object>()->member("number");
-  auto values = view->template capability<gneiss::meta::cap::object>()->member("values");
+  auto number = view.template capability<gneiss::meta::cap::object>()->member("number");
+  auto values = view.template capability<gneiss::meta::cap::object>()->member("values");
   if (!number || !values || number->assign(e::value{std::int64_t{42}}).failed() ||
       input.number != 42 || input.sentinel != 123 || !values->as_sequence())
     return false;
@@ -156,18 +156,17 @@ bool inherited_properties() {
   auto element = sequence->at(2);
   if (!element || element->assign(e::value{std::int64_t{9}}).failed() || input.values[2] != 9)
     return false;
-  auto nested = view->template capability<gneiss::meta::cap::object>()->member("nested");
+  auto nested = view.template capability<gneiss::meta::cap::object>()->member("nested");
   captured_data candidate{{7}, {{"entry", {8}}}};
   auto candidate_view = gneiss::meta::view(registry, std::as_const(candidate));
-  if (!nested || !candidate_view || nested->assign(*candidate_view).failed() ||
-      input.nested != candidate)
+  if (!nested || nested->assign(candidate_view).failed() || input.nested != candidate)
     return false;
   auto nested_values =
       nested->as_const().template capability<gneiss::meta::cap::object>()->member("values");
   if (!nested_values || !nested_values->as_sequence())
     return false;
   candidate.values.clear();
-  if (nested->assign(*candidate_view) != e::error::invalid_argument ||
+  if (nested->assign(candidate_view) != e::error::invalid_argument ||
       input.nested.values.size() != 1)
     return false;
   e::serialization::write_context ctx{registry};
@@ -233,10 +232,8 @@ int main() {
     return 30;
   captured_data capture_input{{1, std::nullopt, 3}, {{"one", {1, 2}}, {"empty", {}}}};
   auto capture_input_view = e::meta::view(core, std::as_const(capture_input));
-  if (!capture_input_view)
-    return 60;
   auto captured =
-      e::serialization::capture_value(e::serialization::write_context{core}, *capture_input_view);
+      e::serialization::capture_value(e::serialization::write_context{core}, capture_input_view);
   if (!captured)
     return 61;
   const auto original = capture_input;
@@ -244,8 +241,7 @@ int main() {
   capture_input.groups.clear();
   captured_data restored_data;
   auto target = e::meta::view(core, restored_data);
-  if (!target ||
-      e::serialization::apply_value(e::serialization::read_context{core}, *target, *captured)
+  if (e::serialization::apply_value(e::serialization::read_context{core}, target, *captured)
           .error.failed() ||
       restored_data != original)
     return 62;
@@ -255,15 +251,14 @@ int main() {
       e::serialization::capture_value(e::serialization::write_context{core}, original);
   if (!typed_copy || *typed_copy != original || !typed_capture || *typed_capture != *captured)
     return 69;
-  if (e::serialization::capture_value(e::serialization::write_context{core, 1},
-                                      *capture_input_view))
+  if (e::serialization::capture_value(e::serialization::write_context{core, 1}, capture_input_view))
     return 63;
   auto bad_record = std::get<e::record_value>(captured->payload).get();
   auto bad_sequence = std::get<e::sequence_value>(bad_record.properties[0].content.payload).get();
   bad_sequence.elements[0] = e::value{std::string{"wrong"}};
   bad_record.properties[0].content = e::value{e::sequence_value{bad_sequence}};
-  auto invalid_restore = e::serialization::apply_value(
-      e::serialization::read_context{core}, *target, e::value{e::record_value{bad_record}});
+  auto invalid_restore = e::serialization::apply_value(e::serialization::read_context{core}, target,
+                                                       e::value{e::record_value{bad_record}});
   if (invalid_restore.error != e::error::invalid_argument ||
       invalid_restore.path != "/properties/1/indices/0")
     return 68;
@@ -271,7 +266,7 @@ int main() {
   cycle->next = cycle;
   auto cycle_view = e::meta::view(core, std::as_const(cycle));
   auto cycle_copy =
-      e::serialization::capture_value(e::serialization::write_context{core}, *cycle_view);
+      e::serialization::capture_value(e::serialization::write_context{core}, cycle_view);
   cycle->next.reset();
   if (cycle_copy || cycle_copy.error().error != e::error::invalid_argument)
     return 64;
@@ -390,9 +385,9 @@ int main() {
     return 45;
   e::value edited{true};
   auto value_view = e::meta::view(core, edited);
-  if (!value_view || value_view->kind() != e::meta::type_kind::variant)
+  if (value_view.kind() != e::meta::type_kind::variant)
     return 46;
-  auto variant = value_view->as_variant();
+  auto variant = value_view.as_variant();
   if (!variant || variant->alternative_count() != cases.size() || variant->select(12).failed())
     return 47;
   auto selected = variant->value();

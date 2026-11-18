@@ -74,9 +74,7 @@ bool explicit_registration() {
     return false;
   external_model model{{{1.0F, 2.0F}}};
   auto root = m::view(registry, model);
-  if (!root)
-    return false;
-  auto member = root->template capability<gneiss::meta::cap::object>()->member("items");
+  auto member = root.template capability<gneiss::meta::cap::object>()->member("items");
   if (!member)
     return false;
   auto sequence = member->as_sequence();
@@ -141,16 +139,14 @@ bool runtime_only_registration() {
   runtime_other other;
   auto root = m::view(registry, object);
   auto foreign = m::view(registry, other);
-  if (!root || !foreign)
-    return false;
-  auto child = root->template capability<gneiss::meta::cap::object>()->member("child");
+  auto child = root.template capability<gneiss::meta::cap::object>()->member("child");
   if (!child)
     return false;
   auto number = child->template capability<gneiss::meta::cap::object>()->member("number");
   auto field = child->type().template capability<gneiss::meta::cap::object>().find_property(
       m::property_id{1});
   if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
-      field.get(*foreign).error() != e::error::invalid_argument)
+      field.get(foreign).error() != e::error::invalid_argument)
     return false;
   e::serialization::write_context context{registry};
   e::serialization::read_context read_context{registry};
@@ -306,7 +302,7 @@ int main() {
       gneiss::meta::freeze(registry).failed())
     return 5;
   sample object;
-  auto reflected = gneiss::meta::view(registry, object)->capability<gneiss::meta::cap::object>();
+  auto reflected = gneiss::meta::view(registry, object).capability<gneiss::meta::cap::object>();
   auto speed = reflected->member("speed");
   auto raw_speed = reflected->member("raw_speed");
   if (!speed || !raw_speed)

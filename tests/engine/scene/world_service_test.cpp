@@ -194,7 +194,7 @@ int main(int argc, char** argv) {
   gneiss::value proposed;
   proposed.payload = gneiss::math::vector3{2, 3, 4};
   if (gneiss::meta::view(candidate_transform)
-              ->capability<gneiss::meta::cap::object>()
+              .capability<gneiss::meta::cap::object>()
               ->member(gneiss::meta::transform_translation_field)
               ->assign(proposed) != gneiss::error::success ||
       candidate_transform.translation[0] != 2) {
@@ -202,7 +202,7 @@ int main(int argc, char** argv) {
   }
   proposed.payload = gneiss::math::vector3{0, 1, 1};
   if (gneiss::meta::view(candidate_transform)
-              ->capability<gneiss::meta::cap::object>()
+              .capability<gneiss::meta::cap::object>()
               ->member(gneiss::meta::transform_scale_field)
               ->assign(proposed) != gneiss::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
@@ -211,14 +211,14 @@ int main(int argc, char** argv) {
   service::camera_description candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
   if (gneiss::meta::view(candidate_camera.settings)
-          ->capability<gneiss::meta::cap::object>()
+          .capability<gneiss::meta::cap::object>()
           ->member(gneiss::meta::property_id{2})
           ->assign(proposed) != gneiss::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
   if (gneiss::meta::view(candidate_camera.settings)
-              ->capability<gneiss::meta::cap::object>()
+              .capability<gneiss::meta::cap::object>()
               ->member("far")
               ->assign(proposed) != gneiss::error::success ||
       candidate_camera.settings.near_plane != 30 || candidate_camera.settings.far_plane != 40) {

@@ -128,12 +128,11 @@ int main() try {
   CHECK(m::freeze(r).ok());
   optional_description optional;
   auto optional_root = m::view(r, optional);
-  CHECK(optional_root);
-  CHECK(optional_root->template capability<gneiss::meta::cap::object>()
+  CHECK(optional_root.template capability<gneiss::meta::cap::object>()
             ->member("number")
             ->as_optional()
             .error() == e::error::unsupported);
-  CHECK(optional_root->as_const()
+  CHECK(optional_root.as_const()
             .template capability<gneiss::meta::cap::object>()
             ->member("number")
             ->as_optional()
@@ -141,12 +140,11 @@ int main() try {
   auto rejected_number = gneiss::serialization::json::decode<optional_description>(
       gneiss::serialization::read_context{r}, bytes(R"({"number":-1})"));
   CHECK(!rejected_number && rejected_number.error().path == "/number");
-  auto slot = optional_root->template capability<gneiss::meta::cap::object>()
-                  ->member("item")
-                  ->as_optional();
+  auto slot =
+      optional_root.template capability<gneiss::meta::cap::object>()->member("item")->as_optional();
   CHECK(slot && !slot->has_value());
   CHECK(slot->get().error() == e::error::not_found);
-  CHECK(optional_root->template capability<gneiss::meta::cap::object>()
+  CHECK(optional_root.template capability<gneiss::meta::cap::object>()
             ->member("item")
             ->read_value()
             .error() == e::error::unsupported);
@@ -186,12 +184,11 @@ int main() try {
                                                    optional));
   tree source;
   auto root = m::view(r, source);
-  CHECK(root);
   auto info = gneiss::meta::find_type(r, tree::type_guid)
                   .capability<gneiss::meta::cap::object>()
                   .find_property(m::property_id{1});
   CHECK(info && info.type().kind() == m::type_kind::sequence && !info.type().guid());
-  auto items = root->template capability<gneiss::meta::cap::object>()->member("items");
+  auto items = root.template capability<gneiss::meta::cap::object>()->member("items");
   CHECK(items);
   CHECK(items->read_value().error() == e::error::unsupported);
   CHECK(items->as_associative().error() == e::error::unsupported);
@@ -206,16 +203,16 @@ int main() try {
             ->assign(e::value{5.0F})
             .ok());
   CHECK(source.items[1].speed == 5);
-  CHECK(root->template capability<gneiss::meta::cap::object>()->member("readonly").error() ==
+  CHECK(root.template capability<gneiss::meta::cap::object>()->member("readonly").error() ==
         e::error::unsupported);
-  auto readonly = root->as_const()
+  auto readonly = root.as_const()
                       .template capability<gneiss::meta::cap::object>()
                       ->member("readonly")
                       ->as_sequence();
   CHECK(readonly);
   CHECK(std::get<float>(readonly->at(0)->read_value()->payload) == 4);
   auto groups =
-      root->template capability<gneiss::meta::cap::object>()->member("groups")->as_associative();
+      root.template capability<gneiss::meta::cap::object>()->member("groups")->as_associative();
   CHECK(groups && groups->size() == source.groups.size());
   auto inserted = groups->insert("a/b~");
   CHECK(inserted);
@@ -231,7 +228,7 @@ int main() try {
   CHECK(groups->insert("a/b~")->as_sequence()->at(1)->read_value()->kind() ==
         e::value_kind::float32);
   auto maybe =
-      root->template capability<gneiss::meta::cap::object>()->member("maybe")->as_sequence();
+      root.template capability<gneiss::meta::cap::object>()->member("maybe")->as_sequence();
   CHECK(maybe && maybe->resize(1).ok() && source.maybe.size() == 1);
   source.labels = {{"z", "last"}, {"a", "first"}};
   auto encoded =
@@ -279,7 +276,7 @@ int main() try {
                                                    bytes(deep)));
   CHECK(tree::alive == alive_before_failure);
   // 读任务期间没有修改目标；视图本身不提供线程同步。
-  auto future = std::async(std::launch::async, [view = root->as_const()] {
+  auto future = std::async(std::launch::async, [view = root.as_const()] {
     return view.template capability<gneiss::meta::cap::object>()
         ->member("items")
         ->as_sequence()
@@ -288,7 +285,7 @@ int main() try {
   auto count = future.get();
   CHECK(count == source.items.size());
   // 根视图销毁后子视图仍持有注册表；目标对象 source 仍存活。
-  *root = {};
+  root = {};
   r.reset();
   CHECK(seq->size() == 2);
   return 0;

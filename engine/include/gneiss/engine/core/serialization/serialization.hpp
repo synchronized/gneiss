@@ -39,9 +39,7 @@ result<writer::node, diagnostic> write_node(const write_context& ctx, const T& v
   if (!registry)
     return diagnostic{.error = registry.error()};
   auto view = meta::view(*registry, std::as_const(value));
-  if (!view)
-    return diagnostic{.error = view.error()};
-  return write_node(ctx, *view, output);
+  return write_node(ctx, view, output);
 }
 
 template <class T>
@@ -57,9 +55,7 @@ result<void, diagnostic> write(const write_context& ctx, const T& value, writer&
   if (!registry)
     return diagnostic{.error = registry.error()};
   auto view = meta::view(*registry, std::as_const(value));
-  if (!view)
-    return diagnostic{.error = view.error()};
-  return write(ctx, *view, output);
+  return write(ctx, view, output);
 }
 template <class T> result<void, diagnostic> write(const T& value, writer& output) {
   write_context ctx;

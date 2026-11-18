@@ -132,9 +132,7 @@ template <class T> component_adapter make_component_adapter(component_operations
         if (ops.properties->read)
           return ops.properties->read(*typed, type, property);
         auto root = meta::view(std::as_const(*typed));
-        if (!root)
-          return root.error();
-        auto object = root->template capability<meta::cap::object>();
+        auto object = root.template capability<meta::cap::object>();
         if (!object)
           return object.error();
         auto field = object->member(property);
@@ -149,9 +147,7 @@ template <class T> component_adapter make_component_adapter(component_operations
           if (ops.properties->edit)
             return ops.properties->edit(copy, type, property, input);
           auto root = meta::view(copy);
-          if (!root)
-            return root.error();
-          auto object = root->template capability<meta::cap::object>();
+          auto object = root.template capability<meta::cap::object>();
           if (!object)
             return object.error();
           auto field = object->member(property);
@@ -170,9 +166,7 @@ template <class T> component_adapter make_component_adapter(component_operations
           return error::invalid_argument;
         auto copy = *source->get<T>();
         auto view = meta::view(copy);
-        if (!view)
-          return view.error();
-        auto status = change(*view);
+        auto status = change(view);
         if (status.ok())
           status = ops.validate(copy);
         if (status.failed())

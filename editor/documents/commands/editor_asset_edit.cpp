@@ -167,9 +167,7 @@ gneiss::error editor_asset_edit::request_property(runtime::application& app,
   mesh_component_description description{std::string(resource_uri(binding.mesh)),
                                          std::string(resource_uri(binding.material))};
   auto root = meta::view(description);
-  if (!root)
-    return root.error();
-  auto field = meta::resolve_path(*root, edit.path);
+  auto field = meta::resolve_path(root, edit.path);
   auto status = field ? field->assign(edit.data) : field.error();
   if (status.failed())
     return status;

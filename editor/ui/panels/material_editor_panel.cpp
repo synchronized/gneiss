@@ -65,11 +65,7 @@ void draw_material_editor(material_editor_model& model, gneiss::files::service& 
       ImGui::TextUnformatted("Texture URI: press Enter to apply. No live GPU preview.");
       std::optional<property_edit> pending;
       auto root = gneiss::meta::view(std::as_const(model.description()));
-      if (!root)
-        status = root.error();
-      else {
-        pending = draw_reflected_properties(*root, "Material", serial, status);
-      }
+      pending = draw_reflected_properties(root, "Material", serial, status);
       // 遍历结束后修改，避免更换快照使借用视图失效。
       if (pending) {
         if (pending->object) {

@@ -167,7 +167,7 @@ int main(int argc, char** argv) try {
       return 7;
     const float invalid_scalar = std::numeric_limits<float>::infinity();
     auto scalar = gneiss::meta::view(registry, invalid_scalar);
-    if (!scalar || scalar->read_value().error() != error::invalid_argument)
+    if (scalar.read_value().error() != error::invalid_argument)
       return 8;
     fixture.read_error = error::not_ready;
     if (fov->read_value().error() != error::not_ready)

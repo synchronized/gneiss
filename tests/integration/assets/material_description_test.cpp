@@ -33,8 +33,7 @@ void native_material_contract() {
   auto material = gneiss::asset_file::deserialize<material_description>(input);
   check(material.ok());
   auto root = meta::view(*material);
-  check(root.ok());
-  auto parameters = root->template capability<gneiss::meta::cap::object>()->member("parameters");
+  auto parameters = root.template capability<gneiss::meta::cap::object>()->member("parameters");
   check(parameters.ok());
   auto color = parameters->template capability<gneiss::meta::cap::object>()->member("color");
   check(color && color->read_value()->kind() == value_kind::vec4);

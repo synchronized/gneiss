@@ -241,10 +241,9 @@ int main() {
   CHECK(!m::type_of<std::int64_t>(r).capability<gneiss::meta::cap::representation>());
   const std::int64_t unrelated = 42;
   auto unrelated_view = m::view(r, unrelated);
-  CHECK(unrelated_view);
   bool consumed = false;
   auto mismatch = m::type_of<external_id>(r).capability<gneiss::meta::cap::representation>().encode(
-      *unrelated_view, [&](const m::const_instance&) {
+      unrelated_view, [&](const m::const_instance&) {
         consumed = true;
         return gneiss::error::success;
       });
@@ -280,15 +279,14 @@ int main() {
   auto* member = holder_output.root_value->members.front().second;
   memory_reader holder_input{holder_output.root_value};
   auto holder_view = m::view(r, holder);
-  CHECK(holder_view);
   member->data = e::value{std::int64_t{-1}};
-  CHECK(!s::read_into(adapted_read, holder_input, *holder_view));
+  CHECK(!s::read_into(adapted_read, holder_input, holder_view));
   CHECK(holder.id.number == 7);
   member->data = e::value{std::int64_t{13}};
-  CHECK(!s::read_into(adapted_read, holder_input, *holder_view));
+  CHECK(!s::read_into(adapted_read, holder_input, holder_view));
   CHECK(holder.id.number == 7);
   member->data = e::value{std::int64_t{21}};
-  CHECK(s::read_into(adapted_read, holder_input, *holder_view));
+  CHECK(s::read_into(adapted_read, holder_input, holder_view));
   CHECK(holder.id.number == 21);
   s::write_context polymorphic_write{r};
   s::read_context polymorphic_read{r};
@@ -322,13 +320,12 @@ int main() {
   memory_reader input{output.root_value};
   record target_record;
   auto target_view = m::view(r, target_record);
-  CHECK(target_view);
-  CHECK(s::read_into(read_ctx, input, *target_view));
+  CHECK(s::read_into(read_ctx, input, target_view));
   CHECK(target_record.required == original.required && target_record.numbers == original.numbers);
   memory_writer borrowed_output;
-  CHECK(s::write(target_view->as_const(), borrowed_output));
+  CHECK(s::write(target_view.as_const(), borrowed_output));
   memory_reader borrowed_input{borrowed_output.root_value};
-  CHECK(s::read_into(borrowed_input, *target_view));
+  CHECK(s::read_into(borrowed_input, target_view));
   auto copy = s::decode<record>(read_ctx, input);
   CHECK(copy && copy->numbers == original.numbers && copy->names == original.names &&
         copy->label == original.label);
@@ -376,16 +373,15 @@ int main() {
   s::write_context mismatched{other};
   s::read_context read_mismatched{other};
   auto view = m::view(r, original);
-  CHECK(view);
-  CHECK(failed_with(s::write(mismatched, view->as_const(), limited), e::error::invalid_argument));
-  CHECK(failed_with(s::read_into(read_mismatched, recovered_input, *view),
+  CHECK(failed_with(s::write(mismatched, view.as_const(), limited), e::error::invalid_argument));
+  CHECK(failed_with(s::read_into(read_mismatched, recovered_input, view),
                     e::error::invalid_argument));
   CHECK(original.required == 12);
   s::write_context invalid{m::registry_ref{}};
 
   CHECK(failed_with(s::write(invalid, original, limited), e::error::invalid_handle));
   s::read_context read_invalid{m::registry_ref{}};
-  CHECK(failed_with(s::read_into(read_invalid, recovered_input, *view), e::error::invalid_handle));
+  CHECK(failed_with(s::read_into(read_invalid, recovered_input, view), e::error::invalid_handle));
   CHECK(read_invalid.property_path().empty());
 
   original.object.reset();

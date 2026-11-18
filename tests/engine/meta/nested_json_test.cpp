@@ -270,14 +270,12 @@ bool nested_json_contract() {
   auto destination_view = m::view(node_registry, destination);
   e::serialization::write_context mismatch{custom};
   e::serialization::read_context read_mismatch{custom};
-  if (!destination_view ||
-      e::serialization::json::read_into(read_mismatch, *destination_view,
-                                        bytes(R"({"isolated":8})"))
+  if (e::serialization::json::read_into(read_mismatch, destination_view, bytes(R"({"isolated":8})"))
               .error()
               .error != e::error::invalid_argument ||
       destination.value != 19)
     return false;
-  if (e::serialization::json::encode_instance(mismatch, destination_view->as_const()))
+  if (e::serialization::json::encode_instance(mismatch, destination_view.as_const()))
     return false;
   auto reentrant = m::create_registry();
   if (!reentrant ||

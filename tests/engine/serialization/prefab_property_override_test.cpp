@@ -97,9 +97,7 @@ int main() {
     const meta::property_path path{meta::property_id{2}, source_b, meta::property_id{2}};
     const auto read = [&]() -> result<value> {
       auto root = meta::view(std::as_const(scene));
-      if (!root)
-        return root.error();
-      auto leaf = meta::resolve_path(*root, path, true);
+      auto leaf = meta::resolve_path(root, path, true);
       return leaf ? leaf->read_value() : result<value>{leaf.error()};
     };
     if (!read() || std::get<std::string>(read()->payload) != "b")
@@ -124,14 +122,14 @@ int main() {
       return 45;
     auto root = meta::view(std::as_const(scene));
     const meta::property_path index{meta::property_id{2}, std::size_t{0}};
-    if (meta::resolve_path(*root, index, true).error() != error::unsupported)
+    if (meta::resolve_path(root, index, true).error() != error::unsupported)
       return 46;
-    if (!meta::resolve_path(*root, index))
+    if (!meta::resolve_path(root, index))
       return 47;
     std::map<std::string, float> mapping{{"a/b", 3.0F}};
     auto map = meta::view(mapping);
     const meta::property_path map_path{std::string("a/b")};
-    auto leaf = meta::resolve_path(*map, map_path, true);
+    auto leaf = meta::resolve_path(map, map_path, true);
     if (!leaf || leaf->assign(value{4.0F}).failed() || mapping["a/b"] != 4)
       return 48;
   }
@@ -146,7 +144,7 @@ int main() {
     auto changed = original;
     changed.waypoints = {{source_b, 20}, {third, 3}};
     auto a = meta::view(std::as_const(original)), b = meta::view(std::as_const(changed));
-    auto before = serialization::capture_value(*a), after = serialization::capture_value(*b);
+    auto before = serialization::capture_value(a), after = serialization::capture_value(b);
     if (!before || !after)
       return 70;
     auto edits = diff_values(*before, *after);
@@ -240,7 +238,7 @@ int main() {
     movement_description movement;
     auto view = meta::view(std::as_const(movement));
     auto samples =
-        view->template capability<gneiss::meta::cap::object>()->member(meta::property_id{4});
+        view.template capability<gneiss::meta::cap::object>()->member(meta::property_id{4});
     auto before = serialization::capture_value(*samples);
     movement.samples = {8, 9, 10};
     auto after = serialization::capture_value(*samples);
