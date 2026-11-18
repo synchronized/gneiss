@@ -209,3 +209,17 @@ Runtime、Editor 工作流。未执行静态、Linux/Web 或远端验证。
 
 验收：Windows Clang Debug 共享构建及 19 项相关测试通过，包含握手协商、错误令牌、
 负载限制、心跳数值拒绝和真实 Runtime/Editor 工作流。未执行静态库、跨平台或远端验证。
+
+## Session 收发入口收敛
+
+- [x] Editor/Runtime 的 Hello、心跳、错误及关闭调用统一使用消息描述编解码。
+- [x] 删除八个旧 codec 入口，以及四个纯转发源文件和 CMake 条目。
+- [x] 测试直接使用正式接口，保留认证协商、超时、断连、控制生命周期和属性往返覆盖。
+
+不改变 Session v2 格式。Runtime 保留响应请求关联及协商范围校验；Editor 保留认证和
+发送成功后才进入已认证状态的顺序。会话语义没有下沉到通用协议层。当前接口见
+[IPC 参考](../reference/platform-ipc.md#session-类型化消息)。
+
+验收：Windows Clang Debug 共享构建及 19 项相关测试通过，git diff --check 通过。
+未执行静态库、跨平台或远端验证。Session 上述包装已收敛；stdout 编码评估及整体计划
+剩余验收仍待继续，不将本次迁移视为 PLAN-120 全部完成。

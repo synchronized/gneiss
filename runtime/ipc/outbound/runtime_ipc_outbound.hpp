@@ -21,16 +21,6 @@
 
 namespace gneiss::host {
 
-[[nodiscard]] gneiss::error
-make_session_hello_event(const std::string& token,
-                         const std::vector<gneiss::protocol::domain_capability>& domains,
-                         std::uint32_t request_id, gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error make_shutdown_event(std::int32_t exit_code,
-                                                gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error make_protocol_error_response(gneiss::error operation,
-                                                         std::string message,
-                                                         std::uint32_t request_id,
-                                                         gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error make_ready_event(gneiss::ipc::envelope& output) noexcept;
 [[nodiscard]] gneiss::error make_state_event(ipc_control_state state,
                                              gneiss::ipc::envelope& output);

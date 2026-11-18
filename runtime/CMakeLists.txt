@@ -10,11 +10,8 @@ add_library(
   ipc/inbound/property_commands.cpp
   ipc/inbound/session_commands.cpp
   ipc/outbound/log_events.cpp
-  ipc/outbound/protocol_error_response.cpp
   ipc/outbound/ready_event.cpp
   ipc/outbound/runtime_ipc_outbound.hpp
-  ipc/outbound/session_hello_event.cpp
-  ipc/outbound/shutdown_event.cpp
   ipc/outbound/state_event.cpp
   ipc/outbound/statistics_events.cpp
   ipc/runtime_command_context.cpp

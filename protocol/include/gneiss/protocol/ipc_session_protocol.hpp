@@ -64,29 +64,6 @@ extern const protocol::message_descriptor<ipc_session_error> session_editor_erro
     session_runtime_error;
 extern const protocol::message_descriptor<ipc_session_shutdown> session_shutdown;
 
-[[nodiscard]] gneiss::error encode_ipc_session_hello(const ipc_session_hello& message,
-                                                     bool response, std::uint32_t request_id,
-                                                     gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_session_hello(const gneiss::ipc::envelope& envelope,
-                                                     ipc_session_hello& output);
-
-[[nodiscard]] gneiss::error encode_ipc_session_heartbeat(const ipc_session_heartbeat& message,
-                                                         bool response, std::uint32_t request_id,
-                                                         gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_session_heartbeat(const gneiss::ipc::envelope& envelope,
-                                                         ipc_session_heartbeat& output) noexcept;
-
-[[nodiscard]] gneiss::error encode_ipc_session_error(const ipc_session_error& message,
-                                                     std::uint32_t request_id,
-                                                     gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_session_error(const gneiss::ipc::envelope& envelope,
-                                                     ipc_session_error& output);
-
-[[nodiscard]] gneiss::error encode_ipc_session_shutdown(const ipc_session_shutdown& message,
-                                                        gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_session_shutdown(const gneiss::ipc::envelope& envelope,
-                                                        ipc_session_shutdown& output) noexcept;
-
 /** 校验 Hello 令牌并按请求顺序协商双方均支持的域版本。 */
 [[nodiscard]] gneiss::error
 negotiate_ipc_session_hello(const ipc_session_hello& request, std::string_view expected_token,

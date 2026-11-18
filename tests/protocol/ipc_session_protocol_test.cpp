@@ -17,63 +17,45 @@ namespace {
       .token = "secret",
       .domains = {{.domain = gneiss::protocol::domain::control, .version = 2U},
                   {.domain = gneiss::protocol::domain::property, .version = 1U}}};
-  gneiss::ipc::envelope envelope;
-  if (gneiss::host::encode_ipc_session_hello(request, false, 7U, envelope) !=
-      gneiss::error::success) {
+  auto envelope = gneiss::protocol::encode(session_hello, request, 7U);
+  if (!envelope)
     return false;
-  }
-  gneiss::host::ipc_session_hello decoded;
-  if (gneiss::host::decode_ipc_session_hello(envelope, decoded) != gneiss::error::success ||
-      decoded.token != request.token || decoded.domains.size() != 2U) {
+  auto decoded = gneiss::protocol::decode(session_hello, *envelope);
+  if (!decoded || decoded->token != request.token || decoded->domains.size() != 2U)
     return false;
-  }
   constexpr std::array supported{
-      gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::control,
-                                          .version = 1U},
-      gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::log, .version = 1U}};
-  gneiss::host::ipc_session_hello acknowledgment;
-  if (gneiss::host::negotiate_ipc_session_hello(decoded, "secret", supported, acknowledgment) !=
-          gneiss::error::success ||
-      acknowledgment.domains.size() != 1U || acknowledgment.domains[0].version != 1U ||
-      gneiss::host::encode_ipc_session_hello(acknowledgment, true, envelope.request_id, envelope) !=
-          gneiss::error::success) {
+      gneiss::protocol::domain_capability{gneiss::protocol::domain::control, 1U},
+      gneiss::protocol::domain_capability{gneiss::protocol::domain::log, 1U}};
+  ipc_session_hello acknowledgment;
+  if (negotiate_ipc_session_hello(*decoded, "secret", supported, acknowledgment).failed() ||
+      acknowledgment.domains.size() != 1U || acknowledgment.domains[0].version != 1U)
     return false;
-  }
-  gneiss::host::ipc_session_hello accepted;
-  return gneiss::host::decode_ipc_session_hello(envelope, accepted) == gneiss::error::success &&
-         accepted.token.empty() && accepted.domains == acknowledgment.domains;
+  auto response = gneiss::protocol::encode(session_accepted, acknowledgment, envelope->request_id);
+  if (!response)
+    return false;
+  auto accepted = gneiss::protocol::decode(session_accepted, *response);
+  return accepted && accepted->token.empty() && accepted->domains == acknowledgment.domains;
 }
 
 [[nodiscard]] bool test_session_messages() {
-  gneiss::ipc::envelope envelope;
-  const gneiss::host::ipc_session_heartbeat heartbeat{.nonce = 42U};
-  if (gneiss::host::encode_ipc_session_heartbeat(heartbeat, false, 8U, envelope) !=
-      gneiss::error::success) {
+  namespace p = gneiss::protocol;
+  auto ping = p::encode(session_ping, ipc_session_heartbeat{42U}, 8U);
+  if (!ping)
     return false;
-  }
-  gneiss::host::ipc_session_heartbeat decoded_heartbeat;
-  if (gneiss::host::decode_ipc_session_heartbeat(envelope, decoded_heartbeat) !=
-          gneiss::error::success ||
-      decoded_heartbeat.nonce != heartbeat.nonce) {
+  auto heartbeat = p::decode(session_ping, *ping);
+  if (!heartbeat || heartbeat->nonce != 42U)
     return false;
-  }
-  const gneiss::host::ipc_session_error error{.code = -8, .message = "状态错误"};
-  if (gneiss::host::encode_ipc_session_error(error, 8U, envelope) != gneiss::error::success) {
+  auto failure = p::encode(session_runtime_error, ipc_session_error{-8, "状态错误"}, 8U);
+  if (!failure)
     return false;
-  }
-  gneiss::host::ipc_session_error decoded_error;
-  if (gneiss::host::decode_ipc_session_error(envelope, decoded_error) != gneiss::error::success ||
-      decoded_error.code != error.code || decoded_error.message != error.message) {
+  auto decoded_error = p::decode(session_runtime_error, *failure);
+  if (!decoded_error || decoded_error->code != -8 || decoded_error->message != "状态错误")
     return false;
-  }
-  const gneiss::host::ipc_session_shutdown shutdown{.exit_code = 3};
-  if (gneiss::host::encode_ipc_session_shutdown(shutdown, envelope) != gneiss::error::success) {
+  auto shutdown = p::encode(session_shutdown, ipc_session_shutdown{3});
+  if (!shutdown)
     return false;
-  }
-  gneiss::host::ipc_session_shutdown decoded_shutdown;
-  return gneiss::host::decode_ipc_session_shutdown(envelope, decoded_shutdown) ==
-             gneiss::error::success &&
-         decoded_shutdown.exit_code == shutdown.exit_code;
+  auto decoded_shutdown = p::decode(session_shutdown, *shutdown);
+  return decoded_shutdown && decoded_shutdown->exit_code == 3;
 }
 
 [[nodiscard]] bool test_rejections() {
@@ -91,9 +73,7 @@ namespace {
       gneiss::error::invalid_argument) {
     return false;
   }
-  gneiss::ipc::envelope envelope;
-  return gneiss::host::encode_ipc_session_hello(request, false, 0U, envelope) ==
-         gneiss::error::invalid_argument;
+  return !gneiss::protocol::encode(session_hello, request, 0U);
 }
 
 [[nodiscard]] bool test_direction_rules() {

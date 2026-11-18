@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/domains.hpp>
 #include "runtime/ipc/editor_ipc_session.hpp"
 #include <gneiss/engine/error.hpp>
+#include <gneiss/protocol/domains.hpp>
 
-#include "runtime/ipc/outbound/editor_ipc_outbound.hpp"
 #include "runtime/ipc/editor_ipc_router.hpp"
+#include "runtime/ipc/outbound/editor_ipc_outbound.hpp"
 #include <gneiss/protocol/ipc_protocol_domains.hpp>
 #include <gneiss/protocol/ipc_session_protocol.hpp>
 
@@ -49,13 +49,12 @@ struct editor_ipc_session::implementation final {
   std::uint64_t next_ping_nonce = 1U;
   std::uint32_t next_request_id = 2U;
 
-  gneiss::error dispatch(const gneiss::ipc::envelope& envelope,
-                                 runtime_ipc_event& output) {
+  gneiss::error dispatch(const gneiss::ipc::envelope& envelope, runtime_ipc_event& output) {
     return router.dispatch(envelope, is_authenticated, negotiated_domains, output);
   }
 
   gneiss::error accept_hello(const gneiss::ipc::envelope& envelope,
-                                     std::chrono::steady_clock::time_point now) {
+                             std::chrono::steady_clock::time_point now) {
     runtime_ipc_event decoded;
     auto operation = dispatch(envelope, decoded);
     ipc_session_hello acknowledgment_message;
@@ -66,41 +65,35 @@ struct editor_ipc_session::implementation final {
     } else if (operation == gneiss::error::success) {
       operation = gneiss::error::invalid_argument;
     }
-    gneiss::ipc::envelope acknowledgment;
-    if (operation == gneiss::error::success) {
-      operation = encode_ipc_session_hello(acknowledgment_message, true, envelope.request_id,
-                                           acknowledgment);
-    }
-    if (operation == gneiss::error::success) {
-      operation = server.send(acknowledgment);
-    }
-    if (operation != gneiss::error::success) {
+    if (operation != error::success)
       return operation;
-    }
+    auto acknowledgment =
+        protocol::encode(session_accepted, acknowledgment_message, envelope.request_id);
+    if (!acknowledgment)
+      return acknowledgment.error().error;
+    operation = server.send(*acknowledgment);
+    if (operation != error::success)
+      return operation;
     is_authenticated = true;
     negotiated_domains = std::move(acknowledgment_message.domains);
     supports_property_editing =
         std::ranges::find(negotiated_domains, gneiss::protocol::domain::property,
-                          &gneiss::protocol::domain_capability::domain) !=
-        negotiated_domains.end();
-    supports_asset_reload = std::ranges::find(negotiated_domains, gneiss::protocol::domain::asset,
-                                              &gneiss::protocol::domain_capability::domain) !=
-                            negotiated_domains.end();
+                          &gneiss::protocol::domain_capability::domain) != negotiated_domains.end();
+    supports_asset_reload =
+        std::ranges::find(negotiated_domains, gneiss::protocol::domain::asset,
+                          &gneiss::protocol::domain_capability::domain) != negotiated_domains.end();
     heartbeat.reset(now);
     next_ping = now;
     return gneiss::error::success;
   }
 
-  gneiss::error send(gneiss::ipc::envelope envelope) {
-    return server.send(envelope);
-  }
+  gneiss::error send(gneiss::ipc::envelope envelope) { return server.send(envelope); }
 };
 
 editor_ipc_session::editor_ipc_session() : implementation_(std::make_unique<implementation>()) {}
 
 editor_ipc_session::~editor_ipc_session() {
-  if (implementation_ &&
-      implementation_->server.state() != gneiss::ipc::transport_state::stopped) {
+  if (implementation_ && implementation_->server.state() != gneiss::ipc::transport_state::stopped) {
     (void)implementation_->server.stop();
   }
 }
@@ -144,7 +137,7 @@ gneiss::error editor_ipc_session::stop() {
 }
 
 gneiss::error editor_ipc_session::update(bool is_peer_running,
-                                                 std::vector<runtime_ipc_event>& output) {
+                                         std::vector<runtime_ipc_event>& output) {
   if (!implementation_) {
     return gneiss::error::invalid_state;
   }
@@ -157,9 +150,8 @@ gneiss::error editor_ipc_session::update(bool is_peer_running,
       if (event.type == gneiss::ipc::transport_event_type::error ||
           event.type == gneiss::ipc::transport_event_type::disconnected) {
         if (is_peer_running) {
-          transport_failure = event.operation == gneiss::error::success
-                                  ? gneiss::error::io
-                                  : event.operation;
+          transport_failure =
+              event.operation == gneiss::error::success ? gneiss::error::io : event.operation;
         }
         continue;
       }
@@ -192,17 +184,14 @@ gneiss::error editor_ipc_session::update(bool is_peer_running,
       return gneiss::error::success;
     }
     if (!implementation_->is_authenticated) {
-      return is_peer_running && implementation_->handshake.expired(now)
-                 ? gneiss::error::not_ready
-                 : gneiss::error::success;
+      return is_peer_running && implementation_->handshake.expired(now) ? gneiss::error::not_ready
+                                                                        : gneiss::error::success;
     }
     if (now >= implementation_->next_ping) {
-      gneiss::ipc::envelope ping;
-      auto operation = make_heartbeat_command(implementation_->next_ping_nonce++,
-                                              implementation_->next_request_id++, ping);
-      if (operation == gneiss::error::success) {
-        operation = implementation_->send(std::move(ping));
-      }
+      auto ping = protocol::encode(
+          session_ping, ipc_session_heartbeat{.nonce = implementation_->next_ping_nonce++},
+          implementation_->next_request_id++);
+      const auto operation = ping ? implementation_->send(std::move(*ping)) : ping.error().error;
       if (operation != gneiss::error::success) {
         return operation;
       }
@@ -220,7 +209,7 @@ gneiss::error editor_ipc_session::request_stop() {
   gneiss::ipc::envelope command;
   auto operation = make_stop_command(implementation_->next_request_id++, command);
   return operation == gneiss::error::success ? implementation_->send(std::move(command))
-                                                     : operation;
+                                             : operation;
 }
 
 gneiss::error editor_ipc_session::request_pause() {
@@ -230,7 +219,7 @@ gneiss::error editor_ipc_session::request_pause() {
   gneiss::ipc::envelope command;
   auto operation = make_pause_command(implementation_->next_request_id++, command);
   return operation == gneiss::error::success ? implementation_->send(std::move(command))
-                                                     : operation;
+                                             : operation;
 }
 
 gneiss::error editor_ipc_session::request_resume() {
@@ -240,7 +229,7 @@ gneiss::error editor_ipc_session::request_resume() {
   gneiss::ipc::envelope command;
   auto operation = make_resume_command(implementation_->next_request_id++, command);
   return operation == gneiss::error::success ? implementation_->send(std::move(command))
-                                                     : operation;
+                                             : operation;
 }
 
 gneiss::error editor_ipc_session::request_inspection_resync() {
@@ -250,7 +239,7 @@ gneiss::error editor_ipc_session::request_inspection_resync() {
   gneiss::ipc::envelope command;
   auto operation = make_inspection_resync_command(implementation_->next_request_id++, command);
   return operation == gneiss::error::success ? implementation_->send(std::move(command))
-                                                     : operation;
+                                             : operation;
 }
 
 gneiss::error editor_ipc_session::send_property_write(const ipc_property_write& value) {
@@ -259,7 +248,8 @@ gneiss::error editor_ipc_session::send_property_write(const ipc_property_write& 
   }
   if (value.command_id > UINT32_MAX)
     return error::invalid_argument;
-  auto command = protocol::encode(property_write, value, static_cast<std::uint32_t>(value.command_id));
+  auto command =
+      protocol::encode(property_write, value, static_cast<std::uint32_t>(value.command_id));
   return command ? implementation_->send(std::move(*command)) : command.error().error;
 }
 

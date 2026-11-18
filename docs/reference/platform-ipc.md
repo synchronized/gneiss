@@ -162,5 +162,10 @@ Session 负载上限为 64 KiB，错误文本上限为 16 KiB。超时跟踪与�
 
 宿主在握手前通过 initialize_meta(protocol::register_types) 完成注册。发送方向和握手状态
 仍由路由及会话层检查，反射不代替认证。Hello 响应从省略 token 改为显式空字符串，
-v1/v2 不兼容，需要配套升级宿主。旧 Session 编解码入口暂保留为类型化编解码的委托，
-其余宿主包装尚未全部收敛。
+v1/v2 不兼容，需要配套升级宿主。
+
+Session 收发统一使用 protocol::encode/decode 和对应消息描述，已移除八个旧编解码入口，
+以及 Hello、关闭、协议错误和 Editor 心跳的纯转发文件。调用方明确选择请求或响应描述，
+不再传 response 布尔值。Runtime 只接受关联请求 ID 为 1 的 session_accepted，并继续验证
+返回域和版本没有超出请求范围；Editor 仅在认证、协商与响应发送成功后进入已认证状态。
+会话状态、超时和业务事件转换仍由各自宿主拥有，不移入通用编解码层。

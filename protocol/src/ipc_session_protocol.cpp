@@ -94,69 +94,6 @@ const std::array session_operations = [] {
   return std::array{hello, heartbeat, failure, session_shutdown.rule()};
 }();
 }
-error encode_ipc_session_hello(const ipc_session_hello& message, bool response,
-                               std::uint32_t request_id, ipc::envelope& output) {
-  auto encoded = protocol::encode(response ? session_accepted : session_hello, message, request_id);
-  if (!encoded)
-    return encoded.error().error;
-  output = std::move(*encoded);
-  return error::success;
-}
-error decode_ipc_session_hello(const ipc::envelope& envelope, ipc_session_hello& output) {
-  auto decoded = protocol::decode(
-      envelope.kind == ipc::message_kind::response ? session_accepted : session_hello, envelope);
-  if (!decoded)
-    return decoded.error().error;
-  output = std::move(*decoded);
-  return error::success;
-}
-error encode_ipc_session_heartbeat(const ipc_session_heartbeat& message, bool response,
-                                   std::uint32_t request_id, ipc::envelope& output) {
-  auto encoded = protocol::encode(response ? session_pong : session_ping, message, request_id);
-  if (!encoded)
-    return encoded.error().error;
-  output = std::move(*encoded);
-  return error::success;
-}
-error decode_ipc_session_heartbeat(const ipc::envelope& envelope,
-                                   ipc_session_heartbeat& output) noexcept {
-  auto decoded = protocol::decode(
-      envelope.kind == ipc::message_kind::response ? session_pong : session_ping, envelope);
-  if (!decoded)
-    return decoded.error().error;
-  output = std::move(*decoded);
-  return error::success;
-}
-error encode_ipc_session_error(const ipc_session_error& message, std::uint32_t request_id,
-                               ipc::envelope& output) {
-  auto encoded = protocol::encode(session_runtime_error, message, request_id);
-  if (!encoded)
-    return encoded.error().error;
-  output = std::move(*encoded);
-  return error::success;
-}
-error decode_ipc_session_error(const ipc::envelope& envelope, ipc_session_error& output) {
-  auto decoded = protocol::decode(session_runtime_error, envelope);
-  if (!decoded)
-    return decoded.error().error;
-  output = std::move(*decoded);
-  return error::success;
-}
-error encode_ipc_session_shutdown(const ipc_session_shutdown& message, ipc::envelope& output) {
-  auto encoded = protocol::encode(session_shutdown, message);
-  if (!encoded)
-    return encoded.error().error;
-  output = std::move(*encoded);
-  return error::success;
-}
-error decode_ipc_session_shutdown(const ipc::envelope& envelope,
-                                  ipc_session_shutdown& output) noexcept {
-  auto decoded = protocol::decode(session_shutdown, envelope);
-  if (!decoded)
-    return decoded.error().error;
-  output = std::move(*decoded);
-  return error::success;
-}
 gneiss::error
 negotiate_ipc_session_hello(const ipc_session_hello& request, std::string_view expected_token,
                             std::span<const gneiss::protocol::domain_capability> supported_domains,
