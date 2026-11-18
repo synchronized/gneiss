@@ -32,7 +32,7 @@ file(MAKE_DIRECTORY "${fixture}/engine/src/core" "${fixture}/engine/src/function
 file(WRITE "${fixture}/engine/src/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/engine/src/function/render/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/engine/src/function/asset/detail/asset_decode.cpp" "#include <gneiss/core/result.h>\n")
-file(WRITE "${fixture}/engine/src/resource/texture/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/engine/src/function/asset/loaders/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/engine/src/function/asset/loaders/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/engine/src/core/meta/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/engine/src/function/scene/probe.cpp" "#include <gneiss/render.h>\n")
@@ -180,14 +180,14 @@ foreach(header IN ITEMS "engine/function/asset/detail/asset_construction.hpp" "e
 endforeach()
 file(WRITE "${fixture}/engine/src/function/asset/detail/asset_decode.cpp" "#include <gneiss/core/result.h>\n")
 
-file(WRITE "${fixture}/engine/src/resource/texture/texture_decoder.hpp" "#include <engine/function/render/render_resource_data.hpp>\n")
+file(WRITE "${fixture}/engine/src/function/asset/loaders/texture_decoder.hpp" "#include <engine/function/render/render_resource_data.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/testing/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝准备契约包含 Render 资源值")
 endif()
-file(WRITE "${fixture}/engine/src/resource/texture/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/engine/src/function/asset/loaders/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
 
 # 新路径反例：避免目录迁移后检查只匹配旧路径而静默失效。
 foreach(header IN ITEMS "engine/function/scene/state.hpp" "engine/function/scene/tree.hpp"
@@ -624,7 +624,7 @@ if(NOT status EQUAL 0)
 endif()
 
 # 纹理 CPU 数据必须独立于具体容器格式。
-foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/resource/texture/texture_decoder.hpp)
+foreach(header IN ITEMS engine/resource/texture/texture_ktx2.hpp engine/function/asset/loaders/texture_decoder.hpp)
   file(WRITE "${fixture}/engine/src/resource/texture/texture_data.hpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/testing/check_core_boundary.cmake"

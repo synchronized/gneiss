@@ -21,7 +21,7 @@
 
 ## 阶段概览
 
-基础模块独立构建与平台职责迁移正在实施，见 [PLAN-124](plans/PLAN-124-foundation-modules.md)。
+基础模块独立构建与平台职责迁移已完成本地验收，验证范围见 [PLAN-124](plans/PLAN-124-foundation-modules.md)。
 
 0.52 架构整理仍在实施；当前跨计划剩余工作以
 [DEV-052 收尾清单](plans/DEV-052-architecture-cleanup.md#收尾审计后的明确待办) 为唯一来源。

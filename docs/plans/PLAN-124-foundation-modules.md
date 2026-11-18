@@ -3,7 +3,7 @@
 
 # PLAN-124：基础模块、平台边界与构建归属
 
-状态：实现中（2026-11-19）。决策见 [ADR-128](../decisions/ADR-128-foundation-modules.md)。
+状态：已完成（2026-11-19，本地验收；跨平台限制见最终验收）。决策见 [ADR-128](../decisions/ADR-128-foundation-modules.md)。
 
 ## 目标与范围
 
@@ -29,7 +29,7 @@ Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、�
 - [x] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
 - [x] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
 - [x] P5：领域归属。entity_id、业务诊断、编辑策略移回领域，Resource/功能目标各自管理源码。
-- [ ] P6：最终装配。静态/共享、安装包、真实消费者、跨模块身份与全量相关回归；同步当前文档。
+- [x] P6：最终装配。静态/共享、安装包、真实消费者、跨模块身份与全量相关回归；同步当前文档。
 
 每阶段源码只属于一个生产目标。不能仅完成文件搬移就勾选独立模块化。
 
@@ -70,7 +70,7 @@ Clang Debug 共享全量构建通过，214 项 CPU 测试通过；静态 Base/Ma
 render_camera 定向构建及测试通过。MSVC Release Base/Math 和跨 DLL 身份测试通过。
 共享安装树 Runtime --smoke 完成场景加载、首帧与正常关闭，Base/Math DLL 随包安装。
 core-boundary 和 git diff --check 通过。静态安装消费者、Web 和跨平台验收仍未完成。
-P2—P6 尚未完成；Base 头文件与实现的物理路径归位随 P5 完成，不将目标独立等同目录迁移完毕。
+该阶段 P2—P6 尚未完成；Base 头文件与实现的物理路径归位随 P5 完成，不将目标独立等同目录迁移完毕。
 
 2026-11-19：P2 完成。Data 独立持有 value、值编辑操作和属性路径数据，Meta 保留反射解析与
 variant traits。Meta/Serialization/JSON 分别有独立目标和导出控制；Engine 不重复编译其实现。
@@ -99,3 +99,19 @@ Core 边界检查通过，全部消费者和安装验收继续在 P6 完成。
 
 观测调整：平台窗口不再写入业务主循环的 window_pump/window_events/input_events 阶段，
 删除对应空计数列；Application 总体 events 阶段仍保留。窗口行为与输入交付语义不变。
+
+## 最终验收
+
+2026-11-19：P6 完成。解码器迁移后的边界规则与负例同步更新，仍拒绝 CPU 解码依赖
+Render 服务和 PNG 解码依赖 Granit；未放宽原有职责限制。
+
+- Clang Debug 共享全量构建通过，最终 214/214 CPU 测试通过。
+- 静态 Runtime/Project 构建、反射及 Native 文件测试通过；前述各模块定向静态测试通过。
+- 共享及静态安装 Runtime、普通发布包与 Shipping 包启动/关闭验收通过。
+- 静态安装树的独立 find_package(gneiss) 消费者配置、链接与运行通过，链接 Base、JSON、Files、
+  Resource、Tasks 安装目标；显式使用仓库内部头验证链接闭包，不代表新增公共 C++ SDK。
+- MSVC Release 反射、日志服务和 Native 文件构建及 3 项测试通过；跨 DLL 身份验收见前述记录。
+- 目录归属与构建指南已更新，生产源码归属和安装目标与计划一致。
+
+未验证项：本次未执行 Web、Linux、macOS 构建，也未执行完整 MSVC 测试矩阵；不据 Windows
+本地结果宣称这些平台通过。未推送分支、触发远端 CI 或发布版本。

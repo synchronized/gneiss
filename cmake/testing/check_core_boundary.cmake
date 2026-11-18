@@ -223,9 +223,17 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/(engine|runtime)/api/")
     continue()
   endif()
-  if(source MATCHES "(/engine/resource/(mesh/mesh_decoder|texture/texture_decoder)|/engine/function/(asset/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
+  if(source MATCHES "(/engine/function/asset/loaders/(mesh_decoder|texture_decoder)|/engine/function/(asset/detail/asset_decode|render/render_resource_data))\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|service)\\.(h|hpp)|engine/(function/asset/(resource_cache|asset_manager|detail/asset_construction)|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source_file}")
+  endif()
+  if(source MATCHES "/engine/function/asset/loaders/(mesh_decoder|texture_decoder)[.](cpp|hpp)$" AND
+      content MATCHES "engine/function/render/")
+    message(FATAL_ERROR "CPU 解码契约不得依赖 Render 资源或服务：${source_file}")
+  endif()
+  if(source MATCHES "/engine/function/asset/loaders/png_decoder[.](cpp|hpp)$" AND
+      content MATCHES "(engine/function/)?render/|granit/")
+    message(FATAL_ERROR "PNG 字节解码不得依赖 Render：${source_file}")
   endif()
   if(source MATCHES "/engine/core/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(platform|function|application|world|scene|render|resource|editor|tooling|apps)/|gneiss/(engine/)?application\\.h[>\"])")
