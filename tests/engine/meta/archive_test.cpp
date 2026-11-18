@@ -161,10 +161,8 @@ namespace gneiss::meta {
 template <> struct representation_traits<represented_derived> {
   static constexpr bool enabled = true;
   using representation_type = std::int64_t;
-  static result<representation_type> encode(const represented_derived& source) {
-    return source.number;
-  }
-  static result<represented_derived> decode(const representation_type& source) {
+  static representation_type encode(const represented_derived& source) { return source.number; }
+  static represented_derived decode(const representation_type& source) {
     represented_derived output;
     output.number = source;
     return output;
@@ -173,7 +171,7 @@ template <> struct representation_traits<represented_derived> {
 template <> struct representation_traits<external_id> {
   static constexpr bool enabled = true;
   using representation_type = std::optional<std::int64_t>;
-  static result<representation_type> encode(const external_id& source) {
+  static representation_type encode(const external_id& source) {
     return source.number ? representation_type{source.number} : representation_type{};
   }
   static result<external_id> decode(const representation_type& source) {
@@ -195,6 +193,8 @@ template <> struct representation_traits<recursive_id> {
   static constexpr bool enabled = true;
   using representation_type = std::optional<recursive_id>;
   static result<representation_type> encode(const recursive_id& id) {
+    if (id.number < 0)
+      return error::not_ready;
     return representation_type{id};
   }
   static result<recursive_id> decode(const representation_type& input) {
@@ -259,6 +259,8 @@ int main() {
   s::write_context recursive_write{r, 8};
   s::read_context recursive_read{r, 8};
   memory_writer recursive_output;
+  CHECK(failed_with(s::write(recursive_write, recursive_id{-1}, recursive_output),
+                    e::error::not_ready));
   CHECK(!s::write(recursive_write, recursive_id{1}, recursive_output));
   CHECK(!s::decode<recursive_id>(recursive_read, adapted_input));
 

@@ -8,7 +8,7 @@
 ## 已确认决策
 
 representation_traits<T> 定义 representation_type、encode(const T&) 与 decode(const R&)，
-均返回 result。静态 representation_ops 随 ops_of<T> 生成，不依赖 serialization、JSON、context。
+分别支持直接返回目标值或 result<目标值>。静态 representation_ops 随 ops_of<T> 生成，不依赖 serialization、JSON、context。
 特化必须在首次生成类型能力前可见，并在全部编译单元保持一致；不能运行时替换。
 注册表只保留字段、元数据及按 GUID 查找多态类型，不再用于查找固定表示能力。
 
@@ -155,7 +155,7 @@ JSON/归档序列化、Prefab 覆盖、World 与编辑器资产编辑。instance
 - [x] 验证注册表返回值迁移涉及的注册、冻结、实例与序列化消费者，更新参考文档。
 
 动态类型查找、字段路径、能力绑定与业务校验仍保留各自真实失败语义。
-表示转换 traits 的普通返回值支持另行处理，不与本轮静态借用迁移混合。
+表示转换 traits 的普通返回值支持见下方独立实施记录。
 
 注册表返回值迁移已完成：Clang Debug 相关目标构建和 13 项定向测试通过，
 包含场景描述与编辑器属性面板。未运行 MSVC、完整测试及远端矩阵。
@@ -163,3 +163,16 @@ JSON/归档序列化、Prefab 覆盖、World 与编辑器资产编辑。instance
 与编辑器入口均完成迁移；路径解析、能力绑定与读写失败继续保留错误返回。
 Clang Debug 编辑器主程序及受影响目标构建通过，18 项定向测试通过。
 同时补齐运行时属性编辑器遗漏的 is_frozen bool 调用迁移。未运行 MSVC、全量测试、GUI 冒烟及远端矩阵。
+
+## 表示转换返回值收敛（已完成）
+
+- [x] 静态 ops 精确适配普通目标值和 result<目标值>，不把 optional/bool 的空值当作失败。
+- [x] GUID 编码与数学类型转换直接返回值，GUID 解码保留校验失败。
+- [x] 验证自定义转换、格式、错误传播与 setter，更新参考文档。
+
+ops 仍返回 error：读写回调与消费候选的 setter 可能拒绝。转换临时值仅在回调期间借用，
+不新增注册表，不改变持久化格式，不捕获分配或自定义异常。
+
+Clang Debug 相关目标构建及 6 项定向测试通过：类型注册、序列化、归档、反射 JSON、
+实例与类型操作。覆盖普通返回值、空 optional、result 错误传播、内置格式及 setter 拒绝。
+未运行 MSVC、全量测试或远端矩阵。

@@ -215,7 +215,7 @@ struct user_id { std::int64_t number{}; };
 template <> struct gneiss::meta::representation_traits<user_id> {
   static constexpr bool enabled = true;
   using representation_type = std::int64_t;
-  static gneiss::result<representation_type> encode(const user_id& id) {
+  static representation_type encode(const user_id& id) {
     return id.number;
   }
   static gneiss::result<user_id> decode(const representation_type& input) {
@@ -226,6 +226,11 @@ template <> struct gneiss::meta::representation_traits<user_id> {
 };
 // json::encode_bytes(context, user_id{123}) 输出 123。
 ```
+
+encode 可返回 `representation_type` 或 `result<representation_type>`，decode 可返回 `T` 或
+`result<T>`；两者独立选择。只有实际存在可恢复失败时才使用 result，错误类型为 gneiss::error。
+普通 optional 的空值、bool 的 false 都是合法表示，不作为转换失败。ops 仍返回 error，
+用于传播转换、格式读写回调及候选消费失败；异常继续传播，不转换为错误码。
 
 特化须在首次生成类型能力前可见，各编译单元保持一致。转换只依赖原生类型，不接收
 序列化 context，不允许运行时替换。已知 T 的普通值类型无须注册，空的冻结 Meta 注册表

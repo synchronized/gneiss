@@ -16,7 +16,7 @@ template <class T> struct representation_traits {
 template <> struct representation_traits<guid> {
   static constexpr bool enabled = true;
   using representation_type = std::optional<std::string>;
-  static result<representation_type> encode(const guid& input) {
+  static representation_type encode(const guid& input) {
     return input ? representation_type{input.string()} : representation_type{};
   }
   static result<guid> decode(const representation_type& input) {
@@ -33,12 +33,12 @@ template <class T> struct math_representation {
   static constexpr bool enabled = true;
   using representation_type =
       std::array<float, decltype(math::components(std::declval<T&>()))::extent>;
-  static result<representation_type> encode(const T& input) {
+  static representation_type encode(const T& input) {
     representation_type output;
     std::ranges::copy(math::components(input), output.begin());
     return output;
   }
-  static result<T> decode(const representation_type& input) {
+  static T decode(const representation_type& input) {
     T output{};
     std::ranges::copy(input, math::components(output).begin());
     return output;
@@ -67,6 +67,19 @@ struct representation_ops {
   error (*encode_value)(const value&, const const_visitor&){};
 };
 namespace detail {
+// 精确区分普通值与结果包装；optional 等可空表示本身不是错误状态。
+template <class T, class Output, class Visitor>
+error visit_representation(Output& output, const Visitor& visit) {
+  if constexpr (std::is_same_v<Output, T>) {
+    return visit(std::addressof(output), ops_of<T>());
+  } else {
+    static_assert(std::is_same_v<Output, result<T>>, "表示转换必须返回目标类型或 result<目标类型>");
+    if (!output)
+      return output.error();
+    return visit(std::addressof(*output), ops_of<T>());
+  }
+}
+
 template <class T> const representation_ops& representation_ops_of() {
   using A = representation_traits<T>;
   using R = typename A::representation_type;
@@ -76,9 +89,7 @@ template <class T> const representation_ops& representation_ops_of() {
     output.encode = [](const void* source,
                        const representation_ops::const_visitor& visit) -> error {
       auto encoded = A::encode(*static_cast<const T*>(source));
-      if (!encoded)
-        return encoded.error();
-      return visit(std::addressof(*encoded), ops_of<R>());
+      return visit_representation<R>(encoded, visit);
     };
     output.decode = [](const representation_ops::visitor& read,
                        const representation_ops::visitor& consume) -> error {
@@ -87,9 +98,7 @@ template <class T> const representation_ops& representation_ops_of() {
       if (status.failed())
         return status;
       auto decoded = A::decode(std::as_const(representation));
-      if (!decoded)
-        return decoded.error();
-      return consume(std::addressof(*decoded), ops_of<T>());
+      return visit_representation<T>(decoded, consume);
     };
     if constexpr (reflected_value_kind<T>() != value_kind::invalid) {
       output.encode_value = [](const value& source,
@@ -98,9 +107,7 @@ template <class T> const representation_ops& representation_ops_of() {
         if (!native)
           return native.error();
         auto encoded = A::encode(*native);
-        if (!encoded)
-          return encoded.error();
-        return visit(std::addressof(*encoded), ops_of<R>());
+        return visit_representation<R>(encoded, visit);
       };
     }
     return output;
