@@ -43,3 +43,16 @@ native_world_lifecycle 也保留生命周期流程中的跨线程检查。count/
 两个目标在共享/静态 Windows Clang Debug 下构建通过；native-world-lifecycle、
 world-service-boundary、world-thread-contract 三项在两种配置下均通过。
 只格式化受修改的两个测试源文件，未调整生产 API、超时或测试启用条件。
+
+## 层级变换测试续审
+
+scene_tree_transform_test 删除自写 rotate/reference_combine：此前测试维护了第二套
+四元数及 TRS 算法，现改用固定夹具的手算预期，并解释计算过程。没有改成调用生产
+compose_transform 生成预期，避免实现与测试共用算法掩盖错误。
+
+保留三层组合、重新挂接、实体身份不变、非法变换不污染结果、环检测与递归删除断言。
+此用例针对 world_transform 的逐级 TRS 语义，不宣称验证 world_matrix 的剪切结果。
+四个对象直接通过 create_object 值返回创建，不再依赖 value_result.hpp。
+
+Windows Clang Debug 共享、静态目标构建和 gneiss.scene_tree_transform 均通过；
+未修改生产代码，未运行全量或跨平台测试。

@@ -1,58 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <limits>
 
 namespace {
 
 constexpr float half_sqrt_two = 0.7071067811865475F;
-
-std::array<float, 3> rotate(const float* quaternion, std::array<float, 3> point) noexcept {
-  const std::array vector{quaternion[0], quaternion[1], quaternion[2]};
-  const std::array first_cross{(vector[1] * point[2]) - (vector[2] * point[1]),
-                               (vector[2] * point[0]) - (vector[0] * point[2]),
-                               (vector[0] * point[1]) - (vector[1] * point[0])};
-  const std::array second_cross{(vector[1] * first_cross[2]) - (vector[2] * first_cross[1]),
-                                (vector[2] * first_cross[0]) - (vector[0] * first_cross[2]),
-                                (vector[0] * first_cross[1]) - (vector[1] * first_cross[0])};
-  for (std::size_t index = 0; index < point.size(); ++index) {
-    point[index] += 2.0F * ((quaternion[3] * first_cross[index]) + second_cross[index]);
-  }
-  return point;
-}
-
-gneiss::math::transform reference_combine(const gneiss::math::transform& parent,
-                                          const gneiss::math::transform& local) noexcept {
-  gneiss::math::transform result = gneiss::math::transform{};
-  std::array scaled_translation{local.translation[0] * parent.scale[0],
-                                local.translation[1] * parent.scale[1],
-                                local.translation[2] * parent.scale[2]};
-  scaled_translation = rotate(gneiss::math::components(parent.rotation).data(), scaled_translation);
-  for (std::size_t index = 0; index < scaled_translation.size(); ++index) {
-    result.translation[index] = parent.translation[index] + scaled_translation[index];
-    result.scale[index] = parent.scale[index] * local.scale[index];
-  }
-  const auto& left = parent.rotation;
-  const auto& right = local.rotation;
-  result.rotation[0] =
-      (left[3] * right[0]) + (left[0] * right[3]) + (left[1] * right[2]) - (left[2] * right[1]);
-  result.rotation[1] =
-      (left[3] * right[1]) - (left[0] * right[2]) + (left[1] * right[3]) + (left[2] * right[0]);
-  result.rotation[2] =
-      (left[3] * right[2]) + (left[0] * right[1]) - (left[1] * right[0]) + (left[2] * right[3]);
-  result.rotation[3] =
-      (left[3] * right[3]) - (left[0] * right[0]) - (left[1] * right[1]) - (left[2] * right[2]);
-  return result;
-}
 
 bool approximately_equal(const gneiss::math::transform& left,
                          const gneiss::math::transform& right) noexcept {
@@ -77,12 +37,20 @@ int run_tests() {
   auto scene = (*owner)->create_scene();
   if (!scene)
     return 1;
-  gneiss::game_object root, child, grandchild, other_root;
-  if (gneiss::test_support::assign_value(scene->create_object(), root).failed() ||
-      gneiss::test_support::assign_value(scene->create_object({}, root), child).failed() ||
-      gneiss::test_support::assign_value(scene->create_object({}, child), grandchild).failed() ||
-      gneiss::test_support::assign_value(scene->create_object(), other_root).failed())
+  auto root_result = scene->create_object();
+  if (!root_result)
     return 1;
+  const auto root = *root_result;
+  auto child_result = scene->create_object({}, root);
+  if (!child_result)
+    return 1;
+  const auto child = *child_result;
+  auto grandchild_result = scene->create_object({}, child);
+  auto other_result = scene->create_object();
+  if (!grandchild_result || !other_result)
+    return 1;
+  const auto grandchild = *grandchild_result;
+  const auto other_root = *other_result;
   const auto entity = grandchild.entity();
 
   gneiss::math::transform root_transform = gneiss::math::transform{};
@@ -113,8 +81,10 @@ int run_tests() {
       grandchild.set_local_transform(grandchild_transform) != gneiss::error::success) {
     return 2;
   }
-  const auto expected =
-      reference_combine(root_transform, reference_combine(child_transform, grandchild_transform));
+  // 固定夹具的逐级 TRS：子级合成位移为 (0, 1.5, 5)，根缩放并绕 Z 旋转后为 (5.5, 0, 20)。
+  // 这里验证 world_transform 的分量组合，不替代包含剪切的 world_matrix 验证。
+  const gneiss::math::transform expected{
+      {5.5F, 0, 20}, {0, 0, half_sqrt_two, half_sqrt_two}, {1, 1.5F, 8}};
   if (!approximately_equal(grandchild.world_transform(), expected) ||
       grandchild.entity() != entity) {
     return 3;
@@ -124,10 +94,11 @@ int run_tests() {
   other_transform.translation[2] = -5.0F;
   other_transform.rotation[1] = -half_sqrt_two;
   other_transform.rotation[3] = half_sqrt_two;
+  // 新父级绕 Y -90 度，与子级 +90 度抵消；位移变成 (-0.5, 1, -7)。
+  const gneiss::math::transform reparented{{-0.5F, 1, -7}, {1, 0, 0, 0}, {1, 0.25F, 2}};
   if (other_root.set_local_transform(other_transform) != gneiss::error::success ||
       grandchild.reparent(other_root) != gneiss::error::success ||
-      !approximately_equal(grandchild.world_transform(),
-                           reference_combine(other_transform, grandchild_transform)) ||
+      !approximately_equal(grandchild.world_transform(), reparented) ||
       grandchild.entity() != entity) {
     return 4;
   }
@@ -145,13 +116,11 @@ int run_tests() {
   invalid = grandchild_transform;
   invalid.rotation[3] = 2.0F;
   if (grandchild.set_local_transform(invalid) != gneiss::error::invalid_argument ||
-      !approximately_equal(grandchild.world_transform(),
-                           reference_combine(other_transform, grandchild_transform))) {
+      !approximately_equal(grandchild.world_transform(), reparented)) {
     return 7;
   }
   // 先创建子对象再挂到后建的父对象，递归删除允许 ECS 移动组件存储。
-  if (root.reparent(child) != gneiss::error::invalid_argument ||
-      root.reparent(other_root).failed())
+  if (root.reparent(child) != gneiss::error::invalid_argument || root.reparent(other_root).failed())
     return 8;
   other_root.destroy();
   if (root.is_valid() || child.is_valid() || grandchild.is_valid())
