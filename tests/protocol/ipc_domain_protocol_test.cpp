@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/registration.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/game_object_description.hpp>
@@ -9,9 +8,10 @@
 #include <gneiss/protocol/ipc_log_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
+#include <gneiss/protocol/registration.hpp>
 
-#include <gneiss/protocol/payload.hpp>
 #include <array>
+#include <gneiss/protocol/payload.hpp>
 #include <string>
 
 using namespace gneiss::host;
@@ -28,12 +28,18 @@ namespace {
 
 [[nodiscard]] bool test_log_and_statistics() {
   gneiss::ipc::envelope envelope;
-  runtime_log_record record{.severity = 3, .sequence = 4, .timestamp_ns = 5,
-                            .thread_id = 6, .context = 7, .source = "runtime",
-                            .category = "scene", .message = "运行中\n多行\t测试",
+  runtime_log_record record{.severity = 3,
+                            .sequence = 4,
+                            .timestamp_ns = 5,
+                            .thread_id = 6,
+                            .context = 7,
+                            .source = "runtime",
+                            .category = "scene",
+                            .message = "运行中\n多行\t测试",
                             .operation = gneiss::error::invalid_argument};
   auto encoded_log = gneiss::protocol::encode(log_record, record);
-  if (!encoded_log) return false;
+  if (!encoded_log)
+    return false;
   auto decoded_log = gneiss::protocol::decode(log_record, *encoded_log);
   if (!decoded_log || decoded_log->message != record.message || decoded_log->sequence != 4 ||
       decoded_log->timestamp_ns != 5 || decoded_log->thread_id != 6 || decoded_log->context != 7 ||
@@ -42,17 +48,22 @@ namespace {
     return false;
   auto invalid = *encoded_log;
   invalid.request_id = 1;
-  if (gneiss::protocol::decode(log_record, invalid)) return false;
+  if (gneiss::protocol::decode(log_record, invalid))
+    return false;
   invalid = *encoded_log;
   invalid.payload = {'{', '}'};
-  if (gneiss::protocol::decode(log_record, invalid)) return false;
+  if (gneiss::protocol::decode(log_record, invalid))
+    return false;
   invalid.payload.resize(16385);
-  if (gneiss::protocol::decode(log_record, invalid)) return false;
+  if (gneiss::protocol::decode(log_record, invalid))
+    return false;
   record.version = 99;
-  if (gneiss::protocol::encode(log_record, record)) return false;
+  if (gneiss::protocol::encode(log_record, record))
+    return false;
   record.version = 2;
   record.message.assign(16385, 'x');
-  if (gneiss::protocol::encode(log_record, record)) return false;
+  if (gneiss::protocol::encode(log_record, record))
+    return false;
   const gneiss::host::ipc_runtime_statistics statistics{.session_id = 2U,
                                                         .sequence = 3U,
                                                         .frame_index = 4U,
@@ -61,55 +72,63 @@ namespace {
                                                         .entity_count = 8U,
                                                         .ipc_pending_writes = 9U,
                                                         .ipc_dropped_events = 10U};
-  gneiss::host::ipc_runtime_statistics decoded;
-  return gneiss::host::encode_ipc_statistics_v2(statistics, envelope) ==
-             gneiss::error::success &&
-         gneiss::host::decode_ipc_statistics_v2(envelope, decoded) ==
-             gneiss::error::success &&
-         decoded.session_id == statistics.session_id && decoded.sequence == statistics.sequence &&
-         decoded.frame_index == statistics.frame_index &&
-         decoded.frame_delta_ns == statistics.frame_delta_ns &&
-         decoded.scene_node_count == statistics.scene_node_count &&
-         decoded.entity_count == statistics.entity_count &&
-         decoded.ipc_pending_writes == statistics.ipc_pending_writes &&
-         decoded.ipc_dropped_events == statistics.ipc_dropped_events;
+  auto encoded_statistics = gneiss::protocol::encode(statistics_snapshot, statistics);
+  if (!encoded_statistics)
+    return false;
+  auto decoded = gneiss::protocol::decode(statistics_snapshot, *encoded_statistics);
+  return decoded && decoded->session_id == statistics.session_id &&
+         decoded->sequence == statistics.sequence &&
+         decoded->frame_index == statistics.frame_index &&
+         decoded->frame_delta_ns == statistics.frame_delta_ns &&
+         decoded->scene_node_count == statistics.scene_node_count &&
+         decoded->entity_count == statistics.entity_count &&
+         decoded->ipc_pending_writes == statistics.ipc_pending_writes &&
+         decoded->ipc_dropped_events == statistics.ipc_dropped_events;
 }
 
 [[nodiscard]] bool test_inspection() {
   ipc_inspection_batch batch{.stamp = {3, 4}, .changes = {}};
   auto empty = encode_inspection_snapshot(batch);
-  if (!empty || empty->size() != 1) return false;
+  if (!empty || empty->size() != 1)
+    return false;
   for (std::uint64_t i = 1; i <= 12; ++i) {
     auto& change = batch.changes.emplace_back();
     change.id = change.node.id = {i, 1};
     change.node.name.assign(12000, 'x');
   }
   auto frames = encode_inspection_snapshot(batch);
-  if (!frames || frames->size() < 2) return false;
+  if (!frames || frames->size() < 2)
+    return false;
   std::size_t count = 0;
   for (std::size_t i = 0; i < frames->size(); ++i) {
     auto decoded = gneiss::protocol::decode(inspection_snapshot, (*frames)[i]);
     if (!decoded || (*frames)[i].payload.size() > 65536 || decoded->chunk_index != i ||
-        decoded->chunk_count != frames->size()) return false;
+        decoded->chunk_count != frames->size())
+      return false;
     for (const auto& change : decoded->changes)
-      if (change.id.value != ++count) return false;
+      if (change.id.value != ++count)
+        return false;
   }
-  if (count != batch.changes.size()) return false;
+  if (count != batch.changes.size())
+    return false;
   // 两个重复对象落入不同分片时，也必须在完整批次阶段拒绝。
   batch.changes.back().id = batch.changes.back().node.id = batch.changes.front().id;
   auto invalid = encode_inspection_snapshot(batch);
   if (invalid || invalid.error().error != gneiss::error::invalid_argument ||
-      invalid.error().message.empty()) return false;
+      invalid.error().message.empty())
+    return false;
   batch.changes.resize(1);
   batch.changes.front().type = ipc_inspection_change_type::remove;
   batch.changes.front().node.name.assign(70000, 'x');
   auto oversized = encode_inspection_snapshot(batch);
   if (oversized || oversized.error().error != gneiss::error::invalid_argument ||
-      oversized.error().message.empty()) return false;
+      oversized.error().message.empty())
+    return false;
   batch.changes.clear();
   batch.chunk_index = 1;
   batch.chunk_count = 2;
-  if (encode_inspection_snapshot(batch)) return false;
+  if (encode_inspection_snapshot(batch))
+    return false;
   gneiss::ipc::envelope resync;
   return encode_ipc_inspection_resync(9U, resync) == gneiss::error::success &&
          decode_ipc_inspection_resync(resync) == gneiss::error::success && resync.request_id == 9;
@@ -130,7 +149,8 @@ namespace {
       decode_ipc_inspection_batch(bytes, decoded).failed() || decoded.changes.size() != 1U ||
       decoded.changes[0].node.uuid != id || decoded.changes[0].node.prefab_instance_uuid)
     return false;
-  const auto* restored_camera = decoded.changes[0].node.components.get<gneiss::camera_description>();
+  const auto* restored_camera =
+      decoded.changes[0].node.components.get<gneiss::camera_description>();
   if (!restored_camera || restored_camera->uuid != camera.uuid ||
       restored_camera->settings.fov != camera.settings.fov ||
       restored_camera->settings.near_plane != camera.settings.near_plane ||
@@ -170,7 +190,8 @@ namespace {
       .expected_revision = 11U,
       .value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
   auto envelope = gneiss::protocol::encode(property_write, command, 21U);
-  if (!envelope) return false;
+  if (!envelope)
+    return false;
   auto decoded_command = gneiss::protocol::decode(property_write, *envelope);
   if (!decoded_command || decoded_command->command_id != 0 || envelope->request_id != 21U)
     return false;
@@ -182,7 +203,8 @@ namespace {
       .message = "已应用",
       .canonical_value = {gneiss::math::vector3{1.0F, 2.0F, 3.0F}}};
   auto result = gneiss::protocol::encode(property_result, response, 21U);
-  if (!result) return false;
+  if (!result)
+    return false;
   auto decoded = gneiss::protocol::decode(property_result, *result);
   return decoded && decoded->revision == response.revision && result->request_id == 21U;
 }
@@ -190,22 +212,34 @@ namespace {
 [[nodiscard]] bool test_reflected_statistics() {
   ipc_runtime_statistics original{1, 2, 3, 4, 5, 6, 7, 8};
   auto bytes = gneiss::protocol::encode_payload(original, 65536);
-  if (!bytes || gneiss::protocol::encode_payload(original, 1)) return false;
-  if (gneiss::protocol::decode_payload<ipc_runtime_statistics>(*bytes, bytes->size()-1)) return false;
-  for (const std::string& text : {std::string("{}"), std::string("{"),
-       std::string(R"({"session_id":-1})")}) {
+  if (!bytes || gneiss::protocol::encode_payload(original, 1))
+    return false;
+  if (gneiss::protocol::decode_payload<ipc_runtime_statistics>(*bytes, bytes->size() - 1))
+    return false;
+  for (const std::string& text :
+       {std::string("{}"), std::string("{"), std::string(R"({"session_id":-1})")}) {
     const auto input = std::span{reinterpret_cast<const std::uint8_t*>(text.data()), text.size()};
     auto result = gneiss::protocol::decode_payload<ipc_runtime_statistics>(input, 65536);
-    if (result || result.error().message.empty()) return false;
-    auto output = original;
-    if (decode_ipc_runtime_statistics(input, output).ok() || output.sequence != original.sequence) return false;
+    if (result || result.error().message.empty())
+      return false;
+    auto envelope = gneiss::protocol::encode(statistics_snapshot, original);
+    if (!envelope)
+      return false;
+    envelope->payload.assign(input.begin(), input.end());
+    if (gneiss::protocol::decode(statistics_snapshot, *envelope))
+      return false;
   }
   auto invalid = original;
   invalid.session_id = 0;
   auto encoded_invalid = gneiss::protocol::encode_payload(invalid, 65536);
-  auto output = original;
-  return encoded_invalid && decode_ipc_runtime_statistics(*encoded_invalid, output).failed() &&
-         output.session_id == original.session_id && output.sequence == original.sequence;
+  auto envelope = gneiss::protocol::encode(statistics_snapshot, original);
+  if (!encoded_invalid || !envelope || gneiss::protocol::encode(statistics_snapshot, invalid))
+    return false;
+  envelope->payload = std::move(*encoded_invalid);
+  if (gneiss::protocol::decode(statistics_snapshot, *envelope))
+    return false;
+  envelope->payload.resize(65537);
+  return !gneiss::protocol::decode(statistics_snapshot, *envelope);
 }
 
 [[nodiscard]] bool test_rules_and_rejections() {
@@ -228,8 +262,9 @@ int main() {
   try {
     if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
       return 2;
-    return test_reflected_statistics() && test_log_and_statistics() && test_inspection() && test_inspection_guid_boundary() &&
-                   test_property_request_and_response() && test_rules_and_rejections()
+    return test_reflected_statistics() && test_log_and_statistics() && test_inspection() &&
+                   test_inspection_guid_boundary() && test_property_request_and_response() &&
+                   test_rules_and_rejections()
                ? 0
                : 1;
   } catch (...) {

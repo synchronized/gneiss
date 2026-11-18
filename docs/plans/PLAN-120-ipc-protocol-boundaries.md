@@ -223,3 +223,19 @@ Runtime、Editor 工作流。未执行静态、Linux/Web 或远端验证。
 验收：Windows Clang Debug 共享构建及 19 项相关测试通过，git diff --check 通过。
 未执行静态库、跨平台或远端验证。Session 上述包装已收敛；stdout 编码评估及整体计划
 剩余验收仍待继续，不将本次迁移视为 PLAN-120 全部完成。
+
+## 当前剩余范围复核
+
+- [x] stdout 评估：保留不依赖 Meta 注册的独立文本通道，不为统一形式迁移到反射。
+  Runtime 生产入口实际先初始化 Meta；无注册能力由独立协议测试验证。边界见
+  [IPC 参考](../reference/platform-ipc.md#stdout-日志边界)。
+- [x] Statistics 使用消息描述贯通实际收发，删除四个旧 codec 及发送转发文件。
+- [ ] Control 的 state_changed 尚需收敛到消息描述；无负载控制命令和 Inspection resync
+  保留空负载语义，不强行增加 JSON 对象。
+- [ ] 复核剩余低层测试专用入口、规则与处理器覆盖，并完成阶段二最终验收。
+
+此前各节为阶段记录；以本节列出的当前剩余范围及顶部阶段清单共同判断完成度。
+Statistics 不改变线格式；stdout 不改变现有编码和解析行为。
+
+验收：Windows Clang Debug 共享构建及 20 项相关测试通过，包括无 Meta 注册的 stdout
+协议测试、统计非法负载与大小限制、真实宿主工作流。未执行静态库、跨平台或远端验证。

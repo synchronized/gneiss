@@ -169,3 +169,17 @@ Session 收发统一使用 protocol::encode/decode 和对应消息描述，已�
 不再传 response 布尔值。Runtime 只接受关联请求 ID 为 1 的 session_accepted，并继续验证
 返回域和版本没有超出请求范围；Editor 仅在认证、协商与响应发送成功后进入已认证状态。
 会话状态、超时和业务事件转换仍由各自宿主拥有，不移入通用编解码层。
+
+## stdout 日志边界
+
+stdout 行协议独立于 Meta 注册和 IPC 握手，保留专用文本编解码、前缀识别、版本分类、
+截断和普通文本回退。独立 runtime_log_protocol 测试在没有 initialize_meta 的情况下验证它。
+当前生产 Runtime 的 main 先 initialize_meta，再在 application 安装日志 sink；不能将
+“生产 sink 在 Meta 初始化前安装”描述为当前行为。保留独立实现的理由是避免将日志文本
+通道的调用契约绑定到反射注册生命周期，而不是当前宿主缺少初始化。
+
+## Statistics 类型化消息
+
+统计收发使用 statistics_snapshot，域规则从同一描述生成。Session ID 与 sequence 非零，
+负载最多 64 KiB，解码得到独立候选；Editor 成功后才发布统计事件。字段和 Statistics v1
+格式不变。四个旧负载/信封编解码入口及 Runtime 纯转发源文件已删除。

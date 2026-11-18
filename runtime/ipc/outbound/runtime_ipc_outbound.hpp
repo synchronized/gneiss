@@ -26,8 +26,6 @@ namespace gneiss::host {
                                              gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error make_log_event(const gneiss::logging::record_view& event,
                                            gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error make_statistics_event(const ipc_runtime_statistics& statistics,
-                                                  gneiss::ipc::envelope& output) noexcept;
 
 } // namespace gneiss::host
 

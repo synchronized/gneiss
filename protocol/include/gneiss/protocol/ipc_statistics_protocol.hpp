@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 
-#include <gneiss/protocol/dispatcher.hpp>
+#include <gneiss/protocol/message.hpp>
 
 #include <gneiss/engine/error.hpp>
 
@@ -28,19 +28,8 @@ struct ipc_runtime_statistics final {
   std::uint64_t ipc_dropped_events = 0U;
 };
 
-[[nodiscard]] gneiss::error
-encode_ipc_runtime_statistics(const ipc_runtime_statistics& statistics,
-                              std::vector<std::uint8_t>& output);
-[[nodiscard]] gneiss::error
-decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
-                              ipc_runtime_statistics& output);
+extern const protocol::message_descriptor<ipc_runtime_statistics> statistics_snapshot;
 
-[[nodiscard]] gneiss::error
-encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                         gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error
-decode_ipc_statistics_v2(const gneiss::ipc::envelope& envelope,
-                         ipc_runtime_statistics& output);
 [[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
 ipc_statistics_operations() noexcept;
 

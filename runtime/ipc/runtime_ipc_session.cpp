@@ -333,10 +333,8 @@ gneiss::error runtime_ipc_session::notify_statistics(const ipc_runtime_statistic
                            implementation_->current_state != runtime_ipc_state::paused)) {
     return gneiss::error::not_ready;
   }
-  gneiss::ipc::envelope envelope;
-  const auto operation = make_statistics_event(statistics, envelope);
-  return operation == gneiss::error::success ? implementation_->transport.send(envelope)
-                                             : operation;
+  auto envelope = protocol::encode(statistics_snapshot, statistics);
+  return envelope ? implementation_->transport.send(*envelope) : envelope.error().error;
 }
 
 std::size_t runtime_ipc_session::pending_write_count() const noexcept {
