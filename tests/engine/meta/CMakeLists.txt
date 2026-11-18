@@ -50,6 +50,7 @@ set_target_properties(gneiss_serialization_archive_test PROPERTIES FOLDER "Tests
 add_test(NAME gneiss.serialization-archive COMMAND gneiss_serialization_archive_test)
 
 add_executable(gneiss_reflection_json_test reflection_json_test.cpp nested_json_test.cpp)
+# JSON 分配失败注入需要私有适配器；不重复编译其实现，也不扩大生产导出。
 target_include_directories(gneiss_reflection_json_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_reflection_json_test PRIVATE gneiss::engine gneiss_yyjson)
 target_compile_features(gneiss_reflection_json_test PRIVATE cxx_std_20)
@@ -99,3 +100,15 @@ if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   target_compile_definitions(gneiss_default_registry_test PRIVATE GNEISS_TEST_THREADS=1)
   target_link_libraries(gneiss_default_registry_test PRIVATE Threads::Threads)
 endif()
+
+# 经调用路径核查，以下用例只操作内存中的反射/序列化对象，不初始化窗口或渲染器。
+set_tests_properties(
+  gneiss.property_access gneiss.reflection-boundary gneiss.type_registry gneiss.type_builder
+  gneiss.serialization gneiss.serialization-archive gneiss.reflection-json
+  gneiss.meta-instance gneiss.meta-container gneiss.meta-type-ops
+  PROPERTIES LABELS "cpu;unit")
+# 默认注册表覆盖内建资源注册与序列化装配；异常用例由子进程验证终止诊断。
+set_tests_properties(gneiss.meta-default-registry gneiss.meta-default-registry-failure
+  PROPERTIES LABELS "cpu;integration")
+set_tests_properties(gneiss.meta-default-registry-exception
+  PROPERTIES LABELS "cpu;integration;death")

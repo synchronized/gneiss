@@ -77,3 +77,12 @@ add_test(NAME gneiss.app.ipc-asset-protocol COMMAND gneiss_ipc_asset_protocol_te
   gneiss_target_output_directories(gneiss_ipc_dispatcher_test)
   set_target_properties(gneiss_ipc_dispatcher_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.ipc.dispatcher COMMAND gneiss_ipc_dispatcher_test)
+
+# 协议测试使用内存负载，不启动 Runtime 或建立真实 IPC 连接。
+set_tests_properties(
+  gneiss.app.ipc-scene-protocol gneiss.app.runtime-log-protocol gneiss.app.ipc-router
+  gneiss.app.ipc-session-protocol gneiss.app.ipc-control-protocol
+  gneiss.app.ipc-domain-protocol gneiss.app.ipc-protocol-domains
+  gneiss.app.ipc-property-protocol gneiss.app.ipc-asset-protocol
+  PROPERTIES LABELS "cpu;integration")
+set_tests_properties(gneiss.ipc.dispatcher PROPERTIES LABELS "cpu;unit")

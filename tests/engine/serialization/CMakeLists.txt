@@ -32,7 +32,6 @@ add_executable(
   gneiss_prefab_property_override_test
   prefab_property_override_test.cpp
   "${PROJECT_SOURCE_DIR}/editor/documents/prefab_edit.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/scene/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
 )
