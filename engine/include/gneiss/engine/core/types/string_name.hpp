@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/core/base/export.hpp>
 
 #include <functional>
 #include <optional>
@@ -20,10 +20,10 @@ struct string_name_entry;
  * @brief 运行期字符串名。
  *
  * `string_name` 会把文本加入进程内字符串表，相同文本共享同一个稳定 entry 指针。该指针只用于
- * 本次 Engine 生命周期内的快速比较和查找，不承诺跨进程或跨版本稳定。
- * 条目不单独回收，view 借用至 Engine 卸载；构造/find 线程安全，分配失败抛出异常。
+ * 本次 Base 模块生命周期内的快速比较和查找，不承诺跨进程或跨版本稳定。
+ * 条目不单独回收，view 借用至 Base 模块卸载；构造/find 线程安全，分配失败抛出异常。
  */
-class GNEISS_API string_name {
+class GNEISS_BASE_API string_name {
 public:
   constexpr string_name() noexcept = default;
   explicit constexpr string_name(std::nullptr_t) noexcept {}
@@ -64,10 +64,10 @@ struct string_name_hash {
   }
 };
 
-[[nodiscard]] GNEISS_API bool operator==(string_name lhs, std::string_view rhs);
-[[nodiscard]] GNEISS_API bool operator==(std::string_view lhs, string_name rhs);
-[[nodiscard]] GNEISS_API bool operator!=(string_name lhs, std::string_view rhs);
-[[nodiscard]] GNEISS_API bool operator!=(std::string_view lhs, string_name rhs);
+[[nodiscard]] GNEISS_BASE_API bool operator==(string_name lhs, std::string_view rhs);
+[[nodiscard]] GNEISS_BASE_API bool operator==(std::string_view lhs, string_name rhs);
+[[nodiscard]] GNEISS_BASE_API bool operator!=(string_name lhs, std::string_view rhs);
+[[nodiscard]] GNEISS_BASE_API bool operator!=(std::string_view lhs, string_name rhs);
 
 } // namespace gneiss
 

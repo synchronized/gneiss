@@ -33,7 +33,7 @@ endif()
 
 if(TARGET gneiss_io)
   add_executable(gneiss_io_executor_test "io/executor_test.cpp")
-  target_link_libraries(gneiss_io_executor_test PRIVATE gneiss_io gneiss_core)
+  target_link_libraries(gneiss_io_executor_test PRIVATE gneiss_io gneiss_base)
   target_compile_features(gneiss_io_executor_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_io_executor_test)
   gneiss_target_output_directories(gneiss_io_executor_test)

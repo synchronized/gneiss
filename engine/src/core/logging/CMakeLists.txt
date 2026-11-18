@@ -9,4 +9,4 @@ target_compile_features(gneiss_logging_sinks PRIVATE cxx_std_20)
 set_target_properties(gneiss_logging_sinks PROPERTIES POSITION_INDEPENDENT_CODE ON)
 gneiss_target_compile_warnings(gneiss_logging_sinks)
 
-target_link_libraries(gneiss_logging_sinks PUBLIC gneiss_core)
+target_link_libraries(gneiss_logging_sinks PUBLIC gneiss_base)

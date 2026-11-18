@@ -8,11 +8,6 @@ add_subdirectory(src/platform)
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
 target_link_libraries(gneiss_engine PRIVATE gneiss_libassert)
-if(NOT BUILD_SHARED_LIBS)
-  # 静态安装包直接包含基础错误与 Fatal 实现，不留下未导出的内部目标依赖。
-  target_sources(gneiss_engine PRIVATE "${PROJECT_SOURCE_DIR}/engine/src/fatal.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/error.cpp")
-endif()
 if(COMMAND gneiss_enable_asset_libuv)
   gneiss_enable_asset_libuv(gneiss_engine)
 endif()
@@ -46,15 +41,12 @@ target_sources(
 target_sources(
   gneiss_engine
   PRIVATE
-    "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/sha256.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/rid_table.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/identifier_conversion.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/types/guid.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/guid.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/types/string_name.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/string_name.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/value.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/traits/type_name.hpp"
@@ -64,7 +56,6 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/result.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/version.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/entity_id.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/types/type_id.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/type_id.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/version.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/types/value.cpp"
@@ -393,7 +384,7 @@ if(WIN32 AND BUILD_SHARED_LIBS AND granit_runtime_is_imported AND granit_runtime
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_core> gneiss_math $<BUILD_INTERFACE:gneiss_events>)
+target_link_libraries(gneiss_engine PUBLIC gneiss_base gneiss_math $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

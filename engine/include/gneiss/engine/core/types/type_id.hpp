@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/core/base/export.hpp>
 #include <gneiss/engine/core/detail/canonical_type_name.hpp>
 
 #include <compare>
@@ -12,7 +12,7 @@
 #include <type_traits>
 
 namespace gneiss {
-/** Engine 存活期间的进程内类型键；零无效，不得序列化。 */
+/** Base 模块存活期间的进程内类型键；零无效，不得序列化。 */
 class type_id final {
 public:
   constexpr type_id() noexcept = default;
@@ -25,9 +25,10 @@ private:
   std::uint64_t value_{};
 };
 namespace detail {
-/** 首次注册复制名称；共享 Engine 集中分配，不以名称 hash 作为身份。
+/** 首次注册复制名称；共享 Base 集中分配，不以名称 hash 作为身份。
  * 空名、分配失败及计数耗尽属于不可恢复的类型初始化错误。 */
-[[nodiscard]] GNEISS_API type_id intern_runtime_type(const char* name, std::size_t length) noexcept;
+[[nodiscard]] GNEISS_BASE_API type_id intern_runtime_type(const char* name,
+                                                          std::size_t length) noexcept;
 }
 /** 相同工具链、ABI 和 ODR 定义的命名类型跨模块合并；去除顶层 cv/ref，void 返回无效 ID。
  * 匿名或局部类型不得作为跨模块契约。同名不同定义违反 ODR，不由注册表判断布局兼容性。 */

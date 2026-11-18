@@ -18,4 +18,4 @@ if(WIN32 AND granit_asset_tools_imported AND granit_asset_tools_type STREQUAL "S
   )
 endif()
 
-target_link_libraries(gneiss_assetc PRIVATE gneiss_core)
+target_link_libraries(gneiss_assetc PRIVATE gneiss_base)

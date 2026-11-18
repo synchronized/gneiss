@@ -10,7 +10,7 @@ add_library(
 )
 target_link_libraries(
   gneiss_ipc
-  PUBLIC gneiss_core
+  PUBLIC gneiss_base
   PRIVATE gneiss_io gneiss::libuv
 )
 target_include_directories(gneiss_ipc PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")

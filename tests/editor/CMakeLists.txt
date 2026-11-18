@@ -173,11 +173,11 @@ set_target_properties(gneiss_editor_scene_document_versions_test PROPERTIES FOLD
 add_test(NAME gneiss.editor.scene-document-versions COMMAND gneiss_editor_scene_document_versions_test)
 set_tests_properties(gneiss.editor.scene-document-versions PROPERTIES LABELS "cpu;integration")
 
-target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_core)
+target_link_libraries(gneiss_editor_scene_document_versions_test PRIVATE gneiss_base)
 
-target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_core)
+target_link_libraries(gneiss_editor_author_property_edit_test PRIVATE gneiss_base)
 
-target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_core)
+target_link_libraries(gneiss_editor_component_edit_test PRIVATE gneiss_base)
 
 include(host_targets.cmake)
 

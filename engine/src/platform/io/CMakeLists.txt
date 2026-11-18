@@ -8,7 +8,7 @@ add_library(gneiss_io STATIC
   detail/uv_error.hpp
   detail/uv_error.cpp
 )
-target_link_libraries(gneiss_io PUBLIC gneiss_core PRIVATE gneiss::libuv)
+target_link_libraries(gneiss_io PUBLIC gneiss_base PRIVATE gneiss::libuv)
 target_compile_features(gneiss_io PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_io)
 gneiss_target_output_directories(gneiss_io)

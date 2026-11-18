@@ -105,5 +105,5 @@ gneiss_target_output_directories(gneiss_project)
 install(TARGETS gneiss_editor gneiss_project RUNTIME DESTINATION bin)
 
 
-target_link_libraries(gneiss_editor PRIVATE gneiss_core)
-target_link_libraries(gneiss_project PRIVATE gneiss_core)
+target_link_libraries(gneiss_editor PRIVATE gneiss_base)
+target_link_libraries(gneiss_project PRIVATE gneiss_base)

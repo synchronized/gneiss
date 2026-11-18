@@ -5,7 +5,7 @@
 #ifndef GNEISS_ENGINE_GUID_HPP_
 #define GNEISS_ENGINE_GUID_HPP_
 
-#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/core/base/export.hpp>
 
 #include <array>
 #include <compare>
@@ -23,7 +23,7 @@ namespace gneiss {
  * `guid` 保存标准 UUID/GUID 的 16 字节值，可用于类型、资源、资产和序列化对象等需要稳定
  * 标识的场景。默认构造得到 nil GUID。
  */
-class GNEISS_API guid {
+class GNEISS_BASE_API guid {
 public:
   using byte_array = std::array<std::uint8_t, 16>;
 
@@ -95,7 +95,7 @@ consteval guid guid::literal(std::string_view text) {
 }
 
 /** @brief `guid` 的哈希函数，供 unordered 容器使用。 */
-struct GNEISS_API guid_hash {
+struct GNEISS_BASE_API guid_hash {
   [[nodiscard]] std::size_t operator()(const guid& value) const noexcept;
 };
 

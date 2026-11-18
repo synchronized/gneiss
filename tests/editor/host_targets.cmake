@@ -341,7 +341,7 @@ if(BUILD_TESTING)
       set_tests_properties(gneiss.editor.asset-workflow PROPERTIES TIMEOUT 60)
     endif()
     add_executable(gneiss_editor_asset_reimport_queue_test "${PROJECT_SOURCE_DIR}/tests/editor/asset_reimport_queue_test.cpp")
-    target_link_libraries(gneiss_editor_asset_reimport_queue_test PRIVATE gneiss_editor_assets gneiss_core)
+    target_link_libraries(gneiss_editor_asset_reimport_queue_test PRIVATE gneiss_editor_assets gneiss_base)
     target_compile_definitions(
       gneiss_editor_asset_reimport_queue_test
       PRIVATE GNEISS_EDITOR_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"

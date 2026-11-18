@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/engine/core/traits/type_identity.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
-#include <gneiss/engine/core/traits/type_identity.hpp>
+#include <gneiss/engine/core/types/type_id.hpp>
 
 #include <array>
 #include <string>
@@ -14,6 +15,15 @@
 
 struct identified_asset {};
 struct unnamed_asset {};
+#if defined(GNEISS_IDENTITY_TEST_MODULE)
+#ifdef _WIN32
+#define IDENTITY_IMPORT __declspec(dllimport)
+#else
+#define IDENTITY_IMPORT
+#endif
+IDENTITY_IMPORT gneiss::type_id module_integer_identity();
+IDENTITY_IMPORT gneiss::string_name module_string_identity();
+#endif
 namespace gneiss {
 template <> struct type_identity<identified_asset> {
   static constexpr std::string_view name() noexcept { return "test.identified_asset"; }
@@ -36,6 +46,12 @@ static_assert(!guid::parse(""));
 
 int main() {
   using namespace gneiss;
+#if defined(GNEISS_IDENTITY_TEST_MODULE)
+  const auto integer = runtime_type_of<int>();
+  if (module_integer_identity() != integer ||
+      module_string_identity() != string_name{"identity.test.module"})
+    return 9;
+#endif
   const auto parsed = guid::parse("00112233-4455-6677-8899-AABBCCDDEEFF");
   if (!parsed || *parsed != literal_guid ||
       parsed->string() != "00112233-4455-6677-8899-aabbccddeeff" ||

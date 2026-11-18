@@ -87,7 +87,6 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/debug_draw_list.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/frame_packet.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
 target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -137,9 +136,8 @@ set_tests_properties(gneiss.camera_math PROPERTIES LABELS "cpu;unit")
 add_executable(
   gneiss_normal_math_test
   normal_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_link_libraries(gneiss_normal_math_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_normal_math_test PRIVATE gneiss_math)
 target_compile_features(gneiss_normal_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_normal_math_test)
 gneiss_target_output_directories(gneiss_normal_math_test)
@@ -150,9 +148,8 @@ set_tests_properties(gneiss.normal_math PROPERTIES LABELS "cpu;unit")
 add_executable(
   gneiss_scene_projection_math_test
   scene_projection_math_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
 )
-target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_math gneiss_core)
+target_link_libraries(gneiss_scene_projection_math_test PRIVATE gneiss_math gneiss_base)
 target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
@@ -254,12 +251,12 @@ set_tests_properties(gneiss.native-draw-submission PROPERTIES LABELS "cpu;integr
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。
 add_library(gneiss_render_service_header_check OBJECT render_service_header_check.cpp)
-target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_math gneiss_core)
+target_link_libraries(gneiss_render_service_header_check PRIVATE gneiss_math gneiss_base)
 target_compile_features(gneiss_render_service_header_check PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_service_header_check)
 set_target_properties(gneiss_render_service_header_check PROPERTIES FOLDER "Tests")
 
-target_link_libraries(gneiss_render_executor_test PRIVATE gneiss_core)
+target_link_libraries(gneiss_render_executor_test PRIVATE gneiss_base)
 
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   foreach(mode render-frame render-command)
@@ -277,7 +274,7 @@ add_executable(gneiss_render_scene_test
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp")
 target_include_directories(gneiss_render_scene_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_core)
+target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_base)
 gneiss_target_compile_warnings(gneiss_render_scene_test)
 gneiss_target_output_directories(gneiss_render_scene_test)
 set_target_properties(gneiss_render_scene_test PROPERTIES FOLDER "Tests")

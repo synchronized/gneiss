@@ -23,7 +23,7 @@ Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、�
 
 ## 实施顺序与退出条件
 
-- [ ] P1：基础目标与符号归属。完整 Math；Base 纳入基础值与身份实现；模块独立导出控制。
+- [x] P1：基础目标与符号归属。完整 Math；Base 纳入基础值与身份实现；模块独立导出控制。
 - [ ] P2：Data/Meta。分离 property_path 的数据定义与运行时解析，移出 Data 的反射 traits；
   独立 Meta/Serialization/JSON 目标，迁移基础测试链接。
 - [ ] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
@@ -61,4 +61,13 @@ Data 当前混有 Meta 适配，必须拆分而不是倒置目标依赖；value 
 2026-11-19：Math 的 transform/camera 实现移入独立目标，专属导出宏，安装目标包含 Math。
 Clang Debug 共享与静态 Math 构建测试通过；共享 Engine 重新链接后的 render_camera 测试通过。
 MSVC Release Math 构建测试通过。Math 消费测试不链接 Engine，并实际调用两份实现。
-安装包端到端验证仍留在 P6，P1 的 Base 与共享身份迁移尚未完成。
+随后完成 Base 独立实现与专属导出：错误/Fatal、GUID、字符串池、运行类型身份与 SHA-256。
+Engine 不重复编译这些实现，旧 core 目标引用全部迁为 base；Web 独立任务宿主也复用生产 Base。
+新增共享库夹具验证跨 DLL 字符串身份与类型 ID，夹具与宿主直接链接 Base，不链接 Engine。
+删除日志/Value 测试重复编译的字符串池/GUID 源码，以及三个数学测试重复编译的 transform 源码。
+
+Clang Debug 共享全量构建通过，214 项 CPU 测试通过；静态 Base/Math、Fatal 与 Engine
+render_camera 定向构建及测试通过。MSVC Release Base/Math 和跨 DLL 身份测试通过。
+共享安装树 Runtime --smoke 完成场景加载、首帧与正常关闭，Base/Math DLL 随包安装。
+core-boundary 和 git diff --check 通过。静态安装消费者、Web 和跨平台验收仍未完成。
+P2—P6 尚未完成；Base 头文件与实现的物理路径归位随 P5 完成，不将目标独立等同目录迁移完毕。

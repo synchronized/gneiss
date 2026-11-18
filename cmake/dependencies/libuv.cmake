@@ -88,7 +88,7 @@ function(gneiss_enable_asset_libuv target)
       $<TARGET_PROPERTY:uv_a,COMPILE_OPTIONS>)
     set_target_properties(gneiss_libuv_objects PROPERTIES POSITION_INDEPENDENT_CODE YES C_VISIBILITY_PRESET hidden)
   endif()
-  target_link_libraries(${target} PRIVATE $<BUILD_INTERFACE:gneiss_core>)
+  target_link_libraries(${target} PRIVATE $<BUILD_INTERFACE:gneiss_base>)
   get_target_property(uv_system_libraries uv_a LINK_LIBRARIES)
   target_sources(${target} PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/native.cpp"

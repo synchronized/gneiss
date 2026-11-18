@@ -3,7 +3,7 @@
 
 @PACKAGE_INIT@
 
-# 共享模块消费者只链接 Engine 导入库；静态链接仍需后端依赖。
+# Engine 目标传播 Base/Math 链接依赖；静态链接还需解析后端依赖。
 if(NOT @BUILD_SHARED_LIBS@)
   include(CMakeFindDependencyMacro)
   find_dependency(libassert 2.2.1 CONFIG)

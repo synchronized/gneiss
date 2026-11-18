@@ -2,13 +2,13 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_minimal_example minimal/main.cpp)
-target_link_libraries(gneiss_minimal_example PRIVATE gneiss_core gneiss::engine)
+target_link_libraries(gneiss_minimal_example PRIVATE gneiss_base gneiss::engine)
 gneiss_target_compile_warnings(gneiss_minimal_example)
 gneiss_target_output_directories(gneiss_minimal_example)
 set_target_properties(gneiss_minimal_example PROPERTIES FOLDER "Examples")
 
 add_executable(gneiss_scene_viewer scene_viewer/main.cpp)
-target_link_libraries(gneiss_scene_viewer PRIVATE gneiss_core gneiss::engine gneiss_tasks)
+target_link_libraries(gneiss_scene_viewer PRIVATE gneiss_base gneiss::engine gneiss_tasks)
 target_compile_definitions(gneiss_scene_viewer PRIVATE
   GNEISS_VIEWER_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets")
 gneiss_target_compile_warnings(gneiss_scene_viewer)

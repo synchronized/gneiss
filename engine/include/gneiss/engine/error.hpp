@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <gneiss/engine/core/base/export.hpp>
 #include <gneiss/engine/export.hpp>
 
 #include <cstdint>
@@ -55,17 +56,17 @@ inline constexpr error error::io{-12};
 inline constexpr error error::cancelled{-13};
 
 /** 返回静态英文文本；未知码保持原值，文本为 unrecognized result。 */
-// 无状态基础实现由 gneiss::core 提供，不通过 Engine DLL 导入。
-[[nodiscard]] const char* error_message(error value) noexcept;
+// 基础实现与共享身份由 gneiss::base 提供。
+[[nodiscard]] GNEISS_BASE_API const char* error_message(error value) noexcept;
 inline std::string_view error::message() const noexcept { return error_message(*this); }
 
 enum class fatal_reason { out_of_memory, unhandled_exception };
 
 /** 尽力输出固定诊断后终止进程；不分配内存、不调用日志或用户回调，不承诺析构。 */
-[[noreturn]] void fatal(fatal_reason reason) noexcept;
+[[noreturn]] GNEISS_BASE_API void fatal(fatal_reason reason) noexcept;
 /** 执行边界使用：识别当前异常，随后终止；没有活动异常时按契约违例处理。 */
-[[noreturn]] void fatal_current_exception() noexcept;
+[[noreturn]] GNEISS_BASE_API void fatal_current_exception() noexcept;
 /** 仅由自有宿主显式调用；嵌入方自行管理进程级 terminate handler。 */
-void install_fatal_handler() noexcept;
+GNEISS_BASE_API void install_fatal_handler() noexcept;
 
 } // namespace gneiss
