@@ -24,16 +24,14 @@ template <bool Mutable> class basic_sequence_view {
   target_type target_;
 
 public:
-  [[nodiscard]] result<std::size_t> size() const {
+  [[nodiscard]] std::size_t size() const {
     auto v = readonly();
     return ops()->size(v.data_);
   }
   [[nodiscard]] result<target_type> at(std::size_t index) const {
     auto v = readonly();
     auto count = size();
-    if (!count)
-      return count.error();
-    if (index >= *count)
+    if (index >= count)
       return error::not_found;
     if constexpr (Mutable) {
       if (!ops()->at_mut)
@@ -49,9 +47,7 @@ public:
     if (!has_identity())
       return error::unsupported;
     auto count = size();
-    if (!count)
-      return count.error();
-    if (index >= *count)
+    if (index >= count)
       return error::not_found;
     auto id = ops()->identity(readonly().data_, index);
     return id ? result<guid>{id} : result<guid>{error::invalid_argument};
@@ -63,11 +59,9 @@ public:
     if (!has_identity())
       return error::unsupported;
     auto count = size();
-    if (!count)
-      return count.error();
     std::unordered_set<guid, guid_hash> seen;
-    std::size_t found = *count;
-    for (std::size_t i = 0; i < *count; ++i) {
+    std::size_t found = count;
+    for (std::size_t i = 0; i < count; ++i) {
       auto current = identity(i);
       if (!current)
         return current.error();
@@ -76,7 +70,7 @@ public:
       if (*current == id)
         found = i;
     }
-    return found == *count ? result<target_type>{error::not_found} : at(found);
+    return found == count ? result<target_type>{error::not_found} : at(found);
   }
   [[nodiscard]] bool is_resizable() const noexcept { return ops()->resize != nullptr; }
   [[nodiscard]] bool supports_replacement() const noexcept { return ops()->replace != nullptr; }

@@ -22,7 +22,7 @@ template <bool Mutable> class basic_associative_view {
   target_type target_;
 
 public:
-  [[nodiscard]] result<std::size_t> size() const {
+  [[nodiscard]] std::size_t size() const {
     auto v = readonly();
     return ops()->size(v.data_);
   }

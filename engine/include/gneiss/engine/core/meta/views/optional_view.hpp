@@ -22,7 +22,7 @@ template <bool Mutable> class basic_optional_view {
   target_type target_;
 
 public:
-  [[nodiscard]] result<bool> has_value() const { return ops()->has_value(readonly().data_); }
+  [[nodiscard]] bool has_value() const { return ops()->has_value(readonly().data_); }
   [[nodiscard]] result<target_type> get() const {
     auto v = readonly();
     if (!ops()->has_value(v.data_))

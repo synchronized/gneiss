@@ -127,8 +127,6 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
       return failure(reference_slot.error());
     auto owned = reference_slot->owner();
     if (!owned)
-      return failure(owned.error());
-    if (!*owned)
       return doc->null();
     auto target = value_type.element_type();
     if (!target)
@@ -136,34 +134,34 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     if (target.kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
     auto declared = reference_policy_for(value_type, override);
-    auto actual = result<gneiss::type_id>{reference_slot->actual_type()};
-    if (!declared || !actual)
+    auto actual = reference_slot->actual_type();
+    if (!declared)
       return failure(error::invalid_argument);
     if (declared->encode) {
-      auto pointer = cast_base(registry, *actual, target.id(), const_cast<void*>(owned->get()));
+      auto pointer = cast_base(registry, actual, target.id(), const_cast<void*>(owned.get()));
       if (!pointer)
         return std::move(pointer).error();
       return declared->encode(ctx, *doc, *pointer);
     }
-    if (!declared->polymorphic && *actual != target.id())
+    if (!declared->polymorphic && actual != target.id())
       return failure(error::invalid_argument, "", "未声明多态的引用不能保存派生对象");
-    auto adjusted = cast_base(registry, *actual, target.id(), nullptr);
+    auto adjusted = cast_base(registry, actual, target.id(), nullptr);
     if (!adjusted)
       return std::move(adjusted).error();
-    auto binding = find_policies(registry, *actual);
+    auto binding = find_policies(registry, actual);
     if (!binding)
       return failure(error::unsupported, "", "引用目标缺少编码器");
-    const auto* address = owned->get();
+    const auto* address = owned.get();
     if (depth > ctx.maximum_depth() || !context_access::active(ctx).insert(address).second)
       return failure(error::invalid_argument, "", "引用环或嵌套深度超限");
     active_reference reference{ctx, address};
-    auto content = encode_nested(ctx, registry, *actual, address, doc, depth + 1);
+    auto content = encode_nested(ctx, registry, actual, address, doc, depth + 1);
 
     if (!content)
       return std::move(content).error();
     if (!declared->polymorphic)
       return content;
-    auto actual_type = find_type(registry, *actual);
+    auto actual_type = find_type(registry, actual);
     if (!actual_type)
       return failure(error::not_found);
     if (!actual_type.guid())
@@ -209,9 +207,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     if (!v)
       return failure(v.error());
     auto has = v->has_value();
-    if (!has)
-      return failure(has.error());
-    if (!*has) {
+    if (!has) {
       auto* output = doc->null();
       return output ? result<writer::node, serialization::diagnostic>{output}
                     : failure(error::out_of_memory);
@@ -229,12 +225,10 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     if (!v)
       return failure(v.error());
     auto count = v->size();
-    if (!count)
-      return failure(count.error());
     auto* output = doc->array();
     if (!output)
       return failure(error::out_of_memory);
-    for (std::size_t i = 0; i < *count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
       auto child = v->at(i);
       if (!child)
         return failure(child.error());
@@ -352,8 +346,8 @@ serialization::diagnostic validate_view(const read_context& ctx, const registry_
     if (!reference_slot)
       return failure(reference_slot.error());
     auto owner = reference_slot->owner();
-    return owner && !*owner ? serialization::diagnostic{}
-                            : failure(error::unsupported, "", "非空缺省引用必须显式保存");
+    return !owner ? serialization::diagnostic{}
+                  : failure(error::unsupported, "", "非空缺省引用必须显式保存");
   }
   if (depth > ctx.maximum_depth() && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
@@ -383,8 +377,6 @@ serialization::diagnostic validate_view(const read_context& ctx, const registry_
       return failure(v.error());
     auto has = v->has_value();
     if (!has)
-      return failure(has.error());
-    if (!*has)
       return {};
     auto child = v->get();
     if (!child)
@@ -396,9 +388,7 @@ serialization::diagnostic validate_view(const read_context& ctx, const registry_
     if (!v)
       return failure(v.error());
     auto n = v->size();
-    if (!n)
-      return failure(n.error());
-    for (std::size_t i = 0; i < *n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
       auto child = v->at(i);
       if (!child)
         return failure(child.error());

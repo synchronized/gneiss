@@ -195,31 +195,28 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
         status = sequence.error();
       else {
         auto size = sequence->size();
-        if (!size)
-          status = size.error();
-        else
-          for (std::size_t i = 0; i < *size; ++i) {
-            auto child = sequence->at(i);
-            if (!child) {
-              status = child.error();
-              continue;
-            }
-            path.emplace_back(i);
-            ImGui::PushID(static_cast<int>(i));
-            std::optional<meta::const_instance> original;
-            if (source) {
-              auto sequence_source = source->as_sequence();
-              if (sequence_source) {
-                auto value = sequence_source->at(i);
-                if (value)
-                  original = *value;
-              }
-            }
-            draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status,
-                       readonly, original ? &*original : nullptr, depth + 1);
-            ImGui::PopID();
-            path.pop_back();
+        for (std::size_t i = 0; i < size; ++i) {
+          auto child = sequence->at(i);
+          if (!child) {
+            status = child.error();
+            continue;
           }
+          path.emplace_back(i);
+          ImGui::PushID(static_cast<int>(i));
+          std::optional<meta::const_instance> original;
+          if (source) {
+            auto sequence_source = source->as_sequence();
+            if (sequence_source) {
+              auto value = sequence_source->at(i);
+              if (value)
+                original = *value;
+            }
+          }
+          draw_value(*child, "[" + std::to_string(i) + "]", path, pending, serial, status, readonly,
+                     original ? &*original : nullptr, depth + 1);
+          ImGui::PopID();
+          path.pop_back();
+        }
       }
     }
     ImGui::TreePop();

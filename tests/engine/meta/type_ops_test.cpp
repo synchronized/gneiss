@@ -158,7 +158,7 @@ int main() {
   source.sequence.fail_resize = false;
   source.sequence.fail_length = true;
   CHECK(gneiss::test_support::throws<std::length_error>([&] { (void)sequence->resize(4); }));
-  CHECK(*sequence->size() == 3);
+  CHECK(sequence->size() == 3);
   source.sequence.fail_length = false;
   std::vector<float> bounded{1.0F};
   auto bounded_view = m::view(*registry, bounded);

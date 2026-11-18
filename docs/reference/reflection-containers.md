@@ -21,6 +21,10 @@
 递归对象（如 vector<Node>）只检查叶子身份，不在冻结阶段展开无限对象树。
 
 sequence_view 与 associative_view 的只读和可写版本都支持 size；顺序视图通过 at(index) 返回元素实例，越界返回 not_found。
+序列和关联视图的 `size()` 直接返回 `std::size_t`，空容器返回零；
+查询不提供错误分支，调用方仍需保证借用有效并同步访问。
+`at`、`find` 和 `keys` 保留越界、缺失或非法键等诊断。
+
 可写顺序视图提供 resize。vector 保留原有前缀、新元素默认构造，缩小时销毁尾部。
 array 的 is_resizable() 为 false，resize 仅接受原长度；JSON 长度必须恰好为 N，包含 N=0。
 关联视图通过 keys() 获取排序后的自有键列表，通过 find(key) 获取值实例；键不可通过视图修改。

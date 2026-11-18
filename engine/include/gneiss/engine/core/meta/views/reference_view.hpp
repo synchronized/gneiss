@@ -28,7 +28,7 @@ public:
     return ops()->dynamic_type(readonly().registry(), readonly().data_).id();
   }
   /** 显式共享控制块，返回的只读强引用保活目标。 */
-  result<ref<const void>> owner() const { return ops()->owner(readonly().data_); }
+  ref<const void> owner() const { return ops()->owner(readonly().data_); }
   /** 类型擦除赋值：调用方保证 owner 地址是 id 对应类型，id 必须等于声明目标类型。 */
   error assign_owner(gneiss::type_id id, const ref<void>& owner) const
     requires(Mutable)
@@ -40,7 +40,7 @@ public:
   }
 
 public:
-  [[nodiscard]] result<bool> has_value() const { return ops()->get(readonly().data_) != nullptr; }
+  [[nodiscard]] bool has_value() const { return ops()->get(readonly().data_) != nullptr; }
   /** ref<const T> 的可写视图仍不能修改目标，可经 as_const().get() 读取。 */
   [[nodiscard]] result<target_type> get() const {
     auto v = readonly();
@@ -51,17 +51,13 @@ public:
       if (!p)
         return error::not_found;
       auto owned = owner();
-      if (!owned)
-        return owned.error();
-      return instance::from_object(v.registry(), actual_type(), const_cast<void*>(owned->get()));
+      return instance::from_object(v.registry(), actual_type(), const_cast<void*>(owned.get()));
     } else {
       auto* p = ops()->get(v.data_);
       if (!p)
         return error::not_found;
       auto owned = owner();
-      if (!owned)
-        return owned.error();
-      return const_instance::from_object(v.registry(), actual_type(), owned->get());
+      return const_instance::from_object(v.registry(), actual_type(), owned.get());
     }
   }
   [[nodiscard]] reference_view as_const() const noexcept { return reference_view{readonly()}; }

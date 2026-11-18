@@ -78,13 +78,11 @@ struct capture_state {
       if (!view)
         return view.error();
       auto count = view->size();
-      if (!count)
-        return count.error();
       sequence_value_data data;
       data.fixed = view->is_fixed_size();
       data.keyed = view->has_identity();
-      data.elements.reserve(*count);
-      for (std::size_t i = 0; i < *count; ++i) {
+      data.elements.reserve(count);
+      for (std::size_t i = 0; i < count; ++i) {
         detail::path_scope path{ctx, "/indices/" + std::to_string(i)};
         auto child = view->at(i);
         if (!child)
@@ -128,10 +126,8 @@ struct capture_state {
       if (!view)
         return view.error();
       auto present = view->has_value();
-      if (!present)
-        return present.error();
       optional_value_data data;
-      if (*present) {
+      if (present) {
         auto child = view->get();
         if (!child)
           return child.error();
@@ -164,13 +160,8 @@ struct capture_state {
       auto reference_slot = source.as_reference();
       if (!reference_slot)
         return reference_slot.error();
-      auto view = source.as_reference();
-      if (!view)
-        return view.error();
-      auto present = view->has_value();
+      auto present = reference_slot->has_value();
       if (!present)
-        return present.error();
-      if (!*present)
         return gneiss::value{};
       auto target_type = source.type().element_type();
       if (!target_type)
@@ -179,11 +170,9 @@ struct capture_state {
       if (!binding)
         return binding.error();
       auto owner = reference_slot->owner();
-      if (!owner)
-        return owner.error();
       if (binding->capture) {
         auto address = detail::cast_base(source.registry(), reference_slot->actual_type(),
-                                         target_type.id(), const_cast<void*>(owner->get()));
+                                         target_type.id(), const_cast<void*>(owner.get()));
         if (!address)
           return address.error().error;
         auto ref = binding->capture(target_type.guid(), *address);
@@ -195,14 +184,14 @@ struct capture_state {
         return error::unsupported;
       if (!binding->polymorphic && reference_slot->actual_type() != target_type.id())
         return error::invalid_argument;
-      if (!active.insert(owner->get()).second)
+      if (!active.insert(owner.get()).second)
         return error::invalid_argument;
       struct guard {
         std::unordered_set<const void*>& active;
         const void* pointer;
         ~guard() { active.erase(pointer); }
-      } cleanup{active, owner->get()};
-      auto child = view->get();
+      } cleanup{active, owner.get()};
+      auto child = reference_slot->get();
       return child ? read(*child, depth + 1) : result<gneiss::value>{child.error()};
     }
     default:
@@ -306,9 +295,7 @@ struct restore_state {
       }
       const auto& elements = data_view->get().elements;
       auto count = view->size();
-      if (!count)
-        return count.error();
-      if (*count != elements.size()) {
+      if (count != elements.size()) {
         auto status = view->resize(elements.size());
         if (status.failed())
           return status;

@@ -77,7 +77,7 @@ bool explicit_registration() {
   if (!member)
     return false;
   auto sequence = member->as_sequence();
-  if (!sequence || *sequence->size() != 2 || sequence->at(2).error() != e::error::not_found)
+  if (!sequence || sequence->size() != 2 || sequence->at(2).error() != e::error::not_found)
     return false;
   auto item = sequence->at(0);
   if (!item || item->assign(4.0F).failed() || model.items.values[0] != 4.0F)

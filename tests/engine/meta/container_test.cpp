@@ -129,12 +129,12 @@ int main() try {
   auto optional_root = m::view(*r, optional);
   CHECK(optional_root);
   CHECK(optional_root->member("number")->as_optional().error() == e::error::unsupported);
-  CHECK(*optional_root->as_const().member("number")->as_optional()->has_value());
+  CHECK(optional_root->as_const().member("number")->as_optional()->has_value());
   auto rejected_number = gneiss::serialization::json::decode<optional_description>(
       gneiss::serialization::read_context{*r}, bytes(R"({"number":-1})"));
   CHECK(!rejected_number && rejected_number.error().path == "/number");
   auto slot = optional_root->member("item")->as_optional();
-  CHECK(slot && !*slot->has_value());
+  CHECK(slot && !slot->has_value());
   CHECK(slot->get().error() == e::error::not_found);
   CHECK(optional_root->member("item")->read_value().error() == e::error::unsupported);
   CHECK(slot->ensure() && optional.item.has_value());
@@ -177,7 +177,7 @@ int main() try {
   CHECK(items->read_value().error() == e::error::unsupported);
   CHECK(items->as_associative().error() == e::error::unsupported);
   auto seq = items->as_sequence();
-  CHECK(seq && *seq->size() == 1);
+  CHECK(seq && seq->size() == 1);
   CHECK(seq->at(2).error() == e::error::not_found);
   CHECK(seq->resize(2).ok());
   auto object = seq->at(1);
@@ -189,7 +189,7 @@ int main() try {
   CHECK(readonly);
   CHECK(std::get<float>(readonly->at(0)->read_value()->payload) == 4);
   auto groups = root->member("groups")->as_associative();
-  CHECK(groups);
+  CHECK(groups && groups->size() == source.groups.size());
   auto inserted = groups->insert("a/b~");
   CHECK(inserted);
   auto numbers = inserted->as_sequence();
@@ -256,11 +256,11 @@ int main() try {
     return view.member("items")->as_sequence()->size();
   });
   auto count = future.get();
-  CHECK(count && *count == source.items.size());
+  CHECK(count == source.items.size());
   // 根视图销毁后子视图仍持有注册表；目标对象 source 仍存活。
   *root = {};
   r->reset();
-  CHECK(*seq->size() == 2);
+  CHECK(seq->size() == 2);
   return 0;
 } catch (...) {
   return 99;

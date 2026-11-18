@@ -75,11 +75,11 @@ bool object_values() {
     return false;
   auto retained = slot->owner();
   auto original = holder.item;
-  if (!retained || retained->get() != original.get() ||
+  if (!retained || retained.get() != original.get() ||
       slot->assign_owner(e::runtime_type_of<unrelated_probe>(), original) !=
           e::error::invalid_argument ||
-      holder.item != original || slot->reset().failed() || holder.item ||
-      retained->get() != original.get() ||
+      holder.item != original || slot->reset().failed() || holder.item || slot->owner() ||
+      retained.get() != original.get() ||
       slot->assign_owner(e::runtime_type_of<shared_probe>(), original).failed() ||
       holder.item != original)
     return false;
@@ -519,7 +519,7 @@ bool reference_properties() {
       field->assign(readonly->as_const()) != e::error::invalid_argument)
     return false;
   auto reference = field->as_reference();
-  if (!reference || !reference->has_value() || !*reference->has_value() ||
+  if (!reference || !reference->has_value() ||
       root->as_reference().error() != e::error::unsupported ||
       m::const_instance{}.as_reference().error() != e::error::invalid_state)
     return false;
@@ -528,7 +528,7 @@ bool reference_properties() {
   if (!copied_instance)
     return false;
   auto copied_view = copied_instance->as_reference();
-  if (!copied_view || *copied_view->has_value() ||
+  if (!copied_view || copied_view->has_value() ||
       copied_view->assign(reference->as_const()).failed() || copied.get() != target.get() ||
       copied_view->assign(readonly->as_reference()->as_const()) != e::error::invalid_argument ||
       copied_view->reset().failed() || copied || !owner.target)

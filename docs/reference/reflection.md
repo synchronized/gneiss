@@ -537,7 +537,8 @@ reference_view::get 对空引用返回 not_found。引用不是标量；可变 m
 不同目标类型（包括 const 差异）返回 invalid_argument，不隐式推断派生转换。
 引用视图的 `reset()` 释放当前引用，不影响其他强引用；视图不会自动延长目标寿命，
 重置/替换后应重新获取目标视图。
-通过 `reference_view::owner()` 显式保活目标；`actual_type()` 查询实际运行类型。
+`reference_view::has_value()` 直接返回 bool；`owner()` 直接返回 `ref<const void>`，
+空引用对应空强引用，非空结果显式保活目标；`actual_type()` 查询实际运行类型。
 可写视图的 `assign_owner(id, owner)` 仅接受声明目标类型的 ID，调用方须保证擦除指针与 ID 匹配。
 修改目标会被所有共享拥有者观察到，不提供写时复制。
 实例的 `registry()` 返回所持有的注册表；受 setter 约束的复合属性通过
@@ -614,7 +615,7 @@ setter 返回的业务错误定位到属性，嵌套解码错误保留具体子�
 
 `std::optional<T>` 对应独立 `type_kind::optional` 和 `optional_ops`，不改变值所有权，
 也不引入共享引用。`type::element_type()` 返回 T 的类型。
-通过 `const_instance::as_optional()` 获取只读借用视图，提供 `has_value()`、`get()`；
+通过 `const_instance::as_optional()` 获取只读借用视图，提供直接返回 bool 的 `has_value()` 和保留失败诊断的 `get()`；
 可写视图增加 `ensure()` 和 `reset()`。空值的 `get()` 返回 not_found；T 无默认构造时，
 空槽位的 ensure 返回 unsupported。清空、替换或移动宿主后须重新获取内部视图。
 optional 本身不支持 read_value，须先 get 后读取内部值。

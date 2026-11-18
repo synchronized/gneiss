@@ -39,7 +39,7 @@ void native_material_contract() {
   check(color && color->read_value()->kind() == value_kind::vec4);
   check(color->assign(value{math::vector4{0.2F, 0.4F, 0.6F, 1}}).ok());
   auto sampling = parameters->member("sampling")->as_sequence();
-  check(sampling && !sampling->is_resizable() && *sampling->size() == 5);
+  check(sampling && !sampling->is_resizable() && sampling->size() == 5);
   check(sampling->resize(4) == error::invalid_argument && sampling->resize(5).ok());
   auto uv = sampling->at(0)->member("uv_set");
   check(uv.ok());
