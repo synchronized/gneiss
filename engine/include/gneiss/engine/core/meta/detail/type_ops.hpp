@@ -7,6 +7,7 @@
 #include <gneiss/engine/core/meta/ops/associative_ops.hpp>
 #include <gneiss/engine/core/meta/ops/optional_ops.hpp>
 #include <gneiss/engine/core/meta/ops/reference_ops.hpp>
+#include <gneiss/engine/core/meta/ops/representation_ops.hpp>
 #include <gneiss/engine/core/meta/ops/sequence_ops.hpp>
 #include <gneiss/engine/core/meta/ops/value_ops.hpp>
 #include <gneiss/engine/core/meta/ops/variant_ops.hpp>
@@ -27,10 +28,13 @@ struct type_ops {
   void (*move_assign)(void*, void*){};
   void (*copy_assign)(void*, const void*){};
   const value_ops* values{};
+  const representation_ops* representation{};
   category_ops category;
   template <class Ops> const Ops* get() const noexcept {
     if constexpr (std::is_same_v<Ops, value_ops>) {
       return values;
+    } else if constexpr (std::is_same_v<Ops, representation_ops>) {
+      return representation;
     } else {
       const auto* p = std::get_if<const Ops*>(&category);
       return p ? *p : nullptr;
@@ -107,6 +111,8 @@ template <class T> const type_ops& ops_of() {
     ops.id = runtime_type_of<T>();
     ops.guid = type_identity<scalar_storage<T>>::guid();
     ops.enumeration = std::is_enum_v<T>;
+    if constexpr (representation_traits<T>::enabled)
+      ops.representation = &representation_ops_of<T>();
     if constexpr (value_traits<T>::enabled)
       ops.values = &value_ops_of<T>();
     if constexpr (std::is_copy_assignable_v<T>)

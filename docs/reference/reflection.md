@@ -715,3 +715,10 @@ Meta 不解释扩展内容；其用途及策略优先级由消费模块定义。
 value 分支；本能力不等于任意 C++ 类型均可存入 value。
 
 文件表示的显式适配见[序列化接口](serialization.md#值类型的文件表示适配)，与 value_traits 独立。
+
+## 静态类型表示
+
+representation_traits<T> 与 value_traits<T> 分别提供原生表示转换和整体 value 转换，
+都是独立于注册数据的可选能力。type::has_representation() 查询前者；
+instance::read_representation 与 type::decode_representation 同步访问表示和候选临时值，
+借用只在回调中有效。具体约束及用法见[序列化参考](serialization.md#值类型的文件表示适配)。

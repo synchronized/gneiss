@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/serialization/adapter.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <stdexcept>
@@ -116,14 +115,19 @@ template <bool Mutable> struct associative_traits<dictionary<Mutable>> {
 };
 }
 
-namespace gneiss::serialization {
-template <> struct adapter<mapped_value> {
+struct represented_value {
+  explicit represented_value(std::int64_t input) : number(input) {}
+  std::int64_t number;
+};
+namespace gneiss::meta {
+template <> struct representation_traits<represented_value> {
+  static constexpr bool enabled = true;
   using representation_type = std::int64_t;
-  static result<representation_type> encode(const write_context&, const mapped_value& source) {
+  static result<representation_type> encode(const represented_value& source) {
     return source.number;
   }
-  static result<mapped_value> decode(const read_context&, const representation_type& source) {
-    return mapped_value{source};
+  static result<represented_value> decode(const representation_type& source) {
+    return represented_value{source};
   }
 };
 }
@@ -225,21 +229,18 @@ int main() {
   const std::string mapped_json(reinterpret_cast<const char*>(mapped_bytes->data()),
                                 mapped_bytes->size());
   CHECK(mapped_json.find("number") != std::string::npos);
-  // 只有显式选择序列化适配器，文件表示才从字段对象变成数字。
-  e::serialization::adapter_registry adapters;
-  CHECK(e::serialization::register_adapter<mapped_value>(adapters).ok());
-  e::serialization::write_context adapted_write{*registry, adapters};
-  e::serialization::read_context adapted_read{*registry, adapters};
-  auto adapted_bytes = e::serialization::json::encode_bytes(adapted_write, mapped);
+  // 静态表示独立于 value 转换与注册；空冻结表也可处理原生类型。
+  auto native_registry = m::create_registry();
+  CHECK(native_registry && m::freeze(*native_registry).ok());
+  e::serialization::write_context adapted_write{*native_registry};
+  e::serialization::read_context adapted_read{*native_registry};
+  auto adapted_bytes = e::serialization::json::encode_bytes(adapted_write, represented_value{9});
   CHECK(adapted_bytes);
   CHECK(std::string(reinterpret_cast<const char*>(adapted_bytes->data()), adapted_bytes->size()) ==
         "9");
-  auto adapted_copy = e::serialization::json::decode<mapped_value>(adapted_read, *adapted_bytes);
+  auto adapted_copy =
+      e::serialization::json::decode<represented_value>(adapted_read, *adapted_bytes);
   CHECK(adapted_copy && adapted_copy->number == 9);
-  auto adapted_owner = e::serialization::json::encode_bytes(adapted_write, owner);
-  CHECK(adapted_owner);
-  CHECK(std::string(reinterpret_cast<const char*>(adapted_owner->data()), adapted_owner->size()) ==
-        "{\"item\":12}");
 
   document source;
   auto view = m::view(*registry, source);

@@ -5,6 +5,8 @@
 
 状态：已完成本地实施与验收（2026-11-18）。
 
+后续调整：独立适配器表已由 [PLAN-123](PLAN-123-static-representation.md) 迁移为静态能力。
+
 ## 已确认目标
 
 Meta 保留内存类型与 value 转换；serialization::adapter<T> 将类型转换成可遍历的表示类型。

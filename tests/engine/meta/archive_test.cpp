@@ -4,7 +4,6 @@
 #include <deque>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/serialization/adapter.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
@@ -135,6 +134,11 @@ struct record {
 bool failed_with(const e::result<void, s::diagnostic>& status, e::error expected) {
   return !status && status.error().error == expected;
 }
+struct represented_derived : m::object_type<represented_derived, base> {
+  static constexpr std::string_view type_name = "represented_derived";
+  static constexpr e::guid type_guid = e::guid::literal("b93b8c32-13c0-4ba6-a71d-333e78d54c19");
+  std::int64_t number = 7;
+};
 struct external_id {
   static constexpr std::string_view type_name = "external_id";
   static constexpr e::guid type_guid = e::guid::literal("f530ed20-357b-4943-9eea-d271d71ebbc0");
@@ -152,24 +156,26 @@ struct external_holder {
     return e::error::success;
   }
 };
-namespace gneiss::serialization {
-template <> struct adapter<derived> {
+namespace gneiss::meta {
+template <> struct representation_traits<represented_derived> {
+  static constexpr bool enabled = true;
   using representation_type = std::int64_t;
-  static result<representation_type> encode(const write_context&, const derived& source) {
+  static result<representation_type> encode(const represented_derived& source) {
     return source.number;
   }
-  static result<derived> decode(const read_context&, const representation_type& source) {
-    derived output;
+  static result<represented_derived> decode(const representation_type& source) {
+    represented_derived output;
     output.number = source;
     return output;
   }
 };
-template <> struct adapter<external_id> {
+template <> struct representation_traits<external_id> {
+  static constexpr bool enabled = true;
   using representation_type = std::optional<std::int64_t>;
-  static result<representation_type> encode(const write_context&, const external_id& source) {
+  static result<representation_type> encode(const external_id& source) {
     return source.number ? representation_type{source.number} : representation_type{};
   }
-  static result<external_id> decode(const read_context&, const representation_type& source) {
+  static result<external_id> decode(const representation_type& source) {
     if (!source)
       return external_id{};
     if (*source < 0)
@@ -180,15 +186,21 @@ template <> struct adapter<external_id> {
 }
 
 // 错误适配形成表示环时，由递归预算终止，而不是溢出调用栈。
-struct recursive_id_adapter {
-  using representation_type = std::optional<external_id>;
-  static e::result<representation_type> encode(const s::write_context&, const external_id& id) {
+struct recursive_id {
+  std::int64_t number{};
+};
+namespace gneiss::meta {
+template <> struct representation_traits<recursive_id> {
+  static constexpr bool enabled = true;
+  using representation_type = std::optional<recursive_id>;
+  static result<representation_type> encode(const recursive_id& id) {
     return representation_type{id};
   }
-  static e::result<external_id> decode(const s::read_context&, const representation_type& input) {
-    return input.value_or(external_id{});
+  static result<recursive_id> decode(const representation_type& input) {
+    return input.value_or(recursive_id{});
   }
 };
+}
 
 int main() {
   auto r = m::create_registry();
@@ -214,18 +226,17 @@ int main() {
             .commit()
             .ok());
   CHECK(gneiss::serialization::register_builtin_types(*r).ok());
-  CHECK(m::registration::type<external_id>(*r).commit().ok());
+  CHECK(m::registration::type<represented_derived>(*r).base<base>().commit().ok());
   CHECK((m::registration::type<external_holder>(*r)
              .property<&external_holder::get, &external_holder::set>(m::property_id{1}, "id")
              .commit()
              .ok()));
   CHECK(m::freeze(*r).ok());
   // 自定义类型没有 value 分支；与内置类型共享格式无关的适配机制。
-  s::adapter_registry adapters;
-  CHECK(s::register_adapter<external_id>(adapters).ok());
-  CHECK(s::register_adapter<external_id>(adapters) == e::error::invalid_argument);
-  s::write_context adapted_write{*r, adapters};
-  s::read_context adapted_read{*r, adapters};
+  s::write_context adapted_write{*r};
+  s::read_context adapted_read{*r};
+  CHECK(!m::type_of<external_id>(*r).registered());
+  CHECK(m::type_of<external_id>(*r).has_representation());
   memory_writer adapted_output;
   CHECK(s::write(adapted_write, external_id{42}, adapted_output));
   CHECK(adapted_output.root_value->type == item::kind::scalar);
@@ -233,21 +244,23 @@ int main() {
   memory_reader adapted_input{adapted_output.root_value};
   auto adapted_copy = s::decode<external_id>(adapted_read, adapted_input);
   CHECK(adapted_copy && adapted_copy->number == 42);
-  s::adapter_registry recursive_adapters;
-  CHECK((s::register_adapter<external_id, recursive_id_adapter>(recursive_adapters).ok()));
-  s::write_context recursive_write{*r, recursive_adapters, 8};
-  s::read_context recursive_read{*r, recursive_adapters, 8};
+  s::write_context recursive_write{*r, 8};
+  s::read_context recursive_read{*r, 8};
   memory_writer recursive_output;
-  CHECK(!s::write(recursive_write, external_id{1}, recursive_output));
-  CHECK(!s::decode<external_id>(recursive_read, adapted_input));
+  CHECK(!s::write(recursive_write, recursive_id{1}, recursive_output));
+  CHECK(!s::decode<recursive_id>(recursive_read, adapted_input));
 
   memory_writer empty_value_output;
   CHECK(s::write(adapted_write, external_id{}, empty_value_output));
   CHECK(empty_value_output.root_value->type == item::kind::null);
-  memory_writer ambiguous_reference;
-  auto empty_id_reference = e::make_ref<external_id>();
-  CHECK(!s::write(adapted_write, empty_id_reference, ambiguous_reference));
 
+  memory_writer defaults_output;
+  auto defaults_root = defaults_output.object();
+  CHECK(defaults_root);
+  CHECK(defaults_output.root(defaults_root));
+  memory_reader defaults_input{defaults_output.root_value};
+  auto defaults = s::decode<external_holder>(adapted_read, defaults_input);
+  CHECK(defaults && defaults->id.number == 7);
   external_holder holder;
   memory_writer holder_output;
   CHECK(s::write(adapted_write, holder, holder_output));
@@ -264,16 +277,15 @@ int main() {
   member->data = e::value{std::int64_t{21}};
   CHECK(s::read_into(adapted_read, holder_input, *holder_view));
   CHECK(holder.id.number == 21);
-  s::adapter_registry polymorphic_adapters;
-  CHECK(s::register_adapter<derived>(polymorphic_adapters).ok());
-  s::write_context polymorphic_write{*r, polymorphic_adapters};
-  s::read_context polymorphic_read{*r, polymorphic_adapters};
-  e::ref<base> adapted_object = e::make_ref<derived>();
+  s::write_context polymorphic_write{*r};
+  s::read_context polymorphic_read{*r};
+  e::ref<base> adapted_object = e::make_ref<represented_derived>();
   memory_writer polymorphic_output;
   CHECK(s::write(polymorphic_write, adapted_object, polymorphic_output));
   memory_reader polymorphic_input{polymorphic_output.root_value};
   auto polymorphic_copy = s::decode<e::ref<base>>(polymorphic_read, polymorphic_input);
-  CHECK(polymorphic_copy && dynamic_cast<derived*>(polymorphic_copy->get())->number == 7);
+  CHECK(polymorphic_copy &&
+        dynamic_cast<represented_derived*>(polymorphic_copy->get())->number == 7);
 
   s::write_context ctx{*r};
   s::read_context read_ctx{*r};

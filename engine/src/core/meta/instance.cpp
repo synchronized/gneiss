@@ -6,6 +6,41 @@
 #include <gneiss/engine/core/meta/instance.hpp>
 
 namespace gneiss::meta {
+bool type::has_representation() const noexcept { return access_ && access_->representation; }
+error type::decode_representation(const std::function<error(const instance&)>& read,
+                                  const std::function<error(const instance&)>& consume) const {
+  if (!has_representation())
+    return error::unsupported;
+  GNEISS_ASSERT(read && consume, "表示转换要求有效访问回调");
+  return access_->representation->decode(
+      [&](void* p, const detail::type_ops& ops) {
+        auto view = instance::from_access(registry_, ops, p);
+        return view ? read(*view) : view.error();
+      },
+      [&](void* p, const detail::type_ops& ops) {
+        auto view = instance::from_access(registry_, ops, p);
+        return view ? consume(*view) : view.error();
+      });
+}
+template <bool Mutable>
+error basic_instance<Mutable>::read_representation(
+    const std::function<error(const const_instance&)>& consume) const {
+  GNEISS_ASSERT(kind() != type_kind::invalid && consume, "表示读取要求有效实例和回调");
+  const auto* ops = access() ? access()->representation : nullptr;
+  if (!ops)
+    return error::unsupported;
+  auto visit = [&](const void* p, const detail::type_ops& representation) {
+    auto view = const_instance::from_access(registry(), representation, p);
+    return view ? consume(*view) : view.error();
+  };
+  if (data_)
+    return ops->encode(data_, visit);
+  if (!ops->encode_value)
+    return error::unsupported;
+  auto source = read_value();
+  return source ? ops->encode_value(*source, visit) : source.error();
+}
+
 bool type::is_fixed_sequence() const noexcept {
   const auto* ops = access_ ? access_->get<sequence_ops>() : nullptr;
   return ops && ops->fixed_size;

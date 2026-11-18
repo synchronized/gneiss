@@ -137,3 +137,5 @@ Reference 和实现为准。
 - [ADR-125：类型结构与整体值转换独立](ADR-125-meta-value-conversion.md)
 
 - [ADR-126：格式无关的值类型适配](ADR-126-serialization-adapters.md)
+
+- [ADR-127：静态类型表示能力](ADR-127-static-representation.md)

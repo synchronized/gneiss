@@ -4,9 +4,10 @@
 
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/context.hpp>
+#include <optional>
 
 namespace gneiss::serialization::detail {
-/** 所有格式共用类型分派；对象仍由注册工厂构造，不要求默认构造。 */
+/** 所有格式共用类型分派；静态表示可直接构造候选，其余对象使用注册工厂。 */
 template <class T, class DecodeView, class DecodeObject>
 result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_view,
                                    DecodeObject&& decode_object) {
@@ -14,7 +15,8 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
   if (!registry)
     return diagnostic{.error = registry.error()};
   if constexpr (std::is_default_constructible_v<T>) {
-    if (meta::detail::ops_of<T>().kind() != meta::type_kind::object) {
+    if (meta::detail::ops_of<T>().kind() != meta::type_kind::object ||
+        (meta::representation_traits<T>::enabled && !meta::type_of<T>(*registry).registered())) {
       T object{};
       auto view = meta::view(*registry, object);
       if (!view)
@@ -23,6 +25,32 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
       if (!status)
         return std::move(status).error();
       return object;
+    }
+  }
+  if constexpr (meta::representation_traits<T>::enabled && !std::is_default_constructible_v<T>) {
+    const auto type = meta::type_of<T>(*registry);
+    if (!type.registered()) {
+      std::optional<T> candidate;
+      diagnostic issue;
+      auto status = type.decode_representation(
+          [&](const meta::instance& representation) {
+            auto decoded = decode_view(representation);
+            if (!decoded)
+              issue = std::move(decoded).error();
+            return issue.error;
+          },
+          [&](const meta::instance& object) {
+            auto address = object.object_data();
+            if (!address)
+              return address.error();
+            candidate.emplace(std::move(*static_cast<T*>(*address)));
+            return error::success;
+          });
+      if (issue.error.failed())
+        return issue;
+      if (status.failed())
+        return diagnostic{.error = status};
+      return std::move(*candidate);
     }
   }
   auto decoded = decode_object(runtime_type_of<T>());

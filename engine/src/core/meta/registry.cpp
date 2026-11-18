@@ -391,7 +391,7 @@ public:
               return error::success;
             const auto found = by_cpp_type_.find(leaf.id);
             if (found == by_cpp_type_.end())
-              return error::not_found;
+              return leaf.representation ? error::success : error::not_found;
             return found->second->guid == leaf.guid ? error::success : error::invalid_argument;
           });
           if (status.failed())

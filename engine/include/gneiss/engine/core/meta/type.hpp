@@ -8,6 +8,7 @@
 #include <gneiss/engine/result.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
 
+#include <functional>
 #include <span>
 
 namespace gneiss::meta {
@@ -44,6 +45,12 @@ public:
   [[nodiscard]] GNEISS_API property find_property(std::string_view) const noexcept;
   [[nodiscard]] GNEISS_API bool is_fixed_sequence() const noexcept;
   [[nodiscard]] GNEISS_API bool has_sequence_identity() const noexcept;
+  [[nodiscard]] GNEISS_API bool has_representation() const noexcept;
+  /** 读入表示值，再访问解码候选；借用仅在回调期间有效，不自动写入目标。 */
+  [[nodiscard]] GNEISS_API error
+  decode_representation(const std::function<error(const instance&)>& read,
+                        const std::function<error(const instance&)>& consume) const;
+
   /** 同注册表内按类型身份比较；跨表比较身份时显式使用 id/guid。 */
   friend GNEISS_API bool operator==(const type&, const type&) noexcept;
   /** 无元素能力返回空句柄。

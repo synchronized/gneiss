@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "core/serialization/detail/traversal.hpp"
 #include <algorithm>
-#include <gneiss/engine/core/serialization/adapter.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 namespace gneiss::serialization::detail {
 using namespace meta;
@@ -26,6 +25,52 @@ serialization::diagnostic prefix(serialization::diagnostic diagnostic, const std
   // 子 codec 的偏移相对于重编码片段，不冒充完整文档偏移。
   diagnostic.byte_offset = 0;
   return diagnostic;
+}
+/** 静态转换仅处理内存；路径、预算和候选校验仍由序列化持有。 */
+result<writer::node, diagnostic>
+encode_representation(const write_context& ctx, const const_instance& source, writer& output) {
+  if (context_access::depth(ctx) >= ctx.maximum_depth())
+    return failure(error::invalid_argument);
+  result<writer::node, diagnostic> encoded = failure(error::unsupported);
+  bool visited = false;
+  auto status = source.read_representation([&](const const_instance& representation) {
+    visited = true;
+    encoded = encode_view(ctx, source.registry(), representation, &output,
+                          context_access::depth(ctx) + 1);
+    return encoded ? error::success : encoded.error().error;
+  });
+  if (status.failed() && !visited)
+    return failure(status);
+  return encoded;
+}
+diagnostic decode_representation(const read_context& ctx, const instance& target,
+                                 reader::node input) {
+  if (context_access::depth(ctx) >= ctx.maximum_depth())
+    return failure(error::invalid_argument);
+  diagnostic diagnostic;
+  auto status = target.type().decode_representation(
+      [&](const instance& representation) {
+        diagnostic = decode_view(ctx, target.registry(), representation, input,
+                                 context_access::depth(ctx) + 1);
+        return diagnostic.error;
+      },
+      [&](const instance& candidate) {
+        const auto policy = policies_of(candidate.type());
+        if (policy.validation.validate && !(ctx.references() && ctx.references()->collecting())) {
+          auto address = candidate.object_data();
+          if (!address)
+            return address.error();
+          diagnostic = policy.validation.validate(*address);
+          if (diagnostic.error.failed())
+            return diagnostic.error;
+        }
+        if (candidate.kind() == type_kind::scalar) {
+          auto value = candidate.read_value();
+          return value ? target.assign(*value) : value.error();
+        }
+        return target.assign(candidate.as_const());
+      });
+  return diagnostic.error.failed() ? diagnostic : failure(status);
 }
 /** 统一验证反射对象实际身份，普通值结构无此要求。 */
 serialization::diagnostic validate_identity(const registry_ref& registry, type_id id,
@@ -89,11 +134,12 @@ result<writer::node, serialization::diagnostic> encode_nested(const write_contex
     if (status.error.failed())
       return status;
   }
-  if (const auto* adapter = find_adapter(ctx, id)) {
+  auto type = find_type(registry, id);
+  if (type.has_representation()) {
     auto view = const_instance::from_object(registry, id, object);
     if (!view)
       return failure(view.error());
-    return adapter->encode(ctx, *view, *doc);
+    return encode_representation(ctx, *view, *doc);
   }
   if (binding->content.encode) {
     auto encoded = binding->content.encode(ctx, *doc, object);
@@ -113,16 +159,21 @@ result<writer::node, serialization::diagnostic>
 encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
             writer* doc, std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
+  if (view.type().has_representation() && !view.type().registered()) {
+    if (depth > ctx.maximum_depth())
+      return failure(error::invalid_argument);
+    return encode_representation(ctx, view, *doc);
+  }
   if (view.kind() == type_kind::object) {
     auto p = view.object_data();
     if (!p)
       return failure(p.error());
     return encode_nested(ctx, registry, view.type().id(), *p, doc, depth);
   }
-  if (const auto* adapter = find_adapter(ctx, view.type().id())) {
+  if (view.type().has_representation()) {
     if (depth > ctx.maximum_depth())
       return failure(error::invalid_argument);
-    return adapter->encode(ctx, view, *doc);
+    return encode_representation(ctx, view, *doc);
   }
   return encode_nonobject(ctx, registry, view, doc, depth, override);
 }
@@ -366,6 +417,25 @@ serialization::diagnostic validate_view(const read_context& ctx, const registry_
   }
   if (depth > ctx.maximum_depth() && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
+  if (value_type.has_representation()) {
+    if (depth >= ctx.maximum_depth())
+      return failure(error::invalid_argument, "", "类型表示超过深度限制");
+    const auto policy = policies_of(value_type);
+    if (policy.validation.validate && !(ctx.references() && ctx.references()->collecting())) {
+      auto address = view.object_data();
+      if (!address)
+        return failure(address.error());
+      auto status = policy.validation.validate(*address);
+      if (status.error.failed())
+        return status;
+    }
+    diagnostic checked;
+    auto status = view.read_representation([&](const const_instance& representation) {
+      checked = validate_view(ctx, registry, representation, depth + 1);
+      return checked.error;
+    });
+    return checked.error.failed() ? checked : failure(status);
+  }
   if (value_type.kind() == type_kind::object) {
     auto p = view.object_data();
     if (!p)
@@ -480,7 +550,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     return failure(binding.error());
   ref<void> object;
   serialization::diagnostic status;
-  if (binding->content.decode && !find_adapter(ctx, actual)) {
+  if (binding->content.decode && !find_type(registry, actual).has_representation()) {
     depth_scope custom_depth{ctx, depth + (root ? 0 : 1)};
     if (context_access::depth(ctx) > ctx.maximum_depth())
       return failure(error::invalid_argument);
@@ -496,11 +566,11 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     object = ops->construct();
     if (!object)
       return failure(error::internal);
-    if (const auto* adapter = find_adapter(ctx, actual)) {
+    if (find_type(registry, actual).has_representation()) {
       auto view = instance::from_object(registry, actual, object.get());
       if (!view)
         return failure(view.error());
-      status = adapter->decode(ctx, *view, *context_access::input(ctx), content);
+      status = decode_representation(ctx, *view, content);
     } else {
       status = decode_members(ctx, registry, actual, object.get(), content, depth + (root ? 0 : 1));
     }
@@ -509,8 +579,8 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     status = failure(error::internal);
   if (status.error.ok())
     status = validate_identity(registry, actual, object.get());
-  if (status.error.ok() && !find_adapter(ctx, actual) && binding->validation.validate &&
-      !(ctx.references() && ctx.references()->collecting()))
+  if (status.error.ok() && !find_type(registry, actual).has_representation() &&
+      binding->validation.validate && !(ctx.references() && ctx.references()->collecting()))
     status = binding->validation.validate(object.get());
   if (status.error.failed())
     return status;
@@ -558,10 +628,10 @@ serialization::diagnostic decode_view(const read_context& ctx, const registry_re
                                       const instance& view, reader::node input, std::size_t depth,
                                       const reference_policy* override) {
   depth_scope scope{ctx, depth};
-  if (const auto* adapter = find_adapter(ctx, view.type().id())) {
+  if (view.type().has_representation()) {
     if (depth > ctx.maximum_depth())
       return failure(error::invalid_argument);
-    return adapter->decode(ctx, view, *context_access::input(ctx), input);
+    return decode_representation(ctx, view, input);
   }
   if (view.kind() == type_kind::object && !view.requires_replacement())
     return decode_nested(ctx, registry, view, input, depth);
@@ -628,8 +698,9 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       if (!type)
         return failure(gneiss::error{gneiss::error::not_found}, "/$type_guid");
       actual = type.id();
-      if (!context_access::input(ctx)->is_object(content) && !find_adapter(ctx, actual))
-        return failure(error::invalid_argument, "/$content", "对象内容需要对象或已登记适配器");
+      if (!context_access::input(ctx)->is_object(content) &&
+          !find_type(registry, actual).has_representation())
+        return failure(error::invalid_argument, "/$content", "对象内容需要对象或静态表示能力");
     }
     auto compatible = cast_base(registry, actual, target.id(), nullptr);
     if (!compatible)
