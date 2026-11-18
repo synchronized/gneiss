@@ -104,13 +104,10 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   for (std::size_t i = 0; i < nodes.size(); ++i) {
     if (parent.owner() && nodes[i].get() == parent.entity().get())
       return error::invalid_argument;
-    if (impl_->scene_of(nodes[i]) != source.id())
-      return error::invalid_state;
+    GNEISS_ASSERT(impl_->scene_of(nodes[i]) == source.id(), "对象子树必须属于同一存活场景");
     const auto* object = impl_->get<detail::object_state>(nodes[i].get());
-    const auto* children = object ? &object->children : nullptr;
-    if (!children)
-      return error::invalid_handle;
-    nodes.insert(nodes.end(), children->begin(), children->end());
+    GNEISS_ASSERT(object, "对象层级不得包含失效子对象");
+    nodes.insert(nodes.end(), object->children.begin(), object->children.end());
   }
   // 已有归属组件原位更新，不在提交阶段分配组件存储。
   auto assign = [&](scene_instance_id id) {

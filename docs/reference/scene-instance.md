@@ -50,9 +50,10 @@ const auto count = created->size(); // 空场景为零，无需拆 result。
 运行集合不提供从实例反向构造实例化输入或 Prefab 作者头的入口；
 重复实例化由调用方保留已加载描述与资源引用。编辑器的 Prefab 头捕获只读取文档。
 成员遍历使用 `scene_instance::visit_objects`，回调期间禁止结构修改，顺序不保证稳定。
-槽位生命周期实现在 `world.cpp`，成员操作和借用句柄实现在 `world_scenes.cpp`。
+槽位生命周期实现在 `world.cpp`，成员操作和借用句柄实现在 `scene_instance.cpp`。
 两者不依赖资产管理器；`world.create_scene()` 无需 attach。
 `transfer_subtree` 显式迁移同 World 的整棵子树，保持实体身份及局部变换。
+外部对象、场景和目标父节点仍检查并返回错误；检查通过后，内部子树的失效成员或归属断裂触发断言。
 `game_object::scene()`、`children()`、`parent()`、`world_matrix()` 要求有效对象及所属线程，直接返回
 场景句柄、子对象句柄快照、父对象句柄和实际组合矩阵；根对象的 parent 返回空句柄，
 不表示错误；内部层级断裂属于断言违例。矩阵包含非均匀缩放
