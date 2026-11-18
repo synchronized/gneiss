@@ -9,9 +9,8 @@
 namespace gneiss::host {
 
 gneiss::error runtime_command_context::send_state(ipc_control_state state) {
-  gneiss::ipc::envelope envelope;
-  const auto operation = make_state_event(state, envelope);
-  return operation == gneiss::error::success ? send(std::move(envelope)) : operation;
+  auto envelope = protocol::encode(control_state_changed, ipc_control_state_message{state});
+  return envelope ? send(std::move(*envelope)) : envelope.error().error;
 }
 
 gneiss::error runtime_command_context::send_protocol_error(gneiss::error operation,

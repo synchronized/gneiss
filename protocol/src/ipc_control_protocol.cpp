@@ -8,17 +8,27 @@
 #include <gneiss/protocol/payload.hpp>
 #include <utility>
 
+namespace gneiss::host {
+const protocol::message_descriptor<ipc_control_state_message> control_state_changed{
+    protocol::domain::control,
+    static_cast<std::uint16_t>(ipc_control_operation::state_changed),
+    ipc::message_kind::event,
+    protocol::peer_role::runtime,
+    ipc_control_max_payload_size,
+    [](const ipc_control_state_message& value) {
+      return value.state >= ipc_control_state::loading &&
+             value.state <= ipc_control_state::stopping;
+    }};
+}
+
 namespace {
 
-constexpr std::array control_operations{
+const std::array control_operations{
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::ready),
         .editor_to_runtime_kinds = 0U,
         .runtime_to_editor_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
-    gneiss::protocol::operation_descriptor{
-        .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::state_changed),
-        .editor_to_runtime_kinds = 0U,
-        .runtime_to_editor_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)},
+    gneiss::host::control_state_changed.rule(),
     gneiss::protocol::operation_descriptor{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::pause),
         .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
@@ -31,11 +41,6 @@ constexpr std::array control_operations{
         .operation = static_cast<std::uint16_t>(gneiss::host::ipc_control_operation::stop),
         .editor_to_runtime_kinds = gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
         .runtime_to_editor_kinds = 0U}};
-
-[[nodiscard]] bool valid_state(gneiss::host::ipc_control_state state) noexcept {
-  return state >= gneiss::host::ipc_control_state::loading &&
-         state <= gneiss::host::ipc_control_state::stopping;
-}
 
 [[nodiscard]] bool valid_request(gneiss::host::ipc_control_operation operation) noexcept {
   return operation == gneiss::host::ipc_control_operation::pause ||
@@ -54,37 +59,6 @@ gneiss::error encode_ipc_control_ready(gneiss::ipc::envelope& output) noexcept {
             .request_id = 0U,
             .payload = {}};
   return gneiss::error::success;
-}
-
-gneiss::error encode_ipc_control_state(ipc_control_state state, gneiss::ipc::envelope& output) {
-  if (!valid_state(state)) {
-    return gneiss::error::invalid_argument;
-  }
-  auto payload =
-      protocol::encode_payload(ipc_control_state_message{state}, ipc_control_max_payload_size);
-  if (!payload)
-    return payload.error().error;
-  output = {.domain = protocol::domain::control,
-            .operation = static_cast<std::uint16_t>(ipc_control_operation::state_changed),
-            .kind = ipc::message_kind::event,
-            .request_id = 0U,
-            .payload = std::move(*payload)};
-  return error::success;
-}
-
-error decode_ipc_control_state(const ipc::envelope& envelope, ipc_control_state& output) {
-  if (envelope.domain != protocol::domain::control ||
-      envelope.operation != static_cast<std::uint16_t>(ipc_control_operation::state_changed) ||
-      envelope.kind != ipc::message_kind::event || envelope.request_id != 0U)
-    return error::invalid_argument;
-  auto message = protocol::decode_payload<ipc_control_state_message>(envelope.payload,
-                                                                     ipc_control_max_payload_size);
-  if (!message)
-    return message.error().error;
-  if (!valid_state(message->state))
-    return error::invalid_argument;
-  output = message->state;
-  return error::success;
 }
 
 gneiss::error encode_ipc_control_request(ipc_control_operation operation, std::uint32_t request_id,

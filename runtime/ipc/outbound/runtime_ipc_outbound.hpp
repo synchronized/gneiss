@@ -22,8 +22,6 @@
 namespace gneiss::host {
 
 [[nodiscard]] gneiss::error make_ready_event(gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error make_state_event(ipc_control_state state,
-                                             gneiss::ipc::envelope& output);
 [[nodiscard]] gneiss::error make_log_event(const gneiss::logging::record_view& event,
                                            gneiss::ipc::envelope& output);
 

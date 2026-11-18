@@ -12,7 +12,6 @@ add_library(
   ipc/outbound/log_events.cpp
   ipc/outbound/ready_event.cpp
   ipc/outbound/runtime_ipc_outbound.hpp
-  ipc/outbound/state_event.cpp
   ipc/runtime_command_context.cpp
   ipc/runtime_command_context.hpp
   ipc/runtime_commands.cpp

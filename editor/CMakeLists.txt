@@ -15,7 +15,6 @@ add_library(
   runtime/ipc/inbound/asset_events.cpp
   runtime/ipc/inbound/scene_events.cpp
   runtime/ipc/inbound/control_events.cpp
-  runtime/ipc/inbound/event_decode.hpp
   runtime/ipc/inbound/inspection_events.cpp
   runtime/ipc/inbound/log_events.cpp
   runtime/ipc/inbound/property_events.cpp

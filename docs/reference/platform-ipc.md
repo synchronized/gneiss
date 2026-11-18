@@ -183,3 +183,15 @@ stdout 行协议独立于 Meta 注册和 IPC 握手，保留专用文本编解�
 统计收发使用 statistics_snapshot，域规则从同一描述生成。Session ID 与 sequence 非零，
 负载最多 64 KiB，解码得到独立候选；Editor 成功后才发布统计事件。字段和 Statistics v1
 格式不变。四个旧负载/信封编解码入口及 Runtime 纯转发源文件已删除。
+
+## Control 状态通知与空负载消息
+
+control_state_changed 描述状态通知的域、操作、事件种类、Runtime 发送方向、1 KiB 上限
+和状态范围；实际编解码与域规则共用该描述。Control v2 格式不变。Runtime 在会话和命令
+上下文中直接编码，Editor 解码成功后才生成 runtime_state_event。旧状态 codec、纯转发
+源文件和不再使用的 Editor event_decode 模板已删除。
+
+ready、pause、resume、stop 和 Inspection resync 没有业务负载，继续使用帧头和空负载
+校验，不生成 JSON。处理器仍负责暂停冲突、停止及请求重同步等业务动作。所有有数据的
+IPC 消息均通过反射产生独立候选；Editor 保留域路由到业务事件的适配，Runtime 保留
+操作路由到命令处理器的绑定。域规则与处理器表职责不同，不要求合成一个全局注册表。

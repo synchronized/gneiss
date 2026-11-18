@@ -1,35 +1,40 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/registration.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/protocol/domains.hpp>
 #include "runtime/ipc/editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/protocol/domains.hpp>
+#include <gneiss/protocol/registration.hpp>
 
 using namespace gneiss::host;
 
 int main() {
-  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
+    return 98;
   gneiss::ipc::envelope envelope;
-  if (gneiss::host::encode_ipc_control_state(gneiss::host::ipc_control_state::paused, envelope) !=
-      gneiss::error::success) {
+  auto state_frame = gneiss::protocol::encode(control_state_changed,
+                                              ipc_control_state_message{ipc_control_state::paused});
+  if (!state_frame)
     return 1;
-  }
+  envelope = std::move(*state_frame);
   gneiss::host::runtime_ipc_event event;
-  if (gneiss::host::decode_runtime_control_event(envelope, event) !=
-          gneiss::error::success ||
+  if (gneiss::host::decode_runtime_control_event(envelope, event) != gneiss::error::success ||
       !std::holds_alternative<gneiss::host::runtime_state_event>(event) ||
       std::get<gneiss::host::runtime_state_event>(event).value !=
           gneiss::host::ipc_control_state::paused) {
     return 2;
   }
-  auto encoded_log = gneiss::protocol::encode(log_record, runtime_log_record{.source = "runtime", .category = "test", .message = "测试日志"});
-  if (!encoded_log) return 3;
+  auto encoded_log = gneiss::protocol::encode(
+      log_record,
+      runtime_log_record{.source = "runtime", .category = "test", .message = "测试日志"});
+  if (!encoded_log)
+    return 3;
   envelope = std::move(*encoded_log);
   if (decode_runtime_log_event(envelope, event).failed() ||
       !std::holds_alternative<runtime_log_event>(event) ||
-      std::get<runtime_log_event>(event).value.message != "测试日志") return 3;
+      std::get<runtime_log_event>(event).value.message != "测试日志")
+    return 3;
   const gneiss::host::ipc_asset_reload_result asset_result{
       .session_id = 9U,
       .revision = 4U,

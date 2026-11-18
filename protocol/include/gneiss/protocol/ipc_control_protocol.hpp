@@ -5,7 +5,7 @@
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_CONTROL_IPC_CONTROL_PROTOCOL_H_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/protocol/dispatcher.hpp>
+#include <gneiss/protocol/message.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -38,11 +38,9 @@ struct ipc_control_state_message final {
   ipc_control_state state{ipc_control_state::invalid};
 };
 
+extern const protocol::message_descriptor<ipc_control_state_message> control_state_changed;
+
 [[nodiscard]] gneiss::error encode_ipc_control_ready(gneiss::ipc::envelope& output) noexcept;
-[[nodiscard]] gneiss::error encode_ipc_control_state(ipc_control_state state,
-                                                     gneiss::ipc::envelope& output);
-[[nodiscard]] gneiss::error decode_ipc_control_state(const gneiss::ipc::envelope& envelope,
-                                                     ipc_control_state& output);
 
 [[nodiscard]] gneiss::error encode_ipc_control_request(ipc_control_operation operation,
                                                        std::uint32_t request_id,

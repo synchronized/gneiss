@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/registration.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/protocol/ipc_control_protocol.hpp>
+#include <gneiss/protocol/registration.hpp>
 
 #include <string_view>
 
@@ -21,14 +21,12 @@ namespace {
       envelope.kind != gneiss::ipc::message_kind::event || !envelope.payload.empty()) {
     return false;
   }
-  if (gneiss::host::encode_ipc_control_state(gneiss::host::ipc_control_state::paused, envelope) !=
-      gneiss::error::success) {
+  auto frame = gneiss::protocol::encode(control_state_changed,
+                                        ipc_control_state_message{ipc_control_state::paused});
+  if (!frame)
     return false;
-  }
-  gneiss::host::ipc_control_state state{};
-  return gneiss::host::decode_ipc_control_state(envelope, state) ==
-             gneiss::error::success &&
-         state == gneiss::host::ipc_control_state::paused;
+  auto state = gneiss::protocol::decode(control_state_changed, *frame);
+  return state && state->state == ipc_control_state::paused;
 }
 
 [[nodiscard]] bool test_editor_requests() {
@@ -41,8 +39,7 @@ namespace {
       return false;
     }
     gneiss::host::ipc_control_operation decoded{};
-    if (gneiss::host::decode_ipc_control_request(envelope, decoded) !=
-            gneiss::error::success ||
+    if (gneiss::host::decode_ipc_control_request(envelope, decoded) != gneiss::error::success ||
         decoded != expected) {
       return false;
     }
@@ -53,28 +50,26 @@ namespace {
 [[nodiscard]] bool test_rejections() {
   gneiss::ipc::envelope envelope;
   if (gneiss::host::encode_ipc_control_request(gneiss::host::ipc_control_operation::ready, 1U,
-                                               envelope) !=
-          gneiss::error::invalid_argument ||
+                                               envelope) != gneiss::error::invalid_argument ||
       gneiss::host::encode_ipc_control_request(gneiss::host::ipc_control_operation::pause, 0U,
-                                               envelope) !=
-          gneiss::error::invalid_argument ||
-      gneiss::host::encode_ipc_control_state(static_cast<gneiss::host::ipc_control_state>(99U),
-                                             envelope) != gneiss::error::invalid_argument) {
+                                               envelope) != gneiss::error::invalid_argument ||
+      gneiss::protocol::encode(control_state_changed,
+                               ipc_control_state_message{static_cast<ipc_control_state>(99U)})) {
     return false;
   }
-  if (gneiss::host::encode_ipc_control_state(gneiss::host::ipc_control_state::running, envelope) !=
-      gneiss::error::success) {
+  auto frame = gneiss::protocol::encode(control_state_changed,
+                                        ipc_control_state_message{ipc_control_state::running});
+  if (!frame)
     return false;
-  }
-  for (const std::string_view json : {"{}", "{", "{\"state\":99}", "{\"state\":-1}", "{\"state\":\"paused\"}"}) {
+  envelope = std::move(*frame);
+  for (const std::string_view json :
+       {"{}", "{", "{\"state\":99}", "{\"state\":-1}", "{\"state\":\"paused\"}"}) {
     envelope.payload.assign(json.begin(), json.end());
-    auto state = ipc_control_state::running;
-    if (decode_ipc_control_state(envelope, state).ok() || state != ipc_control_state::running)
+    if (gneiss::protocol::decode(control_state_changed, envelope))
       return false;
   }
   envelope.payload.assign(ipc_control_max_payload_size + 1, ' ');
-  auto state = ipc_control_state::running;
-  if (decode_ipc_control_state(envelope, state).ok() || state != ipc_control_state::running)
+  if (gneiss::protocol::decode(control_state_changed, envelope))
     return false;
   if (encode_ipc_control_request(ipc_control_operation::pause, 3, envelope).failed())
     return false;
@@ -97,7 +92,8 @@ namespace {
 } // namespace
 
 int main() {
-  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
+    return 98;
   try {
     return test_runtime_events() && test_editor_requests() && test_rejections() &&
                    test_direction_rules()

@@ -68,9 +68,8 @@ int main() {
       state != runtime_ipc_state::paused || sent.values.empty()) {
     return 2;
   }
-  ipc_control_state reported{};
-  if (decode_ipc_control_state(sent.values.back(), reported).failed() ||
-      reported != ipc_control_state::paused)
+  auto reported = protocol::decode(control_state_changed, sent.values.back());
+  if (!reported || reported->state != ipc_control_state::paused)
     return 12;
   actions.pause_game = false;
   if (!router.dispatch(envelope, dispatch_context, context).accepted() || actions.pause_game ||
