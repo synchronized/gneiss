@@ -531,3 +531,5 @@ PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建�
 ## Meta 整体值转换补充
 
 类型结构与整体值转换解耦见 [PLAN-121](PLAN-121-meta-value-conversion.md)，不改变默认 JSON 格式。
+
+内置与用户值类型的文件表示统一见 [PLAN-122](PLAN-122-serialization-adapters.md)。

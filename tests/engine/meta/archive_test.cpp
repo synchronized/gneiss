@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <cstdio>
+#include <deque>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/adapter.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
-#include <cstdio>
-#include <deque>
 #include <map>
 namespace e = gneiss;
 namespace m = e::meta;
@@ -134,6 +135,61 @@ struct record {
 bool failed_with(const e::result<void, s::diagnostic>& status, e::error expected) {
   return !status && status.error().error == expected;
 }
+struct external_id {
+  static constexpr std::string_view type_name = "external_id";
+  static constexpr e::guid type_guid = e::guid::literal("f530ed20-357b-4943-9eea-d271d71ebbc0");
+  std::int64_t number{};
+};
+struct external_holder {
+  static constexpr std::string_view type_name = "external_holder";
+  static constexpr e::guid type_guid = e::guid::literal("bd768f30-a7a0-4986-a2d4-fd5508b2db59");
+  external_id id{7};
+  const external_id& get() const { return id; }
+  e::error set(const external_id& candidate) {
+    if (candidate.number == 13)
+      return e::error::invalid_argument;
+    id = candidate;
+    return e::error::success;
+  }
+};
+namespace gneiss::serialization {
+template <> struct adapter<derived> {
+  using representation_type = std::int64_t;
+  static result<representation_type> encode(const write_context&, const derived& source) {
+    return source.number;
+  }
+  static result<derived> decode(const read_context&, const representation_type& source) {
+    derived output;
+    output.number = source;
+    return output;
+  }
+};
+template <> struct adapter<external_id> {
+  using representation_type = std::optional<std::int64_t>;
+  static result<representation_type> encode(const write_context&, const external_id& source) {
+    return source.number ? representation_type{source.number} : representation_type{};
+  }
+  static result<external_id> decode(const read_context&, const representation_type& source) {
+    if (!source)
+      return external_id{};
+    if (*source < 0)
+      return error::invalid_argument;
+    return external_id{*source};
+  }
+};
+}
+
+// 错误适配形成表示环时，由递归预算终止，而不是溢出调用栈。
+struct recursive_id_adapter {
+  using representation_type = std::optional<external_id>;
+  static e::result<representation_type> encode(const s::write_context&, const external_id& id) {
+    return representation_type{id};
+  }
+  static e::result<external_id> decode(const s::read_context&, const representation_type& input) {
+    return input.value_or(external_id{});
+  }
+};
+
 int main() {
   auto r = m::create_registry();
   CHECK(r);
@@ -158,7 +214,67 @@ int main() {
             .commit()
             .ok());
   CHECK(gneiss::serialization::register_builtin_types(*r).ok());
+  CHECK(m::registration::type<external_id>(*r).commit().ok());
+  CHECK((m::registration::type<external_holder>(*r)
+             .property<&external_holder::get, &external_holder::set>(m::property_id{1}, "id")
+             .commit()
+             .ok()));
   CHECK(m::freeze(*r).ok());
+  // 自定义类型没有 value 分支；与内置类型共享格式无关的适配机制。
+  s::adapter_registry adapters;
+  CHECK(s::register_adapter<external_id>(adapters).ok());
+  CHECK(s::register_adapter<external_id>(adapters) == e::error::invalid_argument);
+  s::write_context adapted_write{*r, adapters};
+  s::read_context adapted_read{*r, adapters};
+  memory_writer adapted_output;
+  CHECK(s::write(adapted_write, external_id{42}, adapted_output));
+  CHECK(adapted_output.root_value->type == item::kind::scalar);
+  CHECK(std::get<std::int64_t>(adapted_output.root_value->data.payload) == 42);
+  memory_reader adapted_input{adapted_output.root_value};
+  auto adapted_copy = s::decode<external_id>(adapted_read, adapted_input);
+  CHECK(adapted_copy && adapted_copy->number == 42);
+  s::adapter_registry recursive_adapters;
+  CHECK((s::register_adapter<external_id, recursive_id_adapter>(recursive_adapters).ok()));
+  s::write_context recursive_write{*r, recursive_adapters, 8};
+  s::read_context recursive_read{*r, recursive_adapters, 8};
+  memory_writer recursive_output;
+  CHECK(!s::write(recursive_write, external_id{1}, recursive_output));
+  CHECK(!s::decode<external_id>(recursive_read, adapted_input));
+
+  memory_writer empty_value_output;
+  CHECK(s::write(adapted_write, external_id{}, empty_value_output));
+  CHECK(empty_value_output.root_value->type == item::kind::null);
+  memory_writer ambiguous_reference;
+  auto empty_id_reference = e::make_ref<external_id>();
+  CHECK(!s::write(adapted_write, empty_id_reference, ambiguous_reference));
+
+  external_holder holder;
+  memory_writer holder_output;
+  CHECK(s::write(adapted_write, holder, holder_output));
+  auto* member = holder_output.root_value->members.front().second;
+  memory_reader holder_input{holder_output.root_value};
+  auto holder_view = m::view(*r, holder);
+  CHECK(holder_view);
+  member->data = e::value{std::int64_t{-1}};
+  CHECK(!s::read_into(adapted_read, holder_input, *holder_view));
+  CHECK(holder.id.number == 7);
+  member->data = e::value{std::int64_t{13}};
+  CHECK(!s::read_into(adapted_read, holder_input, *holder_view));
+  CHECK(holder.id.number == 7);
+  member->data = e::value{std::int64_t{21}};
+  CHECK(s::read_into(adapted_read, holder_input, *holder_view));
+  CHECK(holder.id.number == 21);
+  s::adapter_registry polymorphic_adapters;
+  CHECK(s::register_adapter<derived>(polymorphic_adapters).ok());
+  s::write_context polymorphic_write{*r, polymorphic_adapters};
+  s::read_context polymorphic_read{*r, polymorphic_adapters};
+  e::ref<base> adapted_object = e::make_ref<derived>();
+  memory_writer polymorphic_output;
+  CHECK(s::write(polymorphic_write, adapted_object, polymorphic_output));
+  memory_reader polymorphic_input{polymorphic_output.root_value};
+  auto polymorphic_copy = s::decode<e::ref<base>>(polymorphic_read, polymorphic_input);
+  CHECK(polymorphic_copy && dynamic_cast<derived*>(polymorphic_copy->get())->number == 7);
+
   s::write_context ctx{*r};
   s::read_context read_ctx{*r};
   CHECK(ctx.property_path().empty());

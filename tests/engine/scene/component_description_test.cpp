@@ -30,11 +30,11 @@ struct custom_description
 std::span<const std::byte> bytes(std::string_view value) {
   return std::as_bytes(std::span{value.data(), value.size()});
 }
-e::result<void*, e::serialization::diagnostic> encode(const e::serialization::write_context&,
+e::result<void*, e::serialization::diagnostic> encode(const e::serialization::write_context& ctx,
                                                       e::serialization::writer& output,
                                                       const custom_description& value) {
   auto root = output.object();
-  auto uuid = output.scalar(e::value{value.uuid});
+  auto uuid = e::serialization::write_node(ctx, value.uuid, output);
   if (!uuid || !output.member(root, "uuid", *uuid))
     return e::serialization::diagnostic{.error = e::error::out_of_memory};
   if (value.enabled) {
@@ -45,13 +45,14 @@ e::result<void*, e::serialization::diagnostic> encode(const e::serialization::wr
   return root;
 }
 e::result<custom_description, e::serialization::diagnostic>
-decode(const e::serialization::read_context&, e::serialization::reader& input, const void* node) {
+decode(const e::serialization::read_context& ctx, e::serialization::reader& input,
+       const void* node) {
   ++decode_calls;
-  auto uuid = input.scalar(input.member(node, "uuid"), e::value_kind::guid);
+  auto uuid = e::serialization::decode<e::guid>(ctx, input, input.member(node, "uuid"));
   if (!uuid)
     return e::serialization::diagnostic{.error = e::error::invalid_argument};
   custom_description result;
-  result.uuid = std::get<e::guid>(uuid->payload);
+  result.uuid = *uuid;
   if (input.is_object(node) && input.size(node) == 1)
     return result;
   auto flag = input.scalar(input.member(node, "enabled"), e::value_kind::boolean);

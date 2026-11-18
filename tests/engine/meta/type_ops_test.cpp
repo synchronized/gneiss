@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/throws.hpp"
+#include <cstdio>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/adapter.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
-#include <cstdio>
 #include <stdexcept>
 
 namespace e = gneiss;
@@ -115,6 +116,18 @@ template <bool Mutable> struct associative_traits<dictionary<Mutable>> {
 };
 }
 
+namespace gneiss::serialization {
+template <> struct adapter<mapped_value> {
+  using representation_type = std::int64_t;
+  static result<representation_type> encode(const write_context&, const mapped_value& source) {
+    return source.number;
+  }
+  static result<mapped_value> decode(const read_context&, const representation_type& source) {
+    return mapped_value{source};
+  }
+};
+}
+
 struct document {
   static constexpr std::string_view type_name = "ops_document";
   static constexpr e::guid type_guid = e::guid::from_bytes({96, 21});
@@ -212,6 +225,21 @@ int main() {
   const std::string mapped_json(reinterpret_cast<const char*>(mapped_bytes->data()),
                                 mapped_bytes->size());
   CHECK(mapped_json.find("number") != std::string::npos);
+  // 只有显式选择序列化适配器，文件表示才从字段对象变成数字。
+  e::serialization::adapter_registry adapters;
+  CHECK(e::serialization::register_adapter<mapped_value>(adapters).ok());
+  e::serialization::write_context adapted_write{*registry, adapters};
+  e::serialization::read_context adapted_read{*registry, adapters};
+  auto adapted_bytes = e::serialization::json::encode_bytes(adapted_write, mapped);
+  CHECK(adapted_bytes);
+  CHECK(std::string(reinterpret_cast<const char*>(adapted_bytes->data()), adapted_bytes->size()) ==
+        "9");
+  auto adapted_copy = e::serialization::json::decode<mapped_value>(adapted_read, *adapted_bytes);
+  CHECK(adapted_copy && adapted_copy->number == 9);
+  auto adapted_owner = e::serialization::json::encode_bytes(adapted_write, owner);
+  CHECK(adapted_owner);
+  CHECK(std::string(reinterpret_cast<const char*>(adapted_owner->data()), adapted_owner->size()) ==
+        "{\"item\":12}");
 
   document source;
   auto view = m::view(*registry, source);

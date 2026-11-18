@@ -3,7 +3,7 @@
 
 # 序列化接口
 
-契约位于 `engine/include/gneiss/engine/core/serialization`，实现位于 `engine/src/core/serialization`，使用 Meta 的类型和属性访问，不维护第二套注册表。
+契约位于 `engine/include/gneiss/engine/core/serialization`，实现位于 `engine/src/core/serialization`，使用 Meta 的类型和属性访问。独立适配器表只保存文件表示转换，不复制 Meta 类型、属性或实例状态。
 
 ## 内置注册
 
@@ -202,3 +202,76 @@ not_found，已不存在元素的删除成功。普通可变列表只支持整�
 Prefab 重放还会调用注册的组件及序列化适配器：显式返回 internal/out_of_memory 时终止本次
 重放并返回错误，不能当作可跳过的覆盖冲突。这不表示终止进程，也不将错误码等同于堆耗尽。
 进程终止仍由明确的内部契约断言或既有意外异常边界负责。
+
+## 值类型的文件表示适配
+
+`adapter.hpp` 提供 `serialization::adapter<T>` 与 `adapter_registry`。适配器独立于
+`meta::value_traits<T>`：前者决定文件表示，后者决定整体属性值传递。添加适配器不要求为
+T 增加 value 分支，也不改变 Meta 的对象/标量分类。
+
+```cpp
+struct user_id {
+  static constexpr std::string_view type_name = "user_id";
+  static constexpr gneiss::guid type_guid =
+      gneiss::guid::literal("2e5e5825-439a-45ed-a540-aa988f89ab54");
+  std::int64_t number{};
+};
+
+template <> struct gneiss::serialization::adapter<user_id> {
+  using representation_type = std::int64_t;
+  static gneiss::result<representation_type> encode(
+      const gneiss::serialization::write_context&, const user_id& id) {
+    return id.number;
+  }
+  static gneiss::result<user_id> decode(
+      const gneiss::serialization::read_context&, const representation_type& input) {
+    if (input < 0)
+      return gneiss::error::invalid_argument;
+    return user_id{input};
+  }
+};
+```
+
+特化在首次 register_adapter 调用前可见。先使用 `meta::registration::type<user_id>(registry).commit()`
+登记类型身份（无须登记 number 字段），与其他类型一起注册并冻结，再配置适配器表：
+
+```cpp
+serialization::adapter_registry adapters;
+auto status = serialization::register_adapter<user_id>(adapters);
+if (status.failed())
+  return status;
+serialization::write_context output_context{registry, adapters};
+serialization::read_context input_context{registry, adapters};
+// json::encode_bytes(output_context, user_id{123}) 输出 123。
+```
+
+表由调用方拥有，必须覆盖上下文全部使用期；操作期间不可修改。配置完成后可供多个上下文
+并发只读。重复登记同类型返回 invalid_argument。自定义表命中优先，否则回退内置表。
+也可使用 register_adapter<T, CustomAdapter>(adapters) 显式选择适配器；内置表使用同一入口，
+内置适配器类保留在实现中，不占用用户 adapter<T> 特化。
+关闭时先结束编解码操作和上下文使用，再销毁适配器表。
+
+内置 GUID 使用 optional<string>：nil 对应 null，有效值对应规范 UUID 字符串。vector2/3/4、
+quaternion、matrix3/4 使用固定 float 数组；四元数 xyzw，矩阵列优先，不转置。
+JSON 后端只处理基础数字、字符串、布尔、null、数组和对象，不再识别这些 C++ 类型。
+value 仍使用 $kind/$content；内容经过同一套适配器，不添加第二层标签。
+
+表示类型必须可默认构造、可被通用遍历处理，且不能与源类型相同；递归转换受 maximum_depth
+约束。当前入口面向标量和普通对象值；对象按现有 Meta 规则注册，根对象解码沿用注册工厂。
+解码先得到独立表示和候选对象，转换或对象校验失败不写目标；成功后通过实例写入，属性
+setter 可以继续拒绝。setter 自身仍须遵守失败不修改目标的契约。read_into 对整个文档不承诺
+事务回滚，适配器只保证本次候选转换不提前写入。
+
+显式适配器优先于同类型 content_codec；不建议同时登记两种表示。字段 enum_name、引用位置
+策略以及显式字段编解码入口仍保留各自语义。未配置适配器的对象继续按反射字段遍历。
+
+非空、非多态内嵌引用不能编码为 null，避免与空引用混淆；多态包装的 $content 可以由
+已登记适配器表达为标量、数组或 null，未登记适配器的对象仍要求对象内容。
+
+### 自定义 codec 的子节点访问
+
+自定义 codec 需要写入某个属性时使用 `write_node(ctx, value, writer)`，返回由 writer 拥有的
+节点，不覆盖文档根。读取使用 `decode<T>(ctx, reader, node)`，或
+`read_into(ctx, reader, node, instance)` 写入已有目标。它们与根入口共享遍历、适配器和递归
+预算，节点及输入的生命周期由后端拥有者保证。`reader::scalar` / `writer::scalar` 只用于基础
+数字、布尔和字符串；GUID、数学类型必须通过上述通用入口，不直接调用后端标量函数。

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "core/serialization/detail/traversal.hpp"
-#include <gneiss/engine/core/serialization/policy.hpp>
 #include <algorithm>
+#include <gneiss/engine/core/serialization/adapter.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
 namespace gneiss::serialization::detail {
 using namespace meta;
 std::string field_path(std::string_view name) {
@@ -88,6 +89,12 @@ result<writer::node, serialization::diagnostic> encode_nested(const write_contex
     if (status.error.failed())
       return status;
   }
+  if (const auto* adapter = find_adapter(ctx, id)) {
+    auto view = const_instance::from_object(registry, id, object);
+    if (!view)
+      return failure(view.error());
+    return adapter->encode(ctx, *view, *doc);
+  }
   if (binding->content.encode) {
     auto encoded = binding->content.encode(ctx, *doc, object);
     if (!encoded)
@@ -111,6 +118,11 @@ encode_view(const write_context& ctx, const registry_ref& registry, const const_
     if (!p)
       return failure(p.error());
     return encode_nested(ctx, registry, view.type().id(), *p, doc, depth);
+  }
+  if (const auto* adapter = find_adapter(ctx, view.type().id())) {
+    if (depth > ctx.maximum_depth())
+      return failure(error::invalid_argument);
+    return adapter->encode(ctx, view, *doc);
   }
   return encode_nonobject(ctx, registry, view, doc, depth, override);
 }
@@ -159,8 +171,11 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
 
     if (!content)
       return std::move(content).error();
-    if (!declared->polymorphic)
+    if (!declared->polymorphic) {
+      if (doc->is_null(*content))
+        return failure(error::invalid_argument, "", "非空内嵌引用不能编码为 null");
       return content;
+    }
     auto actual_type = find_type(registry, actual);
     if (!actual_type)
       return failure(error::not_found);
@@ -465,7 +480,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     return failure(binding.error());
   ref<void> object;
   serialization::diagnostic status;
-  if (binding->content.decode) {
+  if (binding->content.decode && !find_adapter(ctx, actual)) {
     depth_scope custom_depth{ctx, depth + (root ? 0 : 1)};
     if (context_access::depth(ctx) > ctx.maximum_depth())
       return failure(error::invalid_argument);
@@ -481,13 +496,20 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     object = ops->construct();
     if (!object)
       return failure(error::internal);
-    status = decode_members(ctx, registry, actual, object.get(), content, depth + (root ? 0 : 1));
+    if (const auto* adapter = find_adapter(ctx, actual)) {
+      auto view = instance::from_object(registry, actual, object.get());
+      if (!view)
+        return failure(view.error());
+      status = adapter->decode(ctx, *view, *context_access::input(ctx), content);
+    } else {
+      status = decode_members(ctx, registry, actual, object.get(), content, depth + (root ? 0 : 1));
+    }
   }
   if (status.error.ok() && !object)
     status = failure(error::internal);
   if (status.error.ok())
     status = validate_identity(registry, actual, object.get());
-  if (status.error.ok() && binding->validation.validate &&
+  if (status.error.ok() && !find_adapter(ctx, actual) && binding->validation.validate &&
       !(ctx.references() && ctx.references()->collecting()))
     status = binding->validation.validate(object.get());
   if (status.error.failed())
@@ -536,6 +558,11 @@ serialization::diagnostic decode_view(const read_context& ctx, const registry_re
                                       const instance& view, reader::node input, std::size_t depth,
                                       const reference_policy* override) {
   depth_scope scope{ctx, depth};
+  if (const auto* adapter = find_adapter(ctx, view.type().id())) {
+    if (depth > ctx.maximum_depth())
+      return failure(error::invalid_argument);
+    return adapter->decode(ctx, view, *context_access::input(ctx), input);
+  }
   if (view.kind() == type_kind::object && !view.requires_replacement())
     return decode_nested(ctx, registry, view, input, depth);
   return decode_nonobject(ctx, registry, view, input, depth, override);
@@ -592,8 +619,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       content = context_access::input(ctx)->member(input, "$content");
       if (!context_access::input(ctx)->is_object(input) ||
           context_access::input(ctx)->size(input) != 2 ||
-          !context_access::input(ctx)->is_string(tag) ||
-          !context_access::input(ctx)->is_object(content))
+          !context_access::input(ctx)->is_string(tag) || !content)
         return failure(error::invalid_argument, "", "多态引用需要类型和内容");
       auto guid = gneiss::guid::parse(context_access::input(ctx)->string(tag));
       if (!guid || !*guid || guid->string() != context_access::input(ctx)->string(tag))
@@ -602,6 +628,8 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       if (!type)
         return failure(gneiss::error{gneiss::error::not_found}, "/$type_guid");
       actual = type.id();
+      if (!context_access::input(ctx)->is_object(content) && !find_adapter(ctx, actual))
+        return failure(error::invalid_argument, "/$content", "对象内容需要对象或已登记适配器");
     }
     auto compatible = cast_base(registry, actual, target.id(), nullptr);
     if (!compatible)

@@ -12,6 +12,7 @@
 
 namespace gneiss::serialization {
 class reader;
+class adapter_registry;
 /** 外部引用解析器；收集阶段记录需求，绑定阶段返回已提交加载的身份。
  * 收集阶段可返回空引用；绑定阶段必须保证对象与 type 匹配，不等待内容加载。 */
 class reference_resolver {
@@ -29,6 +30,7 @@ struct operation_state;
 class context_base {
   friend struct context_access;
   meta::registry_ref registry_;
+  const adapter_registry* adapters_{};
   bool use_default_ = true;
   std::size_t maximum_depth_ = 64;
   mutable operation_state* state_{};
@@ -45,6 +47,12 @@ public:
   explicit context_base(meta::registry_ref registry, std::size_t maximum_depth = 64) noexcept
       : registry_(std::move(registry)), use_default_(false), maximum_depth_(maximum_depth) {}
   explicit context_base(std::size_t maximum_depth) noexcept : maximum_depth_(maximum_depth) {}
+  /** 适配器表由调用方持有；操作期间只读，生命周期覆盖整个上下文使用期。 */
+  context_base(meta::registry_ref registry, const adapter_registry& adapters,
+               std::size_t maximum_depth = 64) noexcept
+      : registry_(std::move(registry)), adapters_(&adapters), use_default_(false),
+        maximum_depth_(maximum_depth) {}
+  [[nodiscard]] const adapter_registry* adapters() const noexcept { return adapters_; }
   context_base(const context_base&) = delete;
   context_base& operator=(const context_base&) = delete;
   [[nodiscard]] GNEISS_API result<meta::registry_ref> registry() const;

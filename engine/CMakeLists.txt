@@ -125,6 +125,8 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/diagnostic.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/policy.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/context.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/adapter.cpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/adapter.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/context.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/serialization.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/serialization.hpp"

@@ -6,7 +6,6 @@
 #include "core/serialization/detail/traversal.hpp"
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -21,23 +20,6 @@ using serialization::detail::operation_scope;
 namespace {
 serialization::diagnostic failure(error code, std::string path = {}, std::string message = {}) {
   return {.path = std::move(path), .message = std::move(message), .error = code};
-}
-/** 数学值统一逐分量解码；保留具体 C++ 类型及固定长度。 */
-template <class T>
-result<value, serialization::diagnostic> read_math(yyjson_val* input, const std::string& path) {
-  T output{};
-  auto components = math::components(output);
-  if (!yyjson_is_arr(input) || yyjson_arr_size(input) != components.size())
-    return failure(error::invalid_argument, path, "数学值分量数量错误");
-  for (std::size_t i = 0; i < components.size(); ++i) {
-    auto* item = yyjson_arr_get(input, i);
-    if (!yyjson_is_num(item) || !std::isfinite(yyjson_get_num(item)) ||
-        std::abs(yyjson_get_num(item)) > std::numeric_limits<float>::max())
-      return failure(error::invalid_argument, path + "/" + std::to_string(i),
-                     "分量必须为有限 float");
-    components[i] = static_cast<float>(yyjson_get_num(item));
-  }
-  return value{output};
 }
 result<value, serialization::diagnostic> read_value(yyjson_val* input, value_kind kind,
                                                     std::string path) {
@@ -87,32 +69,6 @@ result<value, serialization::diagnostic> read_value(yyjson_val* input, value_kin
       return output;
     }
     break;
-  case value_kind::guid:
-    if (yyjson_is_null(input)) {
-      output.payload = guid{};
-      return output;
-    }
-    if (yyjson_is_str(input)) {
-      const std::string_view text{yyjson_get_str(input), yyjson_get_len(input)};
-      auto id = guid::parse(text);
-      if (id && id->string() == text) {
-        output.payload = *id;
-        return output;
-      }
-    }
-    break;
-  case value_kind::matrix3:
-    return read_math<math::matrix3>(input, path);
-  case value_kind::matrix4:
-    return read_math<math::matrix4>(input, path);
-  case value_kind::vec2:
-    return read_math<math::vector2>(input, path);
-  case value_kind::vec3:
-    return read_math<math::vector3>(input, path);
-  case value_kind::vec4:
-    return read_math<math::vector4>(input, path);
-  case value_kind::quaternion:
-    return read_math<math::quaternion>(input, path);
   default:
     return failure(error::unsupported, std::move(path), "不支持的反射属性类型");
   }
@@ -138,24 +94,7 @@ write_value(yyjson_mut_doc* doc, const value& input, const std::string& path) {
           output = yyjson_mut_real(doc, item);
         } else if constexpr (std::is_same_v<T, std::string>)
           output = yyjson_mut_strncpy(doc, item.data(), item.size());
-        else if constexpr (std::is_same_v<T, guid>) {
-          if (!item) {
-            output = yyjson_mut_null(doc);
-          } else {
-            auto text = item.string();
-            output = yyjson_mut_strncpy(doc, text.data(), text.size());
-          }
-        } else if constexpr (requires { math::components(item); }) {
-          output = yyjson_mut_arr(doc);
-          if (!output)
-            throw std::bad_alloc{};
-          for (float number : math::components(item)) {
-            if (!std::isfinite(number))
-              return failure(error::invalid_argument, path, "不能保存非有限分量");
-            if (!yyjson_mut_arr_add_real(doc, output, number))
-              throw std::bad_alloc{};
-          }
-        } else
+        else
           return failure(error::unsupported, path);
         if (!output)
           throw std::bad_alloc{};
