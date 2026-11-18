@@ -223,10 +223,13 @@ bool command_retirement_precedes_completion(gneiss::error terminal) {
   const auto completed = executor.try_take_command_completion();
   const auto retried = executor.submit_command([](const auto&) { return error::success; });
   const auto retry_flushed = executor.flush();
+  const auto retry_completed = executor.try_take_command_completion();
+  const bool drained = !executor.try_take_command_completion();
   executor.stop();
   return !premature && !saturated && saturated.error() == error::not_ready && flushed.ok() &&
          completed && completed->sequence == *submitted && completed->status == terminal &&
-         retried && retry_flushed.ok();
+         retried && retry_flushed.ok() && retry_completed &&
+         retry_completed->sequence == *retried && retry_completed->status.ok() && drained;
 }
 
 // 帧可以替换，夹在帧之间的状态命令必须按序且仅执行一次。
@@ -437,7 +440,9 @@ int main(int argc, char** argv) {
     return 31;
   }
   if (!command_retirement_precedes_completion(gneiss::error::success) ||
-      !command_retirement_precedes_completion(gneiss::error::io)) {
+      !command_retirement_precedes_completion(gneiss::error::io) ||
+      !command_retirement_precedes_completion(gneiss::error::internal) ||
+      !command_retirement_precedes_completion(gneiss::error::out_of_memory)) {
     std::fputs("命令资源释放前不应发布完成或归还队列容量\n", stderr);
     return 30;
   }

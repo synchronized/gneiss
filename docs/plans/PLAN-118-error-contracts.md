@@ -5,7 +5,7 @@
 
 ## 状态与范围
 
-2026-11-18：P0、P1、P2 已完成。World/GameObject 借用接口和 Meta getter/ops
+2026-11-18：P0、P1、P2、P3 已完成。World/GameObject 借用接口和 Meta getter/ops
 已按契约与输入错误分开处理，外部身份、能力缺失、业务拒绝及回调失败保留诊断。
 本次 Meta 定向验证为 Windows Clang Debug、MSVC Release 各九项回归通过，
 Debug 编辑器 UI 构建通过；静态库、跨平台及全计划最终验收仍归 P4。
@@ -25,7 +25,10 @@ PLAN-119 的测试集中整理已完成。P2 首条链
 - P2 已完成剩余操作审查：reference reset 返回 void；检查式能力查询保留诊断，
   内部适配器空存储断言。保留接口的失败来源与验证见[收尾记录](../records/2026-11-18-meta-contract-closeout.md)。
 
-接下来处理 P3；P4 的相关跨平台与最终回归仍未完成。
+P3 已完成定向审计：初始化/关闭回执身份改为断言，后端状态保留；
+Prefab 明确本次重放终止与进程终止的区别，删除纯 value 重放的无来源分类分支。
+Debug/Release 各五项定向测试通过，见[审查记录](../records/2026-11-18-render-prefab-error-contracts.md)。
+接下来处理 P4；相关跨平台与全计划最终回归仍未完成。
 
 权威规则见[代码规范](../guides/coding-style.md#返回值契约与终止的选择)。
 本计划延续已完成的 [PLAN-109](PLAN-109-exception-boundaries.md) 与
@@ -61,7 +64,7 @@ libassert 已接入，验证范围见[接入记录](../records/2026-11-12-libass
 - [x] P1：World/GameObject 完整链。先列现有调用者与失效/线程测试，再确定直接查询签名；
   迁移内部访问及 Runtime/Editor 消费者，删除被新契约取代的传播分支和测试。
 - [x] P2：Meta 内部 getter/ops。逐项拆分契约违例与输入问题，验证属性面板、序列化和覆盖应用。
-- [ ] P3：Render 执行器及 Prefab 重放定向审计。回执失配必须先核实并发/关闭时序；
+- [x] P3：Render 执行器及 Prefab 重放定向审计。回执失配必须先核实并发/关闭时序；
   保留队列拒绝、取消、预算与后端恢复行为，不扩大为渲染架构改造。
 - [ ] P4：对上述范围复核残留错误传播、更新 Reference、完成相关构建与回归并关闭计划。
 

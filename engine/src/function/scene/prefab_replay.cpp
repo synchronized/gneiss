@@ -7,7 +7,11 @@
 #include <map>
 namespace gneiss {
 namespace {
-bool fatal(error status) { return status == error::out_of_memory || status == error::internal; }
+// 自定义组件/序列化回调可能返回操作失败；只终止本次重放，不终止进程。
+// 这些结果不能伪装成可跳过的覆盖冲突，实际异常仍由既有执行边界处理。
+bool abort_replay(error status) {
+  return status == error::out_of_memory || status == error::internal;
+}
 scene_diagnostic location(error status, guid object, guid type, std::string path,
                           std::string message) {
   return {.error = status,
@@ -39,7 +43,7 @@ replay_prefab_reference(const prefab_description& source,
         structural.push_back(key);
       }
     }
-    if (fatal(status))
+    if (abort_replay(status))
       return status;
     if (status.failed())
       output.conflicts.push_back({prefab_override_section::component, i, std::move(diagnostic)});
@@ -75,7 +79,7 @@ replay_prefab_reference(const prefab_description& source,
       if (status.ok())
         output.description = std::move(candidate);
     }
-    if (fatal(status))
+    if (abort_replay(status))
       return status;
     if (status.failed()) {
       if (diagnostic.path.empty())
@@ -116,7 +120,7 @@ replay_prefab_reference(const prefab_description& source,
     if (changed)
       object->components.set(std::move(*changed));
     else {
-      if (fatal(changed.error()))
+      if (abort_replay(changed.error()))
         return changed.error();
       for (std::size_t i = 0; i < indices.size(); ++i)
         if (!rejected[i])

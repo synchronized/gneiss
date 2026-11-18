@@ -284,8 +284,7 @@ result<value_edit_replay> replay_value_edits(const value& root, std::span<const 
     if (next)
       output.root = std::move(*next);
     else {
-      if (next.error().error == error::out_of_memory || next.error().error == error::internal)
-        return next.error().error;
+      // 纯 value 编辑没有外部回调；返回的失败均为路径或内容冲突，分配异常直接传播。
       output.conflicts.push_back({i, next.error().error});
     }
   }

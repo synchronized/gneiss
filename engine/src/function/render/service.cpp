@@ -4,6 +4,7 @@
 #include "function/render/detail/service_impl.hpp"
 #include <algorithm>
 #include <cmath>
+#include <gneiss/engine/assert.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <limits>
 namespace gneiss::render {
@@ -22,25 +23,28 @@ gneiss::error service::implementation::initialize(const gneiss::window::native_h
     return executor_result;
   }
 
-  gneiss::error initialize_result = gneiss::error::unknown;
-  const auto submit_result =
-      executor_.submit_command([this, window, surface, environment_asset, environment_intensity,
-                                environment_rotation_radians, &initialize_result](
-                                   const render::detail::render_command_reporter& reporter) {
+  const auto submit_result = executor_.submit_command(
+      [this, window, surface, environment_asset, environment_intensity,
+       environment_rotation_radians](const render::detail::render_command_reporter& reporter) {
         reporter.report(render::detail::render_command_stage::uploading, 0U, 1U);
-        initialize_result =
+        const auto result =
             backend_.initialize(window, surface, environment_asset, environment_intensity,
                                 environment_rotation_radians);
         reporter.report(render::detail::render_command_stage::uploading, 1U, 1U);
-        return initialize_result;
+        return result;
       });
   if (submit_result.ok()) {
     static_cast<void>(executor_.flush());
   }
 
   auto completion = executor_.try_take_command_completion();
-  if (!submit_result || !completion || completion->sequence != *submit_result ||
-      completion->status != gneiss::error::success) {
+  // 新执行器只有这条命令，flush 在回执发布及捕获数据释放之后才返回。
+  if (submit_result) {
+    GNEISS_ASSERT(completion.has_value(), "初始化命令缺少完成回执");
+    GNEISS_ASSERT(completion->sequence == *submit_result, "初始化命令回执身份不匹配");
+  }
+  const auto initialize_result = submit_result ? completion->status : submit_result.error();
+  if (initialize_result.failed()) {
     device_stats ignored{};
     if (executor_
             .submit_command([this, &ignored](const render::detail::render_command_reporter&) {
@@ -50,8 +54,7 @@ gneiss::error service::implementation::initialize(const gneiss::window::native_h
       static_cast<void>(executor_.flush());
     }
     executor_.stop();
-    return !submit_result ? submit_result.error()
-                          : (completion ? completion->status : gneiss::error::internal);
+    return initialize_result;
   }
   return initialize_result;
 }
@@ -167,6 +170,11 @@ gneiss::error service::implementation::shutdown(device_stats& stats) {
     static_cast<void>(executor_.flush());
   }
   auto completion = executor_.try_take_command_completion();
+  // 所属线程已排空旧回执，期间没有其他服务调用者提交或领取关闭回执。
+  if (submit_result) {
+    GNEISS_ASSERT(completion.has_value(), "关闭命令缺少完成回执");
+    GNEISS_ASSERT(completion->sequence == *submit_result, "关闭命令回执身份不匹配");
+  }
   executor_.stop();
   required_frame_completions_.clear();
   if (frame_result != gneiss::error::success) {
@@ -174,9 +182,6 @@ gneiss::error service::implementation::shutdown(device_stats& stats) {
   }
   if (!submit_result) {
     return submit_result.error();
-  }
-  if (!completion || completion->sequence != *submit_result) {
-    return gneiss::error::internal;
   }
   return completion->status;
 }
