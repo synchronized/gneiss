@@ -24,23 +24,16 @@ namespace gneiss::meta {
 [[nodiscard]] GNEISS_API error register_type(const registry_ref&, const type_definition&,
                                              std::span<const property_binding>);
 inline error register_enum(const enum_definition& definition) {
-  auto registry = default_registry();
-  return registry ? register_enum(*registry, definition) : registry.error();
+  return register_enum(default_registry(), definition);
 }
 
 /** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
 [[nodiscard]] inline error register_type(const type_definition& desc) {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return register_type(*registry, desc);
+  return register_type(default_registry(), desc);
 }
 [[nodiscard]] inline error register_type(const type_definition& desc,
                                          std::span<const property_binding> bindings) {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return register_type(*registry, desc, bindings);
+  return register_type(default_registry(), desc, bindings);
 }
 
 namespace detail {
@@ -77,10 +70,7 @@ template <class T>
 template <class T>
 [[nodiscard]] error register_type(type_definition definition,
                                   std::span<const property_binding> bindings = {}) {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return register_type<T>(*registry, definition, bindings);
+  return register_type<T>(default_registry(), definition, bindings);
 }
 namespace detail {
 /** C++ 枚举的类型安全注册；保存类型身份、扩展及显示项，不自动约束枚举业务值域。 */
@@ -88,13 +78,7 @@ template <class E>
   requires std::is_enum_v<E>
 class enum_builder {
 public:
-  enum_builder() {
-    auto registry = default_registry();
-    if (registry)
-      registry_ = std::move(*registry);
-    else
-      status_ = registry.error();
-  }
+  enum_builder() { registry_ = default_registry(); }
   explicit enum_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
   /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
   enum_builder& name(std::string_view name) {
@@ -222,13 +206,7 @@ public:
     type_builder* owner_;
     std::size_t index_;
   };
-  type_builder() {
-    auto registry = default_registry();
-    if (registry)
-      registry_ = std::move(*registry);
-    else
-      status_ = registry.error();
-  }
+  type_builder() { registry_ = default_registry(); }
   explicit type_builder(registry_ref registry) noexcept : registry_(std::move(registry)) {}
   /** 显式补充身份；与已有 traits 冲突时由 commit 拒绝。名称在注册期间自有。 */
   type_builder& name(std::string_view name) {

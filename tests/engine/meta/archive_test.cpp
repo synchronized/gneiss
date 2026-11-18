@@ -206,17 +206,17 @@ template <> struct representation_traits<recursive_id> {
 int main() {
   auto r = m::create_registry();
   CHECK(r);
-  CHECK(m::registration::type<base>(*r)
+  CHECK(m::registration::type<base>(r)
             .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
             .commit()
             .ok());
-  CHECK(m::registration::type<derived>(*r)
+  CHECK(m::registration::type<derived>(r)
             .base<base>()
             .property<&derived::number>(m::property_id{1}, "number")
             .property<&derived::next>(m::property_id{2}, "next")
             .commit()
             .ok());
-  CHECK(m::registration::type<record>(*r)
+  CHECK(m::registration::type<record>(r)
             .property<&record::numbers>(m::property_id{1}, "numbers")
             .property<&record::names>(m::property_id{2}, "names")
             .property<&record::label>(m::property_id{3}, "label")
@@ -226,29 +226,28 @@ int main() {
             .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
             .commit()
             .ok());
-  CHECK(gneiss::serialization::register_builtin_types(*r).ok());
-  CHECK(m::registration::type<represented_derived>(*r).base<base>().commit().ok());
-  CHECK((m::registration::type<external_holder>(*r)
+  CHECK(gneiss::serialization::register_builtin_types(r).ok());
+  CHECK(m::registration::type<represented_derived>(r).base<base>().commit().ok());
+  CHECK((m::registration::type<external_holder>(r)
              .property<&external_holder::get, &external_holder::set>(m::property_id{1}, "id")
              .commit()
              .ok()));
-  CHECK(m::freeze(*r).ok());
+  CHECK(m::freeze(r).ok());
   // 自定义类型没有 value 分支；与内置类型共享格式无关的适配机制。
-  s::write_context adapted_write{*r};
-  s::read_context adapted_read{*r};
-  CHECK(!m::type_of<external_id>(*r).registered());
-  CHECK(m::type_of<external_id>(*r).capability<gneiss::meta::cap::representation>());
-  CHECK(!m::type_of<std::int64_t>(*r).capability<gneiss::meta::cap::representation>());
+  s::write_context adapted_write{r};
+  s::read_context adapted_read{r};
+  CHECK(!m::type_of<external_id>(r).registered());
+  CHECK(m::type_of<external_id>(r).capability<gneiss::meta::cap::representation>());
+  CHECK(!m::type_of<std::int64_t>(r).capability<gneiss::meta::cap::representation>());
   const std::int64_t unrelated = 42;
-  auto unrelated_view = m::view(*r, unrelated);
+  auto unrelated_view = m::view(r, unrelated);
   CHECK(unrelated_view);
   bool consumed = false;
-  auto mismatch =
-      m::type_of<external_id>(*r).capability<gneiss::meta::cap::representation>().encode(
-          *unrelated_view, [&](const m::const_instance&) {
-            consumed = true;
-            return gneiss::error::success;
-          });
+  auto mismatch = m::type_of<external_id>(r).capability<gneiss::meta::cap::representation>().encode(
+      *unrelated_view, [&](const m::const_instance&) {
+        consumed = true;
+        return gneiss::error::success;
+      });
   CHECK(mismatch == gneiss::error::invalid_argument && !consumed);
 
   memory_writer adapted_output;
@@ -258,8 +257,8 @@ int main() {
   memory_reader adapted_input{adapted_output.root_value};
   auto adapted_copy = s::decode<external_id>(adapted_read, adapted_input);
   CHECK(adapted_copy && adapted_copy->number == 42);
-  s::write_context recursive_write{*r, 8};
-  s::read_context recursive_read{*r, 8};
+  s::write_context recursive_write{r, 8};
+  s::read_context recursive_read{r, 8};
   memory_writer recursive_output;
   CHECK(!s::write(recursive_write, recursive_id{1}, recursive_output));
   CHECK(!s::decode<recursive_id>(recursive_read, adapted_input));
@@ -280,7 +279,7 @@ int main() {
   CHECK(s::write(adapted_write, holder, holder_output));
   auto* member = holder_output.root_value->members.front().second;
   memory_reader holder_input{holder_output.root_value};
-  auto holder_view = m::view(*r, holder);
+  auto holder_view = m::view(r, holder);
   CHECK(holder_view);
   member->data = e::value{std::int64_t{-1}};
   CHECK(!s::read_into(adapted_read, holder_input, *holder_view));
@@ -291,8 +290,8 @@ int main() {
   member->data = e::value{std::int64_t{21}};
   CHECK(s::read_into(adapted_read, holder_input, *holder_view));
   CHECK(holder.id.number == 21);
-  s::write_context polymorphic_write{*r};
-  s::read_context polymorphic_read{*r};
+  s::write_context polymorphic_write{r};
+  s::read_context polymorphic_read{r};
   e::ref<base> adapted_object = e::make_ref<represented_derived>();
   memory_writer polymorphic_output;
   CHECK(s::write(polymorphic_write, adapted_object, polymorphic_output));
@@ -301,8 +300,8 @@ int main() {
   CHECK(polymorphic_copy &&
         dynamic_cast<represented_derived*>(polymorphic_copy->get())->number == 7);
 
-  s::write_context ctx{*r};
-  s::read_context read_ctx{*r};
+  s::write_context ctx{r};
+  s::read_context read_ctx{r};
   CHECK(ctx.property_path().empty());
   static_assert(!std::is_copy_constructible_v<s::write_context>);
   static_assert(!std::is_copy_constructible_v<s::read_context>);
@@ -322,7 +321,7 @@ int main() {
   CHECK(s::write(ctx, original, output).has_value());
   memory_reader input{output.root_value};
   record target_record;
-  auto target_view = m::view(*r, target_record);
+  auto target_view = m::view(r, target_record);
   CHECK(target_view);
   CHECK(s::read_into(read_ctx, input, *target_view));
   CHECK(target_record.required == original.required && target_record.numbers == original.numbers);
@@ -365,18 +364,18 @@ int main() {
   memory_writer recovered;
   CHECK(s::write(ctx, original, recovered).has_value());
   CHECK(ctx.property_path().empty());
-  s::write_context shallow{*r, 0};
-  s::read_context read_shallow{*r, 0};
+  s::write_context shallow{r, 0};
+  s::read_context read_shallow{r, 0};
   memory_writer limited;
   CHECK(failed_with(s::write(shallow, original, limited), e::error::invalid_argument));
   memory_reader recovered_input{recovered.root_value};
   CHECK(!s::decode<record>(read_shallow, recovered_input));
   CHECK(s::decode<record>(read_ctx, recovered_input));
   auto other = m::create_registry();
-  CHECK(other && m::freeze(*other).ok());
-  s::write_context mismatched{*other};
-  s::read_context read_mismatched{*other};
-  auto view = m::view(*r, original);
+  CHECK(other && m::freeze(other).ok());
+  s::write_context mismatched{other};
+  s::read_context read_mismatched{other};
+  auto view = m::view(r, original);
   CHECK(view);
   CHECK(failed_with(s::write(mismatched, view->as_const(), limited), e::error::invalid_argument));
   CHECK(failed_with(s::read_into(read_mismatched, recovered_input, *view),

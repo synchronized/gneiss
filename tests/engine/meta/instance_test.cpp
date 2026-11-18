@@ -51,21 +51,21 @@ bool object_values() {
   }
 
   auto registry = m::create_registry();
-  if (!registry || gneiss::serialization::register_builtin_types(*registry).failed() ||
-      m::registration::type<shared_probe>(*registry)
+  if (!registry || gneiss::serialization::register_builtin_types(registry).failed() ||
+      m::registration::type<shared_probe>(registry)
           .property<&shared_probe::number>(m::property_id{1}, "number")
           .property<&shared_probe::nested>(m::property_id{2}, "nested")
           .commit()
           .failed() ||
-      m::registration::type<shared_holder>(*registry)
+      m::registration::type<shared_holder>(registry)
           .property<&shared_holder::item>(m::property_id{1}, "item")
           .property<&shared_holder::another>(m::property_id{2}, "another")
           .commit()
           .failed() ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
   shared_holder holder{e::make_ref<shared_probe>()};
-  auto view = m::view(*registry, holder);
+  auto view = m::view(registry, holder);
   if (!view)
     return false;
   auto field = view->template capability<m::cap::object>()->member("item");
@@ -73,7 +73,7 @@ bool object_values() {
     return false;
   // 显式保活独立于槽位；错误类型赋值不得改变原引用。
   auto slot = field->as_reference();
-  if (!slot || view->registry() != *registry ||
+  if (!slot || view->registry() != registry ||
       slot->actual_type() != e::runtime_type_of<shared_probe>())
     return false;
   auto retained = slot->owner();
@@ -107,23 +107,23 @@ bool object_values() {
       holder.item.get() != owner.get())
     return false;
   e::ref<const shared_probe> readonly = holder.item;
-  auto const_view = m::view(*registry, std::as_const(readonly));
+  auto const_view = m::view(registry, std::as_const(readonly));
   if (!const_view || const_view->read_value().error() != e::error::unsupported)
     return false;
   // value 对象按内容恢复独立对象，普通 ref 的内联序列化仍有效。
   holder.another = copy;
   auto file = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, holder);
+      gneiss::serialization::write_context{registry}, holder);
   auto encoded_value = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, copy);
+      gneiss::serialization::write_context{registry}, copy);
   auto encoded_empty = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, empty);
+      gneiss::serialization::write_context{registry}, empty);
   if (!file || !encoded_value || !encoded_empty || m::valid_scalar(copy))
     return false;
   auto restored = gneiss::serialization::json::decode<e::value>(
-      gneiss::serialization::read_context{*registry}, *encoded_value);
+      gneiss::serialization::read_context{registry}, *encoded_value);
   auto restored_empty = gneiss::serialization::json::decode<e::value>(
-      gneiss::serialization::read_context{*registry}, *encoded_empty);
+      gneiss::serialization::read_context{registry}, *encoded_empty);
   if (!restored || !restored_empty || *restored_empty != empty)
     return false;
   auto restored_owner = std::get<e::ref<m::object>>(restored->payload);
@@ -132,7 +132,7 @@ bool object_values() {
     return false;
   holder.item->nested = copy;
   auto cycle = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, copy);
+      gneiss::serialization::write_context{registry}, copy);
   holder.item->nested = e::value{true};
   if (cycle || cycle.error().error != e::error::invalid_argument)
     return false;
@@ -140,7 +140,7 @@ bool object_values() {
     const std::string json =
         "{\"$kind\":\"object\",\"$content\":{\"$type_guid\":\"" + tag + "\",\"$content\":{}}}";
     return gneiss::serialization::json::decode<e::value>(
-        gneiss::serialization::read_context{*registry},
+        gneiss::serialization::read_context{registry},
         std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto unknown = malformed(unrelated_probe::type_guid.string());
@@ -149,11 +149,11 @@ bool object_values() {
       wrong_type.error().error != e::error::unsupported)
     return false;
   auto unregistered = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, wrong);
+      gneiss::serialization::write_context{registry}, wrong);
   if (unregistered || unregistered.error().error != e::error::not_found)
     return false;
   auto decoded = gneiss::serialization::json::decode<shared_holder>(
-      gneiss::serialization::read_context{*registry}, *file);
+      gneiss::serialization::read_context{registry}, *file);
   if (!decoded || !decoded->item || decoded->item->number != 19 || decoded->item == holder.item)
     return false;
   const auto duplicate = std::get<e::ref<m::object>>(decoded->another.payload);
@@ -166,7 +166,7 @@ bool object_values() {
            shared_probe::type_guid.string() + "\",\"$content\":{\"number\":1,\"nested\":" + deep +
            "}}}";
   auto too_deep = gneiss::serialization::json::decode<e::value>(
-      gneiss::serialization::read_context{*registry},
+      gneiss::serialization::read_context{registry},
       std::as_bytes(std::span{deep.data(), deep.size()}));
   return !too_deep && too_deep.error().error == e::error::invalid_argument;
 }
@@ -180,7 +180,7 @@ bool enum_registration() {
   auto made = m::create_registry();
   if (!made)
     return false;
-  const auto& registry = *made;
+  const auto& registry = made;
   enum class unknown_mode { value };
   unknown_mode unknown{};
   auto unknown_view = m::view(registry, std::as_const(unknown));
@@ -360,15 +360,15 @@ struct query_model {
 };
 bool type_queries() {
   auto registry = m::create_registry();
-  if (!registry || !m::type_of<float>(*registry) || m::find_type(*registry, query_model::type_guid))
+  if (!registry || !m::type_of<float>(registry) || m::find_type(registry, query_model::type_guid))
     return false;
-  if (m::registration::enumeration<mode>(*registry).value("first", mode::first).commit().failed() ||
-      m::registration::type<query_model>(*registry)
+  if (m::registration::enumeration<mode>(registry).value("first", mode::first).commit().failed() ||
+      m::registration::type<query_model>(registry)
           .property<&query_model::modes>(m::property_id{1}, "modes")
           .property<&query_model::count>(m::property_id{2}, "count")
           .commit()
           .failed() ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
   if (m::freeze().failed())
     return false;
@@ -376,9 +376,9 @@ bool type_queries() {
   if (!default_float || !m::find_type(e::runtime_type_of<float>()) ||
       !m::find_type(default_float.guid()))
     return false;
-  auto typed = m::type_of<const query_model&>(*registry);
-  auto by_id = m::find_type(*registry, e::runtime_type_of<query_model>());
-  auto by_guid = m::find_type(*registry, query_model::type_guid);
+  auto typed = m::type_of<const query_model&>(registry);
+  auto by_id = m::find_type(registry, e::runtime_type_of<query_model>());
+  auto by_guid = m::find_type(registry, query_model::type_guid);
   if (!typed || !by_id || !by_guid || typed != by_id || typed != by_guid)
     return false;
   auto named = typed.template capability<m::cap::object>().find_property("count");
@@ -397,33 +397,32 @@ bool type_queries() {
   if (props.empty() || props.size() != 2 || props[0].type().kind() != m::type_kind::sequence ||
       props[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
-  auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
+  auto sequence = m::find_type(registry, e::runtime_type_of<std::vector<mode>>());
   auto element = sequence.capability<m::cap::sequence>().element_type();
-  auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
+  auto enumeration = m::find_type(registry, e::runtime_type_of<mode>());
   if (!element || !element.is_enum() || !enumeration ||
       element.capability<m::cap::enumeration>().entries().data() !=
           enumeration.capability<m::cap::enumeration>().entries().data())
     return false;
-  auto scalar = m::type_of<float>(*registry);
-  if (!scalar || !m::find_type(*registry, scalar.guid()) || !m::type_of<settings>(*registry) ||
-      m::find_type(*registry, e::runtime_type_of<settings>()) ||
-      m::find_type(*registry, e::guid{}) ||
+  auto scalar = m::type_of<float>(registry);
+  if (!scalar || !m::find_type(registry, scalar.guid()) || !m::type_of<settings>(registry) ||
+      m::find_type(registry, e::runtime_type_of<settings>()) || m::find_type(registry, e::guid{}) ||
       m::find_type(m::registry_ref{}, e::runtime_type_of<float>()))
     return false;
   // 类型句柄比较含注册表身份，不依赖模板静态描述的地址。
   auto isolated = m::create_registry();
-  if (!isolated || m::type_of<float>(*isolated) == scalar ||
-      m::type_of<float>(*isolated).id() != scalar.id() || scalar == typed ||
+  if (!isolated || m::type_of<float>(isolated) == scalar ||
+      m::type_of<float>(isolated).id() != scalar.id() || scalar == typed ||
       m::type{} != m::type{} || scalar == m::type{} || m::type{}.capability<m::cap::sequence>() ||
       scalar.capability<m::cap::sequence>() || element != enumeration)
     return false;
-  const auto unregistered = m::type_of<settings>(*registry);
-  if (!unregistered || unregistered.registered() || unregistered != m::type_of<settings>(*registry))
+  const auto unregistered = m::type_of<settings>(registry);
+  if (!unregistered || unregistered.registered() || unregistered != m::type_of<settings>(registry))
     return false;
   auto object_capability = unregistered.capability<m::cap::object>();
   settings source{};
-  auto source_view = m::view(*registry, source);
-  auto other_view = m::view(*isolated, source);
+  auto source_view = m::view(registry, source);
+  auto other_view = m::view(isolated, source);
   if (!object_capability || !object_capability.properties().empty() ||
       m::type{}.capability<m::cap::object>() || scalar.capability<m::cap::object>() ||
       !source_view || !other_view || !object_capability.bind(*source_view) ||
@@ -436,8 +435,8 @@ bool type_queries() {
   static_assert(std::same_as<decltype(source_view->capability<m::cap::object>()),
                              e::result<m::mutable_object_view>>);
   // 类型视图保活注册表，但不要求对象实例存活。
-  std::weak_ptr<m::type_registry_state> weak = *registry;
-  registry = e::error::not_found;
+  std::weak_ptr<m::type_registry_state> weak = registry;
+  registry.reset();
   return !weak.expired() && typed.template capability<m::cap::object>().properties().size() == 2 &&
          typed.name() == query_model::type_name && named.name() == "count";
 }
@@ -446,7 +445,7 @@ bool registered_native_queries() {
   auto created = m::create_registry();
   if (!created)
     return false;
-  const auto registry = *created;
+  const auto registry = created;
   using sequence = std::array<float, 2>;
   using mapping = std::map<std::string, float>;
   using optional = std::optional<float>;
@@ -528,7 +527,7 @@ bool reference_properties() {
   auto made = m::create_registry();
   if (!made)
     return false;
-  auto registry = *made;
+  auto registry = made;
   if (m::registration::type<reference_target>(registry)
           .property<&reference_target::number>(m::property_id{1}, "number")
           .property<&reference_target::next>(m::property_id{2}, "next")
@@ -658,7 +657,7 @@ bool polymorphic_references() {
   auto created = m::create_registry();
   if (!created)
     return false;
-  auto registry = *created;
+  auto registry = created;
   if (m::registration::type<polymorphic_base>(registry)
           .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
           .commit()
@@ -681,7 +680,7 @@ bool polymorphic_references() {
   auto other = m::create_registry();
   if (!other || !detached || detached.registered() || !registered.registered() ||
       registered != m::type_of<polymorphic_child>(registry) ||
-      base.dynamic_type(*other).registered() || base.dynamic_type(*other).id() != detached.id() ||
+      base.dynamic_type(other).registered() || base.dynamic_type(other).id() != detached.id() ||
       detached.guid() != polymorphic_child::type_guid || base.dynamic_address() != &native ||
       !base.dynamic_type() || missing_dynamic_type{}.dynamic_type(registry))
     return false;
@@ -704,7 +703,7 @@ bool polymorphic_references() {
   auto readonly = root->as_const().capability<m::cap::object>()->cast(capability.base_type());
   static_assert(std::is_same_v<decltype(readonly), e::result<m::const_instance>>);
   if (!readonly || *readonly->object_data() != static_cast<const polymorphic_base*>(child) ||
-      object_view->cast(m::type_of<polymorphic_base>(*other)).error() !=
+      object_view->cast(m::type_of<polymorphic_base>(other)).error() !=
           e::error::invalid_argument ||
       capability.is_a(m::type_of<int>(registry)))
     return false;
@@ -815,21 +814,21 @@ struct bound_properties {
 bool bound_property_contract() {
   auto registry = m::create_registry();
   if (!registry ||
-      m::registration::type<checked_value>(*registry)
+      m::registration::type<checked_value>(registry)
           .property<&checked_value::number>(m::property_id{1}, "number")
           .commit()
           .failed() ||
-      m::registration::type<bound_properties>(*registry)
+      m::registration::type<bound_properties>(registry)
           .property<&bound_properties::get_values, &bound_properties::set_values>(m::property_id{1},
                                                                                   "values")
           .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
                                                                                 "child")
           .commit()
           .failed() ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
   bound_properties object;
-  auto root = m::view(*registry, object);
+  auto root = m::view(registry, object);
   if (!root)
     return false;
   auto values = root->template capability<m::cap::object>()->member("values"),
@@ -842,7 +841,7 @@ bool bound_property_contract() {
     return false;
   auto decode = [&](const m::instance& target, std::string_view json) {
     return gneiss::serialization::json::read_into(
-        gneiss::serialization::read_context{*registry}, target,
+        gneiss::serialization::read_context{registry}, target,
         std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto invalid = decode(*values, "[2,\"bad\"]");
@@ -871,21 +870,21 @@ bool bound_property_contract() {
   if (decode(*child, R"({"number":8})").failed() || object.child.number != 8)
     return false;
   std::vector<std::int64_t> next{5};
-  auto source = m::view(*registry, std::as_const(next));
+  auto source = m::view(registry, std::as_const(next));
   if (!source || values->assign(*source).failed() || object.values != next)
     return false;
   next[0] = -5;
   if (values->assign(*source) != e::error::invalid_argument || object.values[0] != 5)
     return false;
   std::vector<float> wrong{1};
-  if (values->assign(*m::view(*registry, std::as_const(wrong))) != e::error::invalid_argument)
+  if (values->assign(*m::view(registry, std::as_const(wrong))) != e::error::invalid_argument)
     return false;
   auto encoded = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, object);
+      gneiss::serialization::write_context{registry}, object);
   if (!encoded)
     return false;
   auto copy = gneiss::serialization::json::decode<bound_properties>(
-      gneiss::serialization::read_context{*registry}, *encoded);
+      gneiss::serialization::read_context{registry}, *encoded);
   return copy && copy->values == object.values && copy->child.number == object.child.number;
 }
 struct property_child : offset_base, m::object_type<property_child, shared_probe> {
@@ -906,14 +905,14 @@ bool property_handles() {
            m::freeze(registry).ok();
   };
   auto first = m::create_registry(), second = m::create_registry();
-  if (!first || !second || !register_probe(*first) || !register_probe(*second))
+  if (!first || !second || !register_probe(first) || !register_probe(second))
     return false;
   shared_probe probe;
   shared_holder wrong;
-  auto view = m::view(*first, probe);
-  auto foreign = m::view(*second, std::as_const(probe));
-  auto unrelated = m::view(*first, std::as_const(wrong));
-  auto type = m::type_of<shared_probe>(*first);
+  auto view = m::view(first, probe);
+  auto foreign = m::view(second, std::as_const(probe));
+  auto unrelated = m::view(first, std::as_const(wrong));
+  auto type = m::type_of<shared_probe>(first);
   if (!view || !foreign || !unrelated || !type)
     return false;
   auto fields = type.template capability<m::cap::object>().properties();
@@ -929,7 +928,7 @@ bool property_handles() {
     return false;
   {
     property_child child;
-    auto derived = m::view(*first, child);
+    auto derived = m::view(first, child);
     if (!derived)
       return false;
     auto inherited = field.get(*derived);
@@ -941,9 +940,9 @@ bool property_handles() {
       return false;
   }
   // 范围、迭代器和独立句柄均保活表，但没有持有 probe。
-  std::weak_ptr<m::type_registry_state> weak = *first;
+  std::weak_ptr<m::type_registry_state> weak = first;
   auto iterator = fields.begin();
-  *first = {};
+  first = {};
   *view = {};
   *unrelated = {};
   type = {};
@@ -960,13 +959,13 @@ bool property_handles() {
 bool capability_binding() {
   auto first = m::create_registry();
   auto second = m::create_registry();
-  if (!first || !second || m::freeze(*first).failed() || m::freeze(*second).failed())
+  if (!first || !second || m::freeze(first).failed() || m::freeze(second).failed())
     return false;
   std::vector<int> values{1, 2};
-  auto source = m::view(*first, values);
-  auto other_context = m::view(*second, values);
+  auto source = m::view(first, values);
+  auto other_context = m::view(second, values);
   const int scalar = 1;
-  auto other_type = m::view(*first, scalar);
+  auto other_type = m::view(first, scalar);
   if (!source || !other_context || !other_type)
     return false;
   const auto capability = source->type().capability<m::cap::sequence>();
@@ -1007,7 +1006,7 @@ int main() try {
   auto created = m::create_registry();
   if (!created)
     return 1;
-  auto registry = *created;
+  auto registry = created;
   object source;
   if (!m::view(registry, std::as_const(source)))
     return 2;
@@ -1118,12 +1117,12 @@ int main() try {
   if (std::get<float>(speed->read_value()->payload) != 9 || task.get() != 9)
     return 21;
   auto independent = m::create_registry();
-  if (!independent || m::freeze(*independent).failed() ||
-      !m::view(*independent, std::as_const(source)))
+  if (!independent || m::freeze(independent).failed() ||
+      !m::view(independent, std::as_const(source)))
     return 22;
   // 返回的子视图延长元数据寿命，不依赖根视图对象自身。
   auto weak = std::weak_ptr<m::type_registry_state>(registry);
-  created->reset();
+  created.reset();
   registry.reset();
   *root = {};
   *config = {};

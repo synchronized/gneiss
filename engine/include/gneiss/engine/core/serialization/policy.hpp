@@ -76,19 +76,15 @@ inline type_policies policies_of(const meta::type& type) noexcept {
   return result;
 }
 inline result<type_policies> find_policies(const meta::registry_ref& registry, type_id id) {
-  auto frozen = meta::is_frozen(registry);
-  if (!frozen)
-    return frozen.error();
-  if (!*frozen)
+  if (!registry)
+    return error::invalid_handle;
+  if (!meta::is_frozen(registry))
     return error::not_ready;
   auto type = meta::find_type(registry, id);
   return type ? result<type_policies>{policies_of(type)} : result<type_policies>{error::not_found};
 }
 inline result<type_policies> find_policies(type_id id) {
-  auto frozen = meta::is_frozen();
-  if (!frozen)
-    return frozen.error();
-  if (!*frozen)
+  if (!meta::is_frozen())
     return error::not_ready;
   auto type = meta::find_type(id);
   return type ? result<type_policies>{policies_of(type)} : result<type_policies>{error::not_found};

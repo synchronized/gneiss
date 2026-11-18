@@ -70,10 +70,9 @@ result<basic_instance<Mutable>>
 basic_instance<Mutable>::from_object(registry_ref registry, gneiss::type_id id, pointer object) {
   if (!object)
     return error::invalid_argument;
-  auto frozen = is_frozen(registry);
-  if (!frozen)
-    return frozen.error();
-  if (!*frozen)
+  if (!registry)
+    return error::invalid_handle;
+  if (!is_frozen(registry))
     return error::not_ready;
   return from_object(find_type(registry, id), object);
 }

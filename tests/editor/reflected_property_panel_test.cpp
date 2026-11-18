@@ -3,6 +3,7 @@
 
 #include "ui/panels/reflected_property_editor.hpp"
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
 
@@ -120,14 +121,14 @@ int main() try {
   const std::array entries{e::meta::enum_entry{"First", e::value{std::int64_t{0}}},
                            e::meta::enum_entry{"Second", e::value{std::int64_t{1}}}};
   if (!registry ||
-      e::meta::register_enum(*registry, {.type_id = e::runtime_type_of<choice>(),
-                                         .kind = e::value_kind::int64,
-                                         .entries = entries})
+      e::meta::register_enum(registry, {.type_id = e::runtime_type_of<choice>(),
+                                        .kind = e::value_kind::int64,
+                                        .entries = entries})
           .failed() ||
-      e::meta::freeze(*registry).failed())
+      e::meta::freeze(registry).failed())
     return 15;
   std::vector<choice> choices{choice::second};
-  auto choices_view = e::meta::view(*registry, std::as_const(choices));
+  auto choices_view = e::meta::view(registry, std::as_const(choices));
   if (!choices_view || draw_reflected_properties(*choices_view, "Enum elements", serial, error) ||
       !error.ok())
     return 16;

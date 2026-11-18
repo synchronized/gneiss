@@ -396,7 +396,7 @@ public:
     return error::success;
   }
 
-  [[nodiscard]] result<bool> is_frozen() const {
+  [[nodiscard]] bool is_frozen() const {
     std::shared_lock lock(mutex_);
     return is_frozen_;
   }
@@ -525,7 +525,7 @@ private:
   bool is_frozen_ = false;
 };
 
-result<registry_ref> default_registry() {
+registry_ref default_registry() {
   static const registry_ref registry = std::make_shared<type_registry_state>();
   return registry;
 }
@@ -624,7 +624,7 @@ meta::type resolve_type(const registry_ref& registry, const type_ops& access) {
   return registry ? registry->resolve_access(access) : type_factory::make({}, &access);
 }
 }
-result<registry_ref> create_registry() { return std::make_shared<type_registry_state>(); }
+registry_ref create_registry() { return std::make_shared<type_registry_state>(); }
 error register_enum(const registry_ref& state, const enum_definition& definition) {
   return state ? state->register_enum(definition) : error::invalid_handle;
 }
@@ -637,8 +637,9 @@ error register_type(const registry_ref& state, const type_definition& desc,
 }
 
 error freeze(const registry_ref& state) { return state ? state->freeze() : error::invalid_handle; }
-result<bool> is_frozen(const registry_ref& state) {
-  return state ? state->is_frozen() : error::invalid_handle;
+bool is_frozen(const registry_ref& state) {
+  GNEISS_ASSERT(state, "查询冻结状态要求有效注册表");
+  return state->is_frozen();
 }
 
 property property_range::iterator::operator*() const noexcept {

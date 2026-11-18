@@ -179,32 +179,32 @@ struct variant_document {
 int main() {
   auto registry = m::create_registry();
   CHECK(registry);
-  CHECK(m::registration::type<document>(*registry)
+  CHECK(m::registration::type<document>(registry)
             .property<&document::sequence>(m::property_id{1}, "sequence")
             .property<&document::mapping>(m::property_id{2}, "mapping")
             .commit()
             .ok());
-  CHECK(m::registration::type<non_default>(*registry)
+  CHECK(m::registration::type<non_default>(registry)
             .property<&non_default::number>(m::property_id{1}, "number")
             .commit()
             .ok());
-  CHECK(m::registration::type<variant_document>(*registry)
+  CHECK(m::registration::type<variant_document>(registry)
             .property<&variant_document::entries>(m::property_id{1}, "entries")
             .property<&variant_document::selected>(m::property_id{2}, "selected")
             .commit()
             .ok());
-  CHECK(m::registration::type<throwing_value>(*registry).commit().ok());
-  CHECK(m::registration::type<mapped_value>(*registry)
+  CHECK(m::registration::type<throwing_value>(registry).commit().ok());
+  CHECK(m::registration::type<mapped_value>(registry)
             .property<&mapped_value::number>(m::property_id{1}, "number")
             .commit()
             .ok());
-  CHECK((m::registration::type<mapped_owner>(*registry)
+  CHECK((m::registration::type<mapped_owner>(registry)
              .property<&mapped_owner::get, &mapped_owner::set>(m::property_id{1}, "item")
              .commit()
              .ok()));
-  CHECK(m::freeze(*registry).ok());
+  CHECK(m::freeze(registry).ok());
   mapped_owner owner;
-  auto owner_view = m::view(*registry, owner);
+  auto owner_view = m::view(registry, owner);
   CHECK(owner_view);
   auto item = owner_view->template capability<gneiss::meta::cap::object>()->member("item");
   CHECK(item && item->requires_replacement());
@@ -215,7 +215,7 @@ int main() {
 
   // 整体转换不改变结构类别，也不改变默认 JSON 的对象格式。
   mapped_value mapped;
-  auto mapped_view = m::view(*registry, mapped);
+  auto mapped_view = m::view(registry, mapped);
   CHECK(mapped_view && mapped_view->kind() == m::type_kind::object);
   CHECK(mapped_view->read_value() && *mapped_view->read_value() == e::value{std::int64_t{7}});
   CHECK(mapped_view->assign(e::value{std::int64_t{9}}).ok());
@@ -223,19 +223,19 @@ int main() {
   CHECK(mapped_view->assign(e::value{std::string{"wrong"}}) == e::error::invalid_argument);
   CHECK(mapped.number == 9);
   auto mapped_bytes =
-      e::serialization::json::encode_bytes(e::serialization::write_context{*registry}, mapped);
+      e::serialization::json::encode_bytes(e::serialization::write_context{registry}, mapped);
   CHECK(mapped_bytes);
   auto mapped_copy = e::serialization::json::decode<mapped_value>(
-      e::serialization::read_context{*registry}, *mapped_bytes);
+      e::serialization::read_context{registry}, *mapped_bytes);
   CHECK(mapped_copy && mapped_copy->number == 9);
   const std::string mapped_json(reinterpret_cast<const char*>(mapped_bytes->data()),
                                 mapped_bytes->size());
   CHECK(mapped_json.find("number") != std::string::npos);
   // 静态表示独立于 value 转换与注册；空冻结表也可处理原生类型。
   auto native_registry = m::create_registry();
-  CHECK(native_registry && m::freeze(*native_registry).ok());
-  e::serialization::write_context adapted_write{*native_registry};
-  e::serialization::read_context adapted_read{*native_registry};
+  CHECK(native_registry && m::freeze(native_registry).ok());
+  e::serialization::write_context adapted_write{native_registry};
+  e::serialization::read_context adapted_read{native_registry};
   auto adapted_bytes = e::serialization::json::encode_bytes(adapted_write, represented_value{9});
   CHECK(adapted_bytes);
   CHECK(std::string(reinterpret_cast<const char*>(adapted_bytes->data()), adapted_bytes->size()) ==
@@ -245,7 +245,7 @@ int main() {
   CHECK(adapted_copy && adapted_copy->number == 9);
 
   document source;
-  auto view = m::view(*registry, source);
+  auto view = m::view(registry, source);
   CHECK(view);
   auto sequence =
       view->template capability<gneiss::meta::cap::object>()->member("sequence")->as_sequence();
@@ -261,7 +261,7 @@ int main() {
   CHECK(sequence->size() == 3);
   source.sequence.fail_length = false;
   std::vector<float> bounded{1.0F};
-  auto bounded_view = m::view(*registry, bounded);
+  auto bounded_view = m::view(registry, bounded);
   CHECK(bounded_view);
   CHECK(bounded_view->as_sequence()->resize(bounded.max_size() + 1) == e::error::invalid_argument);
   CHECK(bounded.size() == 1);
@@ -270,10 +270,10 @@ int main() {
   CHECK(mapping && *mapping->keys() == std::vector<std::string>({"a", "z"}));
   CHECK(mapping->find("missing").error() == e::error::not_found);
   auto encoded = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, source);
+      gneiss::serialization::write_context{registry}, source);
   CHECK(encoded);
   auto decoded = gneiss::serialization::json::decode<document>(
-      gneiss::serialization::read_context{*registry}, *encoded);
+      gneiss::serialization::read_context{registry}, *encoded);
   CHECK(decoded && decoded->sequence.values == source.sequence.values &&
         decoded->mapping.values == source.mapping.values);
   CHECK(mapping->insert("added")->assign(e::value{5.0F}).ok());
@@ -281,14 +281,14 @@ int main() {
   CHECK(mapping->clear().ok() && source.mapping.values.empty());
 
   readonly_numbers readonly;
-  auto readonly_view = m::view(*registry, readonly);
+  auto readonly_view = m::view(registry, readonly);
   CHECK(readonly_view);
   auto readable = readonly_view->as_const().as_sequence();
   CHECK(readable && std::get<float>(readable->at(0)->read_value()->payload) == 3);
   CHECK(readonly_view->as_sequence()->at(0).error() == e::error::unsupported);
   CHECK(readonly_view->as_sequence()->resize(3) == e::error::unsupported);
   dictionary<false> readonly_mapping;
-  auto map_view = m::view(*registry, readonly_mapping);
+  auto map_view = m::view(registry, readonly_mapping);
   CHECK(map_view && map_view->as_const().as_associative()->find("a"));
   CHECK(map_view->as_associative()->find("a").error() == e::error::unsupported);
   CHECK(map_view->as_associative()->insert("b").error() == e::error::unsupported);
@@ -297,65 +297,65 @@ int main() {
 
   std::vector<non_default> values;
   values.emplace_back(7.0F);
-  auto values_view = m::view(*registry, values);
+  auto values_view = m::view(registry, values);
   CHECK(values_view &&
         values_view->as_sequence()->at(0)->template capability<gneiss::meta::cap::object>()->member(
             "number"));
   CHECK(values_view->as_sequence()->resize(2) == e::error::unsupported);
   std::map<std::string, non_default> non_default_map;
   non_default_map.try_emplace("x", 7.0F);
-  auto non_default_map_view = m::view(*registry, non_default_map);
+  auto non_default_map_view = m::view(registry, non_default_map);
   CHECK(non_default_map_view && non_default_map_view->as_associative()->find("x"));
   CHECK(non_default_map_view->as_associative()->insert("y").error() == e::error::unsupported);
   std::array<non_default, 1> fixed{non_default{8.0F}};
-  auto fixed_view = m::view(*registry, fixed);
+  auto fixed_view = m::view(registry, fixed);
   CHECK(fixed_view && fixed_view->as_sequence()->at(0));
   CHECK(fixed_view->as_sequence()->resize(2) == e::error::invalid_argument);
   choice selected{std::int32_t{42}};
-  auto selected_instance = m::view(*registry, selected);
+  auto selected_instance = m::view(registry, selected);
   CHECK(selected_instance);
   auto variant = selected_instance->as_variant();
   CHECK(variant && variant->alternative_count() == 2 && *variant->index() == 0);
   CHECK(variant->alternative(0) && variant->alternative(2).error() == e::error::invalid_argument);
   auto choice_bytes = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, selected);
+      gneiss::serialization::write_context{registry}, selected);
   CHECK(choice_bytes);
   auto reordered = gneiss::serialization::json::decode<reordered_choice>(
-      gneiss::serialization::read_context{*registry}, *choice_bytes);
+      gneiss::serialization::read_context{registry}, *choice_bytes);
   CHECK(reordered && reordered->index() == 1 && std::get<1>(*reordered) == 42);
   CHECK(variant->select(1).ok());
   CHECK(variant->value()->assign(e::value{std::string{"hello"}}).ok());
   CHECK(std::get<1>(selected) == "hello");
   CHECK(variant->select(2) == e::error::invalid_argument && *variant->index() == 1);
   auto text_bytes = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, selected);
+      gneiss::serialization::write_context{registry}, selected);
   CHECK(text_bytes);
   auto text_copy = gneiss::serialization::json::decode<choice>(
-      gneiss::serialization::read_context{*registry}, *text_bytes);
+      gneiss::serialization::read_context{registry}, *text_bytes);
   CHECK(text_copy && *text_copy == selected);
   for (std::string_view invalid : {R"({"$kind":"missing","$content":1})", R"({"$kind":"number"})",
                                    R"({"$kind":"number","$content":"wrong"})",
                                    R"({"$kind":"number","$content":1,"extra":2})"}) {
     auto decoded_choice = gneiss::serialization::json::decode<choice>(
-        gneiss::serialization::read_context{*registry},
+        gneiss::serialization::read_context{registry},
         std::as_bytes(std::span(invalid.data(), invalid.size())));
     CHECK(!decoded_choice && decoded_choice.error().error == e::error::invalid_argument);
   }
   std::variant<int, double> unlabelled{3};
-  auto unlabelled_view = m::view(*registry, unlabelled);
+  auto unlabelled_view = m::view(registry, unlabelled);
   CHECK(unlabelled_view && unlabelled_view->as_variant()->select(1).ok());
   auto unlabelled_bytes = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, unlabelled);
+      gneiss::serialization::write_context{registry}, unlabelled);
   CHECK(!unlabelled_bytes && unlabelled_bytes.error().error == e::error::unsupported);
   std::variant<int, non_default> cannot_construct{4};
-  auto non_default_variant = m::view(*registry, cannot_construct);
+  auto non_default_variant = m::view(registry, cannot_construct);
   CHECK(non_default_variant);
   CHECK(non_default_variant->as_variant()->select(1) == e::error::unsupported);
   CHECK(std::get<0>(cannot_construct) == 4);
   // 原生类型能力与注册独立；未注册对象可以借用，但不能伪装成空对象持久化。
   auto empty_registry = m::create_registry();
-  CHECK(empty_registry && m::freeze(*empty_registry).ok());
-  auto lazy = m::view(*empty_registry, cannot_construct);
+  CHECK(empty_registry && m::freeze(empty_registry).ok());
+  auto lazy = m::view(empty_registry, cannot_construct);
   CHECK(lazy && lazy->as_variant()->value()->read_value()->kind() == e::value_kind::int64);
   cannot_construct.emplace<1>(1.0F);
   auto unknown_object = lazy->as_variant()->value();
@@ -365,15 +365,15 @@ int main() {
             .template capability<gneiss::meta::cap::object>()
             .properties()
             .empty());
-  CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry));
+  CHECK(m::type_of<decltype(cannot_construct)>(empty_registry));
   auto rejected_object = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*empty_registry}, std::get<1>(cannot_construct));
+      gneiss::serialization::write_context{empty_registry}, std::get<1>(cannot_construct));
   CHECK(!rejected_object);
   std::vector<non_default> unknown_elements;
   unknown_elements.emplace_back(1.0F);
-  auto unknown_sequence = m::type_of<decltype(unknown_elements)>(*empty_registry);
+  auto unknown_sequence = m::type_of<decltype(unknown_elements)>(empty_registry);
   CHECK(unknown_sequence && unknown_sequence.capability<m::cap::sequence>().element_type());
-  auto unknown_view = m::view(*empty_registry, unknown_elements);
+  auto unknown_view = m::view(empty_registry, unknown_elements);
   CHECK(unknown_view && unknown_view->as_sequence()->at(0));
   throwing_choice throwing_source{std::in_place_index<1>};
   throwing_choice valueless{1};
@@ -382,23 +382,23 @@ int main() {
     CHECK(false);
   } catch (int) {
   }
-  auto valueless_instance = m::view(*registry, valueless);
+  auto valueless_instance = m::view(registry, valueless);
   CHECK(valueless_instance);
   auto valueless_view = valueless_instance->as_variant();
   CHECK(valueless_view && valueless_view->valueless());
   CHECK(valueless_view->index().error() == e::error::invalid_state);
   CHECK(valueless_view->value().error() == e::error::invalid_state);
   auto failed_bytes = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, valueless);
+      gneiss::serialization::write_context{registry}, valueless);
   CHECK(!failed_bytes && failed_bytes.error().error == e::error::invalid_state);
   CHECK(valueless_view->select(0).ok() && !valueless_view->valueless());
   variant_document nested{{choice{std::int32_t{7}}, choice{std::string{"text"}}},
                           choice{std::string{"selected"}}};
   auto nested_bytes = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, nested);
+      gneiss::serialization::write_context{registry}, nested);
   CHECK(nested_bytes);
   auto nested_copy = gneiss::serialization::json::decode<variant_document>(
-      gneiss::serialization::read_context{*registry}, *nested_bytes);
+      gneiss::serialization::read_context{registry}, *nested_bytes);
   CHECK(nested_copy && nested_copy->entries == nested.entries &&
         nested_copy->selected == nested.selected);
   return 0;

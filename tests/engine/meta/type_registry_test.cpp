@@ -37,10 +37,7 @@ static_assert(noexcept(gneiss::meta::type{}.name()));
 bool typed_registration() {
   namespace e = gneiss;
   using e::error;
-  gneiss::meta::registry_ref registry;
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry)
-          .failed())
-    return false;
+  auto registry = gneiss::meta::create_registry();
   const e::guid object_guid{e::guid::from_bytes({0x30})};
   const e::guid other_guid{e::guid::from_bytes({0x10})};
   const e::guid data_guid{e::guid::from_bytes({0x20})};
@@ -115,17 +112,17 @@ bool math_registration() {
   namespace e = gneiss;
   namespace m = e::meta;
   auto registry = m::create_registry();
-  if (!registry || gneiss::serialization::register_builtin_types(*registry).failed() ||
-      m::freeze(*registry).failed())
+  if (!registry || gneiss::serialization::register_builtin_types(registry).failed() ||
+      m::freeze(registry).failed())
     return false;
-  auto transform = m::type_of<e::math::transform>(*registry);
-  auto camera = m::type_of<e::math::camera_settings>(*registry);
+  auto transform = m::type_of<e::math::transform>(registry);
+  auto camera = m::type_of<e::math::camera_settings>(registry);
   if (!transform || !camera ||
       transform.template capability<gneiss::meta::cap::object>().properties().size() != 3 ||
       camera.template capability<gneiss::meta::cap::object>().properties().size() != 3)
     return false;
-  e::serialization::write_context context{*registry};
-  e::serialization::read_context read_context{*registry};
+  e::serialization::write_context context{registry};
+  e::serialization::read_context read_context{registry};
   e::math::camera_settings settings{1.0F, 0.1F, 100.0F};
   auto encoded = e::serialization::json::encode_bytes(context, settings);
   if (!encoded)
@@ -139,7 +136,7 @@ bool math_registration() {
       read_context, std::as_bytes(std::span{invalid.data(), invalid.size()}));
   e::math::transform value;
   auto status = gneiss::meta::instance::from_object(
-                    gneiss::meta::find_type(*registry, e::math::transform::type_guid), &value)
+                    gneiss::meta::find_type(registry, e::math::transform::type_guid), &value)
                     ->capability<gneiss::meta::cap::object>()
                     ->member(m::property_id{3})
                     ->assign(e::value{e::math::vector3{0, 1, 1}});
@@ -164,15 +161,15 @@ bool frozen_lookup() {
     fields.push_back(
         {m::property_id{(127 - i) * 3 + 1}, id, m::property_access::read_write, names.back()});
   }
-  if (m::register_type(*registry,
+  if (m::register_type(registry,
                        {.guid = id, .schema_version = 1, .name = "indexed", .properties = fields})
           .failed() ||
-      gneiss::meta::find_type(*registry, id)
+      gneiss::meta::find_type(registry, id)
           .capability<gneiss::meta::cap::object>()
           .find_property(m::property_id{1}) ||
-      m::freeze(*registry).failed() || m::freeze(*registry).failed())
+      m::freeze(registry).failed() || m::freeze(registry).failed())
     return false;
-  auto type = m::find_type(*registry, id);
+  auto type = m::find_type(registry, id);
   if (!type)
     return false;
   for (const auto& field : fields) {
@@ -213,29 +210,29 @@ bool freeze_exception_contract() {
   const m::property_binding binding{.object_type = access.id,
                                     .object_getter = [](const void* p) { return p; },
                                     .access = &access};
-  if (m::register_type(*registry, definition, {&binding, 1}).failed())
+  if (m::register_type(registry, definition, {&binding, 1}).failed())
     return false;
-  if (!gneiss::test_support::throws<std::runtime_error>([&] { (void)m::freeze(*registry); }))
+  if (!gneiss::test_support::throws<std::runtime_error>([&] { (void)m::freeze(registry); }))
     return false;
-  if (*m::is_frozen(*registry))
+  if (m::is_frozen(registry))
     return false;
   fail = false;
-  if (m::freeze(*registry).failed() || !*m::is_frozen(*registry))
+  if (m::freeze(registry).failed() || !m::is_frozen(registry))
     return false;
   fail = true;
   // 查询自定义元素能力时抛异常不能变成“未找到”，也不能在视图 noexcept 内终止。
-  auto property = m::find_type(*registry, definition.guid)
+  auto property = m::find_type(registry, definition.guid)
                       .template capability<gneiss::meta::cap::object>()
                       .find_property(field.id);
   if (!property || !gneiss::test_support::throws<std::runtime_error>([&] {
         (void)property.type().capability<m::cap::sequence>().element_type();
       }) ||
       !gneiss::test_support::throws<std::runtime_error>(
-          [&] { (void)m::find_type(*registry, e::runtime_type_of<unregistered_object>()); }))
+          [&] { (void)m::find_type(registry, e::runtime_type_of<unregistered_object>()); }))
     return false;
   fail = false;
   return property.type().capability<m::cap::sequence>().element_type() &&
-         !m::find_type(*registry, e::runtime_type_of<unregistered_object>());
+         !m::find_type(registry, e::runtime_type_of<unregistered_object>());
 }
 int main() {
   if (!freeze_exception_contract())
@@ -247,12 +244,9 @@ int main() {
   auto empty = gneiss::meta::create_registry();
   if (!empty)
     return 30;
-  auto unfrozen = gneiss::meta::is_frozen(*empty);
-  auto unavailable = gneiss::meta::registered_types(*empty);
-  auto invalid_registry = gneiss::meta::is_frozen({});
-  if (!unfrozen || *unfrozen || unavailable ||
-      unavailable.error() != gneiss::error::not_ready || invalid_registry ||
-      invalid_registry.error() != gneiss::error::invalid_handle)
+  auto unfrozen = gneiss::meta::is_frozen(empty);
+  auto unavailable = gneiss::meta::registered_types(empty);
+  if (unfrozen || unavailable || unavailable.error() != gneiss::error::not_ready)
     return 31;
 
   if (!typed_registration())
@@ -267,7 +261,7 @@ int main() {
   const std::array duplicate_fields{field, field};
   gneiss::meta::type_definition object{object_type, {}, 1, "Object", {&field, 1}};
   gneiss::meta::type_definition scalar{scalar_type, {}, 1, "Scalar", {}};
-  gneiss::meta::registry_ref registry;
+  auto registry = gneiss::meta::create_registry();
   std::int64_t stored = 2;
   const gneiss::meta::property_binding binding{
       .kind = gneiss::value_kind::int64,
@@ -283,10 +277,9 @@ int main() {
         return error::success;
       },
       .user_data = nullptr};
-  bool frozen = true;
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry).failed() ||
-      gneiss::test_support::assign_value(gneiss::meta::is_frozen(registry), frozen).failed() ||
-      frozen || gneiss::meta::registered_types(registry).error() != error::not_ready ||
+
+  if (gneiss::meta::is_frozen(registry) ||
+      gneiss::meta::registered_types(registry).error() != error::not_ready ||
       gneiss::meta::register_type(registry, scalar).failed() ||
       gneiss::meta::register_type(registry, object, {&binding, 1}).failed())
     return 1;
@@ -308,8 +301,8 @@ int main() {
     return 5;
   if (gneiss::meta::register_type(registry, object, {&binding, 1}) != error::invalid_argument ||
       gneiss::meta::freeze(registry).failed() || gneiss::meta::freeze(registry).failed() ||
-      gneiss::test_support::assign_value(gneiss::meta::is_frozen(registry), frozen).failed() ||
-      !frozen || gneiss::meta::register_type(registry, object) != error::invalid_state ||
+      !gneiss::meta::is_frozen(registry) ||
+      gneiss::meta::register_type(registry, object) != error::invalid_state ||
       gneiss::meta::registered_types(registry)->size() != 2)
     return 6;
   gneiss::meta::type info;

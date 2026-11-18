@@ -48,11 +48,11 @@ bool explicit_registration() {
   if (!registry)
     return false;
   constexpr auto id = e::guid::literal("86c6b34e-bdc8-4bce-850c-9d574df83951");
-  if (m::registration::type<sample>(*registry).name("conflict").commit() !=
+  if (m::registration::type<sample>(registry).name("conflict").commit() !=
           e::error::invalid_argument ||
-      m::registration::type<sample>(*registry).guid(id).commit() != e::error::invalid_argument)
+      m::registration::type<sample>(registry).guid(id).commit() != e::error::invalid_argument)
     return false;
-  auto builder = m::registration::type<external_model>(*registry);
+  auto builder = m::registration::type<external_model>(registry);
   {
     std::string name = "external_model";
     builder.name(name).guid(id).schema_version(3).property<&external_model::items>(
@@ -61,9 +61,9 @@ bool explicit_registration() {
   if (e::string_name::find("external_model"))
     return false;
   if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<external_model>(*registry);
+  auto type = m::type_of<external_model>(registry);
   if (!type || type.name() != "external_model" || type.guid() != id || type.schema_version() != 3)
     return false;
   const auto pooled = e::string_name::find("external_model");
@@ -73,7 +73,7 @@ bool explicit_registration() {
       e::string_name::find("not_registered_property"))
     return false;
   external_model model{{{1.0F, 2.0F}}};
-  auto root = m::view(*registry, model);
+  auto root = m::view(registry, model);
   if (!root)
     return false;
   auto member = root->template capability<gneiss::meta::cap::object>()->member("items");
@@ -85,8 +85,8 @@ bool explicit_registration() {
   auto item = sequence->at(0);
   if (!item || item->assign(4.0F).failed() || model.items.values[0] != 4.0F)
     return false;
-  e::serialization::write_context context{*registry};
-  e::serialization::read_context read_context{*registry};
+  e::serialization::write_context context{registry};
+  e::serialization::read_context read_context{registry};
   auto encoded = e::serialization::json::encode_bytes(context, model);
   if (!encoded)
     return false;
@@ -114,33 +114,33 @@ bool runtime_only_registration() {
   namespace m = e::meta;
   auto registry = m::create_registry();
   if (!registry ||
-      m::registration::type<runtime_child>(*registry)
+      m::registration::type<runtime_child>(registry)
           .property<&runtime_child::number>(m::property_id{1}, "number")
           .commit()
           .failed() ||
-      m::registration::type<runtime_parent>(*registry)
+      m::registration::type<runtime_parent>(registry)
           .property<&runtime_parent::child>(m::property_id{1}, "child")
           .commit()
           .failed() ||
-      m::registration::type<runtime_other>(*registry)
+      m::registration::type<runtime_other>(registry)
           .property<&runtime_other::number>(m::property_id{1}, "number")
           .commit()
           .failed() ||
-      m::registration::type<runtime_poly>(*registry)
+      m::registration::type<runtime_poly>(registry)
           .property<&runtime_poly::number>(m::property_id{1}, "number")
           .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
           .commit()
           .failed() ||
-      m::registration::type<runtime_child>(*registry).commit() != e::error::invalid_argument ||
-      m::freeze(*registry).failed())
+      m::registration::type<runtime_child>(registry).commit() != e::error::invalid_argument ||
+      m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<runtime_parent>(*registry);
-  if (!type || type.guid() || type.name() != "runtime_parent" || m::find_type(*registry, e::guid{}))
+  auto type = m::type_of<runtime_parent>(registry);
+  if (!type || type.guid() || type.name() != "runtime_parent" || m::find_type(registry, e::guid{}))
     return false;
   runtime_parent object;
   runtime_other other;
-  auto root = m::view(*registry, object);
-  auto foreign = m::view(*registry, other);
+  auto root = m::view(registry, object);
+  auto foreign = m::view(registry, other);
   if (!root || !foreign)
     return false;
   auto child = root->template capability<gneiss::meta::cap::object>()->member("child");
@@ -152,8 +152,8 @@ bool runtime_only_registration() {
   if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
       field.get(*foreign).error() != e::error::invalid_argument)
     return false;
-  e::serialization::write_context context{*registry};
-  e::serialization::read_context read_context{*registry};
+  e::serialization::write_context context{registry};
+  e::serialization::read_context read_context{registry};
   auto encoded = e::serialization::json::encode_bytes(context, object);
   if (!encoded)
     return false;
@@ -173,17 +173,17 @@ bool extension_registration() {
   auto registry = m::create_registry();
   if (!registry)
     return false;
-  if (m::registration::type<sample>(*registry)
+  if (m::registration::type<sample>(registry)
               .metadata(display_metadata{"first"})
               .metadata(display_metadata{"duplicate"})
               .commit() != e::error::invalid_argument ||
-      m::registration::type<sample>(*registry)
+      m::registration::type<sample>(registry)
               .property<&sample::speed>(m::property_id{1}, "speed")(display_metadata{"first"},
                                                                     display_metadata{"duplicate"})
               .commit() != e::error::invalid_argument)
     return false;
   display_metadata label{"original"};
-  auto builder = m::registration::type<sample>(*registry);
+  auto builder = m::registration::type<sample>(registry);
   builder.metadata(label);
   auto speed = builder.property<&sample::speed>(m::property_id{1}, "speed");
   // 后续字段使存储扩容，早先代理仍须写入原字段。
@@ -191,9 +191,9 @@ bool extension_registration() {
     builder.property<&sample::speed>(m::property_id{id}, "speed_" + std::to_string(id));
   speed(display_metadata{"Speed"});
   label.label = "changed";
-  if (builder.commit().failed() || m::freeze(*registry).failed())
+  if (builder.commit().failed() || m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<sample>(*registry);
+  auto type = m::type_of<sample>(registry);
   if (!type)
     return false;
   auto field =
@@ -203,7 +203,7 @@ bool extension_registration() {
   if (!type_data || type_data->label != "original" || !field_data || field_data->label != "Speed" ||
       type.extension<int>() || field.extension<int>())
     return false;
-  registry->reset();
+  registry.reset();
   // 类型和属性句柄继续保活不可变元数据。
   return type.extension<display_metadata>() == type_data &&
          field.extension<display_metadata>() == field_data;
@@ -220,25 +220,25 @@ bool registration_exception_contract() {
     ~cleanup() { flag = true; }
   };
   try {
-    m::registration::type<sample>(*registry).extend([&]<class>() -> e::result<int> {
+    m::registration::type<sample>(registry).extend([&]<class>() -> e::result<int> {
       cleanup guard{cleaned};
       throw std::bad_alloc{};
     });
     return false;
   } catch (const std::bad_alloc&) {
   }
-  if (!cleaned || m::type_of<sample>(*registry).registered())
+  if (!cleaned || m::type_of<sample>(registry).registered())
     return false;
   try {
-    m::registration::enumeration<mode>(*registry).extend(
+    m::registration::enumeration<mode>(registry).extend(
         []<class>() -> e::result<int> { throw std::runtime_error("extension fixture"); });
     return false;
   } catch (const std::runtime_error&) {
   }
-  if (m::type_of<mode>(*registry).registered())
+  if (m::type_of<mode>(registry).registered())
     return false;
   // 预期错误仍通过 commit 返回，不变成致命异常。
-  return m::registration::type<sample>(*registry)
+  return m::registration::type<sample>(registry)
              .extend([]<class>() -> e::result<int> { return e::error::invalid_argument; })
              .commit() == e::error::invalid_argument;
 }
@@ -250,7 +250,7 @@ bool pooled_enum_names() {
   if (!registry)
     return false;
   {
-    auto builder = m::registration::enumeration<named_mode>(*registry);
+    auto builder = m::registration::enumeration<named_mode>(registry);
     builder.name("pooled_enum_names");
     std::string name = "pooled_enum_first";
     builder.value(name, named_mode::first);
@@ -260,9 +260,9 @@ bool pooled_enum_names() {
     if (e::string_name::find("pooled_enum_first") || builder.commit().failed())
       return false;
   }
-  if (m::freeze(*registry).failed())
+  if (m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<named_mode>(*registry);
+  auto type = m::type_of<named_mode>(registry);
   auto entries = type.capability<gneiss::meta::cap::enumeration>().entries();
   const auto pooled = e::string_name::find("pooled_enum_first");
   return entries.size() == 2 && pooled && entries[0].name == "pooled_enum_first" &&
@@ -280,10 +280,7 @@ int main() {
     return 13;
   if (!explicit_registration())
     return 12;
-  gneiss::meta::registry_ref registry;
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry)
-          .failed())
-    return 1;
+  auto registry = gneiss::meta::create_registry();
   if (e::type_identity<const sample&>::guid() != sample::type_guid ||
       e::type_identity<sample>::name() != "sample" ||
       e::type_identity<const float&>::guid() != e::type_identity<float>::guid())

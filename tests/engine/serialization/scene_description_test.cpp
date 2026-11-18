@@ -40,19 +40,19 @@ bool format_node_contract() {
   namespace m = e::meta;
   auto registry = m::create_registry();
   if (!registry ||
-      m::registration::type<format_probe>(*registry)
+      m::registration::type<format_probe>(registry)
           .property<&format_probe::text>(m::property_id{1}, "text")(
               gneiss::serialization::field_policy{.required = true})
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
-  e::serialization::write_context ctx{*registry};
-  e::serialization::read_context read_ctx{*registry};
+  e::serialization::write_context ctx{registry};
+  e::serialization::read_context read_ctx{registry};
 
   const auto encode = [&](const format_probe& object) {
-    auto view = m::view(*registry, std::as_const(object));
+    auto view = m::view(registry, std::as_const(object));
     return e::asset_file::serialize_instance(ctx, probe_format, *view);
   };
   const auto decode = [&](std::span<const std::byte> input) {

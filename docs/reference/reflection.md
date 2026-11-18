@@ -50,7 +50,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 `property_definition.type_guid` 表示字段值的语义类型，无需事先注册该类型。
 `property_access::read_only` 禁止为字段绑定 setter。
 
-`create_registry()` 返回 `result<registry_ref>` 所有者；`register_type` 深拷贝名称和字段描述。
+`create_registry()` 返回 `registry_ref` 所有者；`register_type` 深拷贝名称和字段描述。
 类型自身的稳定身份为 `type_definition.guid`、`type::guid()`；注册输入另有可选的运行期 `type_id`。
 重复非空 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
 普通 C++ 对象可仅注册运行期 type_id；GUID 与 type_id 不能同时为空。
@@ -275,9 +275,9 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 ## 注册表创建与状态查询
 
 隔离测试可用 Meta 核心 `create_registry()` 创建空表，自行注册测试类型。
-`is_frozen(registry)` 返回 `result<bool>`，`registered_types(registry)` 返回 `result<type_range>`；
-无效注册表返回 invalid_handle，未冻结注册表的类型范围查询返回 not_ready。
-成功的 false 或空范围不代表操作失败。
+`is_frozen(registry)` 要求有效注册表并直接返回 `bool`，`registered_types(registry)` 返回 `result<type_range>`；
+`is_frozen` 的空表参数触发契约断言；类型范围查询对空表返回 invalid_handle，未冻结时返回 not_ready。
+false 表示尚未冻结；成功的空范围表示没有注册对象。
 默认表首次创建、查询锁和自定义类型能力查询产生的 C++ 异常向外传播，不伪装为查询未命中。
 `type_of`、`find_type`、`property.type()`、`element_type()`、`dynamic_type()` 与实例创建不承诺 noexcept；
 直接读取既有句柄的名称、身份、属性范围等操作仍保持不抛异常。
@@ -305,7 +305,7 @@ getter 显式失败或数值/文本内容非法时返回错误；成功却返回
 
 ## 默认注册表与启动
 
-`meta::default_registry()` 返回进程共享的 `result<registry_ref>`，只创建表，不登记内置类型、不冻结。
+`meta::default_registry()` 返回进程共享的 `registry_ref`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
 未冻结时查询返回 `not_ready`。`meta::registration::type<T>()`、`register_type<T>(definition)`、
 `type_of<T>()`、属性访问和 `serialization::json::encode(object)` / `serialization::json::decode<T>(bytes)` 使用默认表；

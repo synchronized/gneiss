@@ -70,7 +70,7 @@ e::error fail_registration() { return e::error::unsupported; }
 e::error throw_registration() { throw std::runtime_error("注册失败"); }
 int main(int argc, char** argv) {
   auto initial = m::default_registry();
-  if (!initial || !m::is_frozen() || *m::is_frozen() || !m::type_of<sample>())
+  if (!initial || m::is_frozen() || !m::type_of<sample>())
     return 1;
   if (argc > 1) {
     const bool throws = std::string_view(argv[1]) == "throw";
@@ -81,16 +81,16 @@ int main(int argc, char** argv) {
     }
     const auto expected = e::error::unsupported;
     if (e::initialize_meta(fail_registration) != expected || e::initialize_meta() != expected ||
-        *m::is_frozen())
+        m::is_frozen())
       return 2;
     return 0;
   }
-  if (e::initialize_meta(register_project).failed() || calls != 1 || !*m::is_frozen() ||
+  if (e::initialize_meta(register_project).failed() || calls != 1 || !m::is_frozen() ||
       e::initialize_meta().failed() ||
       e::initialize_meta(register_project) != e::error::invalid_state || calls != 1)
     return 3;
   auto again = m::default_registry();
-  if (!again || *again != *initial || !m::type_of<sample>().registered() ||
+  if (!again || again != initial || !m::type_of<sample>().registered() ||
       !m::type_of<e::math::transform>().registered() ||
       !m::type_of<e::camera_description>().registered() ||
       !m::type_of<e::material_description>().registered())
@@ -116,14 +116,14 @@ int main(int argc, char** argv) {
       m::registration::type<sample>().commit().ok())
     return 8;
   auto isolated = m::create_registry();
-  if (!isolated || *isolated == *initial ||
-      m::register_type<sample>(*isolated, {.schema_version = 1}).failed() ||
-      m::freeze(*isolated).failed() || m::registered_types(*isolated)->size() != 1)
+  if (!isolated || isolated == initial ||
+      m::register_type<sample>(isolated, {.schema_version = 1}).failed() ||
+      m::freeze(isolated).failed() || m::registered_types(isolated)->size() != 1)
     return 9;
   // 默认引用释放后再次取得仍为同一张表；隔离注册不改变默认表。
   const auto count = m::registered_types()->size();
-  again->reset();
-  if (*m::default_registry() != *initial || m::registered_types()->size() != count)
+  again.reset();
+  if (m::default_registry() != initial || m::registered_types()->size() != count)
     return 10;
 #ifdef GNEISS_TEST_THREADS
   std::atomic<bool> good{true};
@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
   for (int i = 0; i < 4; ++i) {
     threads.emplace_back([&] {
       auto shared = m::default_registry();
-      if (!shared || *shared != *initial || e::initialize_meta().failed() ||
+      if (!shared || shared != initial || e::initialize_meta().failed() ||
           !m::type_of<sample>().registered())
         good = false;
     });

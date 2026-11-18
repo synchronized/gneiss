@@ -96,10 +96,7 @@ int main(int argc, char** argv) try {
       gneiss::meta::property_definition{gneiss::meta::property_id{4}, float_type,
                                                 gneiss::meta::property_access::read_write,
                                                 "malformed"}};
-  gneiss::meta::registry_ref registry;
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry)
-          .failed())
-    return 1;
+  auto registry = gneiss::meta::create_registry();
   const gneiss::meta::property_binding field_of_view{
       .kind = gneiss::value_kind::float32,
       .getter = get_field_of_view,

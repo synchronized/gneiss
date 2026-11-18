@@ -35,7 +35,7 @@ result<scene_instance> world::create_scene() {
   if (!is_owner_thread())
     return error::invalid_state;
   const auto frozen = meta::is_frozen();
-  if (!frozen || !*frozen || impl_->scene_domain == 0U)
+  if (!frozen || impl_->scene_domain == 0U)
     return error::invalid_state;
   auto created = impl_->scene_slots.create(resource_type::scene_instance, scene_instance_id{});
   if (!created)

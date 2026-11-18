@@ -279,7 +279,7 @@ asset_manager::asset_manager(std::shared_ptr<gneiss::files::service> files)
   bind.template operator()<prefab>();
   bind.template operator()<gneiss::input::action_map>();
   auto frozen = meta::is_frozen();
-  if (!frozen || !*frozen)
+  if (!frozen)
     throw std::invalid_argument("资源 Registry 必须冻结");
 }
 error asset_manager::store_erased(type_id type, std::string_view uri,

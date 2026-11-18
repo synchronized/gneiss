@@ -44,8 +44,7 @@ public:
   /** 从已解析类型借用对象；支持无 C++ ID 的动态描述，调用方保证地址与描述匹配。 */
   static GNEISS_API result<basic_instance> from_object(meta::type, pointer);
   static result<basic_instance> from_object(gneiss::type_id id, pointer object) {
-    auto registry = default_registry();
-    return registry ? from_object(*registry, id, object) : result<basic_instance>{registry.error()};
+    return from_object(default_registry(), id, object);
   }
   [[nodiscard]] const_instance as_const() const noexcept;
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
@@ -138,14 +137,12 @@ result<instance> view(const registry_ref& registry, T& object) {
   return instance::from_access(registry, detail::ops_of<T>(), std::addressof(object));
 }
 template <class T> result<const_instance> view(const T& object) {
-  auto registry = default_registry();
-  return registry ? view(*registry, object) : result<const_instance>{registry.error()};
+  return view(default_registry(), object);
 }
 template <class T>
   requires(!std::is_const_v<T>)
 result<instance> view(T& object) {
-  auto registry = default_registry();
-  return registry ? view(*registry, object) : result<instance>{registry.error()};
+  return view(default_registry(), object);
 }
 template <class T>
   requires(!std::is_lvalue_reference_v<T>)

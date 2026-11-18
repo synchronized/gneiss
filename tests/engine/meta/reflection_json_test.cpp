@@ -91,7 +91,7 @@ struct enum_sample {
 bool enum_getter_failure_contract() {
   constexpr auto enum_guid = e::guid::literal("ca845e68-c391-45b5-8357-bb350a66fdae");
   auto registry = m::create_registry();
-  if (!registry || m::registration::enumeration<named_number>(*registry)
+  if (!registry || m::registration::enumeration<named_number>(registry)
                        .guid(enum_guid)
                        .value("negative", named_number::negative)
                        .commit()
@@ -107,7 +107,7 @@ bool enum_getter_failure_contract() {
       .getter = [](void*, const void*, e::value&) { return e::error::not_ready; },
       .setter = [](void*, void*, const e::value&) { return e::error::success; },
       .enum_type = e::runtime_type_of<named_number>()};
-  if (m::register_type(*registry,
+  if (m::register_type(registry,
                        {enum_sample::type_guid,
                         e::runtime_type_of<enum_sample>(),
                         1,
@@ -115,10 +115,10 @@ bool enum_getter_failure_contract() {
                         {&field, 1}},
                        {&binding, 1})
           .failed() ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
   const enum_sample object;
-  auto root = m::const_instance::from_object(*registry, e::runtime_type_of<enum_sample>(), &object);
+  auto root = m::const_instance::from_object(registry, e::runtime_type_of<enum_sample>(), &object);
   if (!root)
     return false;
   auto member = root->template capability<gneiss::meta::cap::object>()->member(m::property_id{1});
@@ -131,42 +131,42 @@ bool enum_getter_failure_contract() {
 bool enum_json_contract() {
   auto registry = m::create_registry();
   if (!registry ||
-      m::registration::enumeration<named_number>(*registry)
+      m::registration::enumeration<named_number>(registry)
           .value("negative", named_number::negative)
           .value("positive", named_number::positive)
           .commit()
           .failed() ||
-      m::registration::type<enum_sample>(*registry)
+      m::registration::type<enum_sample>(registry)
           .property<&enum_sample::named>(m::property_id{1}, "named")(
               gneiss::serialization::field_policy{.required = true, .enum_name = true})
           .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||
-      m::freeze(*registry).failed())
+      m::freeze(registry).failed())
     return false;
   auto encoded = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, enum_sample{});
+      gneiss::serialization::write_context{registry}, enum_sample{});
   if (!encoded)
     return false;
   const std::string_view text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   if (text.find(R"("named":"negative")") == text.npos || text.find(R"("numeric":-7)") == text.npos)
     return false;
   auto decoded = gneiss::serialization::json::decode<enum_sample>(
-      gneiss::serialization::read_context{*registry}, *encoded);
+      gneiss::serialization::read_context{registry}, *encoded);
   if (!decoded || decoded->named != named_number::negative ||
       decoded->numeric != named_number::negative)
     return false;
   for (const auto invalid : {R"({"named":-7})", R"({"named":"unknown"})", R"({"named":null})"}) {
     auto rejected = gneiss::serialization::json::decode<enum_sample>(
-        gneiss::serialization::read_context{*registry}, bytes(invalid));
+        gneiss::serialization::read_context{registry}, bytes(invalid));
     if (rejected || rejected.error().path != "/named")
       return false;
   }
   enum_sample unknown;
   unknown.named = static_cast<named_number>(10);
-  return !gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*registry}, unknown);
+  return !gneiss::serialization::json::encode_bytes(gneiss::serialization::write_context{registry},
+                                                    unknown);
 }
 struct reference_fields {
   static constexpr std::string_view type_name = "reference_fields";
@@ -181,7 +181,7 @@ bool field_reference_contract() {
     auto created = m::create_registry();
     if (!created)
       return false;
-    const auto registry = *created;
+    const auto registry = created;
     if (m::registration::type<sample>(registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled")
             .metadata(ser::reference_policy{.polymorphic = type_polymorphic})
@@ -255,15 +255,15 @@ bool asymmetric_reference_snapshot_contract() {
                          const void*) -> e::result<void*, ser::diagnostic> {
         return out.string("asset://sample");
       };
-    if (m::registration::type<sample>(*registry)
+    if (m::registration::type<sample>(registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled")
             .metadata(policy)
             .commit()
             .failed() ||
-        m::freeze(*registry).failed())
+        m::freeze(registry).failed())
       return false;
-    ser::write_context ctx{*registry};
-    ser::read_context read_ctx{*registry};
+    ser::write_context ctx{registry};
+    ser::read_context read_ctx{registry};
     auto captured = ser::capture_value(ctx, e::make_ref<sample>());
     if (captured || captured.error().error != e::error::unsupported)
       return false;
@@ -290,22 +290,22 @@ bool external_field_contract() {
   for (bool external_default : {false, true}) {
     auto registry = m::create_registry();
     if (!registry ||
-        m::registration::type<sample>(*registry)
+        m::registration::type<sample>(registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled")
             .metadata(external_default ? external : ser::reference_policy{})
             .commit()
             .failed() ||
-        m::registration::type<reference_fields>(*registry)
+        m::registration::type<reference_fields>(registry)
             .property<&reference_fields::default_reference>(m::property_id{1}, "default")
             .property<&reference_fields::overridden_reference>(m::property_id{2},
                                                                "override")(ser::field_policy{
                 .reference = external_default ? ser::reference_policy{} : external})
             .commit()
             .failed() ||
-        m::freeze(*registry).failed())
+        m::freeze(registry).failed())
       return false;
-    const ser::write_context ctx{*registry};
-    ser::read_context read_ctx{*registry};
+    const ser::write_context ctx{registry};
+    ser::read_context read_ctx{registry};
     reference_fields input{e::make_ref<sample>(), e::make_ref<sample>()};
     auto json = ser::json::encode_bytes(ctx, input);
     auto captured = ser::capture_value(ctx, input);
@@ -344,20 +344,20 @@ bool native_allocation_contract() {
         const char invalid_utf8 = static_cast<char>(0xff);
         return out.string(std::string_view{&invalid_utf8, 1});
       }};
-  if (m::registration::type<sample>(*registry).metadata(invalid_text).commit().failed() ||
-      m::freeze(*registry).failed())
+  if (m::registration::type<sample>(registry).metadata(invalid_text).commit().failed() ||
+      m::freeze(registry).failed())
     return false;
   auto encoded =
-      e::serialization::json::encode_bytes(e::serialization::write_context{*registry}, sample{});
+      e::serialization::json::encode_bytes(e::serialization::write_context{registry}, sample{});
   if (encoded || encoded.error().error != e::error::invalid_argument) {
     std::fprintf(stderr, "invalid string: %d\n", encoded ? 0 : encoded.error().error.code());
     return false;
   }
   float number = 7;
-  auto view = m::view(*registry, number);
+  auto view = m::view(registry, number);
   const std::string invalid_json = "{";
   auto decoded = e::serialization::json::read_into(
-      e::serialization::read_context{*registry}, *view,
+      e::serialization::read_context{registry}, *view,
       std::as_bytes(std::span(invalid_json.data(), invalid_json.size())));
   if (decoded || decoded.error().error != e::error::invalid_argument || number != 7) {
     std::fprintf(stderr, "invalid input: %d\n", decoded ? 0 : decoded.error().error.code());
@@ -395,7 +395,7 @@ int main() try {
   auto created = m::create_registry();
   if (!created)
     return 1;
-  auto registry = *created;
+  auto registry = created;
   if (register_sample(registry).failed())
     return 2;
   if (gneiss::serialization::json::encode_bytes(
@@ -513,15 +513,15 @@ int main() try {
     return 13;
   // 同一个 C++ 类型在隔离注册表使用不同属性名，不能回退到默认注册表。
   auto other = m::create_registry();
-  if (!other || register_sample(*other, "a/b~c").failed() || m::freeze(*other).failed())
+  if (!other || register_sample(other, "a/b~c").failed() || m::freeze(other).failed())
     return 14;
   auto escaped = gneiss::serialization::json::decode<sample>(
-      gneiss::serialization::read_context{*other}, bytes(R"({"enabled":true,"a/b~c":2})"));
+      gneiss::serialization::read_context{other}, bytes(R"({"enabled":true,"a/b~c":2})"));
   if (escaped || escaped.error().path != "/a~1b~0c")
     return 15;
   // 无 registry 的视图编解码必须保留隔离表的字段名，不能查询默认表。
   sample isolated_value;
-  auto isolated_view = m::view(*other, isolated_value);
+  auto isolated_view = m::view(other, isolated_value);
   if (!isolated_view ||
       gneiss::serialization::json::read_into(
           *isolated_view, bytes(R"({"enabled":true,"a/b~c":"isolated"})"))
@@ -537,11 +537,11 @@ int main() try {
   isolated_view = e::error::invalid_state;
   // CPU 资源入口统一使用默认表；独立表不再由解码适配器持有。
   auto shared = m::default_registry();
-  if (!shared || register_sample(*shared).failed() || m::freeze().failed())
+  if (!shared || register_sample(shared).failed() || m::freeze().failed())
     return 16;
   auto loader = e::detail::make_reflected_decoder<sample>();
-  auto weak = std::weak_ptr<e::meta::type_registry_state>(*other);
-  other->reset();
+  auto weak = std::weak_ptr<e::meta::type_registry_state>(other);
+  other.reset();
   if (!weak.expired() || !loader || !(*loader)->decode(*encoded))
     return 17;
   auto task = std::async(std::launch::async, [&] {
@@ -554,31 +554,31 @@ int main() try {
     return 18;
   auto custom = m::create_registry();
   if (!custom ||
-      m::registration::type<sample>(*custom)
+      m::registration::type<sample>(custom)
           .extend(gneiss::serialization::codec<&custom_encode, &custom_decode>)
           .commit()
           .failed() ||
-      m::freeze(*custom).failed())
+      m::freeze(custom).failed())
     return 19;
   auto custom_output = gneiss::serialization::json::encode_bytes(
-      gneiss::serialization::write_context{*custom}, sample{});
+      gneiss::serialization::write_context{custom}, sample{});
   if (!custom_output ||
       std::string_view(reinterpret_cast<const char*>(custom_output->data()),
                        custom_output->size()) != R"({"custom":"yes"})" ||
-      !gneiss::serialization::json::decode<sample>(
-          gneiss::serialization::read_context{*custom}, bytes("{}")))
+      !gneiss::serialization::json::decode<sample>(gneiss::serialization::read_context{custom},
+                                                   bytes("{}")))
     return 20;
   auto fallback = m::create_registry();
   if (!fallback ||
-      m::registration::type<sample>(*fallback)
+      m::registration::type<sample>(fallback)
           .property<&sample::enabled>(m::property_id{1}, "enabled")
           .extend(gneiss::serialization::codec<&custom_encode, nullptr>)
           .commit()
           .failed() ||
-      m::freeze(*fallback).failed())
+      m::freeze(fallback).failed())
     return 22;
   auto fallback_decoded = gneiss::serialization::json::decode<sample>(
-      gneiss::serialization::read_context{*fallback}, bytes(R"({"enabled":false})"));
+      gneiss::serialization::read_context{fallback}, bytes(R"({"enabled":false})"));
   if (!fallback_decoded || fallback_decoded->enabled)
     return 23;
   // Meta 接受不透明扩展；序列化边界负责拒绝冲突的字段策略。
@@ -593,16 +593,16 @@ int main() try {
       policy.reference = e::serialization::reference_policy{};
     auto invalid_registry = m::create_registry();
     if (!invalid_registry ||
-        m::registration::type<sample>(*invalid_registry)
+        m::registration::type<sample>(invalid_registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled",
                                         invalid_case != 0 ? m::property_access::read_write
                                                           : m::property_access::read_only)(policy)
             .commit()
             .failed() ||
-        m::freeze(*invalid_registry).failed())
+        m::freeze(invalid_registry).failed())
       return 24;
-    const e::serialization::write_context ctx{*invalid_registry};
-    e::serialization::read_context read_ctx{*invalid_registry};
+    const e::serialization::write_context ctx{invalid_registry};
+    e::serialization::read_context read_ctx{invalid_registry};
     auto invalid_encoded = e::serialization::json::encode_bytes(ctx, sample{});
     auto invalid_decoded =
         e::serialization::json::decode<sample>(read_ctx, bytes(R"({"enabled":true})"));

@@ -9,8 +9,5 @@ meta::type object::dynamic_type(const registry_ref& registry) const {
   const auto* ops = dynamic_ops();
   return ops ? detail::resolve_type(registry, *ops) : meta::type{};
 }
-meta::type object::dynamic_type() const {
-  auto registry = default_registry();
-  return dynamic_type(registry ? *registry : registry_ref{});
-}
+meta::type object::dynamic_type() const { return dynamic_type(default_registry()); }
 }

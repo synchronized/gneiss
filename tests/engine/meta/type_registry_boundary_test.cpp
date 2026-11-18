@@ -32,7 +32,7 @@ gneiss::error throwing_getter(void* /*context*/, const void* /*object*/,
 namespace {
 bool native_values() {
   namespace reflection = gneiss;
-  gneiss::meta::registry_ref registry;
+  auto registry = gneiss::meta::create_registry();
   const gneiss::guid id{gneiss::guid::from_bytes({7})};
   const gneiss::guid native_id{gneiss::guid::from_bytes({7})};
   const std::array fields{gneiss::meta::property_definition{
@@ -56,9 +56,7 @@ bool native_values() {
             return gneiss::error::success;
           },
       .user_data = nullptr};
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry) !=
-          gneiss::error::success ||
-      gneiss::meta::register_type(
+  if (gneiss::meta::register_type(
           registry, {.guid = id, .schema_version = 1, .name = "sample", .properties = fields},
           {&binding, 1}) != gneiss::error::success) {
     return false;
@@ -153,10 +151,8 @@ int main() try {
   }
   namespace reflection = gneiss;
   // 原生对象不依赖公共句柄表；最后一个内部所有者释放后必须销毁。
-  gneiss::meta::registry_ref native;
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), native) !=
-          gneiss::error::success ||
-      !native) {
+  auto native = gneiss::meta::create_registry();
+  if (!native) {
     return 20;
   }
   const std::weak_ptr native_lifetime = native;
@@ -168,9 +164,7 @@ int main() try {
       gneiss::meta::freeze(native) != gneiss::error::invalid_handle) {
     return 22;
   }
-  gneiss::meta::registry_ref state;
-  if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), state).failed())
-    return 1;
+  auto state = gneiss::meta::create_registry();
   const gneiss::guid type_id{gneiss::guid::from_bytes({1})};
   std::string name = "sample";
   const std::array fields{
