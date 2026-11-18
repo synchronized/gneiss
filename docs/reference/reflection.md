@@ -269,8 +269,8 @@ null 不等于缺失。只读属性不输出，也不从输入写入；read_only
 Meta 核心的显式重载使用传入的冻结 Registry；无参重载使用默认表。
 业务资源、组件描述及 CPU 解码适配器统一使用默认表，不再保存或接收注册表引用。
 
-Camera / MeshRenderer 的字段已改为反射注册并标记必填，仅保留透视参数和资产 URI 的业务校验，
-Scene / Prefab 的结构编解码继续使用专用实现。
+Camera / Mesh 组件与 Scene / Prefab 的描述字段通过反射注册。Scene / Prefab 的文件包装
+由 asset_file 处理，层级及其他业务合法性由资源校验逻辑处理，结构内容复用通用反射编解码。
 
 ## 注册表创建与状态查询
 
@@ -307,14 +307,16 @@ getter 显式失败或数值/文本内容非法时返回错误；成功却返回
 
 `meta::default_registry()` 返回进程共享的 `registry_ref`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
-未冻结时查询返回 `not_ready`。`meta::registration::type<T>()`、`register_type<T>(definition)`、
+未冻结时 `find_type` 返回空句柄，`registered_types` 与需要冻结表的序列化入口返回 `not_ready`；
+静态 `type_of<T>` 与 `view(T&)` 仍可使用原生类型能力。
+`meta::registration::type<T>()`、`register_type<T>(definition)`、
 `type_of<T>()`、属性访问和 `serialization::json::encode(object)` / `serialization::json::decode<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
 普通调用使用无 registry 的查询、注册、序列化及视图入口。
 `const_instance::from_object(type_id, address)` 和可写版本使用默认表，错误按 result 返回。
-`serialize_instance(view)`、`deserialize_instance(view, bytes)` 及内部 DOM 适配使用
+`serialization::json::encode_instance(view)`、`serialization::json::read_into(view, bytes)` 使用
 视图自身绑定的注册表，不重新获取默认表，因此独立表的字段与 codec 语义保持不变。
 Meta 内部递归与 codec 回调仍保留显式上下文；注册表机制测试允许直接验证默认表。
 
@@ -395,7 +397,9 @@ for (auto property : fields) {
 可写对象直接返回 `instance`，const 对象直接返回 `const_instance`；需要主动只读时传 `std::as_const(object)`。仅接受实际对象的左值，
 不接受临时对象。模板 view 可访问未注册类型的原生能力；属性访问需要已发布的注册数据。
 静态借用不返回错误包装；类型能力查询或分配异常仍向外传播，不承诺 noexcept。
-运行期 from_object 入口要求已注册对象类型和冻结注册表，仍通过 result 表达查找失败。
+`from_object(registry, type_id, address)` 要求冻结表并查找已注册对象类型，仍通过 result 表达失败。
+`from_object(type, address)` 使用调用方已解析的对象类型，也支持无 C++ ID 的动态字段描述；
+它检查类型类别及非空地址，不额外要求注册。两种入口都要求地址与类型匹配、目标仍存活。
 
 ```cpp
 auto root = meta::view(registry, std::as_const(camera));

@@ -176,3 +176,17 @@ ops 仍返回 error：读写回调与消费候选的 setter 可能拒绝。转�
 Clang Debug 相关目标构建及 6 项定向测试通过：类型注册、序列化、归档、反射 JSON、
 实例与类型操作。覆盖普通返回值、空 optional、result 错误传播、内置格式及 setter 拒绝。
 未运行 MSVC、全量测试或远端矩阵。
+
+## 收尾复核（已完成）
+
+- [x] MSVC Release 定向构建、链接与运行：实例、归档转换、反射 JSON、注册表及默认注册。
+- [x] 11 个关键头文件通过 Clang C++20 独立包含：registry、registration、type、property、
+  instance、object/representation 能力、representation_ops、serialization、json、value。
+- [x] 参考文档对齐普通类型、自定义表示与动态多态用法，修正旧能力名、实例编解码名称、
+  未冻结查询及 from_object 不同重载的前置条件；场景内容编解码说明对齐反射实现。
+
+头文件检查只使用目标自身的编译参数，各翻译单元只包含一个待检头文件，无聚合头补依赖。
+
+MSVC Release 五个目标构建、链接成功，6 项定向测试通过（含默认注册失败路径）。
+修正 type_registry_test 的局部变量遮蔽，保留警告视为错误规则。
+本轮未运行全量测试、GUI 冒烟、安装/静态库矩阵及远端 Actions；不据此宣称完整发布验收。

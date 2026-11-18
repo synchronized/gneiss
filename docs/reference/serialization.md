@@ -243,7 +243,7 @@ JSON 后端只处理基础数字、字符串、布尔、null、数组和对象�
 value 仍使用 $kind/$content，内容经过同一套静态能力，不添加第二层标签。
 
 表示类型须可默认构造、可被通用遍历处理，且不能与源类型相同；间接表示环受 maximum_depth
-约束。转换临时值由调用栈持有，Meta 的 representation_capability::encode/decode 回调
+约束。转换临时值由调用栈持有，Meta 的 `meta::cap::representation::encode/decode` 回调
 只提供同步借用，不能保存该实例或其地址。源类型本身可以没有默认构造函数。
 解码先得到独立表示和候选对象，转换或对象校验失败不写目标；成功后通过实例写入，属性
 setter 可以继续拒绝。setter 自身仍须遵守失败不修改目标的契约。read_into 对整个文档不承诺

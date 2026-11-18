@@ -321,18 +321,18 @@ int main() {
     return 7;
   {
     auto root = gneiss::meta::instance::from_object(info, &stored);
-    auto field = root->capability<gneiss::meta::cap::object>()->member("value");
-    if (!field)
+    auto bound_field = root->capability<gneiss::meta::cap::object>()->member("value");
+    if (!bound_field)
       return 8;
     gneiss::value value;
-    if (gneiss::test_support::assign_value(field->read_value(), value).failed() ||
+    if (gneiss::test_support::assign_value(bound_field->read_value(), value).failed() ||
         std::get<std::int64_t>(value.payload) != 2)
       return 8;
     value.payload = std::int64_t{7};
-    if (field->assign(value).failed() || stored != 7)
+    if (bound_field->assign(value).failed() || stored != 7)
       return 9;
     value.payload = std::int64_t{11};
-    if (field->assign(value) != error::invalid_argument || stored != 7)
+    if (bound_field->assign(value) != error::invalid_argument || stored != 7)
       return 10;
   }
   const std::weak_ptr lifetime = registry;
