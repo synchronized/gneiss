@@ -9,6 +9,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_ipc_session_test)
   set_target_properties(gneiss_runtime_ipc_session_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.runtime.ipc-session COMMAND gneiss_runtime_ipc_session_test)
+  set_tests_properties(gneiss.runtime.ipc-session PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_ipc_command_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_ipc_command_test.cpp")
   target_link_libraries(gneiss_runtime_ipc_command_test PRIVATE gneiss_runtime_ipc)
@@ -17,6 +18,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_ipc_command_test)
   set_target_properties(gneiss_runtime_ipc_command_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.runtime.ipc-command COMMAND gneiss_runtime_ipc_command_test)
+  set_tests_properties(gneiss.runtime.ipc-command PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_runtime_scene_inspection_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_scene_inspection_test.cpp"
@@ -35,6 +37,7 @@ if(BUILD_TESTING)
   add_test(
     NAME gneiss.runtime.scene-inspection COMMAND gneiss_runtime_scene_inspection_test
   )
+  set_tests_properties(gneiss.runtime.scene-inspection PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_scene_loader_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_scene_loader_test.cpp")
   target_link_libraries(gneiss_runtime_scene_loader_test PRIVATE gneiss_runtime_ipc gneiss_tasks gneiss::engine)
@@ -44,6 +47,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_scene_loader_test)
   set_target_properties(gneiss_runtime_scene_loader_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.runtime.scene-loader COMMAND gneiss_runtime_scene_loader_test)
+  set_tests_properties(gneiss.runtime.scene-loader PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_property_editor_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_property_editor_test.cpp")
   target_link_libraries(gneiss_runtime_property_editor_test PRIVATE gneiss_runtime_ipc)
@@ -52,6 +56,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_property_editor_test)
   set_target_properties(gneiss_runtime_property_editor_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.runtime.property-editor COMMAND gneiss_runtime_property_editor_test)
+  set_tests_properties(gneiss.runtime.property-editor PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_asset_reloader_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_asset_reloader_test.cpp")
   target_link_libraries(gneiss_runtime_asset_reloader_test PRIVATE gneiss_runtime_ipc)
@@ -60,6 +65,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_asset_reloader_test)
   set_target_properties(gneiss_runtime_asset_reloader_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.runtime.asset-reloader COMMAND gneiss_runtime_asset_reloader_test)
+  set_tests_properties(gneiss.runtime.asset-reloader PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_log_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_log_test.cpp" "${PROJECT_SOURCE_DIR}/runtime/runtime_logging.cpp" "${PROJECT_SOURCE_DIR}/runtime/runtime_logging.hpp")
   target_include_directories(gneiss_runtime_log_test PRIVATE "${PROJECT_SOURCE_DIR}/runtime")
@@ -69,12 +75,14 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_log_test)
   set_target_properties(gneiss_runtime_log_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.runtime.log-sink COMMAND gneiss_runtime_log_test)
+  set_tests_properties(gneiss.runtime.log-sink PROPERTIES LABELS "cpu;integration")
 
 
   add_test(
     NAME gneiss.runtime.smoke
     COMMAND gneiss_runtime --smoke --project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
   )
+  set_tests_properties(gneiss.runtime.smoke PROPERTIES LABELS "gpu;integration")
   add_test(
     NAME gneiss.runtime.startup-diagnostic
     COMMAND
@@ -83,6 +91,7 @@ if(BUILD_TESTING)
       -DRUNTIME_TEST_DIR=${PROJECT_BINARY_DIR}/runtime-log-test -P
       "${PROJECT_SOURCE_DIR}/tests/runtime/startup_diagnostic_test.cmake"
   )
+  set_tests_properties(gneiss.runtime.startup-diagnostic PROPERTIES LABELS "gpu;integration")
   if(GNEISS_BUILD_EXAMPLES)
     add_test(
       NAME gneiss.runtime.installed-smoke
@@ -92,6 +101,7 @@ if(BUILD_TESTING)
         -DGNEISS_CONFIG=$<CONFIG> -DGNEISS_SHARED=${BUILD_SHARED_LIBS} -P
         "${PROJECT_SOURCE_DIR}/cmake/testing/check_installed_runtime.cmake"
     )
+    set_tests_properties(gneiss.runtime.installed-smoke PROPERTIES LABELS "gpu;integration")
     set_tests_properties(gneiss.runtime.installed-smoke PROPERTIES TIMEOUT 120)
   endif()
   if(WIN32)
@@ -104,6 +114,7 @@ if(BUILD_TESTING)
         -Project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
         -TestRoot "${PROJECT_BINARY_DIR}/runtime-stop-protocol-test"
     )
+    set_tests_properties(gneiss.runtime.stop-protocol PROPERTIES LABELS "gpu;integration")
   endif()
   set_tests_properties(gneiss.runtime.smoke PROPERTIES TIMEOUT 30)
   set_tests_properties(gneiss.runtime.startup-diagnostic PROPERTIES TIMEOUT 30)
@@ -121,6 +132,7 @@ if(BUILD_TESTING)
       -DINPUT_MAP=${PROJECT_SOURCE_DIR}/examples/temple/assets/input/default.input-map.json
       -DTEST_PARENT=${PROJECT_BINARY_DIR}
       -P "${PROJECT_SOURCE_DIR}/tests/runtime/async_input_startup_test.cmake")
+  set_tests_properties(gneiss.runtime.async-input-startup PROPERTIES LABELS "gpu;integration")
   set_tests_properties(gneiss.runtime.async-input-startup PROPERTIES TIMEOUT 60)
 endif()
 
@@ -146,6 +158,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_scene_structural_reload_test)
   set_target_properties(gneiss_scene_structural_reload_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.scene_structural_reload COMMAND gneiss_scene_structural_reload_test)
+  set_tests_properties(gneiss.scene_structural_reload PROPERTIES LABELS "cpu;integration")
   add_executable(gneiss_prefab_structural_reload_test "${PROJECT_SOURCE_DIR}/tests/runtime/prefab_structural_reload_test.cpp")
   target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_ipc)
   target_compile_definitions(
@@ -157,4 +170,5 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_prefab_structural_reload_test)
   set_target_properties(gneiss_prefab_structural_reload_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.prefab_structural_reload COMMAND gneiss_prefab_structural_reload_test)
+  set_tests_properties(gneiss.prefab_structural_reload PROPERTIES LABELS "cpu;integration")
 endif()

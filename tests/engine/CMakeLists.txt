@@ -25,26 +25,32 @@ add_test(
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_granit_version_cache.cmake"
 )
+set_tests_properties(gneiss.granit_version_cache PROPERTIES LABELS "cpu;integration")
 
 add_test(NAME gneiss.core-boundary
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_core_boundary.cmake")
+set_tests_properties(gneiss.core-boundary PROPERTIES LABELS "cpu;integration")
 add_test(NAME gneiss.core-boundary-negative
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/testing/test_core_boundary.cmake")
+set_tests_properties(gneiss.core-boundary-negative PROPERTIES LABELS "cpu;integration")
 add_test(NAME gneiss.public-api
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_public_api.cmake")
+set_tests_properties(gneiss.public-api PROPERTIES LABELS "cpu;integration")
 
 add_test(NAME gneiss.public-api-negative
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}" -P "${PROJECT_SOURCE_DIR}/cmake/testing/test_public_api.cmake")
+set_tests_properties(gneiss.public-api-negative PROPERTIES LABELS "cpu;integration")
 
 add_test(NAME gneiss.cmake.dependency-source-cache
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_dependency_source_cache.cmake")
+set_tests_properties(gneiss.cmake.dependency-source-cache PROPERTIES LABELS "cpu;integration")
 set_tests_properties(gneiss.cmake.dependency-source-cache PROPERTIES TIMEOUT 60)
 
 # 异步场景测试由宿主驱动任务，不使用生产同步加载入口。

@@ -88,7 +88,7 @@ if(TARGET gneiss_assetc)
         NAME gneiss.runtime.lantern-gallery
         COMMAND gneiss_runtime --smoke --project "${lantern_gallery_project_root}"
       )
-      set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES TIMEOUT 30)
+      set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES LABELS "gpu;integration" TIMEOUT 30)
       if(TARGET gneiss_corrupt_texture_fixture)
         add_dependencies(gneiss_runtime gneiss_corrupt_texture_fixture)
         add_test(
@@ -101,7 +101,7 @@ if(TARGET gneiss_assetc)
             -DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/lantern-cooked-test
             -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_lantern_cooked.cmake"
         )
-        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES TIMEOUT 210)
+        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES LABELS "gpu;integration" TIMEOUT 210)
       endif()
     endif()
     if(TARGET gneiss_editor)
@@ -109,6 +109,7 @@ if(TARGET gneiss_assetc)
         NAME gneiss.editor.lantern-gallery-project
         COMMAND gneiss_editor --smoke --project "${lantern_gallery_project_root}"
       )
+      set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES LABELS "gpu;integration")
       set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES
         TIMEOUT 30 FAIL_REGULAR_EXPRESSION "资产监听启动失败"
       )
@@ -126,12 +127,12 @@ if(TARGET gneiss_assetc)
           GNEISS_EDITOR_LANTERN_PROJECT="${lantern_gallery_project_root}"
           GNEISS_EDITOR_LANTERN_SOURCE="${lantern_gallery_source_root}/source/Lantern.glb"
       )
-      target_include_directories(gneiss_editor_lantern_workflow_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
       add_dependencies(gneiss_editor_lantern_workflow_test gneiss_lantern_gallery_assets)
       gneiss_target_compile_warnings(gneiss_editor_lantern_workflow_test)
       gneiss_target_output_directories(gneiss_editor_lantern_workflow_test)
       set_target_properties(gneiss_editor_lantern_workflow_test PROPERTIES FOLDER "Tests")
       add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
+      set_tests_properties(gneiss.editor.lantern-workflow PROPERTIES LABELS "cpu;integration")
       add_executable(
         gneiss_editor_lantern_prefab_authoring_workflow_test
         "${PROJECT_SOURCE_DIR}/tests/editor/lantern_prefab_authoring_workflow_test.cpp"
@@ -153,6 +154,7 @@ if(TARGET gneiss_assetc)
         NAME gneiss.editor.lantern-prefab-authoring-workflow
         COMMAND gneiss_editor_lantern_prefab_authoring_workflow_test
       )
+      set_tests_properties(gneiss.editor.lantern-prefab-authoring-workflow PROPERTIES LABELS "cpu;integration")
       if(TARGET gneiss_runtime AND TARGET gneiss_lantern_gallery_game)
         add_executable(
           gneiss_editor_lantern_runtime_workflow_test
@@ -179,7 +181,7 @@ if(TARGET gneiss_assetc)
           NAME gneiss.editor.lantern-runtime-workflow
           COMMAND gneiss_editor_lantern_runtime_workflow_test
         )
-        set_tests_properties(gneiss.editor.lantern-runtime-workflow PROPERTIES TIMEOUT 20)
+        set_tests_properties(gneiss.editor.lantern-runtime-workflow PROPERTIES LABELS "gpu;integration" TIMEOUT 20)
       endif()
     endif()
   endif()

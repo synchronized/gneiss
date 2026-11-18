@@ -8,6 +8,7 @@ gneiss_target_compile_warnings(gneiss_native_world_lifecycle_test)
 gneiss_target_output_directories(gneiss_native_world_lifecycle_test)
 set_target_properties(gneiss_native_world_lifecycle_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.native-world-lifecycle COMMAND gneiss_native_world_lifecycle_test)
+set_tests_properties(gneiss.native-world-lifecycle PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_native_scene_lifecycle_test native_scene_lifecycle_test.cpp)
 target_link_libraries(gneiss_native_scene_lifecycle_test PRIVATE gneiss::engine)
@@ -16,6 +17,7 @@ gneiss_target_compile_warnings(gneiss_native_scene_lifecycle_test)
 gneiss_target_output_directories(gneiss_native_scene_lifecycle_test)
 set_target_properties(gneiss_native_scene_lifecycle_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.native-scene-lifecycle COMMAND gneiss_native_scene_lifecycle_test)
+set_tests_properties(gneiss.native-scene-lifecycle PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_scene_tree_transform_test
@@ -27,6 +29,7 @@ gneiss_target_compile_warnings(gneiss_scene_tree_transform_test)
 gneiss_target_output_directories(gneiss_scene_tree_transform_test)
 set_target_properties(gneiss_scene_tree_transform_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene_tree_transform COMMAND gneiss_scene_tree_transform_test)
+set_tests_properties(gneiss.scene_tree_transform PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_world_state_test
@@ -41,6 +44,7 @@ gneiss_target_compile_warnings(gneiss_world_state_test)
 gneiss_target_output_directories(gneiss_world_state_test)
 set_target_properties(gneiss_world_state_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
+set_tests_properties(gneiss.world_state PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_component_reflection_test component_reflection_test.cpp)
 target_link_libraries(gneiss_component_reflection_test PRIVATE gneiss::engine Threads::Threads)
@@ -49,6 +53,7 @@ gneiss_target_compile_warnings(gneiss_component_reflection_test)
 gneiss_target_output_directories(gneiss_component_reflection_test)
 set_target_properties(gneiss_component_reflection_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_test)
+set_tests_properties(gneiss.component_reflection PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_render_camera_test
@@ -62,6 +67,7 @@ gneiss_target_compile_warnings(gneiss_render_camera_test)
 gneiss_target_output_directories(gneiss_render_camera_test)
 set_target_properties(gneiss_render_camera_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.render_camera COMMAND gneiss_render_camera_test)
+set_tests_properties(gneiss.render_camera PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_scene_load_application_test scene_load_application_test.cpp)
 target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
@@ -70,6 +76,7 @@ gneiss_target_compile_warnings(gneiss_scene_load_application_test)
 gneiss_target_output_directories(gneiss_scene_load_application_test)
 set_target_properties(gneiss_scene_load_application_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_application_test)
+set_tests_properties(gneiss.scene-load-application PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_scene_load_preparation_test scene_load_preparation_test.cpp)
 # 仅 content_dependency 为私有白盒访问；实现统一由 Engine 提供。
@@ -89,6 +96,7 @@ gneiss_target_compile_warnings(gneiss_prefab_preparation_test)
 gneiss_target_output_directories(gneiss_prefab_preparation_test)
 set_target_properties(gneiss_prefab_preparation_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.prefab-preparation COMMAND gneiss_prefab_preparation_test)
+set_tests_properties(gneiss.prefab-preparation PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_scene_instance_test scene_instance_test.cpp)
 target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine)
@@ -103,6 +111,7 @@ gneiss_target_compile_warnings(gneiss_scene_instance_test)
 gneiss_target_output_directories(gneiss_scene_instance_test)
 set_target_properties(gneiss_scene_instance_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
+set_tests_properties(gneiss.scene_instance PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_prefab_runtime_instance_test prefab_runtime_instance_test.cpp)
 # 验证真实 Engine 的组合与增量应用，不重复编译引擎实现。
@@ -113,6 +122,7 @@ gneiss_target_compile_warnings(gneiss_prefab_runtime_instance_test)
 gneiss_target_output_directories(gneiss_prefab_runtime_instance_test)
 set_target_properties(gneiss_prefab_runtime_instance_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.prefab-runtime-application COMMAND gneiss_prefab_runtime_instance_test)
+set_tests_properties(gneiss.prefab-runtime-application PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_scene_instantiation_test scene_instantiation_test.cpp)
 # 场景夹具使用真实加载入口；资源构造白盒仍局部包含私有头。
@@ -123,6 +133,7 @@ gneiss_target_compile_warnings(gneiss_scene_instantiation_test)
 gneiss_target_output_directories(gneiss_scene_instantiation_test)
 set_target_properties(gneiss_scene_instantiation_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene-instantiation COMMAND gneiss_scene_instantiation_test)
+set_tests_properties(gneiss.scene-instantiation PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_scene_prefab_instance_test scene_prefab_instance_test.cpp)
 target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine)
@@ -135,6 +146,7 @@ gneiss_target_compile_warnings(gneiss_scene_prefab_instance_test)
 gneiss_target_output_directories(gneiss_scene_prefab_instance_test)
 set_target_properties(gneiss_scene_prefab_instance_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
+set_tests_properties(gneiss.scene_prefab_instance PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_property_inspector_test property_inspector_test.cpp)
 target_link_libraries(gneiss_property_inspector_test PRIVATE gneiss_core gneiss::engine gneiss_tasks)
@@ -144,6 +156,7 @@ gneiss_target_compile_warnings(gneiss_property_inspector_test)
 gneiss_target_output_directories(gneiss_property_inspector_test)
 set_target_properties(gneiss_property_inspector_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.property-inspector COMMAND gneiss_property_inspector_test)
+set_tests_properties(gneiss.property-inspector PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_world_render_binding_test world_render_binding_test.cpp)
 target_link_libraries(gneiss_world_render_binding_test PRIVATE gneiss::engine EnTT::EnTT)
@@ -153,6 +166,7 @@ gneiss_target_compile_warnings(gneiss_world_render_binding_test)
 gneiss_target_output_directories(gneiss_world_render_binding_test)
 set_target_properties(gneiss_world_render_binding_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.world_render_binding COMMAND gneiss_world_render_binding_test)
+set_tests_properties(gneiss.world_render_binding PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_world_service_test world_service_test.cpp)
 target_link_libraries(gneiss_world_service_test PRIVATE gneiss::engine)
@@ -161,6 +175,7 @@ gneiss_target_compile_warnings(gneiss_world_service_test)
 gneiss_target_output_directories(gneiss_world_service_test)
 set_target_properties(gneiss_world_service_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.world-service-boundary COMMAND gneiss_world_service_test)
+set_tests_properties(gneiss.world-service-boundary PROPERTIES LABELS "cpu;integration")
 add_test(NAME gneiss.world-thread-contract
   COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_world_service_test>
     -P ${PROJECT_SOURCE_DIR}/tests/engine/scene/check_thread_contract.cmake)
@@ -173,6 +188,7 @@ gneiss_target_compile_warnings(gneiss_component_description_test)
 gneiss_target_output_directories(gneiss_component_description_test)
 set_target_properties(gneiss_component_description_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.component-description COMMAND gneiss_component_description_test)
+set_tests_properties(gneiss.component-description PROPERTIES LABELS "cpu;integration")
 
 # 扩展适配器访问内部 ECS；普通 Scene 接口不传播 EnTT。
 add_executable(gneiss_component_adapter_test component_adapter_test.cpp)
@@ -183,5 +199,6 @@ gneiss_target_compile_warnings(gneiss_component_adapter_test)
 gneiss_target_output_directories(gneiss_component_adapter_test)
 set_target_properties(gneiss_component_adapter_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.component-adapter COMMAND gneiss_component_adapter_test)
+set_tests_properties(gneiss.component-adapter PROPERTIES LABELS "cpu;integration")
 
 set_tests_properties(gneiss.scene-load-preparation PROPERTIES LABELS "cpu;integration")

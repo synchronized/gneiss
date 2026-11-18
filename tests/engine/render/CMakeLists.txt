@@ -8,6 +8,7 @@ gneiss_target_compile_warnings(gneiss_native_render_lifecycle_test)
 gneiss_target_output_directories(gneiss_native_render_lifecycle_test)
 set_target_properties(gneiss_native_render_lifecycle_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.native-render-lifecycle COMMAND gneiss_native_render_lifecycle_test)
+set_tests_properties(gneiss.native-render-lifecycle PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_render_resource_service_test
@@ -20,6 +21,7 @@ gneiss_target_compile_warnings(gneiss_render_resource_service_test)
 gneiss_target_output_directories(gneiss_render_resource_service_test)
 set_target_properties(gneiss_render_resource_service_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.render_resource_service COMMAND gneiss_render_resource_service_test)
+set_tests_properties(gneiss.render_resource_service PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_pbr_material_resource_test
@@ -32,6 +34,7 @@ gneiss_target_compile_warnings(gneiss_pbr_material_resource_test)
 gneiss_target_output_directories(gneiss_pbr_material_resource_test)
 set_target_properties(gneiss_pbr_material_resource_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.pbr-material-resource COMMAND gneiss_pbr_material_resource_test)
+set_tests_properties(gneiss.pbr-material-resource PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_ui_draw_list_test
@@ -46,6 +49,7 @@ gneiss_target_compile_warnings(gneiss_ui_draw_list_test)
 gneiss_target_output_directories(gneiss_ui_draw_list_test)
 set_target_properties(gneiss_ui_draw_list_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.ui_draw_list COMMAND gneiss_ui_draw_list_test)
+set_tests_properties(gneiss.ui_draw_list PROPERTIES LABELS "cpu;unit")
 
 add_executable(
   gneiss_debug_draw_list_test
@@ -59,6 +63,7 @@ gneiss_target_compile_warnings(gneiss_debug_draw_list_test)
 gneiss_target_output_directories(gneiss_debug_draw_list_test)
 set_target_properties(gneiss_debug_draw_list_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.debug_draw_list COMMAND gneiss_debug_draw_list_test)
+set_tests_properties(gneiss.debug_draw_list PROPERTIES LABELS "cpu;unit")
 
 add_executable(
   gneiss_render_executor_test
@@ -74,6 +79,7 @@ gneiss_target_compile_warnings(gneiss_render_executor_test)
 gneiss_target_output_directories(gneiss_render_executor_test)
 set_target_properties(gneiss_render_executor_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.render_executor COMMAND gneiss_render_executor_test)
+set_tests_properties(gneiss.render_executor PROPERTIES LABELS "cpu;integration")
 add_executable(
   gneiss_render_frame_packet_test
   render_frame_packet_test.cpp
@@ -91,6 +97,7 @@ gneiss_target_compile_warnings(gneiss_render_frame_packet_test)
 gneiss_target_output_directories(gneiss_render_frame_packet_test)
 set_target_properties(gneiss_render_frame_packet_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test)
+set_tests_properties(gneiss.render_frame_packet PROPERTIES LABELS "cpu;integration")
 add_executable(
   gneiss_pbr_shader_resolver_test
   pbr_shader_resolver_test.cpp
@@ -113,6 +120,7 @@ gneiss_target_compile_warnings(gneiss_pbr_shader_resolver_test)
 gneiss_target_output_directories(gneiss_pbr_shader_resolver_test)
 set_target_properties(gneiss_pbr_shader_resolver_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.pbr_shader_resolver COMMAND gneiss_pbr_shader_resolver_test)
+set_tests_properties(gneiss.pbr_shader_resolver PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_camera_math_test
@@ -124,6 +132,7 @@ gneiss_target_compile_warnings(gneiss_camera_math_test)
 gneiss_target_output_directories(gneiss_camera_math_test)
 set_target_properties(gneiss_camera_math_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.camera_math COMMAND gneiss_camera_math_test)
+set_tests_properties(gneiss.camera_math PROPERTIES LABELS "cpu;unit")
 
 add_executable(
   gneiss_normal_math_test
@@ -136,6 +145,7 @@ gneiss_target_compile_warnings(gneiss_normal_math_test)
 gneiss_target_output_directories(gneiss_normal_math_test)
 set_target_properties(gneiss_normal_math_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.normal_math COMMAND gneiss_normal_math_test)
+set_tests_properties(gneiss.normal_math PROPERTIES LABELS "cpu;unit")
 
 add_executable(
   gneiss_scene_projection_math_test
@@ -148,20 +158,16 @@ gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
 gneiss_target_output_directories(gneiss_scene_projection_math_test)
 set_target_properties(gneiss_scene_projection_math_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_test)
+set_tests_properties(gneiss.scene_projection_math PROPERTIES LABELS "cpu;unit")
 
+# 私有解码/缓存符号保留本地编译；已导出的格式与摘要实现由 Engine 提供。
 add_executable(
   gneiss_render_asset_loader_test
   render_asset_loader_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src")
@@ -176,20 +182,16 @@ gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
 gneiss_target_output_directories(gneiss_render_asset_loader_test)
 set_target_properties(gneiss_render_asset_loader_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test)
+set_tests_properties(gneiss.render_asset_loader PROPERTIES LABELS "cpu;integration")
 
+# 私有解码/缓存符号保留本地编译；已导出的格式与摘要实现由 Engine 提供。
 add_executable(
   gneiss_texture_load_service_test
   texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -201,6 +203,7 @@ gneiss_target_compile_warnings(gneiss_texture_load_service_test)
 gneiss_target_output_directories(gneiss_texture_load_service_test)
 set_target_properties(gneiss_texture_load_service_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.texture-load-service COMMAND gneiss_texture_load_service_test)
+set_tests_properties(gneiss.texture-load-service PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_asset_pixel_test asset_pixel_test.cpp)
 target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
@@ -247,6 +250,7 @@ gneiss_target_compile_warnings(gneiss_native_draw_submission_test)
 gneiss_target_output_directories(gneiss_native_draw_submission_test)
 set_target_properties(gneiss_native_draw_submission_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.native-draw-submission COMMAND gneiss_native_draw_submission_test)
+set_tests_properties(gneiss.native-draw-submission PROPERTIES LABELS "cpu;integration")
 
 # 仅编译接口，不链接后端，也不执行 GPU 测试。
 add_library(gneiss_render_service_header_check OBJECT render_service_header_check.cpp)
@@ -262,6 +266,7 @@ if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
     add_test(NAME gneiss.fatal-${mode} COMMAND "${CMAKE_COMMAND}"
       "-DPROGRAM=$<TARGET_FILE:gneiss_render_executor_test>" "-DMODE=${mode}"
       -P "${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake")
+    set_tests_properties(gneiss.fatal-${mode} PROPERTIES LABELS "cpu;integration;death")
     set_tests_properties(gneiss.fatal-${mode} PROPERTIES TIMEOUT 15)
   endforeach()
 endif()

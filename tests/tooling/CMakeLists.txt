@@ -9,6 +9,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_texture_mip_generator_test)
   gneiss_target_output_directories(gneiss_texture_mip_generator_test)
   add_test(NAME gneiss.texture-mip-generator COMMAND gneiss_texture_mip_generator_test)
+  set_tests_properties(gneiss.texture-mip-generator PROPERTIES LABELS "cpu;integration")
   add_executable(gneiss_tangent_generation_test "${PROJECT_SOURCE_DIR}/tests/tooling/tangent_generation_test.cpp")
   set_target_properties(gneiss_tangent_generation_test PROPERTIES FOLDER "Tests")
   target_link_libraries(gneiss_tangent_generation_test PRIVATE gneiss_tooling)
@@ -16,6 +17,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_tangent_generation_test)
   gneiss_target_output_directories(gneiss_tangent_generation_test)
   add_test(NAME gneiss.tangent-generation COMMAND gneiss_tangent_generation_test)
+  set_tests_properties(gneiss.tangent-generation PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_corrupt_texture_fixture
@@ -37,6 +39,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_build_test)
   gneiss_target_output_directories(gneiss_asset_build_test)
   add_test(NAME gneiss.tooling.asset_build COMMAND gneiss_asset_build_test)
+  set_tests_properties(gneiss.tooling.asset_build PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_bc7_encoder_test "${PROJECT_SOURCE_DIR}/tests/tooling/bc7_encoder_test.cpp")
   set_target_properties(gneiss_bc7_encoder_test PROPERTIES FOLDER "Tests")
@@ -45,6 +48,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_bc7_encoder_test)
   gneiss_target_output_directories(gneiss_bc7_encoder_test)
   add_test(NAME gneiss.tooling.bc7_encoder COMMAND gneiss_bc7_encoder_test)
+  set_tests_properties(gneiss.tooling.bc7_encoder PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_sha256_test "${PROJECT_SOURCE_DIR}/tests/tooling/sha256_test.cpp")
   set_target_properties(gneiss_sha256_test PROPERTIES FOLDER "Tests")
@@ -53,6 +57,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_sha256_test)
   gneiss_target_output_directories(gneiss_sha256_test)
   add_test(NAME gneiss.tooling.sha256 COMMAND gneiss_sha256_test)
+  set_tests_properties(gneiss.tooling.sha256 PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_runtime_texture_builder_test
@@ -66,6 +71,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_runtime_texture_builder_test)
   gneiss_target_output_directories(gneiss_runtime_texture_builder_test)
   add_test(NAME gneiss.tooling.runtime_texture_builder COMMAND gneiss_runtime_texture_builder_test)
+  set_tests_properties(gneiss.tooling.runtime_texture_builder PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_ktx2_probe_test
@@ -77,6 +83,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_ktx2_probe_test)
   gneiss_target_output_directories(gneiss_ktx2_probe_test)
   add_test(NAME gneiss.tooling.ktx2_probe COMMAND gneiss_ktx2_probe_test)
+  set_tests_properties(gneiss.tooling.ktx2_probe PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_gltf_importer_test
@@ -92,6 +99,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_gltf_importer_test)
   gneiss_target_output_directories(gneiss_gltf_importer_test)
   add_test(NAME gneiss.tooling.gltf_importer COMMAND gneiss_gltf_importer_test)
+  set_tests_properties(gneiss.tooling.gltf_importer PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_asset_writer_test
@@ -109,6 +117,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_writer_test)
   gneiss_target_output_directories(gneiss_asset_writer_test)
   add_test(NAME gneiss.tooling.asset_writer COMMAND gneiss_asset_writer_test)
+  set_tests_properties(gneiss.tooling.asset_writer PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_asset_import_sdk_test
@@ -124,6 +133,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_import_sdk_test)
   gneiss_target_output_directories(gneiss_asset_import_sdk_test)
   add_test(NAME gneiss.tooling.asset_import_sdk COMMAND gneiss_asset_import_sdk_test)
+  set_tests_properties(gneiss.tooling.asset_import_sdk PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_asset_index_test
@@ -135,6 +145,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_index_test)
   gneiss_target_output_directories(gneiss_asset_index_test)
   add_test(NAME gneiss.tooling.asset_index COMMAND gneiss_asset_index_test)
+  set_tests_properties(gneiss.tooling.asset_index PROPERTIES LABELS "cpu;integration")
 
   add_executable(
     gneiss_gltf_container_test
@@ -150,11 +161,13 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_gltf_container_test)
   gneiss_target_output_directories(gneiss_gltf_container_test)
   add_test(NAME gneiss.tooling.gltf_container COMMAND gneiss_gltf_container_test)
+  set_tests_properties(gneiss.tooling.gltf_container PROPERTIES LABELS "cpu;integration")
 
   add_test(
     NAME gneiss.tooling.assetc_inspect
     COMMAND gneiss_assetc inspect "${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
   )
+  set_tests_properties(gneiss.tooling.assetc_inspect PROPERTIES LABELS "cpu;integration")
   add_test(
     NAME gneiss.tooling.assetc_cook
     COMMAND
@@ -164,6 +177,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
       "-DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/tests/assetc-cook"
       -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_assetc_cook.cmake"
   )
+  set_tests_properties(gneiss.tooling.assetc_cook PROPERTIES LABELS "cpu;integration")
   set_tests_properties(
     gneiss.tooling.assetc_inspect
     PROPERTIES PASS_REGULAR_EXPRESSION "场景=1 节点=1 网格=1 图元=1 材质=1 图像=1"
@@ -177,6 +191,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
       "-DGNEISS_LANTERN_OUTPUT=${PROJECT_BINARY_DIR}/tests/lantern-import"
       -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_lantern_import.cmake"
   )
+  set_tests_properties(gneiss.tooling.lantern_import PROPERTIES LABELS "cpu;integration")
 endif()
 
 # 仅白盒测试访问 Tooling 的实现头，普通消费者只链接库。

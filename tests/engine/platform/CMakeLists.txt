@@ -10,6 +10,7 @@ gneiss_target_compile_warnings(gneiss_granit_platform_smoke_test)
 gneiss_target_output_directories(gneiss_granit_platform_smoke_test)
 set_target_properties(gneiss_granit_platform_smoke_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.granit_platform_smoke COMMAND gneiss_granit_platform_smoke_test)
+set_tests_properties(gneiss.granit_platform_smoke PROPERTIES LABELS "gpu;integration")
 set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
 
 if(TARGET gneiss_dynamic_library AND (WIN32 OR UNIX) AND NOT EMSCRIPTEN)
@@ -27,6 +28,7 @@ if(TARGET gneiss_dynamic_library AND (WIN32 OR UNIX) AND NOT EMSCRIPTEN)
   set_target_properties(gneiss_dynamic_library_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.platform.dynamic-library COMMAND gneiss_dynamic_library_test
     "$<TARGET_FILE:gneiss_dynamic_library_fixture>")
+  set_tests_properties(gneiss.platform.dynamic-library PROPERTIES LABELS "cpu;integration")
 endif()
 
 if(TARGET gneiss_io)
@@ -37,6 +39,7 @@ if(TARGET gneiss_io)
   gneiss_target_output_directories(gneiss_io_executor_test)
   set_target_properties(gneiss_io_executor_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.io.executor COMMAND gneiss_io_executor_test)
+  set_tests_properties(gneiss.io.executor PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_io_executor_stress_test "io/executor_stress_test.cpp")
   target_link_libraries(gneiss_io_executor_stress_test PRIVATE gneiss_io)
@@ -45,6 +48,7 @@ if(TARGET gneiss_io)
   gneiss_target_output_directories(gneiss_io_executor_stress_test)
   set_target_properties(gneiss_io_executor_stress_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.io.executor-stress COMMAND gneiss_io_executor_stress_test)
+  set_tests_properties(gneiss.io.executor-stress PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_io_uv_error_test "io/uv_error_test.cpp")
   target_include_directories(gneiss_io_uv_error_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
@@ -54,6 +58,7 @@ if(TARGET gneiss_io)
   gneiss_target_output_directories(gneiss_io_uv_error_test)
   set_target_properties(gneiss_io_uv_error_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.io.uv-error COMMAND gneiss_io_uv_error_test)
+  set_tests_properties(gneiss.io.uv-error PROPERTIES LABELS "cpu;unit")
 
 endif()
 
@@ -62,10 +67,12 @@ if(TARGET gneiss_io)
     add_test(NAME gneiss.io.uv-callback-fatal-${mode}
       COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_io_executor_test>
       -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake)
+    set_tests_properties(gneiss.io.uv-callback-fatal-${mode} PROPERTIES LABELS "cpu;integration;death")
   endforeach()
   add_test(NAME gneiss.io.uv-status-fatal-oom
     COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_io_uv_error_test>
     -DMODE=oom -P ${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake)
+  set_tests_properties(gneiss.io.uv-status-fatal-oom PROPERTIES LABELS "cpu;integration;death")
 endif()
 
 if(TARGET gneiss_ipc)
@@ -75,6 +82,7 @@ if(TARGET gneiss_ipc)
   gneiss_target_output_directories(gneiss_ipc_envelope_test)
   set_target_properties(gneiss_ipc_envelope_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.ipc.envelope COMMAND gneiss_ipc_envelope_test)
+  set_tests_properties(gneiss.ipc.envelope PROPERTIES LABELS "cpu;unit")
 
   add_executable(gneiss_ipc_transport_test "ipc/ipc_transport_test.cpp")
   target_link_libraries(gneiss_ipc_transport_test PRIVATE gneiss_ipc gneiss::libuv)
@@ -82,4 +90,5 @@ if(TARGET gneiss_ipc)
   gneiss_target_output_directories(gneiss_ipc_transport_test)
   set_target_properties(gneiss_ipc_transport_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.ipc.transport COMMAND gneiss_ipc_transport_test)
+  set_tests_properties(gneiss.ipc.transport PROPERTIES LABELS "cpu;integration")
 endif()

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "ui/editor_ui.hpp"
-#include <gneiss/engine/error.hpp>
 #include <chrono>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <thread>
 
 #include <imgui.h>
@@ -36,16 +36,17 @@ bool draw_workspace_frame() {
   ImGui::NewFrame();
   gneiss::editor::begin_editor_workspace();
   const auto* dockspace = ImGui::DockBuilderGetNode(ImHashStr("GneissEditorDockSpace"));
-  const auto has_transparent_center =
+  // Scene View 已改为离屏图像，工作区不再透出全窗口场景。
+  const auto has_opaque_center =
       dockspace != nullptr &&
-      (dockspace->SharedFlags & ImGuiDockNodeFlags_PassthruCentralNode) != 0;
+      (dockspace->SharedFlags & ImGuiDockNodeFlags_PassthruCentralNode) == 0;
   for (const auto* name :
        {"Scene Hierarchy", "Asset Browser", "Scene View", "Inspector", "Console"}) {
     ImGui::Begin(name);
     ImGui::End();
   }
   ImGui::Render();
-  return has_transparent_center;
+  return has_opaque_center;
 }
 
 } // namespace

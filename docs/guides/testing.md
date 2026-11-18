@@ -86,8 +86,8 @@ GPU、外部大场景、跨平台和发布矩阵按任务风险及发布要求�
 
 测试分类按实际依赖审核，不能从目录名称推断。目标标签是 cpu（不需要 GPU）、
 integration（跨模块或真实 I/O/进程）、gpu、death（预期异常退出）；标签可以重叠。
-benchmark 是显式测量工具，默认不加入常规正确性套件。标签补齐前继续按已核查的测试名选择，
-不能把没有 gpu 标签的条目直接当作 CPU 安全集合。
+benchmark 是显式测量工具，默认不加入常规正确性套件。新增 add_test 必须就近标注执行环境；
+条件启用或新平台条目也须核查，不能把没有 gpu 标签的条目直接当作 CPU 安全集合。
 
 
 已标注用例可以按执行环境选择（以 Windows Clang Debug 为例）：
@@ -97,7 +97,8 @@ ctest --preset windows-clang-debug -L "^cpu$" --output-on-failure
 ctest --preset windows-clang-debug -L "^gpu$" --output-on-failure
 ```
 
-以上分别运行已审查的 CPU 或 GPU 子集，不代表完整测试集；未标注项仍按名称选择。
+以上分别运行已审查的 CPU 或 GPU 集合，不代表另一集合已经验证。当前 Windows 配置已补齐标签，
+其他配置仍应检查枚举结果；标签表示执行条件，不是测试通过证明。
 完整枚举使用 `ctest --preset windows-clang-debug --show-only=json-v1`。
 安装/打包流程单独使用 `-R "^gneiss.runtime.installed-smoke$"`，其 Runtime smoke
 会创建渲染后端，需要可用 GPU；不能把安装检查默认视为纯 CPU 测试。

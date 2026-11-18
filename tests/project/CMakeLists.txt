@@ -14,4 +14,5 @@ gneiss_target_compile_warnings(gneiss_app_project_description_test)
 gneiss_target_output_directories(gneiss_app_project_description_test)
 set_target_properties(gneiss_app_project_description_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.app.project-description COMMAND gneiss_app_project_description_test)
+set_tests_properties(gneiss.app.project-description PROPERTIES LABELS "cpu;integration")
 

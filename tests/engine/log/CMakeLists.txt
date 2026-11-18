@@ -8,6 +8,7 @@ gneiss_target_compile_warnings(gneiss_diagnostic_log_test)
 gneiss_target_output_directories(gneiss_diagnostic_log_test)
 set_target_properties(gneiss_diagnostic_log_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.diagnostic_log COMMAND gneiss_diagnostic_log_test)
+set_tests_properties(gneiss.diagnostic_log PROPERTIES LABELS "cpu;integration")
 
 add_executable(
   gneiss_log_queue_test
@@ -21,6 +22,7 @@ gneiss_target_compile_warnings(gneiss_log_queue_test)
 gneiss_target_output_directories(gneiss_log_queue_test)
 set_target_properties(gneiss_log_queue_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.log-queue COMMAND gneiss_log_queue_test)
+set_tests_properties(gneiss.log-queue PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_logging_service_test logging_service_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
@@ -35,12 +37,15 @@ gneiss_target_compile_warnings(gneiss_logging_service_test)
 gneiss_target_output_directories(gneiss_logging_service_test)
 set_target_properties(gneiss_logging_service_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.logging-service COMMAND gneiss_logging_service_test)
+set_tests_properties(gneiss.logging-service PROPERTIES LABELS "cpu;integration")
 set_tests_properties(gneiss.logging-service PROPERTIES TIMEOUT 15)
 
 foreach(mode IN ITEMS oom unexpected)
   add_test(NAME gneiss.log-callback-fatal-${mode}
     COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:gneiss_log_queue_test>
     -DMODE=${mode} -P ${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake)
+  set_tests_properties(gneiss.log-callback-fatal-${mode} PROPERTIES LABELS "cpu;integration;death")
 endforeach()
 
 add_test(NAME gneiss.logging-duplicate-binding-contract COMMAND gneiss_logging_service_test duplicate)
+set_tests_properties(gneiss.logging-duplicate-binding-contract PROPERTIES LABELS "cpu;integration;death")

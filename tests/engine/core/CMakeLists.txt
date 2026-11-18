@@ -9,6 +9,7 @@ gneiss_target_compile_warnings(gneiss_file_log_sink_test)
 gneiss_target_output_directories(gneiss_file_log_sink_test)
 set_target_properties(gneiss_file_log_sink_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.file-log-sink COMMAND gneiss_file_log_sink_test)
+set_tests_properties(gneiss.file-log-sink PROPERTIES LABELS "cpu;integration")
 set_tests_properties(gneiss.file-log-sink PROPERTIES TIMEOUT 15)
 
 add_executable(gneiss_signal_test signal_test.cpp)
@@ -21,6 +22,7 @@ gneiss_target_compile_warnings(gneiss_signal_test)
 gneiss_target_output_directories(gneiss_signal_test)
 set_target_properties(gneiss_signal_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.signal COMMAND gneiss_signal_test)
+set_tests_properties(gneiss.signal PROPERTIES LABELS "cpu;unit")
 set_tests_properties(gneiss.signal PROPERTIES TIMEOUT 15)
 
 add_executable(gneiss_profiling_disabled_test profiling_disabled_test.cpp)
@@ -30,6 +32,7 @@ gneiss_target_compile_warnings(gneiss_profiling_disabled_test)
 gneiss_target_output_directories(gneiss_profiling_disabled_test)
 set_target_properties(gneiss_profiling_disabled_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.profiling-disabled COMMAND gneiss_profiling_disabled_test)
+set_tests_properties(gneiss.profiling-disabled PROPERTIES LABELS "cpu;unit")
 
 if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
   add_executable(gneiss_profiling_capture profiling_capture.cpp)
@@ -39,7 +42,7 @@ if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
   gneiss_target_output_directories(gneiss_profiling_capture)
   set_target_properties(gneiss_profiling_capture PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.profiling-capture COMMAND gneiss_profiling_capture)
-  set_tests_properties(gneiss.profiling-capture PROPERTIES TIMEOUT 15)
+  set_tests_properties(gneiss.profiling-capture PROPERTIES LABELS "cpu;integration" TIMEOUT 15)
 endif()
 
 add_executable(gneiss_task_scheduler_test task_scheduler_test.cpp)
@@ -48,6 +51,7 @@ gneiss_target_compile_warnings(gneiss_task_scheduler_test)
 gneiss_target_output_directories(gneiss_task_scheduler_test)
 set_target_properties(gneiss_task_scheduler_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.task-scheduler COMMAND gneiss_task_scheduler_test)
+set_tests_properties(gneiss.task-scheduler PROPERTIES LABELS "cpu;integration")
 set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
 
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
@@ -58,6 +62,7 @@ gneiss_target_compile_warnings(gneiss_cpp_version_test)
 gneiss_target_output_directories(gneiss_cpp_version_test)
 set_target_properties(gneiss_cpp_version_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
+set_tests_properties(gneiss.cpp_version PROPERTIES LABELS "cpu;unit")
 
 add_executable(gneiss_rid_table_test rid_table_test.cpp)
 target_include_directories(gneiss_rid_table_test PRIVATE
@@ -68,6 +73,7 @@ gneiss_target_compile_warnings(gneiss_rid_table_test)
 gneiss_target_output_directories(gneiss_rid_table_test)
 set_target_properties(gneiss_rid_table_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.rid_table COMMAND gneiss_rid_table_test)
+set_tests_properties(gneiss.rid_table PROPERTIES LABELS "cpu;unit")
 
 add_executable(
   gneiss_service_registry_test
@@ -81,6 +87,7 @@ gneiss_target_compile_warnings(gneiss_service_registry_test)
 gneiss_target_output_directories(gneiss_service_registry_test)
 set_target_properties(gneiss_service_registry_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
+set_tests_properties(gneiss.service_registry PROPERTIES LABELS "cpu;integration")
 
 add_executable(gneiss_version_test version_test.cpp)
 target_link_libraries(gneiss_version_test PRIVATE gneiss::engine)
@@ -88,6 +95,7 @@ gneiss_target_compile_warnings(gneiss_version_test)
 gneiss_target_output_directories(gneiss_version_test)
 set_target_properties(gneiss_version_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.version COMMAND gneiss_version_test)
+set_tests_properties(gneiss.version PROPERTIES LABELS "cpu;unit")
 set_tests_properties(gneiss.version PROPERTIES
   PASS_REGULAR_EXPRESSION "gneiss ${PROJECT_VERSION_MAJOR}\\.${PROJECT_VERSION_MINOR}\\.${PROJECT_VERSION_PATCH}")
 
@@ -97,6 +105,7 @@ gneiss_target_compile_warnings(gneiss_task_header_visibility_test)
 gneiss_target_output_directories(gneiss_task_header_visibility_test)
 set_target_properties(gneiss_task_header_visibility_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.task-header-visibility COMMAND gneiss_task_header_visibility_test)
+set_tests_properties(gneiss.task-header-visibility PROPERTIES LABELS "cpu;unit")
 
 add_executable(gneiss_native_result_test native_result_test.cpp)
 target_link_libraries(gneiss_native_result_test PRIVATE gneiss::core)
@@ -105,6 +114,7 @@ gneiss_target_compile_warnings(gneiss_native_result_test)
 gneiss_target_output_directories(gneiss_native_result_test)
 set_target_properties(gneiss_native_result_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.native_result COMMAND gneiss_native_result_test)
+set_tests_properties(gneiss.native_result PROPERTIES LABELS "cpu;unit")
 
 # 基础身份类型通过 Engine 链接，避免消费者自行编译出第二张字符串表。
 add_executable(gneiss_core_identity_test core_identity_test.cpp)
@@ -117,6 +127,7 @@ gneiss_target_compile_warnings(gneiss_core_identity_test)
 gneiss_target_output_directories(gneiss_core_identity_test)
 set_target_properties(gneiss_core_identity_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.core-identity COMMAND gneiss_core_identity_test)
+set_tests_properties(gneiss.core-identity PROPERTIES LABELS "cpu;integration")
 
 # 直接编译用户工程模板，保证它只依赖最小游戏模块协议。
 
@@ -127,6 +138,7 @@ gneiss_target_compile_warnings(gneiss_type_id_test)
 gneiss_target_output_directories(gneiss_type_id_test)
 set_target_properties(gneiss_type_id_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.type_id COMMAND gneiss_type_id_test)
+set_tests_properties(gneiss.type_id PROPERTIES LABELS "cpu;unit")
 
 # 数学类型、四元数分量顺序及 TRS 边界契约。
 add_executable(gneiss_math_test math_test.cpp)
@@ -136,6 +148,7 @@ gneiss_target_compile_warnings(gneiss_math_test)
 gneiss_target_output_directories(gneiss_math_test)
 set_target_properties(gneiss_math_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.math COMMAND gneiss_math_test)
+set_tests_properties(gneiss.math PROPERTIES LABELS "cpu;unit")
 
 add_executable(gneiss_value_test value_test.cpp)
 target_link_libraries(gneiss_value_test PRIVATE gneiss::engine)
@@ -144,6 +157,7 @@ gneiss_target_compile_warnings(gneiss_value_test)
 gneiss_target_output_directories(gneiss_value_test)
 set_target_properties(gneiss_value_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.value COMMAND gneiss_value_test)
+set_tests_properties(gneiss.value PROPERTIES LABELS "cpu;unit")
 
 add_executable(gneiss_binary_io_test binary_io_test.cpp)
 target_include_directories(gneiss_binary_io_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
@@ -153,6 +167,7 @@ gneiss_target_compile_warnings(gneiss_binary_io_test)
 gneiss_target_output_directories(gneiss_binary_io_test)
 set_target_properties(gneiss_binary_io_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.binary_io COMMAND gneiss_binary_io_test)
+set_tests_properties(gneiss.binary_io PROPERTIES LABELS "cpu;unit")
 
 # 通用 UTF-8 编码边界，不依赖平台或引擎服务。
 add_executable(gneiss_utf8_test utf8_test.cpp)
@@ -162,6 +177,7 @@ gneiss_target_compile_warnings(gneiss_utf8_test)
 gneiss_target_output_directories(gneiss_utf8_test)
 set_target_properties(gneiss_utf8_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.utf8 COMMAND gneiss_utf8_test)
+set_tests_properties(gneiss.utf8 PROPERTIES LABELS "cpu;unit")
 
 add_executable(gneiss_value_edit_test value_edit_test.cpp)
 target_link_libraries(gneiss_value_edit_test PRIVATE gneiss::engine)
@@ -170,6 +186,7 @@ gneiss_target_compile_warnings(gneiss_value_edit_test)
 gneiss_target_output_directories(gneiss_value_edit_test)
 set_target_properties(gneiss_value_edit_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.value_edit COMMAND gneiss_value_edit_test)
+set_tests_properties(gneiss.value_edit PROPERTIES LABELS "cpu;unit")
 
 # 本地替换分配器只用于故障注入，不影响 Engine 或其他测试进程。
 if(NOT EMSCRIPTEN)
@@ -184,9 +201,11 @@ if(NOT EMSCRIPTEN)
   gneiss_target_output_directories(gneiss_value_allocation_test)
   set_target_properties(gneiss_value_allocation_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.value-allocation COMMAND gneiss_value_allocation_test)
+  set_tests_properties(gneiss.value-allocation PROPERTIES LABELS "cpu;unit")
   add_test(NAME gneiss.value-allocation-oom COMMAND "${CMAKE_COMMAND}"
     "-DPROGRAM=$<TARGET_FILE:gneiss_value_allocation_test>" "-DMODE=allocation-boundary"
     -P "${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake")
+  set_tests_properties(gneiss.value-allocation-oom PROPERTIES LABELS "cpu;integration;death")
 endif()
 
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
@@ -199,6 +218,7 @@ if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
     add_test(NAME gneiss.fatal-${mode} COMMAND "${CMAKE_COMMAND}"
       "-DPROGRAM=$<TARGET_FILE:gneiss_fatal_test>" "-DMODE=${mode}"
       -P "${PROJECT_SOURCE_DIR}/tests/engine/core/check_fatal.cmake")
+    set_tests_properties(gneiss.fatal-${mode} PROPERTIES LABELS "cpu;integration;death")
     set_tests_properties(gneiss.fatal-${mode} PROPERTIES TIMEOUT 15)
   endforeach()
 endif()
@@ -221,7 +241,7 @@ if(NOT EMSCRIPTEN)
     add_test(NAME gneiss.assert-${mode} COMMAND "${CMAKE_COMMAND}"
       "-DPROGRAM=$<TARGET_FILE:gneiss_assert_${mode}_test>" "-DRELEASE_ASSERT=${release_assert}"
       -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_assert.cmake")
-    set_tests_properties(gneiss.assert-${mode} PROPERTIES LABELS "cpu" TIMEOUT 90)
+    set_tests_properties(gneiss.assert-${mode} PROPERTIES LABELS "cpu;death" TIMEOUT 90)
   endforeach()
 endif()
 
@@ -242,6 +262,7 @@ if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   gneiss_target_output_directories(gneiss_resource_retirement_queue_test)
   set_target_properties(gneiss_resource_retirement_queue_test PROPERTIES FOLDER "Tests")
   add_test(NAME gneiss.resource-retirement-queue COMMAND gneiss_resource_retirement_queue_test)
+  set_tests_properties(gneiss.resource-retirement-queue PROPERTIES LABELS "cpu;integration")
   set_tests_properties(gneiss.resource-retirement-queue PROPERTIES TIMEOUT 30)
 
 endif()
