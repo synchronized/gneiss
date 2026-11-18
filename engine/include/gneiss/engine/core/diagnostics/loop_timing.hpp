@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <gneiss/engine/core/diagnostics/timing.hpp>
 #include <optional>
 #include <ostream>
 #include <utility>
@@ -88,43 +89,24 @@ inline constexpr std::array loop_stage_names{
     "task_submit_dispatch",
 };
 static_assert(loop_stage_names.size() == static_cast<std::size_t>(loop_stage::count));
-using timing_clock = std::chrono::steady_clock;
 using stage_times = std::array<double, static_cast<std::size_t>(loop_stage::count)>;
 inline thread_local stage_times* active_loop_times = nullptr;
 
 class loop_span final {
 public:
   explicit loop_span(loop_stage stage) noexcept
-      : loop_span(active_loop_times != nullptr
-                      ? &(*active_loop_times)[static_cast<std::size_t>(stage)]
-                      : nullptr) {}
-  explicit loop_span(double* output) noexcept
-      : output_(output),
-        started_(output_ != nullptr ? timing_clock::now() : timing_clock::time_point{}) {}
-  ~loop_span() {
-    if (output_ != nullptr) {
-      *output_ += std::chrono::duration<double, std::milli>(timing_clock::now() - started_).count();
-    }
-  }
-  loop_span(const loop_span&) = delete;
-  loop_span& operator=(const loop_span&) = delete;
+      : span_(active_loop_times != nullptr ? &(*active_loop_times)[static_cast<std::size_t>(stage)]
+                                           : nullptr) {}
+  explicit loop_span(double* output) noexcept : span_(output) {}
 
 private:
-  double* output_;
-  timing_clock::time_point started_;
+  timing_span span_;
 };
 
 template <typename Function>
 decltype(auto) measure(loop_stage stage,
                        Function&& function) noexcept(noexcept(std::forward<Function>(function)())) {
   const loop_span span(stage);
-  return std::forward<Function>(function)();
-}
-
-template <typename Function>
-decltype(auto) measure(double* output,
-                       Function&& function) noexcept(noexcept(std::forward<Function>(function)())) {
-  const loop_span span(output);
   return std::forward<Function>(function)();
 }
 

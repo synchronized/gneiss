@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/core/logging/export.hpp>
 
 #include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/core/logging/sink.hpp>
@@ -26,16 +27,16 @@ class default_service_binding;
  * Sink 不得重入 flush/close；默认 Logger 与连接均不保活服务。 */
 class service final {
 public:
-  GNEISS_API explicit service(service_options = {});
-  GNEISS_API ~service();
+  GNEISS_LOGGING_API explicit service(service_options = {});
+  GNEISS_LOGGING_API ~service();
   service(const service&) = delete;
   service& operator=(const service&) = delete;
-  GNEISS_API logger get_logger(std::string_view channel) const;
-  GNEISS_API sink_connection attach(std::unique_ptr<sink>, sink_options = {});
-  GNEISS_API void set_level(level);
-  GNEISS_API void flush();
-  GNEISS_API void close();
-  GNEISS_API service_metrics metrics() const noexcept;
+  GNEISS_LOGGING_API logger get_logger(std::string_view channel) const;
+  GNEISS_LOGGING_API sink_connection attach(std::unique_ptr<sink>, sink_options = {});
+  GNEISS_LOGGING_API void set_level(level);
+  GNEISS_LOGGING_API void flush();
+  GNEISS_LOGGING_API void close();
+  GNEISS_LOGGING_API service_metrics metrics() const noexcept;
 
 private:
   friend class default_service_binding;

@@ -24,14 +24,8 @@ set_target_properties(gneiss_log_queue_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.log-queue COMMAND gneiss_log_queue_test)
 set_tests_properties(gneiss.log-queue PROPERTIES LABELS "cpu;integration")
 
-add_executable(gneiss_logging_service_test logging_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/logger.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/sink_connection.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/default_service.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp")
-target_compile_definitions(gneiss_logging_service_test PRIVATE GNEISS_STATIC_DEFINE)
-target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_base gneiss_libassert Threads::Threads)
+add_executable(gneiss_logging_service_test logging_service_test.cpp)
+target_link_libraries(gneiss_logging_service_test PRIVATE gneiss_logging gneiss_libassert)
 gneiss_target_compile_warnings(gneiss_logging_service_test)
 gneiss_target_output_directories(gneiss_logging_service_test)
 set_target_properties(gneiss_logging_service_test PROPERTIES FOLDER "Tests")
@@ -46,5 +40,20 @@ foreach(mode IN ITEMS oom unexpected)
   set_tests_properties(gneiss.log-callback-fatal-${mode} PROPERTIES LABELS "cpu;integration;death")
 endforeach()
 
-add_test(NAME gneiss.logging-duplicate-binding-contract COMMAND gneiss_logging_service_test duplicate)
+add_test(NAME gneiss.logging-duplicate-binding-contract COMMAND gneiss_logging_contract_test duplicate)
 set_tests_properties(gneiss.logging-duplicate-binding-contract PROPERTIES LABELS "cpu;integration;death")
+
+# libassert 以静态库构建；失败处理器必须与被测断言在同一模块。
+# 仅此死亡测试夹具编译本地实现，普通服务测试链接生产 logging 模块。
+add_executable(gneiss_logging_contract_test logging_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/logger.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/sink_connection.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/default_service.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp")
+target_compile_definitions(gneiss_logging_contract_test PRIVATE GNEISS_LOGGING_STATIC_DEFINE)
+target_link_libraries(gneiss_logging_contract_test PRIVATE gneiss_base gneiss_libassert Threads::Threads)
+gneiss_target_compile_warnings(gneiss_logging_contract_test)
+gneiss_target_output_directories(gneiss_logging_contract_test)
+set_target_properties(gneiss_logging_contract_test PROPERTIES FOLDER "Tests")
+set_tests_properties(gneiss.logging-duplicate-binding-contract PROPERTIES TIMEOUT 15)

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/core/logging/export.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
@@ -19,10 +20,10 @@ class logger {
 public:
   logger() = default;
   /** 持有频道名，调用时使用默认服务；允许动态文本，构造可能分配。 */
-  GNEISS_API explicit logger(std::string_view channel);
-  [[nodiscard]] GNEISS_API bool enabled(level severity) const;
+  GNEISS_LOGGING_API explicit logger(std::string_view channel);
+  [[nodiscard]] GNEISS_LOGGING_API bool enabled(level severity) const;
   /** 内部结构化记录；保留上下文/错误码，空来源和类别使用频道。文本借用至返回。 */
-  GNEISS_API void write(message_view message) const;
+  GNEISS_LOGGING_API void write(message_view message) const;
   template <class... Args>
   void write(level severity, std::format_string<Args...> format, Args&&... args) const {
     if (enabled(severity))
@@ -51,8 +52,8 @@ private:
   friend class service;
   logger(std::weak_ptr<detail::service_state> state, string_name channel)
       : state_(std::move(state)), channel_(channel) {}
-  GNEISS_API std::shared_ptr<detail::service_state> resolve() const;
-  GNEISS_API void submit(level severity, std::string_view text) const;
+  GNEISS_LOGGING_API std::shared_ptr<detail::service_state> resolve() const;
+  GNEISS_LOGGING_API void submit(level severity, std::string_view text) const;
   bool use_default_{};
   std::weak_ptr<detail::service_state> state_;
   string_name channel_;

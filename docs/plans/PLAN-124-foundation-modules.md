@@ -26,7 +26,7 @@ Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、�
 - [x] P1：基础目标与符号归属。完整 Math；Base 纳入基础值与身份实现；模块独立导出控制。
 - [x] P2：Data/Meta。分离 property_path 的数据定义与运行时解析，移出 Data 的反射 traits；
   独立 Meta/Serialization/JSON 目标，迁移基础测试链接。
-- [ ] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
+- [x] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
 - [ ] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
 - [ ] P5：领域归属。entity_id、业务诊断、编辑策略移回领域，Resource/功能目标各自管理源码。
 - [ ] P6：最终装配。静态/共享、安装包、真实消费者、跨模块身份与全量相关回归；同步当前文档。
@@ -77,3 +77,9 @@ variant traits。Meta/Serialization/JSON 分别有独立目标和导出控制；
 纯反射及 JSON 消费者直接链接对应模块，资源注册集成测试继续链接 Engine。
 共享相关 14 项测试、静态 Archive/JSON 两项测试与 Engine 集成构建通过；跨 DLL 默认注册表
 身份检查通过。完整安装和平台矩阵仍随 P6 验收。
+
+2026-11-19：P3 完成。Logging 与 Tasks 独立动态/静态目标，拥有专属导出与安装归属。
+默认日志服务仅由 Logging 拥有；普通服务测试链接生产模块。libassert 的静态失败处理器不能
+跨 DLL 注入，故仅断言死亡测试使用同模块源码夹具，明确区别于普通行为测试。
+Tasks 只使用通用 timing，不再包含场景/渲染阶段；线程后端头移入 src。
+共享/静态日志和调度行为测试、共享断言契约测试、Engine 接入构建通过。

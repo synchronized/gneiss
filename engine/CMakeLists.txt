@@ -60,11 +60,6 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/src/core/version.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/detail/canonical_type_name.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/input/types.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/service.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/logger.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/sink_connection.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/logging/default_service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/logging/record.hpp"
 )
@@ -372,7 +367,7 @@ if(WIN32 AND BUILD_SHARED_LIBS AND granit_runtime_is_imported AND granit_runtime
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC gneiss_base gneiss_math gneiss_data gneiss_meta gneiss_serialization_json $<BUILD_INTERFACE:gneiss_events>)
+target_link_libraries(gneiss_engine PUBLIC gneiss_logging gneiss_base gneiss_math gneiss_data gneiss_meta gneiss_serialization_json $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

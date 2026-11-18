@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/diagnostics/loop_timing.hpp>
+#include "task_platform.hpp"
 #include <gneiss/engine/core/diagnostics/profiling.hpp>
+#include <gneiss/engine/core/diagnostics/timing.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/tasks/task_platform.hpp>
 
 #include <algorithm>
 #include <deque>
@@ -290,7 +290,7 @@ submit_result task_scheduler::submit(task_description description, task_function
   }
   std::unique_lock lock(impl_->mutex, std::defer_lock);
   gneiss::measure(timings != nullptr ? &timings->lock_ms : nullptr, [&] { lock.lock(); });
-  const loop_span work(timings != nullptr ? &timings->work_ms : nullptr);
+  const timing_span work(timings != nullptr ? &timings->work_ms : nullptr);
   const auto reject = [&](submit_result result) {
     ++impl_->counters.rejected;
     return result;

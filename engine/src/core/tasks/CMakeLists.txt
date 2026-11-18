@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
-add_library(gneiss_tasks STATIC task_scheduler.cpp)
+add_library(gneiss_tasks task_scheduler.cpp)
 add_library(gneiss::tasks ALIAS gneiss_tasks)
 if(COMMAND gneiss_target_profiling)
   gneiss_target_profiling(gneiss_tasks)
@@ -21,3 +21,7 @@ endif()
 
 gneiss_target_compile_warnings(gneiss_tasks)
 gneiss_target_output_directories(gneiss_tasks)
+target_compile_definitions(gneiss_tasks PRIVATE GNEISS_BUILDING_TASKS
+  PUBLIC $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_TASKS_STATIC_DEFINE>)
+set_target_properties(gneiss_tasks PROPERTIES EXPORT_NAME tasks POSITION_INDEPENDENT_CODE ON
+  CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)

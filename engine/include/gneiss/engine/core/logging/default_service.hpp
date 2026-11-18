@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/logging/export.hpp>
 
 #include <gneiss/engine/core/logging/service.hpp>
 
@@ -8,11 +9,11 @@ namespace gneiss::logging {
 /** 宿主作用域安装默认路由；重复安装触发断言。不得在生产者运行期间替换路由。 */
 class default_service_binding final {
 public:
-  GNEISS_API explicit default_service_binding(service&);
-  GNEISS_API ~default_service_binding();
+  GNEISS_LOGGING_API explicit default_service_binding(service&);
+  GNEISS_LOGGING_API ~default_service_binding();
   default_service_binding(const default_service_binding&) = delete;
   default_service_binding& operator=(const default_service_binding&) = delete;
-  GNEISS_API void reset() noexcept;
+  GNEISS_LOGGING_API void reset() noexcept;
 
 private:
   std::weak_ptr<detail::service_state> state_;

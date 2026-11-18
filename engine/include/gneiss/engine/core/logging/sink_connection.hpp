@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/core/logging/export.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
 
@@ -18,9 +19,9 @@ class service;
 class sink_connection {
 public:
   sink_connection() = default;
-  GNEISS_API void disconnect() const;
-  GNEISS_API bool connected() const;
-  GNEISS_API void set_level(level) const;
+  GNEISS_LOGGING_API void disconnect() const;
+  GNEISS_LOGGING_API bool connected() const;
+  GNEISS_LOGGING_API void set_level(level) const;
 
 private:
   friend class service;

@@ -32,7 +32,7 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion
 )
 install(
-  TARGETS gneiss_engine gneiss_math gneiss_base gneiss_data
+  TARGETS gneiss_engine gneiss_logging gneiss_tasks gneiss_math gneiss_base gneiss_data
     gneiss_meta gneiss_serialization gneiss_serialization_json
   EXPORT gneissTargets
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"

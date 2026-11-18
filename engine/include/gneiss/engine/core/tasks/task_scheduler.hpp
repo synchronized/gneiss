@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/core/tasks/export.hpp>
 
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
 
@@ -133,31 +134,33 @@ public:
 class task_scheduler final : public task_executor {
 public:
   using task_function = std::function<task_outcome(const task_context&)>;
-  explicit task_scheduler(scheduler_options options = {});
-  ~task_scheduler() override;
+  GNEISS_TASKS_API explicit task_scheduler(scheduler_options options = {});
+  GNEISS_TASKS_API ~task_scheduler() override;
   task_scheduler(const task_scheduler&) = delete;
   task_scheduler& operator=(const task_scheduler&) = delete;
-  [[nodiscard]] task_scope make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) override;
-  [[nodiscard]] serial_queue make_serial_queue(task_scope scope);
-  [[nodiscard]] submit_result submit(task_description description, task_function function,
-                                     task_handle& output) override;
-  [[nodiscard]] bool cancel(task_handle task) override;
-  void cancel_scope(task_scope scope) override;
-  [[nodiscard]] bool idle(task_scope scope) const override;
+  [[nodiscard]] GNEISS_TASKS_API task_scope
+  make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) override;
+  [[nodiscard]] GNEISS_TASKS_API serial_queue make_serial_queue(task_scope scope);
+  [[nodiscard]] GNEISS_TASKS_API submit_result submit(task_description description,
+                                                      task_function function,
+                                                      task_handle& output) override;
+  [[nodiscard]] GNEISS_TASKS_API bool cancel(task_handle task) override;
+  GNEISS_TASKS_API void cancel_scope(task_scope scope) override;
+  [[nodiscard]] GNEISS_TASKS_API bool idle(task_scope scope) const override;
   /// 取消并等待该作用域，丢弃尚未消费的结果。池内调用返回 false，不发生自等待。
-  [[nodiscard]] bool close_scope(task_scope scope) override;
-  std::size_t poll(task_scope scope, std::vector<task_completion>& output,
-                   std::size_t budget = 64U) override;
-  [[nodiscard]] bool query(task_handle task, task_completion& output) const;
-  [[nodiscard]] scheduler_stats stats() const;
-  [[nodiscard]] execution_mode mode() const noexcept override;
+  [[nodiscard]] GNEISS_TASKS_API bool close_scope(task_scope scope) override;
+  GNEISS_TASKS_API std::size_t poll(task_scope scope, std::vector<task_completion>& output,
+                                    std::size_t budget = 64U) override;
+  [[nodiscard]] GNEISS_TASKS_API bool query(task_handle task, task_completion& output) const;
+  [[nodiscard]] GNEISS_TASKS_API scheduler_stats stats() const;
+  [[nodiscard]] GNEISS_TASKS_API execution_mode mode() const noexcept override;
   /// 仅协作模式所属宿主线程调用，不允许嵌套驱动任何调度器。
-  [[nodiscard]] drive_result run_ready(drive_budget budget = {});
-  void request_stop();
-  [[nodiscard]] bool stopped() const;
+  [[nodiscard]] GNEISS_TASKS_API drive_result run_ready(drive_budget budget = {});
+  GNEISS_TASKS_API void request_stop();
+  [[nodiscard]] GNEISS_TASKS_API bool stopped() const;
   /// 请求取消并尝试回收；尚有运行任务时返回 false，不阻塞。
-  [[nodiscard]] bool try_close_scope(task_scope scope);
-  void stop();
+  [[nodiscard]] GNEISS_TASKS_API bool try_close_scope(task_scope scope);
+  GNEISS_TASKS_API void stop();
 
 private:
   struct implementation;
