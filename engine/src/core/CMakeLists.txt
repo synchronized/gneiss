@@ -1,13 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-# 数学使用要求独立传播，平台和任务不依赖 GLM。
-add_library(gneiss_math INTERFACE)
-add_library(gneiss::math ALIAS gneiss_math)
-target_include_directories(gneiss_math INTERFACE
-  "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/engine/include>")
-target_compile_features(gneiss_math INTERFACE cxx_std_20)
-target_link_libraries(gneiss_math INTERFACE gneiss_math_dependency)
+add_subdirectory(math)
 
 add_library(gneiss_events INTERFACE)
 add_library(gneiss::events ALIAS gneiss_events)

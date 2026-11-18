@@ -708,3 +708,6 @@
 - [PLAN-120：平台 IPC 与反射协议消息](plans/PLAN-120-ipc-protocol-boundaries.md)
 - [ADR-124：平台 IPC 与宿主协议分离](decisions/ADR-124-ipc-protocol-boundaries.md)
 - [平台 IPC](reference/platform-ipc.md)
+
+- [PLAN-124：基础模块与构建归属](plans/PLAN-124-foundation-modules.md)
+- [ADR-128：分层目录与完整领域构建目标](decisions/ADR-128-foundation-modules.md)

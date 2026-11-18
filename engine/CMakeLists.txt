@@ -94,9 +94,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/variant_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/reference_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/object_ops.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/math/transform.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/math/transform.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/math/camera.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/math/camera.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/registration.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/metadata.hpp"
@@ -395,7 +393,7 @@ if(WIN32 AND BUILD_SHARED_LIBS AND granit_runtime_is_imported AND granit_runtime
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_core> $<BUILD_INTERFACE:gneiss_math> $<BUILD_INTERFACE:gneiss_events>)
+target_link_libraries(gneiss_engine PUBLIC $<BUILD_INTERFACE:gneiss_core> gneiss_math $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

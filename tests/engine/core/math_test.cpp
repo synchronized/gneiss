@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/math/aabb3.hpp>
-#include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/meta/type.hpp>
 #include <cmath>
+#include <gneiss/engine/core/math/aabb3.hpp>
+#include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 #include <limits>
 #include <type_traits>
 
@@ -88,5 +88,17 @@ int main() {
     return 15;
   auto invalid = parent;
   invalid.rotation = quaternion_xyzw(0, 0, 0, 0);
+  // 独立 Math 消费者同时调用两个实现文件，验证完整链接能力与失败输出契约。
+  matrix4 model{1.0F}, normal{1.0F};
+  if (!model_and_normal_matrices(parent, model, normal) || !near(model[3].x, 10) ||
+      !near(model[0].y, 2))
+    return 16;
+  matrix4 projection{1.0F};
+  const camera_settings camera{1.0F, 0.1F, 100.0F};
+  if (!camera.valid() || perspective_rh_zo(camera, 1.5F, projection).failed())
+    return 17;
+  const auto saved_projection = projection;
+  if (perspective_rh_zo(camera, 0.0F, projection).ok() || projection != saved_projection)
+    return 18;
   return is_valid_transform(parent) && !is_valid_transform(invalid) ? 0 : 4;
 }

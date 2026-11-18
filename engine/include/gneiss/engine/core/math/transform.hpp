@@ -3,8 +3,10 @@
 
 #pragma once
 
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/math/export.hpp>
+
 #include <gneiss/engine/core/math/functions.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
 
 #include <algorithm>
 #include <string_view>
@@ -37,8 +39,9 @@ inline matrix4 model_matrix(const transform& value) noexcept {
          glm::scale(glm::mat4_cast(value.rotation), value.scale);
 }
 /** 使用逆转置缩放与旋转变换单位法线，并重新归一化。 */
-[[nodiscard]] vector3 transform_normal(const vector3& normal, const transform& value) noexcept;
+[[nodiscard]] GNEISS_MATH_API vector3 transform_normal(const vector3& normal,
+                                                       const transform& value) noexcept;
 /** 从 TRS 构造 Model 与逆转置 Normal Matrix；拒绝非有限值、零缩放或无效旋转。 */
-[[nodiscard]] bool model_and_normal_matrices(const transform& value, matrix4& model,
-                                             matrix4& normal) noexcept;
+[[nodiscard]] GNEISS_MATH_API bool model_and_normal_matrices(const transform& value, matrix4& model,
+                                                             matrix4& normal) noexcept;
 } // namespace gneiss::math
