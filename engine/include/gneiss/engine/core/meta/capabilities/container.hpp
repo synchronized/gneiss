@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/meta/export.hpp>
 
 #include <gneiss/engine/core/meta/type.hpp>
 #include <utility>
@@ -19,7 +20,7 @@ protected:
   meta::type type_;
 
 private:
-  [[nodiscard]] GNEISS_API meta::type element_type_impl() const;
+  [[nodiscard]] GNEISS_META_API meta::type element_type_impl() const;
 
 public:
   container() = default;
@@ -34,7 +35,8 @@ public:
   }
   /** 保留编译期可写性；类型/注册表不匹配返回 invalid_argument，不支持访问返回 unsupported。 */
   template <bool Mutable>
-  [[nodiscard]] GNEISS_API result<View<Mutable>> bind(const basic_instance<Mutable>& source) const;
+  [[nodiscard]] GNEISS_META_API result<View<Mutable>>
+  bind(const basic_instance<Mutable>& source) const;
 };
 using associative = container<type_kind::associative, basic_associative_view>;
 using optional = container<type_kind::optional, basic_optional_view>;

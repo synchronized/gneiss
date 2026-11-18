@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/types/value.hpp>
 #include <array>
+#include <gneiss/engine/core/data/value.hpp>
 #include <limits>
 #include <type_traits>
 #include <utility>

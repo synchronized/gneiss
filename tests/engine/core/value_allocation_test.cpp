@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/value_edit.hpp>
 #include <array>
 #include <cstdlib>
+#include <gneiss/engine/core/data/value_edit.hpp>
+#include <gneiss/engine/error.hpp>
 #include <new>
 
 // 独立编译待测实现，避免依赖跨 DLL 的 operator new 替换行为。

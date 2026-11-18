@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/serialization/export.hpp>
 
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
-#include <gneiss/engine/core/types/ref.hpp>
-#include <gneiss/engine/result.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
+#include <gneiss/engine/core/types/ref.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/result.hpp>
 
 #include <string_view>
 
@@ -34,7 +35,7 @@ class context_base {
   mutable operation_state* state_{};
 
 public:
-  [[nodiscard]] GNEISS_API std::string_view property_path() const noexcept;
+  [[nodiscard]] GNEISS_SERIALIZATION_API std::string_view property_path() const noexcept;
 
 protected:
   context_base() = default;
@@ -47,7 +48,7 @@ public:
   explicit context_base(std::size_t maximum_depth) noexcept : maximum_depth_(maximum_depth) {}
   context_base(const context_base&) = delete;
   context_base& operator=(const context_base&) = delete;
-  [[nodiscard]] GNEISS_API result<meta::registry_ref> registry() const;
+  [[nodiscard]] GNEISS_SERIALIZATION_API result<meta::registry_ref> registry() const;
   [[nodiscard]] std::size_t maximum_depth() const noexcept { return maximum_depth_; }
 };
 }

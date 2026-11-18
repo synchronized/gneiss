@@ -48,7 +48,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/src/core/identifier_conversion.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/guid.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/string_name.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/value.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/data/value.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/traits/type_name.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/traits/type_identity.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/error.hpp"
@@ -58,8 +58,6 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/entity_id.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/type_id.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/version.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/types/value.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/value_edit.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/detail/canonical_type_name.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/input/types.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.cpp"
@@ -95,8 +93,6 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/type_types.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/type_definition.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/registry.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/meta/instance.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/meta/object.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/object.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/object_type.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/instance.hpp"
@@ -111,26 +107,18 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/optional_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/variant_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/reference_view.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/meta/registry.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/transform_properties.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/builtin_registration.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/builtin_registration.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/math_registration.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/detail/json_adapter.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/detail/context_access.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/diagnostic.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/policy.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/context.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/context.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/serialization.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/serialization.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/value.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/traversal.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/reader.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/writer.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/detail/traversal.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/detail/typed_decode.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/core/serialization/json.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/serialization/json.hpp"
 )
 
@@ -384,7 +372,7 @@ if(WIN32 AND BUILD_SHARED_LIBS AND granit_runtime_is_imported AND granit_runtime
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC gneiss_base gneiss_math $<BUILD_INTERFACE:gneiss_events>)
+target_link_libraries(gneiss_engine PUBLIC gneiss_base gneiss_math gneiss_data gneiss_meta gneiss_serialization_json $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine

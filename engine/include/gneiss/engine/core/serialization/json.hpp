@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/serialization/json_export.hpp>
 
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
@@ -18,21 +19,21 @@ using meta::const_instance;
 using meta::instance;
 using meta::registry_ref;
 /** 类型擦除入口；调用方保证对象类型。反射访问始终使用传入的冻结注册表。 */
-GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
+GNEISS_JSON_API result<std::vector<std::byte>, serialization::diagnostic>
 encode_object(const write_context&, type_id, const void*);
-GNEISS_API result<ref<void>, serialization::diagnostic> decode_object(const read_context&, type_id,
-                                                                      std::span<const std::byte>);
+GNEISS_JSON_API result<ref<void>, serialization::diagnostic>
+decode_object(const read_context&, type_id, std::span<const std::byte>);
 
 /** 编解码任意反射视图；解码调用方提供临时目标，失败不承诺恢复目标。 */
-GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
+GNEISS_JSON_API result<std::vector<std::byte>, serialization::diagnostic>
 encode_instance(const write_context&, const const_instance&);
-GNEISS_API result<void, serialization::diagnostic> read_into(const read_context&, const instance&,
-                                                             std::span<const std::byte>);
+GNEISS_JSON_API result<void, serialization::diagnostic>
+read_into(const read_context&, const instance&, std::span<const std::byte>);
 /** 使用视图绑定的注册表，包含独立注册表；不重新查询默认表。 */
-GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
+GNEISS_JSON_API result<std::vector<std::byte>, serialization::diagnostic>
 encode_instance(const const_instance&);
-GNEISS_API result<void, serialization::diagnostic> read_into(const instance&,
-                                                             std::span<const std::byte>);
+GNEISS_JSON_API result<void, serialization::diagnostic> read_into(const instance&,
+                                                                  std::span<const std::byte>);
 /** 返回编码后的字节；未知类型不隐式注册。 */
 template <class T>
 [[nodiscard]] result<std::vector<std::byte>, serialization::diagnostic>

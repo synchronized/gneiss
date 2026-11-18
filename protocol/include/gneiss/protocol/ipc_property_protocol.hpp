@@ -9,8 +9,8 @@
 
 #include <gneiss/protocol/message.hpp>
 
+#include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/value.hpp>
 
 #include <array>
 #include <cstdint>

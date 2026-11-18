@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/meta/export.hpp>
 
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
@@ -40,36 +41,37 @@ public:
   [[nodiscard]] gneiss::guid guid() const noexcept { return type_.guid(); }
   [[nodiscard]] gneiss::type_id type_id() const noexcept { return type_.id(); }
   /** 类型擦除入口，调用方保证类型与地址匹配且目标仍然存活。 */
-  static GNEISS_API result<basic_instance> from_object(registry_ref, gneiss::type_id, pointer);
+  static GNEISS_META_API result<basic_instance> from_object(registry_ref, gneiss::type_id, pointer);
   /** 从已解析类型借用对象；支持无 C++ ID 的动态描述，调用方保证地址与描述匹配。 */
-  static GNEISS_API result<basic_instance> from_object(meta::type, pointer);
+  static GNEISS_META_API result<basic_instance> from_object(meta::type, pointer);
   static result<basic_instance> from_object(gneiss::type_id id, pointer object) {
     return from_object(default_registry(), id, object);
   }
   [[nodiscard]] const_instance as_const() const noexcept;
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
-  [[nodiscard]] GNEISS_API result<value> read_value() const;
-  [[nodiscard]] GNEISS_API result<pointer> object_data() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<value> read_value() const;
+  [[nodiscard]] GNEISS_META_API result<pointer> object_data() const noexcept;
   /** 查询能力并绑定本实例；返回类型保留当前只读/可写属性。 */
   template <class Capability> [[nodiscard]] auto capability() const {
     return type_.template capability<Capability>().bind(*this);
   }
-  [[nodiscard]] GNEISS_API result<basic_sequence_view<Mutable>> as_sequence() const noexcept;
-  [[nodiscard]] GNEISS_API result<basic_associative_view<Mutable>> as_associative() const noexcept;
-  [[nodiscard]] GNEISS_API result<basic_optional_view<Mutable>> as_optional() const noexcept;
-  [[nodiscard]] GNEISS_API result<basic_reference_view<Mutable>> as_reference() const noexcept;
-  [[nodiscard]] GNEISS_API result<basic_variant_view<Mutable>> as_variant() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<basic_sequence_view<Mutable>> as_sequence() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<basic_associative_view<Mutable>>
+  as_associative() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<basic_optional_view<Mutable>> as_optional() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<basic_reference_view<Mutable>> as_reference() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<basic_variant_view<Mutable>> as_variant() const noexcept;
   [[nodiscard]] bool requires_replacement() const noexcept
     requires(Mutable)
   {
     return parent_ && !writable_ && kind() != type_kind::scalar;
   }
   /** 在独立候选上初始化，成功后交给 setter；初始化失败不调用 setter。要求有效实例。 */
-  [[nodiscard]] GNEISS_API error replace(const std::function<error(const instance&)>&) const
+  [[nodiscard]] GNEISS_META_API error replace(const std::function<error(const instance&)>&) const
     requires(Mutable);
   /** 要求有效目标实例；类型/内容不匹配、能力缺失及 setter 业务拒绝仍返回错误。 */
-  [[nodiscard]] GNEISS_API error assign(const value&) const
+  [[nodiscard]] GNEISS_META_API error assign(const value&) const
     requires(Mutable);
   template <class T>
     requires(Mutable && detail::reflected_value_kind<std::remove_cv_t<T>>() != value_kind::invalid)
@@ -77,9 +79,9 @@ public:
     return assign(detail::scalar_value(input));
   }
   /** 要求有效的来源与目标实例。普通对象按值复制；引用共享控制块；受约束属性调用 setter。 */
-  [[nodiscard]] GNEISS_API error assign(const const_instance&) const
+  [[nodiscard]] GNEISS_META_API error assign(const const_instance&) const
     requires(Mutable);
-  [[nodiscard]] GNEISS_API error assign_object(gneiss::type_id, void*) const
+  [[nodiscard]] GNEISS_META_API error assign_object(gneiss::type_id, void*) const
     requires(Mutable);
 
 private:
@@ -97,7 +99,7 @@ private:
   template <bool> friend class basic_optional_view;
   template <bool> friend class basic_variant_view;
   template <bool> friend class basic_reference_view;
-  static GNEISS_API basic_instance from_access(registry_ref, const type_ops&, pointer);
+  static GNEISS_META_API basic_instance from_access(registry_ref, const type_ops&, pointer);
   [[nodiscard]] const type_ops* access() const noexcept { return type_.access_; }
   [[nodiscard]] void* mutable_data() const noexcept
     requires(Mutable)

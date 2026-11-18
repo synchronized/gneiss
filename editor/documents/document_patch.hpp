@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "documents/scene_document_snapshot.hpp"
-#include <gneiss/engine/core/value_edit.hpp>
+#include <gneiss/engine/core/data/value_edit.hpp>
 namespace gneiss::editor {
 /** 对象插入、删除及顺序变化保留对象记录。 */
 struct document_object_change {

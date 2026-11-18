@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/meta/export.hpp>
 
 #include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
@@ -14,8 +15,8 @@ public:
       gneiss::guid::literal("ba2a0ea8-d167-428d-895e-9dd517bdc907");
   virtual ~object() = default;
   /** 返回实际类型；未注册仍可查询静态能力，无静态描述时返回空句柄。 */
-  [[nodiscard]] GNEISS_API meta::type dynamic_type() const;
-  [[nodiscard]] GNEISS_API meta::type dynamic_type(const registry_ref&) const;
+  [[nodiscard]] GNEISS_META_API meta::type dynamic_type() const;
+  [[nodiscard]] GNEISS_META_API meta::type dynamic_type(const registry_ref&) const;
   virtual const void* dynamic_address() const noexcept = 0;
 
 protected:

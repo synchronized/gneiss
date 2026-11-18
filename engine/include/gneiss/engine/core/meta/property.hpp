@@ -2,16 +2,18 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/core/data/property_id.hpp>
+#include <gneiss/engine/core/meta/export.hpp>
 
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/meta/metadata.hpp>
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
 #include <gneiss/engine/core/meta/type_types.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/ref.hpp>
-#include <gneiss/engine/result.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
-#include <gneiss/engine/core/types/value.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/result.hpp>
 
 #include <concepts>
 #include <cstdint>
@@ -29,19 +31,6 @@ struct type_ops;
 namespace detail {
 struct property_record;
 }
-/** 类型内部的字段身份，零无效。 */
-class property_id final {
-public:
-  constexpr property_id() noexcept = default;
-  explicit constexpr property_id(std::uint32_t value) noexcept : value_(value) {}
-  [[nodiscard]] constexpr std::uint32_t get() const { return value_; }
-  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != 0; }
-  friend constexpr bool operator==(property_id, property_id) noexcept = default;
-
-private:
-  std::uint32_t value_ = 0;
-};
-inline constexpr property_id null_property_id{};
 /** 注册时约束内存读写；消费侧查询实际 capabilities。 */
 enum class property_access : std::uint8_t { read_write, read_only };
 // NOLINTNEXTLINE(performance-enum-size): 保留完整 ABI 标志位。
@@ -82,21 +71,21 @@ public:
   template <class T> [[nodiscard]] const T* extension() const noexcept {
     return static_cast<const T*>(extension(runtime_type_of<T>()));
   }
-  [[nodiscard]] GNEISS_API const void* extension(gneiss::type_id) const noexcept;
-  [[nodiscard]] GNEISS_API property_id id() const noexcept;
-  [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
-  [[nodiscard]] GNEISS_API gneiss::guid declaring_type() const noexcept;
-  [[nodiscard]] GNEISS_API gneiss::type_id declaring_type_id() const noexcept;
-  [[nodiscard]] GNEISS_API meta::type type() const;
-  [[nodiscard]] GNEISS_API property_capabilities capabilities() const noexcept;
-  [[nodiscard]] GNEISS_API result<const_instance> get(const const_instance&) const;
-  [[nodiscard]] GNEISS_API result<instance> get(const instance&) const;
+  [[nodiscard]] GNEISS_META_API const void* extension(gneiss::type_id) const noexcept;
+  [[nodiscard]] GNEISS_META_API property_id id() const noexcept;
+  [[nodiscard]] GNEISS_META_API std::string_view name() const noexcept;
+  [[nodiscard]] GNEISS_META_API gneiss::guid declaring_type() const noexcept;
+  [[nodiscard]] GNEISS_META_API gneiss::type_id declaring_type_id() const noexcept;
+  [[nodiscard]] GNEISS_META_API meta::type type() const;
+  [[nodiscard]] GNEISS_META_API property_capabilities capabilities() const noexcept;
+  [[nodiscard]] GNEISS_META_API result<const_instance> get(const const_instance&) const;
+  [[nodiscard]] GNEISS_META_API result<instance> get(const instance&) const;
 
 private:
   friend class property_range;
   friend class cap::object;
   template <bool> friend class basic_object_view;
-  [[nodiscard]] GNEISS_API const property_binding* binding() const noexcept;
+  [[nodiscard]] GNEISS_META_API const property_binding* binding() const noexcept;
   property(registry_ref registry, const detail::property_record* record)
       : registry_(std::move(registry)), record_(record) {}
   registry_ref registry_;
@@ -111,7 +100,7 @@ public:
     using difference_type = std::ptrdiff_t;
     using iterator_category = std::forward_iterator_tag;
     iterator() = default;
-    [[nodiscard]] GNEISS_API property operator*() const noexcept;
+    [[nodiscard]] GNEISS_META_API property operator*() const noexcept;
     struct arrow_proxy {
       property value;
       const property* operator->() const noexcept { return &value; }
@@ -139,7 +128,7 @@ public:
   property_range() = default;
   [[nodiscard]] iterator begin() const noexcept { return {registry_, records_, 0}; }
   [[nodiscard]] iterator end() const noexcept { return {registry_, records_, size_}; }
-  [[nodiscard]] GNEISS_API property operator[](std::size_t index) const noexcept;
+  [[nodiscard]] GNEISS_META_API property operator[](std::size_t index) const noexcept;
   [[nodiscard]] std::size_t size() const noexcept { return size_; }
   [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
 

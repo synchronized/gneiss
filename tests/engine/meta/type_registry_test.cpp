@@ -18,14 +18,11 @@ struct reflected_object {};
 struct other_object {};
 struct unregistered_object {};
 
-static_assert(sizeof(gneiss::meta::property) ==
-              sizeof(gneiss::meta::registry_ref) + sizeof(void*));
+static_assert(sizeof(gneiss::meta::property) == sizeof(gneiss::meta::registry_ref) + sizeof(void*));
 
-static_assert(sizeof(gneiss::meta::type) ==
-              sizeof(gneiss::meta::registry_ref) + 2 * sizeof(void*));
+static_assert(sizeof(gneiss::meta::type) == sizeof(gneiss::meta::registry_ref) + 2 * sizeof(void*));
 
-static_assert(
-    std::same_as<decltype(gneiss::meta::type_of<int>()), gneiss::meta::type>);
+static_assert(std::same_as<decltype(gneiss::meta::type_of<int>()), gneiss::meta::type>);
 
 // 默认表可能首次分配；查询可能调用自定义能力，不应提前 terminate。
 static_assert(!noexcept(gneiss::meta::default_registry()));
@@ -44,8 +41,7 @@ bool typed_registration() {
   const gneiss::meta::type_definition definition{
       .guid = object_guid, .schema_version = 1, .name = "Object", .properties = {}};
   gneiss::meta::type info;
-  if (!(info = gneiss::meta::type_of<reflected_object>(registry)) ||
-      info.guid() != e::guid{} ||
+  if (!(info = gneiss::meta::type_of<reflected_object>(registry)) || info.guid() != e::guid{} ||
       gneiss::meta::register_type<reflected_object>(registry, definition).failed())
     return false;
   const auto before_freeze = info;
@@ -56,15 +52,13 @@ bool typed_registration() {
   alternate.guid = other_guid;
   if (gneiss::meta::register_type<const reflected_object&>(registry, alternate) !=
           error::invalid_argument ||
-      gneiss::meta::register_type<other_object>(registry, definition) !=
-          error::invalid_argument ||
+      gneiss::meta::register_type<other_object>(registry, definition) != error::invalid_argument ||
       gneiss::meta::register_type<reflected_object>(registry, definition) !=
           error::invalid_argument ||
       gneiss::meta::register_type<void>(registry, alternate) != error::invalid_argument)
     return false;
   alternate.type_id = e::runtime_type_of<reflected_object>();
-  if (gneiss::meta::register_type<other_object>(registry, alternate) !=
-      error::invalid_argument)
+  if (gneiss::meta::register_type<other_object>(registry, alternate) != error::invalid_argument)
     return false;
   alternate.type_id = {};
   if (gneiss::meta::register_type<other_object>(registry, alternate).failed())
@@ -86,8 +80,7 @@ bool typed_registration() {
   if (gneiss::meta::find_type(registry, e::type_id{}) || info.guid() != data_guid ||
       !(info = gneiss::meta::type_of<unregistered_object>(registry)) ||
       info.id() != e::runtime_type_of<unregistered_object>() || info.registered() || info.guid() ||
-      gneiss::meta::register_type<reflected_object>(registry, definition) !=
-          error::invalid_state)
+      gneiss::meta::register_type<reflected_object>(registry, definition) != error::invalid_state)
     return false;
   std::array<bool, 4> queried{};
   std::array<std::thread, 4> readers;
@@ -141,8 +134,8 @@ bool math_registration() {
                     ->member(m::property_id{3})
                     ->assign(e::value{e::math::vector3{0, 1, 1}});
   // 通用解码只恢复字段；相机采用边界显式检查透视范围。
-  return unchecked && !unchecked->valid() &&
-         status == e::error::invalid_argument && value.scale.x == 1;
+  return unchecked && !unchecked->valid() && status == e::error::invalid_argument &&
+         value.scale.x == 1;
 }
 bool frozen_lookup() {
   namespace e = gneiss;
@@ -234,7 +227,17 @@ bool freeze_exception_contract() {
   return property.type().capability<m::cap::sequence>().element_type() &&
          !m::find_type(registry, e::runtime_type_of<unregistered_object>());
 }
+#if defined(GNEISS_IDENTITY_TEST_MODULE)
+#ifdef _WIN32
+__declspec(dllimport)
+#endif
+gneiss::meta::registry_ref module_default_registry();
+#endif
 int main() {
+#if defined(GNEISS_IDENTITY_TEST_MODULE)
+  if (module_default_registry() != gneiss::meta::default_registry())
+    return 99;
+#endif
   if (!freeze_exception_contract())
     return 33;
   if (!frozen_lookup())
@@ -255,9 +258,8 @@ int main() {
   using gneiss::error;
   constexpr gneiss::guid object_type{gneiss::guid::from_bytes({0x20})};
   constexpr gneiss::guid scalar_type{gneiss::guid::from_bytes({0x10})};
-  const gneiss::meta::property_definition field{
-      gneiss::meta::property_id{1}, scalar_type,
-      gneiss::meta::property_access::read_write, "value"};
+  const gneiss::meta::property_definition field{gneiss::meta::property_id{1}, scalar_type,
+                                                gneiss::meta::property_access::read_write, "value"};
   const std::array duplicate_fields{field, field};
   gneiss::meta::type_definition object{object_type, {}, 1, "Object", {&field, 1}};
   gneiss::meta::type_definition scalar{scalar_type, {}, 1, "Scalar", {}};

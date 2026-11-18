@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/types/guid.hpp>
+#include <cstdint>
+#include <gneiss/engine/core/data/value_edit.hpp>
 #include <gneiss/engine/core/meta/property_path.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
-#include <gneiss/engine/core/value_edit.hpp>
-#include <cstdint>
+#include <gneiss/engine/core/types/guid.hpp>
 #include <string>
 #include <string_view>
 #include <variant>

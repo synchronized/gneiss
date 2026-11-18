@@ -56,13 +56,13 @@ meta::type cap::container<Kind, View>::element_type_impl() const {
   GNEISS_ASSERT(*this, "元素类型查询要求有效能力");
   return detail::resolve_type(type_.registry_, type_.access_->element());
 }
-template GNEISS_API meta::type
+template GNEISS_META_API meta::type
 cap::container<type_kind::sequence, basic_sequence_view>::element_type_impl() const;
-template GNEISS_API meta::type
+template GNEISS_META_API meta::type
 cap::container<type_kind::associative, basic_associative_view>::element_type_impl() const;
-template GNEISS_API meta::type
+template GNEISS_META_API meta::type
 cap::container<type_kind::optional, basic_optional_view>::element_type_impl() const;
-template GNEISS_API meta::type
+template GNEISS_META_API meta::type
 cap::container<type_kind::reference, basic_reference_view>::element_type_impl() const;
 
 template <bool Mutable>
@@ -343,44 +343,44 @@ template <bool Mutable>
 result<basic_sequence_view<Mutable>> basic_instance<Mutable>::as_sequence() const noexcept {
   return capability<cap::sequence>();
 }
-template GNEISS_API result<basic_sequence_view<false>>
+template GNEISS_META_API result<basic_sequence_view<false>>
 cap::container<type_kind::sequence, basic_sequence_view>::bind(const basic_instance<false>&) const;
-template GNEISS_API result<basic_sequence_view<true>>
+template GNEISS_META_API result<basic_sequence_view<true>>
 cap::container<type_kind::sequence, basic_sequence_view>::bind(const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_associative_view<Mutable>> basic_instance<Mutable>::as_associative() const noexcept {
   return capability<cap::associative>();
 }
-template GNEISS_API result<basic_associative_view<false>>
+template GNEISS_META_API result<basic_associative_view<false>>
 cap::container<type_kind::associative, basic_associative_view>::bind(
     const basic_instance<false>&) const;
-template GNEISS_API result<basic_associative_view<true>>
+template GNEISS_META_API result<basic_associative_view<true>>
 cap::container<type_kind::associative, basic_associative_view>::bind(
     const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_optional_view<Mutable>> basic_instance<Mutable>::as_optional() const noexcept {
   return capability<cap::optional>();
 }
-template GNEISS_API result<basic_optional_view<false>>
+template GNEISS_META_API result<basic_optional_view<false>>
 cap::container<type_kind::optional, basic_optional_view>::bind(const basic_instance<false>&) const;
-template GNEISS_API result<basic_optional_view<true>>
+template GNEISS_META_API result<basic_optional_view<true>>
 cap::container<type_kind::optional, basic_optional_view>::bind(const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_reference_view<Mutable>> basic_instance<Mutable>::as_reference() const noexcept {
   return capability<cap::reference>();
 }
-template GNEISS_API result<basic_reference_view<false>>
+template GNEISS_META_API result<basic_reference_view<false>>
 cap::container<type_kind::reference, basic_reference_view>::bind(
     const basic_instance<false>&) const;
-template GNEISS_API result<basic_reference_view<true>>
+template GNEISS_META_API result<basic_reference_view<true>>
 cap::container<type_kind::reference, basic_reference_view>::bind(const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_variant_view<Mutable>> basic_instance<Mutable>::as_variant() const noexcept {
   return capability<cap::variant>();
 }
-template GNEISS_API result<basic_variant_view<false>>
+template GNEISS_META_API result<basic_variant_view<false>>
 cap::container<type_kind::variant, basic_variant_view>::bind(const basic_instance<false>&) const;
-template GNEISS_API result<basic_variant_view<true>>
+template GNEISS_META_API result<basic_variant_view<true>>
 cap::container<type_kind::variant, basic_variant_view>::bind(const basic_instance<true>&) const;
 
 template <bool Mutable> property_range basic_object_view<Mutable>::properties() const noexcept {
@@ -401,9 +401,9 @@ result<basic_object_view<Mutable>> cap::object::bind(const basic_instance<Mutabl
       return error::unsupported;
   return basic_object_view<Mutable>{source};
 }
-template GNEISS_API result<basic_object_view<false>>
+template GNEISS_META_API result<basic_object_view<false>>
 cap::object::bind(const basic_instance<false>&) const;
-template GNEISS_API result<basic_object_view<true>>
+template GNEISS_META_API result<basic_object_view<true>>
 cap::object::bind(const basic_instance<true>&) const;
 template class basic_object_view<false>;
 template class basic_object_view<true>;

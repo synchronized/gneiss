@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/meta/export.hpp>
 
 #include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
 #include <gneiss/engine/core/meta/property.hpp>
@@ -9,7 +10,7 @@
 #include <limits>
 
 namespace gneiss::meta {
-GNEISS_API bool valid_scalar(const value&) noexcept;
+GNEISS_META_API bool valid_scalar(const value&) noexcept;
 struct scalar_ops {
   value_kind kind = value_kind::invalid;
 };

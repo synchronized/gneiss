@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/core/data/value_edit.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
-#include <gneiss/engine/core/value_edit.hpp>
 namespace gneiss::serialization {
 using namespace meta;
 namespace detail {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
 
@@ -16,4 +17,8 @@ IDENTITY_EXPORT gneiss::type_id module_integer_identity() {
 }
 IDENTITY_EXPORT gneiss::string_name module_string_identity() {
   return gneiss::string_name{"identity.test.module"};
+}
+
+IDENTITY_EXPORT gneiss::meta::registry_ref module_default_registry() {
+  return gneiss::meta::default_registry();
 }

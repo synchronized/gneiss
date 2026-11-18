@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/data/value_edit.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
-#include <gneiss/engine/core/types/value.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <array>
 #include <memory>
@@ -15,6 +16,15 @@
 namespace gneiss::meta {
 /** 稳定分支名显式配置；供视图查询和持久化使用，未配置时仍支持按索引访问。 */
 template <class T> struct variant_case_traits {};
+template <> struct variant_case_traits<property_step> {
+  static constexpr std::array<std::string_view, 4> names{"property", "index", "key", "element"};
+};
+
+template <> struct variant_case_traits<value_operation> {
+  static constexpr std::array<std::string_view, 6> names{"set",  "insert",    "erase",
+                                                         "move", "put_entry", "erase_entry"};
+};
+
 struct variant_ops {
   std::span<const type_ops* const> alternatives;
   std::span<const std::string_view> names;

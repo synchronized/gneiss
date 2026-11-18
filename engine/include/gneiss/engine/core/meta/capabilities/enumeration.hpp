@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/meta/export.hpp>
 
 #include <gneiss/engine/core/meta/type.hpp>
 #include <utility>
@@ -16,6 +17,6 @@ public:
       : type_(target.is_enum() ? std::move(target) : meta::type{}) {}
   [[nodiscard]] explicit operator bool() const noexcept { return bool(type_); }
   /** 借用注册枚举项；能力缺失或未注册返回空范围，借用期间须保活能力。 */
-  [[nodiscard]] GNEISS_API std::span<const enum_entry> entries() const noexcept;
+  [[nodiscard]] GNEISS_META_API std::span<const enum_entry> entries() const noexcept;
 };
 }

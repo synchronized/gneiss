@@ -3,6 +3,7 @@
 #include "../../support/throws.hpp"
 #include "../../support/value_result.hpp"
 #include <array>
+#include <gneiss/engine/core/data/value_edit.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
@@ -12,7 +13,6 @@
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/value_edit.hpp>
 #include <gneiss/engine/resource/asset_decoder.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
@@ -425,8 +425,8 @@ int main() {
   e::material_description material;
   std::vector<std::byte> output{std::byte{42}};
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::serialize_bytes(
-              gneiss::serialization::write_context{registry}, material),
+          gneiss::asset_file::serialize_bytes(gneiss::serialization::write_context{registry},
+                                              material),
           output, diagnostic) != e::error::invalid_handle ||
       output.size() != 1)
     return 1;
@@ -435,8 +435,8 @@ int main() {
       e::register_builtin_resource_types().failed())
     return 2;
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::serialize_bytes(
-              gneiss::serialization::write_context{registry}, material),
+          gneiss::asset_file::serialize_bytes(gneiss::serialization::write_context{registry},
+                                              material),
           output, diagnostic) != e::error::not_ready)
     return 3;
   if (gneiss::meta::registration::type<probe>(registry)
@@ -445,7 +445,7 @@ int main() {
     return 4;
   if (gneiss::meta::registration::type<probe>(registry)
           .extend(gneiss::serialization::codec<static_cast<decltype(&bad_encode)>(nullptr),
-                                                       static_cast<decltype(&bad_decode)>(nullptr)>)
+                                               static_cast<decltype(&bad_decode)>(nullptr)>)
           .commit() != e::error::invalid_argument)
     return 25;
   if (gneiss::meta::registration::type<probe>(registry)
@@ -468,8 +468,7 @@ int main() {
     return 6;
   gneiss::serialization::type_policies binding;
   if (gneiss::test_support::assign_value(
-          gneiss::serialization::find_policies(registry, e::runtime_type_of<probe>()),
-          binding)
+          gneiss::serialization::find_policies(registry, e::runtime_type_of<probe>()), binding)
           .failed() ||
       !binding.content.encode || !binding.content.decode)
     return 7;
@@ -495,8 +494,8 @@ int main() {
   material.texture_uris[0] = "asset://textures/纹理\".json";
   material.parameters.sampling[0].uv_set = 1;
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::serialize_bytes(
-              gneiss::serialization::write_context{registry}, material),
+          gneiss::asset_file::serialize_bytes(gneiss::serialization::write_context{registry},
+                                              material),
           output, diagnostic)
           .failed())
     return 10;
@@ -514,21 +513,21 @@ int main() {
   const auto saved = output;
   material.parameters.color[0] = std::numeric_limits<float>::infinity();
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::serialize_bytes(
-              gneiss::serialization::write_context{registry}, material),
+          gneiss::asset_file::serialize_bytes(gneiss::serialization::write_context{registry},
+                                              material),
           output, diagnostic) != e::error::invalid_argument ||
       output != saved)
     return 12;
   material.parameters.color[0] = 2;
   if (gneiss::test_support::assign_decoded(
-          gneiss::asset_file::serialize_bytes(
-              gneiss::serialization::write_context{registry}, material),
+          gneiss::asset_file::serialize_bytes(gneiss::serialization::write_context{registry},
+                                              material),
           output, diagnostic) != e::error::invalid_argument ||
       output != saved)
     return 13;
   for (unsigned version : {1U, 2U, 3U, 4U, 5U, 7U}) {
     const auto version_text = std::string{R"({"format":"gneiss.material","version":)"} +
-                      std::to_string(version) + R"(,"color":[1,1,1,1]})";
+                              std::to_string(version) + R"(,"color":[1,1,1,1]})";
     if (gneiss::test_support::assign_decoded(
             gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
                 gneiss::serialization::read_context{registry}, bytes(version_text)),
@@ -552,8 +551,8 @@ int main() {
       gneiss::meta::freeze(no_codec).failed())
     return 17;
   if (gneiss::test_support::assign_decoded(
-          gneiss::serialization::json::encode_bytes(
-              gneiss::serialization::write_context{no_codec}, object),
+          gneiss::serialization::json::encode_bytes(gneiss::serialization::write_context{no_codec},
+                                                    object),
           output, diagnostic)
           .failed())
     return 18;

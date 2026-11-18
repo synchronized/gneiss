@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/value_edit.hpp>
 #include <algorithm>
 #include <functional>
+#include <gneiss/engine/core/data/value_edit.hpp>
 namespace gneiss {
 namespace {
 using transform = std::function<result<value>(const value&)>;

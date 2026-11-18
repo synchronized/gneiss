@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/core/data/export.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/math/types.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/ref.hpp>
-#include <gneiss/engine/core/math/types.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <algorithm>
 #include <array>
@@ -266,6 +267,6 @@ struct variant_value_data {
   bool operator==(const variant_value_data&) const = default;
 };
 /** 检查可持久化数据树；拒绝运行时对象引用、重复字段/键和超深嵌套。 */
-[[nodiscard]] GNEISS_API error validate_persistent_value(const value&,
-                                                         std::size_t maximum_depth = 64);
+[[nodiscard]] GNEISS_DATA_API error validate_persistent_value(const value&,
+                                                              std::size_t maximum_depth = 64);
 } // namespace gneiss

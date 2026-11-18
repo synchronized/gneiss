@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/meta/export.hpp>
 
 #include <gneiss/engine/core/meta/capabilities/container.hpp>
 
@@ -10,7 +11,7 @@ class sequence : public container<type_kind::sequence, basic_sequence_view> {
 public:
   using container::container;
   /** 下列查询要求有效能力视图。 */
-  [[nodiscard]] GNEISS_API bool is_fixed_size() const noexcept;
-  [[nodiscard]] GNEISS_API bool has_identity() const noexcept;
+  [[nodiscard]] GNEISS_META_API bool is_fixed_size() const noexcept;
+  [[nodiscard]] GNEISS_META_API bool has_identity() const noexcept;
 };
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/types/value.hpp>
-#include <gneiss/engine/core/utf8.hpp>
 #include <algorithm>
 #include <cmath>
+#include <gneiss/engine/core/data/value.hpp>
+#include <gneiss/engine/core/utf8.hpp>
 #include <unordered_set>
 namespace gneiss {
 namespace {

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/types/value.hpp>
+#include <gneiss/engine/core/data/value.hpp>
 
 #include <string_view>
 

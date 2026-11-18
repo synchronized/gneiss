@@ -364,3 +364,11 @@ Application 装配位于 src/application，application_configuration.hpp 与主�
 `native_handle.hpp` 保存借用原生句柄，`surface_state.hpp` 保存只读像素尺寸和变化代次。
 交换链重建和重试状态属于 Render Backend，帧请求不携带原生句柄。详见
 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)。
+
+## 基础数据与反射模块
+
+`core/data` 保存 value、值编辑操作和属性路径数据；路径的反射解析仍属于 Meta。
+构建依赖为 Base → Math → Data → Meta → Serialization → JSON（箭头表示被下一模块依赖）。
+对应目标为 `gneiss::base/math/data/meta/serialization/serialization_json`，每份实现仅由所属
+目标编译。工具和基础测试直接链接需要的模块，不为了反射或 JSON 处理链接 Engine。
+路径类型暂保留 `meta` 命名空间，数据定义不依赖反射实现；Meta 的 traits 适配依赖 Data。

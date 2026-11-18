@@ -24,7 +24,7 @@ Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、�
 ## 实施顺序与退出条件
 
 - [x] P1：基础目标与符号归属。完整 Math；Base 纳入基础值与身份实现；模块独立导出控制。
-- [ ] P2：Data/Meta。分离 property_path 的数据定义与运行时解析，移出 Data 的反射 traits；
+- [x] P2：Data/Meta。分离 property_path 的数据定义与运行时解析，移出 Data 的反射 traits；
   独立 Meta/Serialization/JSON 目标，迁移基础测试链接。
 - [ ] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
 - [ ] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
@@ -71,3 +71,9 @@ render_camera 定向构建及测试通过。MSVC Release Base/Math 和跨 DLL �
 共享安装树 Runtime --smoke 完成场景加载、首帧与正常关闭，Base/Math DLL 随包安装。
 core-boundary 和 git diff --check 通过。静态安装消费者、Web 和跨平台验收仍未完成。
 P2—P6 尚未完成；Base 头文件与实现的物理路径归位随 P5 完成，不将目标独立等同目录迁移完毕。
+
+2026-11-19：P2 完成。Data 独立持有 value、值编辑操作和属性路径数据，Meta 保留反射解析与
+variant traits。Meta/Serialization/JSON 分别有独立目标和导出控制；Engine 不重复编译其实现。
+纯反射及 JSON 消费者直接链接对应模块，资源注册集成测试继续链接 Engine。
+共享相关 14 项测试、静态 Archive/JSON 两项测试与 Engine 集成构建通过；跨 DLL 默认注册表
+身份检查通过。完整安装和平台矩阵仍随 P6 验收。

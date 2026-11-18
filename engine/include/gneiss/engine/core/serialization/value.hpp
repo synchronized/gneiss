@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/core/serialization/export.hpp>
 
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/context.hpp>
 
 namespace gneiss::serialization {
 /** 捕获独立的数据树；内嵌引用按内容捕获，外部引用由注册策略转换为身份。 */
-GNEISS_API result<gneiss::value, diagnostic> capture_value(const write_context&,
-                                                           const meta::const_instance&);
-GNEISS_API result<gneiss::value, diagnostic> capture_value(const meta::const_instance&);
+GNEISS_SERIALIZATION_API result<gneiss::value, diagnostic>
+capture_value(const write_context&, const meta::const_instance&);
+GNEISS_SERIALIZATION_API result<gneiss::value, diagnostic>
+capture_value(const meta::const_instance&);
 /** 恢复到候选对象；失败可留下部分修改，提交与回滚由编辑操作控制。 */
-GNEISS_API diagnostic apply_value(const read_context&, const meta::instance&, const gneiss::value&);
-GNEISS_API diagnostic apply_value(const meta::instance&, const gneiss::value&);
+GNEISS_SERIALIZATION_API diagnostic apply_value(const read_context&, const meta::instance&,
+                                                const gneiss::value&);
+GNEISS_SERIALIZATION_API diagnostic apply_value(const meta::instance&, const gneiss::value&);
 
 /** 有类型的捕获入口；与视图入口共享相同 ops 和引用策略。 */
 template <class T>

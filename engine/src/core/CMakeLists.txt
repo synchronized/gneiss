@@ -3,6 +3,9 @@
 
 add_subdirectory(base)
 add_subdirectory(math)
+add_subdirectory(data)
+add_subdirectory(meta)
+add_subdirectory(serialization)
 
 add_library(gneiss_events INTERFACE)
 add_library(gneiss::events ALIAS gneiss_events)

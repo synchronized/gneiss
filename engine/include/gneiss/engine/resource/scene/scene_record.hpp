@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/types/value.hpp>
+#include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/resource/scene/prefab_description.hpp>
 namespace gneiss {
 /** 组件身份独立于类型，内容按反射冻结。 */

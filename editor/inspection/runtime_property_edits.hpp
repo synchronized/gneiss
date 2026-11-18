@@ -6,9 +6,9 @@
 
 #include "inspection/runtime_object_id.hpp"
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/value.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <array>
 #include <chrono>
@@ -75,10 +75,9 @@ public:
 
   void begin_session(std::uint64_t session_id) noexcept;
   void disconnect() noexcept;
-  [[nodiscard]] gneiss::error prepare(runtime_property_key key,
-                                              std::uint64_t expected_revision,
-                                              gneiss::value value, clock::time_point now,
-                                              runtime_property_write& output);
+  [[nodiscard]] gneiss::error prepare(runtime_property_key key, std::uint64_t expected_revision,
+                                      gneiss::value value, clock::time_point now,
+                                      runtime_property_write& output);
   [[nodiscard]] gneiss::error accept(runtime_property_write_result response);
   void expire(clock::time_point now, std::chrono::milliseconds timeout) noexcept;
   [[nodiscard]] const runtime_property_edit* find(const runtime_property_key& key) const noexcept;
