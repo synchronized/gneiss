@@ -48,16 +48,19 @@ bool sequence_capability::has_identity() const noexcept {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
   return type_.access_->get<sequence_ops>()->identity != nullptr;
 }
-meta::type sequence_capability::element_type() const {
-  GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
-  return detail::resolve_type(type_.registry_, type_.access_->get<sequence_ops>()->element());
+template <type_kind Kind, template <bool> class View>
+meta::type container_capability<Kind, View>::element_type_impl() const {
+  GNEISS_ASSERT(*this, "元素类型查询要求有效能力");
+  return detail::resolve_type(type_.registry_, type_.access_->element());
 }
-
-type type::element_type() const {
-  if (!access_ || !access_->element_ops())
-    return {};
-  return detail::resolve_type(registry_, access_->element());
-}
+template GNEISS_API meta::type
+container_capability<type_kind::sequence, basic_sequence_view>::element_type_impl() const;
+template GNEISS_API meta::type
+container_capability<type_kind::associative, basic_associative_view>::element_type_impl() const;
+template GNEISS_API meta::type
+container_capability<type_kind::optional, basic_optional_view>::element_type_impl() const;
+template GNEISS_API meta::type
+container_capability<type_kind::reference, basic_reference_view>::element_type_impl() const;
 
 template <bool Mutable>
 result<basic_instance<Mutable>>

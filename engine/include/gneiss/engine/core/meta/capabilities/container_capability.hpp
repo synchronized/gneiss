@@ -16,11 +16,20 @@ template <type_kind Kind, template <bool> class View> class container_capability
 protected:
   meta::type type_;
 
+private:
+  [[nodiscard]] GNEISS_API meta::type element_type_impl() const;
+
 public:
   container_capability() = default;
   explicit container_capability(meta::type target)
       : type_(target.kind() == Kind ? std::move(target) : meta::type{}) {}
   [[nodiscard]] explicit operator bool() const noexcept { return bool(type_); }
+  /** 要求有效能力；关联容器返回映射值，引用返回声明目标类型。variant 没有单一元素类型。 */
+  [[nodiscard]] meta::type element_type() const
+    requires(Kind != type_kind::variant)
+  {
+    return element_type_impl();
+  }
   /** 保留编译期可写性；类型/注册表不匹配返回 invalid_argument，不支持访问返回 unsupported。 */
   template <bool Mutable>
   [[nodiscard]] GNEISS_API result<View<Mutable>> bind(const basic_instance<Mutable>& source) const;

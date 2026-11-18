@@ -258,7 +258,7 @@ bool pooled_enum_names() {
   if (m::freeze(*registry).failed())
     return false;
   auto type = m::type_of<named_mode>(*registry);
-  auto entries = type.enum_entries();
+  auto entries = type.capability<gneiss::meta::enum_capability>().entries();
   const auto pooled = e::string_name::find("pooled_enum_first");
   return entries.size() == 2 && pooled && entries[0].name == "pooled_enum_first" &&
          entries[0].name.data() == pooled->view().data() && entries[1].name == "pooled_enum_second";

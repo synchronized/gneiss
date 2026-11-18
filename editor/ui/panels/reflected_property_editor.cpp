@@ -270,7 +270,7 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
       status = error::not_found;
       return false;
     }
-    choices = type.enum_entries();
+    choices = type.capability<gneiss::meta::enum_capability>().entries();
   }
   bool changed = false;
   error operation = error::success;

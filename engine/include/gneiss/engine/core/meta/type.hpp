@@ -34,8 +34,6 @@ public:
   [[nodiscard]] GNEISS_API gneiss::type_id id() const noexcept;
   [[nodiscard]] GNEISS_API gneiss::guid guid() const noexcept;
   [[nodiscard]] GNEISS_API value_kind scalar_kind() const noexcept;
-  /** 借用已注册枚举项；无注册记录或非枚举返回空范围，寿命受本句柄保护。 */
-  [[nodiscard]] GNEISS_API std::span<const enum_entry> enum_entries() const noexcept;
   /** 注册对象名称；没有注册名称时返回空字符串，借用期间须保活句柄。 */
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
   /** 未登记版本的类型返回零。 */
@@ -51,15 +49,14 @@ public:
 
   /** 同注册表内按类型身份比较；跨表比较身份时显式使用 id/guid。 */
   friend GNEISS_API bool operator==(const type&, const type&) noexcept;
-  /** 无元素能力返回空句柄。
-   * sequence/optional/reference 返回元素或静态目标类型，associative 返回映射值类型。 */
-  [[nodiscard]] GNEISS_API type element_type() const;
 
 private:
   template <bool> friend class basic_instance;
   friend struct detail::type_factory;
   friend class representation_capability;
   friend class sequence_capability;
+  friend class enum_capability;
+  template <type_kind, template <bool> class> friend class container_capability;
   registry_ref registry_;
   const type_ops* access_{};
   const detail::type_record* record_{};
@@ -71,3 +68,5 @@ GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&);
 
 #include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+
+#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>

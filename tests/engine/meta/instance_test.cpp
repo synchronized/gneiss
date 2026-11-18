@@ -181,7 +181,8 @@ bool enum_registration() {
   enum class unknown_mode { value };
   unknown_mode unknown{};
   auto unknown_view = m::view(registry, std::as_const(unknown));
-  if (!unknown_view || !unknown_view->type().enum_entries().empty())
+  if (!unknown_view || !unknown_view->type().capability<m::enum_capability>() ||
+      !unknown_view->type().capability<m::enum_capability>().entries().empty())
     return false;
   if (m::registration::type<enum_object>(registry)
           .property<&enum_object::left>(m::property_id{1}, "left")
@@ -250,37 +251,41 @@ bool enum_registration() {
       m::find_type(registry, mode_guid).id() != enum_type.id())
     return false;
   auto type = m::type_of<enum_object>(registry);
-  if (!type || type.properties()[0].type().id() != e::runtime_type_of<mode>() ||
-      type.properties()[0].type().enum_entries().size() != 2 ||
-      type.properties()[0].type().enum_entries().data() !=
-          type.properties()[1].type().enum_entries().data() ||
-      type.properties()[0].type().enum_entries()[0].name != "First" ||
-      std::get<std::int64_t>(type.properties()[0].type().enum_entries()[0].data.payload) != -1)
+  if (!type)
     return false;
-  if (!unknown_view->type().enum_entries().empty())
+  auto left_entries = type.properties()[0].type().capability<m::enum_capability>().entries();
+  auto right_entries = type.properties()[1].type().capability<m::enum_capability>().entries();
+  if (type.properties()[0].type().id() != e::runtime_type_of<mode>() ||
+      left_entries.size() != 2 || left_entries.data() != right_entries.data() ||
+      left_entries[0].name != "First" ||
+      std::get<std::int64_t>(left_entries[0].data.payload) != -1)
+    return false;
+  if (!unknown_view->type().capability<m::enum_capability>().entries().empty())
     return false;
   std::vector<mode> modes{mode::first};
   auto sequence = m::view(registry, std::as_const(modes));
   if (!sequence || sequence->type().is_enum())
     return false;
-  auto element_type = sequence->type().element_type();
+  auto element_type = sequence->type().capability<m::sequence_capability>().element_type();
   if (!element_type || !element_type.is_enum() || element_type.id() != e::runtime_type_of<mode>())
     return false;
-  auto entries = element_type.enum_entries();
+  auto entries = element_type.capability<m::enum_capability>().entries();
   auto elements = sequence->as_sequence();
   if (entries.size() != 2 || !elements)
     return false;
   auto element = elements->at(0);
-  if (!element || !element->type().is_enum() || element->type().enum_entries().empty())
+  if (!element || !element->type().is_enum() ||
+      element->type().capability<m::enum_capability>().entries().empty())
     return false;
-  if (!m::type{}.enum_entries().empty())
+  if (!m::type{}.capability<m::enum_capability>().entries().empty())
     return false;
   enum_object object;
   auto view = m::view(registry, object);
   if (!view)
     return false;
   auto field = view->member("left");
-  if (!field || !field->type().is_enum() || field->type().enum_entries().empty() ||
+  if (!field || !field->type().is_enum() ||
+      field->type().capability<m::enum_capability>().entries().empty() ||
       field->assign(e::value{std::int64_t{2}}).failed() || object.left != mode::second ||
       field->assign(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
       object.left != mode::second)
@@ -379,10 +384,11 @@ bool type_queries() {
       props[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
   auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
-  auto element = sequence.element_type();
+  auto element = sequence.capability<m::sequence_capability>().element_type();
   auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
   if (!element || !element.is_enum() || !enumeration ||
-      element.enum_entries().data() != enumeration.enum_entries().data())
+      element.capability<m::enum_capability>().entries().data() !=
+          enumeration.capability<m::enum_capability>().entries().data())
     return false;
   auto scalar = m::type_of<float>(*registry);
   if (!scalar || !m::find_type(*registry, scalar.guid()) || !m::type_of<settings>(*registry) ||
@@ -394,8 +400,9 @@ bool type_queries() {
   auto isolated = m::create_registry();
   if (!isolated || m::type_of<float>(*isolated) == scalar ||
       m::type_of<float>(*isolated).id() != scalar.id() || scalar == typed ||
-      m::type{} != m::type{} || scalar == m::type{} || m::type{}.element_type() ||
-      scalar.element_type() || element != enumeration)
+      m::type{} != m::type{} || scalar == m::type{} ||
+      m::type{}.capability<m::sequence_capability>() ||
+      scalar.capability<m::sequence_capability>() || element != enumeration)
     return false;
   const auto unregistered = m::type_of<settings>(*registry);
   if (!unregistered || unregistered.registered() || unregistered != m::type_of<settings>(*registry))
@@ -432,9 +439,19 @@ bool registered_native_queries() {
   auto check = [&]<class T>() {
     const auto native = m::type_of<T>(registry);
     const auto lookup = m::find_type(registry, e::runtime_type_of<T>());
-    return native == lookup && native.registered() && lookup.registered() &&
-           native.kind() == lookup.kind() && native.scalar_kind() == lookup.scalar_kind() &&
-           native.element_type() == lookup.element_type();
+    if (!(native == lookup && native.registered() && lookup.registered() &&
+          native.kind() == lookup.kind() && native.scalar_kind() == lookup.scalar_kind()))
+      return false;
+    using C = std::conditional_t<
+        std::is_same_v<T, sequence>, m::sequence_capability,
+        std::conditional_t<std::is_same_v<T, mapping>, m::associative_capability,
+                           std::conditional_t<std::is_same_v<T, optional>, m::optional_capability,
+                                              m::reference_capability>>>;
+    if constexpr (!std::is_same_v<T, variant>)
+      return native.template capability<C>().element_type() ==
+             lookup.template capability<C>().element_type();
+    else
+      return bool(native.template capability<m::variant_capability>());
   };
   if (!check.template operator()<sequence>() || !check.template operator()<mapping>() ||
       !check.template operator()<optional>() || !check.template operator()<reference>() ||
@@ -446,12 +463,12 @@ bool registered_native_queries() {
   const auto sequence_type =
       m::type_of<sequence>(registry).capability<gneiss::meta::sequence_capability>();
   if (!sequence_type ||
-      sequence_type.element_type() != m::type_of<sequence>(registry).element_type() ||
+      sequence_type.element_type() != m::type_of<float>(registry) ||
       m::type_of<int>(registry).capability<gneiss::meta::sequence_capability>())
     return false;
   const auto runtime = m::find_type(registry, runtime_guid);
-  if (!runtime || !runtime.registered() || runtime.id() || runtime.element_type() ||
-      runtime.kind() != m::type_kind::object)
+  if (!runtime || !runtime.registered() || runtime.id() ||
+      runtime.capability<m::sequence_capability>() || runtime.kind() != m::type_kind::object)
     return false;
   const auto count = m::type_count(registry);
   if (!count)
@@ -462,7 +479,7 @@ bool registered_native_queries() {
       return false;
     if (entry->id() == e::runtime_type_of<sequence>() &&
         (!entry->capability<gneiss::meta::sequence_capability>().is_fixed_size() ||
-         entry->element_type() != m::type_of<float>(registry)))
+         entry->capability<m::sequence_capability>().element_type() != m::type_of<float>(registry)))
       return false;
   }
   return true;
@@ -510,7 +527,7 @@ bool reference_properties() {
       field->as_reference()->get().error() != e::error::not_found ||
       field->read_value().error() != e::error::unsupported)
     return false;
-  auto target_type = field->type().element_type();
+  auto target_type = field->type().capability<m::reference_capability>().element_type();
   if (!target_type || target_type.id() != e::runtime_type_of<reference_target>())
     return false;
   auto target = e::make_ref<reference_target>();

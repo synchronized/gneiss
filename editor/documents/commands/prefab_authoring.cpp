@@ -541,7 +541,16 @@ describe_prefab_overrides(const gneiss::prefab_reference_description& reference,
         current = {};
       } else {
         text += "[" + meta::property_step_text(step) + "]";
-        auto element = current.element_type();
+        meta::type element;
+        if (std::holds_alternative<std::string>(step)) {
+          auto capability = current.capability<meta::associative_capability>();
+          if (capability)
+            element = capability.element_type();
+        } else {
+          auto capability = current.capability<meta::sequence_capability>();
+          if (capability)
+            element = capability.element_type();
+        }
         current = element;
       }
     }

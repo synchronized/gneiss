@@ -71,3 +71,16 @@ serialization、serialization-archive、reflection-json、scene_description、co
 value_edit）。MSVC Release 的 meta-instance、serialization-archive 构建、链接和测试通过。
 新增绑定测试覆盖空能力、类型/注册表不匹配、可写绑定及只读返回类型；现有容器测试经
 as_* 入口复用同一绑定实现。未运行全量/静态库/安装消费者及远端矩阵。
+
+## 后续收敛：专属类型查询（已完成）
+
+- [x] 删除 type::element_type，迁至 sequence/associative/optional/reference capability；variant 无单一元素类型。
+- [x] 删除 type::enum_entries，新增 enum_capability::entries；未注册枚举有能力但无条目。
+- [x] 迁移序列化、Prefab 路径、编辑器及测试，验证类型查询与枚举 UI 元数据。
+
+元素查询要求有效 capability；枚举 entries 对空能力或未注册类型返回空范围。保留 type::is_enum
+作为类别判断，持久身份、字段和元数据仍由 type 管理；不新增注册表或实例 view。
+
+本轮 Clang Debug 的 6 项 Meta/序列化测试及 5 项编辑器测试通过；MSVC Release 的
+meta-instance、serialization-archive 构建、链接和测试通过。验证覆盖未注册枚举能力、
+四类元素查询、枚举条目共享与编辑器消费。未运行全量、静态库、安装消费者或远端矩阵。

@@ -713,9 +713,9 @@ gneiss::guid type::guid() const noexcept {
 value_kind type::scalar_kind() const noexcept {
   return access_ ? access_->scalar_kind() : record_ ? record_->scalar : value_kind::invalid;
 }
-std::span<const enum_entry> type::enum_entries() const noexcept {
-  return record_ && is_enum() ? std::span<const enum_entry>{record_->entries}
-                              : std::span<const enum_entry>{};
+std::span<const enum_entry> enum_capability::entries() const noexcept {
+  return type_.record_ ? std::span<const enum_entry>{type_.record_->entries}
+                       : std::span<const enum_entry>{};
 }
 property type::find_property(property_id property) const noexcept {
   if (!*this)

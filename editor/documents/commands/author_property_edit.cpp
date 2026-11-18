@@ -221,7 +221,16 @@ gneiss::error edit_component_description(scene_edit_session& document,
           return error::unsupported;
         type = field->type();
       } else {
-        auto element = type.element_type();
+        meta::type element;
+        if (std::holds_alternative<std::string>(step)) {
+          auto capability = type.capability<meta::associative_capability>();
+          if (capability)
+            element = capability.element_type();
+        } else {
+          auto capability = type.capability<meta::sequence_capability>();
+          if (capability)
+            element = capability.element_type();
+        }
         if (!element)
           return error::unsupported;
         type = element;

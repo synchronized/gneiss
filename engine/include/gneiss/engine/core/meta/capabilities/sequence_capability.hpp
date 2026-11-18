@@ -12,6 +12,5 @@ public:
   /** 下列查询要求有效能力视图。 */
   [[nodiscard]] GNEISS_API bool is_fixed_size() const noexcept;
   [[nodiscard]] GNEISS_API bool has_identity() const noexcept;
-  [[nodiscard]] GNEISS_API meta::type element_type() const;
 };
 }

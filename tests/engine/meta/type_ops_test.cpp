@@ -362,7 +362,7 @@ int main() {
   std::vector<non_default> unknown_elements;
   unknown_elements.emplace_back(1.0F);
   auto unknown_sequence = m::type_of<decltype(unknown_elements)>(*empty_registry);
-  CHECK(unknown_sequence && unknown_sequence.element_type());
+  CHECK(unknown_sequence && unknown_sequence.capability<m::sequence_capability>().element_type());
   auto unknown_view = m::view(*empty_registry, unknown_elements);
   CHECK(unknown_view && unknown_view->as_sequence()->at(0));
   throwing_choice throwing_source{std::in_place_index<1>};

@@ -114,6 +114,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/sequence_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/capabilities/sequence_capability.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/capabilities/container_capability.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/capabilities/enum_capability.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/capabilities/representation_capability.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/associative_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/optional_view.hpp"

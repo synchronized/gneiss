@@ -219,13 +219,13 @@ bool freeze_exception_contract() {
   // 查询自定义元素能力时抛异常不能变成“未找到”，也不能在视图 noexcept 内终止。
   auto property = m::find_type(*registry, definition.guid).find_property(field.id);
   if (!property || !gneiss::test_support::throws<std::runtime_error>([&] {
-        (void)property.type().element_type();
+        (void)property.type().capability<m::sequence_capability>().element_type();
       }) ||
       !gneiss::test_support::throws<std::runtime_error>(
           [&] { (void)m::find_type(*registry, e::runtime_type_of<unregistered_object>()); }))
     return false;
   fail = false;
-  return property.type().element_type() &&
+  return property.type().capability<m::sequence_capability>().element_type() &&
          !m::find_type(*registry, e::runtime_type_of<unregistered_object>());
 }
 int main() {

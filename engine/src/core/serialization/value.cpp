@@ -163,7 +163,8 @@ struct capture_state {
       auto present = reference_slot->has_value();
       if (!present)
         return gneiss::value{};
-      auto target_type = source.type().element_type();
+      auto target_type =
+          source.type().capability<gneiss::meta::reference_capability>().element_type();
       if (!target_type)
         return error::unsupported;
       auto binding = reference_policy_for(source.type(), override);
@@ -386,7 +387,8 @@ struct restore_state {
         if (!policy->capture)
           return error::invalid_argument;
         auto type = find_type(registry, asset->type);
-        auto element = target.type().element_type();
+        auto element =
+            target.type().capability<gneiss::meta::reference_capability>().element_type();
         if (!type || !element || type.id() != element.id())
           return error::invalid_argument;
         if (asset->uri.empty()) {
@@ -411,7 +413,7 @@ struct restore_state {
       auto ops = find_object_ops(registry, type.id());
       if (!ops || !ops->construct)
         return error::unsupported;
-      auto element = target.type().element_type();
+      auto element = target.type().capability<gneiss::meta::reference_capability>().element_type();
       if (!element)
         return error::unsupported;
       if (!policy->polymorphic && type.id() != element.id())

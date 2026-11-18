@@ -125,7 +125,9 @@ error validate_prefab_property_override(const prefab_property_override& value) {
       if (const auto* id = std::get_if<guid>(&step);
           id && (!*id || !type.capability<gneiss::meta::sequence_capability>().has_identity()))
         return error::invalid_argument;
-      auto element = type.element_type();
+      auto element = std::holds_alternative<std::string>(step)
+                         ? type.capability<meta::associative_capability>().element_type()
+                         : type.capability<meta::sequence_capability>().element_type();
       if (!element)
         return error::unsupported;
       type = element;

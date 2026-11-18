@@ -193,7 +193,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     auto owned = reference_slot->owner();
     if (!owned)
       return doc->null();
-    auto target = value_type.element_type();
+    auto target = value_type.capability<gneiss::meta::reference_capability>().element_type();
     if (!target)
       return failure(error::unsupported);
     if (target.kind() != type_kind::object)
@@ -335,7 +335,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
 result<writer::node, serialization::diagnostic> encode_enum_name(const const_instance& view,
                                                                  writer* doc) {
   const auto type = view.type();
-  const auto entries = type.enum_entries();
+  const auto entries = type.capability<gneiss::meta::enum_capability>().entries();
   if (!type.is_enum() || !type.registered())
     return failure(error::invalid_argument, "", "属性必须是已注册枚举");
   auto scalar = view.read_value();
@@ -352,7 +352,7 @@ result<writer::node, serialization::diagnostic> encode_enum_name(const const_ins
 serialization::diagnostic decode_enum_name(const read_context& ctx, const instance& view,
                                            reader::node input) {
   const auto type = view.type();
-  const auto entries = type.enum_entries();
+  const auto entries = type.capability<gneiss::meta::enum_capability>().entries();
   if (!type.is_enum() || !type.registered() || !context_access::input(ctx)->is_string(input))
     return failure(error::invalid_argument, "", "属性必须是枚举名称");
   const auto name = context_access::input(ctx)->string(input);
@@ -668,7 +668,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       reference_slot->reset();
       return {};
     }
-    auto target = value_type.element_type();
+    auto target = value_type.capability<gneiss::meta::reference_capability>().element_type();
     if (!target || target.kind() != type_kind::object)
       return failure(error::unsupported);
     auto declared = reference_policy_for(value_type, override);

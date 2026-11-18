@@ -108,7 +108,7 @@ static constexpr guid type_guid =
 两种 builder 共享 `.name()`、`.guid()`、`.schema_version()`、`.metadata()`、`.extend()` 和 `.commit()`；
 类型 builder 提供属性和基类注册，枚举 builder 提供 `.value(name, E)`。
 枚举名称和 GUID 可从 traits 提取或显式补充；无名称、无 GUID 的枚举仍可登记显示项。
-登记后的枚举类型支持 `type::name/guid/schema_version/extension/enum_entries` 查询，
+登记后的枚举类型支持 `type::name/guid/schema_version/extension` 及 `enum_capability::entries` 查询，
 非空 GUID 可用于 `find_type`，并与普通类型共用唯一性约束。
 枚举仍按整数读写，不新增逐枚举项 metadata，也不会自动以显示项约束值域。
 
@@ -476,12 +476,12 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 视图持有原注册表，
 不拥有业务对象；`kind()` 查询结构类别，`scalar_kind()` 查询 value 的承载类别，
 `is_enum()` 区分 C++ 枚举与整数，`id()` 保留枚举自己的运行期类型身份。
-枚举尚无独立稳定 GUID 注册入口，因此类型视图的枚举 `guid()` 为空，不冒用整数 GUID。
+枚举 GUID 来自自身注册数据；未登记 GUID 时为空，不冒用整数 GUID。
 
-`enum_entries()` 直接返回只读 span，借用冻结注册表中的枚举项；没有注册记录、非枚举或
+`type.capability<enum_capability>().entries()` 直接返回只读 span，借用冻结注册表中的枚举项；没有注册记录、非枚举或
 无效类型返回空范围。通过 `is_enum()`、`registered()` 和类型句柄的 bool 判断区分这些状态。
-借用结果不得超过类型视图或注册表的生命周期。`properties()` 返回保活注册表的属性范围；`element_type()` 返回
-序列元素类型或引用静态目标类型，关联容器返回映射值类型；无元素能力返回空类型句柄。
+借用结果不得超过能力句柄或注册表的生命周期。`properties()` 返回保活注册表的属性范围。
+元素类型通过对应容器 capability 查询；调用 element_type() 要求能力有效。
 模板注册会将静态原生能力关联到注册记录，按 ID/GUID 查询或 type_at 枚举时保留这些能力。
 纯运行期定义可不关联原生能力，不会因此获得容器或引用操作。
 类型句柄的相等比较包含注册表身份：有运行期 ID 时比较 ID，否则比较 GUID；
@@ -525,7 +525,7 @@ kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name �
 ### 引用属性访问
 
 注册 `ref<T>` 成员后，`property.type.kind()` 为 `type_kind::reference`，
-`element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
+`reference_capability::element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
 
 通过 `const_instance::as_reference()` 获取 `reference_view`，再用 `get()` 获取只读借用目标。
 `instance::as_reference()` 返回可写引用视图，get 仅对 ref<T> 的可写目标有效；
@@ -614,7 +614,7 @@ setter 返回的业务错误定位到属性，嵌套解码错误保留具体子�
 ## 可选值反射
 
 `std::optional<T>` 对应独立 `type_kind::optional` 和 `optional_ops`，不改变值所有权，
-也不引入共享引用。`type::element_type()` 返回 T 的类型。
+也不引入共享引用。`type.capability<optional_capability>().element_type()` 返回 T 的类型。
 通过 `const_instance::as_optional()` 获取只读借用视图，提供直接返回 bool 的 `has_value()` 和保留失败诊断的 `get()`；
 可写视图增加 `ensure()` 和 `reset()`。空值的 `get()` 返回 not_found；T 无默认构造时，
 空槽位的 ensure 返回 unsupported。清空、替换或移动宿主后须重新获取内部视图。
@@ -769,3 +769,20 @@ auto same_elements = source.capability<meta::sequence_capability>();
 
 容器能力共享 container_capability 绑定实现，不增加注册表、能力 key 或独立状态。
 视图继续遵循实例借用及容器结构修改后的失效规则，持有 capability 不保活被绑定的对象。
+
+### 元素类型与枚举项
+
+`type` 不再提供 element_type/enum_entries。sequence、associative、optional、reference
+capability 提供 element_type()，分别返回序列元素、映射值、可选值、引用声明目标的类型。
+查询前检查能力；variant 不提供该方法，它有多个分支，仍通过 variant_view::alternative(i) 查询。
+
+```cpp
+auto enumeration = type.capability<meta::enum_capability>();
+if (enumeration) {
+  auto choices = enumeration.entries();
+  // choices 借用已注册枚举项；须保活 enumeration 或其注册表。
+}
+```
+
+未注册原生枚举的能力有效，但 entries() 为空；非枚举返回空能力，其 entries() 也为空。
+类型身份与注册状态仍通过 type 查询。编辑器下拉框及枚举名称编解码共用该条目来源。
