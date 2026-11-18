@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/platform/io/export.hpp>
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/platform/io/executor.hpp>
@@ -17,7 +18,7 @@ class uv_loop_access final {
 public:
   using task = std::function<void(uv_loop_t*)>;
 
-  [[nodiscard]] static error post(executor& executor, task operation);
+  [[nodiscard]] GNEISS_IO_API static error post(executor& executor, task operation);
 };
 
 } // namespace gneiss::io::detail

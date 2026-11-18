@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/transport.hpp>
+#include <gneiss/engine/function/ipc/transport.hpp>
 
 #include <chrono>
 #include <cstdint>

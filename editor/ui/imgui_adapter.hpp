@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
-#include <gneiss/engine/core/input/types.hpp>
+#include <gneiss/engine/platform/window/input.hpp>
 #include <gneiss/engine/core/types/frame_time.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/error.hpp>

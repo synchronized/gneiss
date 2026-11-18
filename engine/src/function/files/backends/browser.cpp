@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "gneiss/engine/platform/files/backends/browser.hpp"
+#include "gneiss/engine/function/files/backends/browser.hpp"
 #include <cerrno>
 #include <charconv>
 #include <cstdio>
@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <gneiss/engine/error.hpp>
 #include <limits>
-#include <platform/files/detail/path.hpp>
+#include <gneiss/engine/core/base/path.hpp>
 #include <stdexcept>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -125,7 +125,7 @@ struct browser_backend::implementation : std::enable_shared_from_this<implementa
       return error::invalid_state;
     if (!ready || busy)
       return error::not_ready;
-    if (!detail::valid_file_path(relative))
+    if (!paths::valid_file_path(relative))
       return error::invalid_argument;
     output = root;
     // 拒绝每个路径分量的符号链接，避免内存 FS 中的越界访问。
@@ -200,7 +200,7 @@ browser_backend::browser_backend(std::string root, browser_storage storage)
     : impl_(std::make_shared<implementation>()) {
   if (!emscripten_is_main_runtime_thread() || !root.starts_with('/') || root.size() < 2 ||
       (storage != browser_storage::existing && root.find('/', 1) != std::string::npos) ||
-      !detail::valid_file_path(std::string_view(root).substr(1)))
+      !paths::valid_file_path(std::string_view(root).substr(1)))
     throw std::invalid_argument("浏览器挂载根目录无效");
   impl_->root = std::move(root);
   impl_->storage = storage;

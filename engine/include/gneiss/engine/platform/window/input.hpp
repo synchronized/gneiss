@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/window/id.hpp>
+#include <gneiss/engine/platform/window/id.hpp>
 
 #include <array>
 #include <cstdint>

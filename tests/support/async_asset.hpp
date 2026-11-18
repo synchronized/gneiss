@@ -6,7 +6,7 @@
 #include <chrono>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/prefab.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <stdexcept>

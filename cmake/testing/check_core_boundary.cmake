@@ -144,8 +144,13 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source_file}")
   endif()
 
+  set(input_boundary_content "${content}")
+  foreach(contract IN ITEMS input id)
+    string(REPLACE "engine/platform/window/${contract}.hpp" "window_contract"
+      input_boundary_content "${input_boundary_content}")
+  endforeach()
   if(source MATCHES "/engine/function/input/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/function/asset/asset_manager|engine/resource/(backend/|vfs/|asset_manager))")
+      input_boundary_content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/function/files/|engine/function/asset/asset_manager|engine/resource/(backend/|vfs/|asset_manager))")
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source_file}")
   endif()
 
@@ -261,7 +266,7 @@ foreach(source IN LISTS sources)
   endif()
   # 浏览器桥接只允许这三个私有 JS 导入声明；其他 C 链接声明或定义仍拒绝。
   set(abi_content "${content}")
-  if(source MATCHES "/engine/platform/files/backends/detail/fetch_stream\\.cpp$")
+  if(source MATCHES "/engine/function/files/backends/detail/fetch_stream\\.cpp$")
     string(REPLACE [=[extern "C" {
 void gneiss_fetch_stream_open(const char*, void*, void (*)(void*, int, int));
 void gneiss_fetch_stream_read(int, void*, std::size_t, void*,

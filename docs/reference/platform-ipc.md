@@ -4,7 +4,7 @@
 # 平台 IPC
 
 `gneiss_ipc` 提供 `gneiss::ipc` 单连接回环 TCP 传输。入口为
-`gneiss/engine/platform/ipc/transport.hpp` 与 `envelope.hpp`。
+`gneiss/engine/function/ipc/transport.hpp` 与 `envelope.hpp`。
 帧头保持 24 字节网络字节序，域为非零 uint16 编号；平台不解释业务域。
 
 ## 调用顺序

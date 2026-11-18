@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/platform/files/backend.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/backend.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <limits>

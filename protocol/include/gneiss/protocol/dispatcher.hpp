@@ -5,7 +5,7 @@
 
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/envelope.hpp>
+#include <gneiss/engine/function/ipc/envelope.hpp>
 #include <gneiss/protocol/domains.hpp>
 
 #include <cstddef>

@@ -13,8 +13,8 @@
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/platform/files/backend.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/backend.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_decoder.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>

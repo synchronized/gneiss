@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "gneiss/engine/platform/files/backends/native.hpp"
+#include "gneiss/engine/function/files/backends/native.hpp"
 #include "platform/io/detail/uv_loop_access.hpp"
 #include "platform/io/detail/uv_error.hpp"
 #include <algorithm>
@@ -8,7 +8,7 @@
 #include <fcntl.h>
 #include <gneiss/engine/error.hpp>
 #include <limits>
-#include <platform/files/detail/path.hpp>
+#include <gneiss/engine/core/base/path.hpp>
 #include <stdexcept>
 #include <sys/stat.h>
 #include <utility>
@@ -332,7 +332,7 @@ struct operation : std::enable_shared_from_this<operation> {
 };
 }
 error native_backend::submit(std::string_view path, std::shared_ptr<operation> pending) {
-  if (!detail::valid_file_path(path))
+  if (!paths::valid_file_path(path))
     return error::invalid_argument;
   pending->root = root_;
   pending->relative = path;

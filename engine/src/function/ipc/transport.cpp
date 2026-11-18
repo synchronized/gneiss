@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/ipc/transport.hpp>
+#include <gneiss/engine/function/ipc/transport.hpp>
 
 #include "platform/io/detail/uv_error.hpp"
 #include "platform/io/detail/uv_loop_access.hpp"

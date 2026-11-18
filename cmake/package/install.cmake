@@ -4,7 +4,7 @@
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 if(EMSCRIPTEN)
-  install(FILES "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/detail/fetch_stream.js"
+  install(FILES "${PROJECT_SOURCE_DIR}/engine/src/function/files/backends/detail/fetch_stream.js"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/js")
   target_link_options(gneiss_engine INTERFACE
     "$<INSTALL_INTERFACE:SHELL:--js-library \"$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/gneiss/js/fetch_stream.js\">")
@@ -32,7 +32,7 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion
 )
 install(
-  TARGETS gneiss_engine gneiss_logging gneiss_tasks gneiss_math gneiss_base gneiss_data
+  TARGETS gneiss_engine gneiss_files gneiss_io gneiss_logging gneiss_tasks gneiss_math gneiss_base gneiss_data
     gneiss_meta gneiss_serialization gneiss_serialization_json
   EXPORT gneissTargets
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -106,3 +106,14 @@ install(FILES "${PROJECT_SOURCE_DIR}/3rd/granit-example-assets-LICENSE"
               "${PROJECT_SOURCE_DIR}/3rd/caors-core-values-LICENSE"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses")
 install(FILES "${GNEISS_GLM_SOURCE_DIR}/copying.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses" RENAME GLM-LICENSE)
+
+# 静态模块的实际链接闭包；复用上游唯一 uv_a 构建，不重编译源码。
+if(NOT BUILD_SHARED_LIBS AND TARGET uv_a)
+  set_target_properties(uv_a PROPERTIES EXPORT_NAME uv)
+  install(TARGETS uv_a EXPORT gneissTargets ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+endif()
+
+if(BUILD_SHARED_LIBS AND TARGET uv)
+  install(TARGETS uv RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+endif()

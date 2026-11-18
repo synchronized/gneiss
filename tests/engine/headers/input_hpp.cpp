@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/input/types.hpp>
+#include <gneiss/engine/platform/window/input.hpp>
 
 #include <type_traits>
 

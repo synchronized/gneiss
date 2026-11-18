@@ -3,11 +3,14 @@
 
 #pragma once
 
-#include <gneiss/engine/platform/files/types.hpp>
 
 #include <cstdint>
 #include <memory>
 #include <string>
+
+namespace gneiss::files {
+struct source_domain;
+}
 
 namespace gneiss {
 

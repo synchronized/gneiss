@@ -9,7 +9,7 @@ function(gneiss_resolve_libuv)
     return()
   endif()
 
-  set(LIBUV_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+  set(LIBUV_BUILD_SHARED "${BUILD_SHARED_LIBS}" CACHE BOOL "" FORCE)
   set(LIBUV_BUILD_TESTS OFF CACHE BOOL "" FORCE)
   set(LIBUV_BUILD_BENCH OFF CACHE BOOL "" FORCE)
 
@@ -26,17 +26,23 @@ function(gneiss_resolve_libuv)
       BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/gneiss_libuv_source-build")
   endif()
 
-  # libuv 的别名目标跟随 BUILD_SHARED_LIBS；Gneiss 始终私有链接静态目标。
+  # 所有 IO 消费者使用同一 libuv；共享构建不能各自静态嵌入运行状态。
   set(gneiss_saved_build_shared_libs "${BUILD_SHARED_LIBS}")
   set(BUILD_SHARED_LIBS OFF)
   FetchContent_MakeAvailable(gneiss_libuv_source)
   set(BUILD_SHARED_LIBS "${gneiss_saved_build_shared_libs}")
-  # 私有静态依赖不参与默认构建，也不把上游头、库或 package 安装给 Gneiss Consumer。
+  # 仅构建实际使用的目标；安装由 Gneiss 的部署闭包统一管理。
   set_property(DIRECTORY "${gneiss_libuv_source_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
 
   add_library(gneiss_libuv INTERFACE)
   add_library(gneiss::libuv ALIAS gneiss_libuv)
-  target_link_libraries(gneiss_libuv INTERFACE uv_a)
+  if(BUILD_SHARED_LIBS)
+    target_link_libraries(gneiss_libuv INTERFACE uv)
+    gneiss_target_output_directories(uv)
+    set_target_properties(uv PROPERTIES FOLDER "ThirdParty/Libuv")
+  else()
+    target_link_libraries(gneiss_libuv INTERFACE uv_a)
+  endif()
   set(GNEISS_LIBUV_SOURCE_DIR "${gneiss_libuv_source_SOURCE_DIR}" PARENT_SCOPE)
   if(TARGET uv_a)
     set_target_properties(uv_a PROPERTIES FOLDER "ThirdParty/Libuv")
@@ -63,42 +69,3 @@ function(gneiss_resolve_libuv)
 
 endfunction()
 
-# 核心静态安装包内嵌 libuv 对象，避免向消费者泄漏未安装的第三方目标。
-function(gneiss_enable_asset_libuv target)
-  if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
-    return()
-  endif()
-  if(NOT TARGET gneiss_libuv_objects)
-    get_target_property(uv_source_dir uv_a SOURCE_DIR)
-    get_target_property(uv_source_files uv_a SOURCES)
-    set(uv_absolute_sources)
-    foreach(uv_source IN LISTS uv_source_files)
-      if(IS_ABSOLUTE "${uv_source}")
-        list(APPEND uv_absolute_sources "${uv_source}")
-      else()
-        list(APPEND uv_absolute_sources "${uv_source_dir}/${uv_source}")
-      endif()
-    endforeach()
-    add_library(gneiss_libuv_objects OBJECT EXCLUDE_FROM_ALL ${uv_absolute_sources})
-    target_include_directories(gneiss_libuv_objects PRIVATE
-      $<TARGET_PROPERTY:uv_a,INCLUDE_DIRECTORIES>)
-    target_compile_definitions(gneiss_libuv_objects PRIVATE
-      $<TARGET_PROPERTY:uv_a,COMPILE_DEFINITIONS>)
-    target_compile_options(gneiss_libuv_objects PRIVATE
-      $<TARGET_PROPERTY:uv_a,COMPILE_OPTIONS>)
-    set_target_properties(gneiss_libuv_objects PROPERTIES POSITION_INDEPENDENT_CODE YES C_VISIBILITY_PRESET hidden)
-  endif()
-  target_link_libraries(${target} PRIVATE $<BUILD_INTERFACE:gneiss_base>)
-  get_target_property(uv_system_libraries uv_a LINK_LIBRARIES)
-  target_sources(${target} PRIVATE
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/native.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/executor.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/io/detail/uv_error.cpp"
-    $<TARGET_OBJECTS:gneiss_libuv_objects>)
-  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:uv_a,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_compile_definitions(${target} PRIVATE GNEISS_ASSET_LIBUV)
-  # 仅系统链接库保留在静态消费者的 link-only 闭包中。
-  if(uv_system_libraries)
-    target_link_libraries(${target} PRIVATE ${uv_system_libraries})
-  endif()
-endfunction()

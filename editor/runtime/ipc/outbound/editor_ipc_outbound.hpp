@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/envelope.hpp>
+#include <gneiss/engine/function/ipc/envelope.hpp>
 #include <gneiss/protocol/ipc_asset_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 

@@ -19,7 +19,7 @@
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <optional>
 #include <thread>
 #include <tuple>
@@ -30,11 +30,11 @@
 #include <cmath>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #ifdef __EMSCRIPTEN__
-#include "gneiss/engine/platform/files/backends/browser.hpp"
-#include "gneiss/engine/platform/files/backends/fetch.hpp"
+#include "gneiss/engine/function/files/backends/browser.hpp"
+#include "gneiss/engine/function/files/backends/fetch.hpp"
 #endif
 #ifdef GNEISS_ASSET_LIBUV
-#include "gneiss/engine/platform/files/backends/native.hpp"
+#include "gneiss/engine/function/files/backends/native.hpp"
 #include <gneiss/engine/platform/io/executor.hpp>
 
 #endif

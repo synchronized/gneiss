@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/platform/ipc/envelope.hpp>
+#include <gneiss/engine/function/ipc/envelope.hpp>
 
 #include <algorithm>
 #include <limits>

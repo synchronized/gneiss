@@ -4,7 +4,7 @@
 #include <chrono>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 namespace gneiss::test_support {

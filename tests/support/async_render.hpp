@@ -5,7 +5,7 @@
 #include "value_result.hpp"
 #include <chrono>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <stdexcept>
 namespace gneiss::test_support {
 inline gneiss::tasks::task_scheduler& render_tasks() { return asset_tasks(); }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "gneiss/engine/platform/files/backends/memory.hpp"
+#include "gneiss/engine/function/files/backends/memory.hpp"
 #include "ui/panels/material_editor_panel.hpp"
 #include <cstdio>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>

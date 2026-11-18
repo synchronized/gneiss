@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/export.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 namespace gneiss::files {
 /** 按需读取；已知长度使用范围读，nullopt 使用后端顺序流，不保证文件快照。
  * 所属线程使用和销毁，最多一个在途块，不预读；消费者调用 read_next 才继续读取。
@@ -10,17 +11,17 @@ namespace gneiss::files {
  */
 class read_stream final {
 public:
-  GNEISS_API read_stream(std::shared_ptr<service>, std::string uri,
+  GNEISS_FILES_API read_stream(std::shared_ptr<service>, std::string uri,
                          std::optional<std::uint64_t> size, std::size_t block_bytes);
-  GNEISS_API ~read_stream();
+  GNEISS_FILES_API ~read_stream();
   read_stream(const read_stream&) = delete;
   read_stream& operator=(const read_stream&) = delete;
-  GNEISS_API error read_next(files::callback<block> callback);
+  GNEISS_FILES_API error read_next(files::callback<block> callback);
   /** 取消当前块，不回退已交付位置；成功后仍经所属线程通知 cancelled。 */
-  GNEISS_API error cancel() noexcept;
+  GNEISS_FILES_API error cancel() noexcept;
 
 private:
-  GNEISS_API error read_sequential(files::callback<block>);
+  GNEISS_FILES_API error read_sequential(files::callback<block>);
   struct state;
   std::shared_ptr<state> state_;
 };

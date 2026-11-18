@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <gneiss/engine/error.hpp>
-#include <platform/files/detail/path.hpp>
+#include <gneiss/engine/core/base/path.hpp>
 
 namespace {
 
@@ -15,7 +15,7 @@ namespace gneiss {
 
 error validate_uri(std::string_view uri) noexcept {
   if (!uri.starts_with(scheme) || uri.size() == scheme.size() || uri.ends_with('/') ||
-      !files::detail::valid_file_path(uri.substr(scheme.size()))) {
+      !paths::valid_file_path(uri.substr(scheme.size()))) {
     return error::invalid_argument;
   }
   return error::success;

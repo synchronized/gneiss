@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "gneiss/engine/platform/files/backends/browser.hpp"
-#include "gneiss/engine/platform/files/backends/fetch.hpp"
+#include "gneiss/engine/function/files/backends/browser.hpp"
+#include "gneiss/engine/function/files/backends/fetch.hpp"
 #include <cstdlib>
 #include <emscripten.h>
-#include <gneiss/engine/platform/files/read_stream.hpp>
+#include <gneiss/engine/function/files/read_stream.hpp>
 #include <memory>
 using namespace gneiss;
 namespace {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "gneiss/engine/platform/files/backends/fetch.hpp"
+#include "gneiss/engine/function/files/backends/fetch.hpp"
 #include "detail/fetch_stream.hpp"
 #include <algorithm>
 #include <charconv>
@@ -10,7 +10,7 @@
 #include <gneiss/engine/error.hpp>
 #include <limits>
 #include <memory>
-#include <platform/files/detail/path.hpp>
+#include <gneiss/engine/core/base/path.hpp>
 #include <stdexcept>
 namespace gneiss::files {
 namespace {
@@ -212,13 +212,13 @@ fetch_backend::fetch_backend(std::string base_url) : base_url_(std::move(base_ur
 }
 error fetch_backend::open_stream(std::string_view path,
                                  files::callback<std::shared_ptr<backend_stream>> callback) {
-  if (!detail::valid_file_path(path) || !callback)
+  if (!paths::valid_file_path(path) || !callback)
     return error::invalid_argument;
   return open_fetch_stream(base_url_ + std::string(path), std::move(callback));
 }
 error fetch_backend::read(std::string_view path, read_options options,
                           files::callback<files::bytes> callback) {
-  if (!detail::valid_file_path(path) || !callback || !options.max_bytes)
+  if (!paths::valid_file_path(path) || !callback || !options.max_bytes)
     return error::invalid_argument;
   auto request = std::make_shared<fetch_operation>();
   request->url = base_url_ + std::string(path);
@@ -228,7 +228,7 @@ error fetch_backend::read(std::string_view path, read_options options,
 }
 error fetch_backend::read_range(std::string_view path, range range,
                                 files::callback<files::bytes> callback) {
-  if (!detail::valid_file_path(path) || !callback ||
+  if (!paths::valid_file_path(path) || !callback ||
       range.offset > std::numeric_limits<std::uint64_t>::max() - range.size)
     return error::invalid_argument;
   auto request = std::make_shared<fetch_operation>();
@@ -243,7 +243,7 @@ error fetch_backend::read_range(std::string_view path, range range,
   return request->begin();
 }
 error fetch_backend::stat(std::string_view path, files::callback<files::info> callback) {
-  if (!detail::valid_file_path(path) || !callback)
+  if (!paths::valid_file_path(path) || !callback)
     return error::invalid_argument;
   auto request = std::make_shared<fetch_operation>();
   request->url = base_url_ + std::string(path);

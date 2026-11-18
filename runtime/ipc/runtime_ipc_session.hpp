@@ -13,7 +13,7 @@
 #include <gneiss/protocol/ipc_router.hpp>
 #include <gneiss/protocol/ipc_session_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
-#include <gneiss/engine/platform/ipc/transport.hpp>
+#include <gneiss/engine/function/ipc/transport.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
 #include <chrono>

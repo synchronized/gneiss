@@ -4,9 +4,9 @@
 add_library(
   gneiss_ipc STATIC
   envelope.cpp
-  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/envelope.hpp"
+  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/ipc/envelope.hpp"
   transport.cpp
-  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/ipc/transport.hpp"
+  "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/function/ipc/transport.hpp"
 )
 target_link_libraries(
   gneiss_ipc

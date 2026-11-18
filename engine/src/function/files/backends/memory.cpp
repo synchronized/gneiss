@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/files/backends/memory.hpp>
+#include <gneiss/engine/function/files/backends/memory.hpp>
 #include <map>
 
-#include <platform/files/detail/path.hpp>
+#include <gneiss/engine/core/base/path.hpp>
 
 #include <iterator>
 #include <utility>
@@ -47,7 +47,7 @@ std::string directory_prefix(std::string_view path) {
 }
 error memory_backend::read(std::string_view path, read_options options,
                            files::callback<files::bytes> callback) {
-  if (!callback || !detail::valid_file_path(path) || options.max_bytes == 0)
+  if (!callback || !paths::valid_file_path(path) || options.max_bytes == 0)
     return error::invalid_argument;
   const auto found = files_.find(path);
   if (found == files_.end()) {
@@ -64,7 +64,7 @@ error memory_backend::read(std::string_view path, read_options options,
 }
 error memory_backend::read_range(std::string_view path, range range,
                                  files::callback<files::bytes> callback) {
-  if (!callback || !detail::valid_file_path(path))
+  if (!callback || !paths::valid_file_path(path))
     return error::invalid_argument;
   const auto found = files_.find(path);
   if (found == files_.end()) {
@@ -83,7 +83,7 @@ error memory_backend::read_range(std::string_view path, range range,
 }
 error memory_backend::write(std::string_view path, files::bytes bytes, write_options options,
                             completion_callback callback) {
-  if (!callback || path.empty() || path.ends_with('/') || !detail::valid_file_path(path) ||
+  if (!callback || path.empty() || path.ends_with('/') || !paths::valid_file_path(path) ||
       (options.mode != write_mode::replace && options.mode != write_mode::create_new))
     return error::invalid_argument;
   if (options.mode == write_mode::create_new && files_.contains(path))
@@ -102,7 +102,7 @@ error memory_backend::write(std::string_view path, files::bytes bytes, write_opt
   return error::success;
 }
 error memory_backend::stat(std::string_view path, files::callback<files::info> callback) {
-  if (!callback || !detail::valid_file_path(path))
+  if (!callback || !paths::valid_file_path(path))
     return error::invalid_argument;
   if (const auto found = files_.find(path); found != files_.end()) {
     callback({error::success, {kind::regular, found->second.size()}});
@@ -117,7 +117,7 @@ error memory_backend::stat(std::string_view path, files::callback<files::info> c
 }
 error memory_backend::list(std::string_view path, list_options options,
                            files::callback<directory_page> callback) {
-  if (!callback || !detail::valid_file_path(path) || options.max_entries == 0 ||
+  if (!callback || !paths::valid_file_path(path) || options.max_entries == 0 ||
       options.max_entries > 1024)
     return error::invalid_argument;
   if (files_.contains(path))

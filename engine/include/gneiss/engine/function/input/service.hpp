@@ -4,7 +4,7 @@
 #ifndef GNEISS_INPUT_INPUT_SERVICE_HPP_
 #define GNEISS_INPUT_INPUT_SERVICE_HPP_
 
-#include <gneiss/engine/core/input/types.hpp>
+#include <gneiss/engine/platform/window/input.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/input/action.hpp>
 

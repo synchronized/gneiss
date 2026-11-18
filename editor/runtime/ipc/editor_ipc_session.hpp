@@ -7,7 +7,7 @@
 #include "runtime/ipc/editor_ipc_event.hpp"
 #include <gneiss/engine/error.hpp>
 
-#include <gneiss/engine/platform/ipc/transport.hpp>
+#include <gneiss/engine/function/ipc/transport.hpp>
 
 #include <chrono>
 #include <cstdint>

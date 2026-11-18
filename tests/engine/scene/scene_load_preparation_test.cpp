@@ -12,7 +12,7 @@
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include "function/asset/detail/content_dependency.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/prefab.hpp>
 #include <gneiss/engine/resource/scene.hpp>

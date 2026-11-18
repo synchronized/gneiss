@@ -6,7 +6,7 @@
 #include <gneiss/engine/platform/window/native_handle.hpp>
 #include <gneiss/engine/platform/window/surface_state.hpp>
 
-#include <gneiss/engine/core/input/types.hpp>
+#include <gneiss/engine/platform/window/input.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/platform/window/configuration.hpp>
 

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 
-#include <gneiss/engine/platform/files/backend.hpp>
-#include <platform/files/detail/path.hpp>
+#include <gneiss/engine/function/files/backend.hpp>
+#include <gneiss/engine/core/base/path.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -210,7 +210,7 @@ struct service::implementation {
     output = {};
     if (!on_owner() || closing || !initialized)
       return error::invalid_state;
-    if (!callback || !detail::valid_file_uri(uri))
+    if (!callback || !paths::valid_file_uri(uri))
       return error::invalid_argument;
     if (reserve_bytes > options.max_buffer_bytes)
       return error::invalid_argument;
@@ -270,7 +270,7 @@ error service::resolve_source(std::string_view uri,
   output.reset();
   if (!impl_->on_owner() || impl_->closing)
     return error::invalid_state;
-  if (!detail::valid_file_uri(uri))
+  if (!paths::valid_file_uri(uri))
     return error::invalid_argument;
   const auto* entry = impl_->resolve(uri);
   if (!entry)
@@ -309,7 +309,7 @@ error service::initialize(completion_callback callback) {
 error service::mount(mount_description description) {
   if (!impl_->on_owner() || impl_->frozen || impl_->closing)
     return error::invalid_state;
-  if (!description.prefix.ends_with('/') || !detail::valid_file_uri(description.prefix) ||
+  if (!description.prefix.ends_with('/') || !paths::valid_file_uri(description.prefix) ||
       (description.readers.empty() && !description.writer) ||
       std::ranges::any_of(description.readers, [](const auto& value) { return !value; }))
     return error::invalid_argument;

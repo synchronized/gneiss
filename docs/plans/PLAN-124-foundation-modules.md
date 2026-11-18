@@ -27,7 +27,7 @@ Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、�
 - [x] P2：Data/Meta。分离 property_path 的数据定义与运行时解析，移出 Data 的反射 traits；
   独立 Meta/Serialization/JSON 目标，迁移基础测试链接。
 - [x] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
-- [ ] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
+- [x] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
 - [ ] P5：领域归属。entity_id、业务诊断、编辑策略移回领域，Resource/功能目标各自管理源码。
 - [ ] P6：最终装配。静态/共享、安装包、真实消费者、跨模块身份与全量相关回归；同步当前文档。
 
@@ -83,3 +83,9 @@ variant traits。Meta/Serialization/JSON 分别有独立目标和导出控制；
 跨 DLL 注入，故仅断言死亡测试使用同模块源码夹具，明确区别于普通行为测试。
 Tasks 只使用通用 timing，不再包含场景/渲染阶段；线程后端头移入 src。
 共享/静态日志和调度行为测试、共享断言契约测试、Engine 接入构建通过。
+
+2026-11-19：P4 完成。Files/IPC 迁入 Function；窗口 ID 与原始输入归属 Platform/Window。
+Files 和 IO 独立目标；删除依赖脚本的 Engine 源码注入及 libuv 二次编译，文件测试链接真实目标。
+共享构建的 IO、Files、IPC 统一使用 libuv 动态库，修复两份静态 libuv 跨 DLL 混用造成的连接失败；
+静态构建复用 uv_a 并纳入安装链接闭包。共享 Files/Native/IPC、静态 Native 测试通过。
+边界检查更新窗口值契约许可，保持平台实现禁入 Input；正反边界测试通过。

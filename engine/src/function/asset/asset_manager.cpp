@@ -18,7 +18,7 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 #include <gneiss/engine/resource/texture/texture_decoder.hpp>

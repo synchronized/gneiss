@@ -9,7 +9,7 @@
 #include <gneiss/protocol/ipc_control_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
-#include <gneiss/engine/platform/ipc/transport.hpp>
+#include <gneiss/engine/function/ipc/transport.hpp>
 
 #include <cstdint>
 #include <string>

@@ -293,7 +293,7 @@ Application 私有状态接收输入映射加载完成通知，在所属线程�
 - `core/serialization/json.hpp`：材质及输入映射使用统一反射编解码入口。
 - `resource/mesh/mesh_data.hpp`：CPU 网格数组；描述与二进制解码位于同目录。
 - `resource/texture/texture_data.hpp`：CPU mip、容器负载及解码能力快照，不依赖 KTX2 codec。
-- `engine/platform/files/`：异步文件读写与平台后端。
+- `engine/function/files/`：异步文件读写与平台后端。
 
 准备结果直接拥有材质参数、纹理 URI 和网格数组。上传准备把网格数组移动到只读共享对象，
 由渲染资源和仍在使用它的帧保活；最后一个引用释放时销毁。
@@ -358,7 +358,7 @@ Application 装配位于 src/application，application_configuration.hpp 与主�
 ## Window 与 Input
 
 `platform/window` 的 `gneiss::window::service` 创建窗口并采集平台事件，Granit 类型隐藏在实现中。
-`core/input/types.hpp` 定义 `gneiss::input` 的原始事件、键码和设备状态；动作 ID/状态位于
+`platform/window/input.hpp` 定义 `gneiss::input` 的原始事件、键码和设备状态；动作 ID/状态位于
 `function/input/action.hpp`，输入服务位于 `function/input/service.hpp`，动作映射资产位于
 `resource/input/action_map.hpp`。Application 负责协调窗口采集与输入消费。
 `native_handle.hpp` 保存借用原生句柄，`surface_state.hpp` 保存只读像素尺寸和变化代次。
@@ -372,3 +372,7 @@ Application 装配位于 src/application，application_configuration.hpp 与主�
 对应目标为 `gneiss::base/math/data/meta/serialization/serialization_json`，每份实现仅由所属
 目标编译。工具和基础测试直接链接需要的模块，不为了反射或 JSON 处理链接 Engine。
 路径类型暂保留 `meta` 命名空间，数据定义不依赖反射实现；Meta 的 traits 适配依赖 Data。
+
+`function/files` 管理文件挂载、请求与后端路由，`function/ipc` 管理消息传输；二者复用
+`platform/io`，平台执行器不依赖上层资产。共享构建复用同一 libuv 动态库，静态构建使用
+上游唯一 uv_a 目标；第三方依赖脚本不再注入 Gneiss 源码。

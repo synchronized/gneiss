@@ -7,7 +7,7 @@
 
 完整输入 C API 与 `gneiss/engine/input.h` 已删除；仓内调用使用原生 Application，
 不再提供游戏模块动作查询协议。
-内部输入值位于 `engine/include/gneiss/engine/core/input/types.hpp`，服务位于 `engine/include/gneiss/engine/function/input`。
+内部输入值位于 `engine/include/gneiss/engine/platform/window/input.hpp`，服务位于 `engine/include/gneiss/engine/function/input`。
 内部 Application 直接查询原生事件及动作，不再维护 C++ 输入包装或第二份输入值类型。
 `poll_input`、`find_action`、`get_action_state` 拒绝非所属线程和已关闭对象，返回 `invalid_state`；
 键盘/指针快照引用只在所属线程、Application 有效期间使用。不再安装 C++ 包装头。

@@ -6,7 +6,7 @@
 #include "assets/author_asset_monitor.hpp"
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 
 #include <memory>
 

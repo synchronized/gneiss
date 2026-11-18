@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/platform/io/export.hpp>
 
 #include <gneiss/engine/error.hpp>
 
@@ -24,17 +25,17 @@ class executor final {
 public:
   using task = std::function<void()>;
 
-  explicit executor(std::size_t queue_capacity = 256U);
-  ~executor();
+  GNEISS_IO_API explicit executor(std::size_t queue_capacity = 256U);
+  GNEISS_IO_API ~executor();
 
   executor(const executor&) = delete;
   executor& operator=(const executor&) = delete;
 
-  [[nodiscard]] error start();
-  [[nodiscard]] error post(task operation);
-  [[nodiscard]] error stop() noexcept;
+  [[nodiscard]] GNEISS_IO_API error start();
+  [[nodiscard]] GNEISS_IO_API error post(task operation);
+  [[nodiscard]] GNEISS_IO_API error stop() noexcept;
 
-  [[nodiscard]] bool is_running() const noexcept;
+  [[nodiscard]] GNEISS_IO_API bool is_running() const noexcept;
 
 private:
   friend class detail::uv_loop_access;

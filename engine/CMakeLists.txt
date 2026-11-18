@@ -4,12 +4,14 @@
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
 add_subdirectory(src/core)
 add_subdirectory(src/platform)
+add_subdirectory(src/function/files)
+add_subdirectory(src/function/ipc)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
 target_link_libraries(gneiss_engine PRIVATE gneiss_libassert)
-if(COMMAND gneiss_enable_asset_libuv)
-  gneiss_enable_asset_libuv(gneiss_engine)
+if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
+  target_compile_definitions(gneiss_engine PRIVATE GNEISS_ASSET_LIBUV)
 endif()
 gneiss_target_profiling(gneiss_engine)
 gneiss_target_output_directories(gneiss_engine)
@@ -28,9 +30,6 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/read_stream.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/service.cpp"
-    "${PROJECT_SOURCE_DIR}/engine/src/platform/files/backends/memory.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/platform/window/service.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/service.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/native_handle.hpp"
@@ -59,7 +58,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/types/type_id.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/version.cpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/detail/canonical_type_name.hpp"
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/input/types.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/platform/window/input.hpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/logging/detail/async_queue.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/logging/record.hpp"
 )
@@ -367,7 +366,7 @@ if(WIN32 AND BUILD_SHARED_LIBS AND granit_runtime_is_imported AND granit_runtime
 endif()
 
 target_compile_features(gneiss_engine PRIVATE cxx_std_20)
-target_link_libraries(gneiss_engine PUBLIC gneiss_logging gneiss_base gneiss_math gneiss_data gneiss_meta gneiss_serialization_json $<BUILD_INTERFACE:gneiss_events>)
+target_link_libraries(gneiss_engine PUBLIC gneiss_files gneiss_logging gneiss_base gneiss_math gneiss_data gneiss_meta gneiss_serialization_json $<BUILD_INTERFACE:gneiss_events>)
 gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
   gneiss_engine
@@ -399,12 +398,4 @@ if(EMSCRIPTEN)
   # C++ 内部异常传播必须在编译与最终链接时同时启用。
   target_compile_options(gneiss_engine PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>)
   target_link_options(gneiss_engine PUBLIC -fexceptions)
-  target_sources(gneiss_engine PRIVATE
-    src/platform/files/backends/detail/fetch_stream.cpp
-    src/platform/files/backends/fetch.cpp
-    src/platform/files/backends/browser.cpp)
-  target_link_options(gneiss_engine PUBLIC "-sFETCH=1" "-lidbfs.js"
-    "$<BUILD_INTERFACE:SHELL:--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/platform/files/backends/detail/fetch_stream.js\">")
-  set_property(TARGET gneiss_engine APPEND PROPERTY INTERFACE_LINK_DEPENDS
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/platform/files/backends/detail/fetch_stream.js>")
 endif()

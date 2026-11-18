@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/utf8.hpp>
 #include <string_view>
 
-namespace gneiss::files::detail {
+namespace gneiss::paths {
 /** 原样路由 UTF-8 路径，不解码百分号；拒绝会被不同后端歧义解释的形式。 */
 inline bool valid_file_path(std::string_view path) noexcept {
   if (!utf8::is_valid(path))
@@ -40,4 +40,4 @@ inline bool valid_file_uri(std::string_view uri) noexcept {
   }
   return valid_file_path(uri.substr(marker + 3));
 }
-} // namespace gneiss::files::detail
+} // namespace gneiss::paths

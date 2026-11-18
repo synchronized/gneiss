@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-内部原生入口位于 `engine/include/gneiss/engine/platform/files/service.hpp`，命名空间为 `gneiss::files`。
+内部原生入口位于 `engine/include/gneiss/engine/function/files/service.hpp`，命名空间为 `gneiss::files`。
 当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
 Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
 旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。
@@ -24,7 +24,7 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 
 ## 创建与初始化
 
-工厂声明位于 `platform/files/backends/{memory,native,fetch,browser}.hpp`，只暴露配置和
+工厂声明位于 `function/files/backends/{memory,native,fetch,browser}.hpp`，只暴露配置和
 `create_backend_xxx` 函数，返回 `shared_ptr<backend>`；具体类定义位于 cpp。工厂不执行 I/O，
 保留配置参数检查的异常语义，分配失败正常传播。后端异步准备由 initialize 完成。
 
@@ -83,7 +83,7 @@ read_next 最多接受一个在途块，消费者再次请求才继续，无隐�
 来源打开后的取消立即关闭 reader，并通过服务分发终态。
 服务关闭也关闭暂停中的流。
 
-私有桥接位于 `engine/src/platform/files/backends/detail/fetch_stream.js`，CMake 自动以
+私有桥接位于 `engine/src/function/files/backends/detail/fetch_stream.js`，CMake 自动以
 `--js-library` 链接；安装包携带该链接依赖，应用无需单独加载 JS。普通整读和范围读仍使用 Emscripten Fetch。
 
 ## 路由与路径

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "documents/commands/author_document_change.hpp"
-#include <gneiss/engine/platform/files/service.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 namespace gneiss::editor {
 struct author_file_save {
   gneiss::error status{gneiss::error::not_ready};

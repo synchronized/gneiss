@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/platform/ipc/envelope.hpp>
+#include <gneiss/engine/function/ipc/envelope.hpp>
 
 #include <gneiss/engine/error.hpp>
 

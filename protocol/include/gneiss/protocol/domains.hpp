@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <cstdint>
-#include <gneiss/engine/platform/ipc/envelope.hpp>
+#include <gneiss/engine/function/ipc/envelope.hpp>
 namespace gneiss::protocol::domain {
 inline constexpr std::uint16_t session = 1U;
 inline constexpr std::uint16_t control = 2U;
