@@ -132,16 +132,19 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
     return ops && ops->read_object ? result<value>{value{ops->read_object(data_)}}
                                    : result<value>{error::unsupported};
   }
-  if (kind() != type_kind::scalar)
-    return error::unsupported;
-  if (data_ && access() && access()->template get<scalar_ops>()->read) {
-    auto output = access()->template get<scalar_ops>()->read(data_);
-    GNEISS_ASSERT(output.kind() == scalar_kind(), "标量读取必须遵守登记的值类型");
-    if (!valid_scalar(output))
-      return error::invalid_argument;
-    return output;
+  if (data_ && access()) {
+    if (const auto* ops = access()->template get<value_ops>()) {
+      auto output = ops->read(data_);
+      if (kind() == type_kind::scalar) {
+        GNEISS_ASSERT(output.kind() == scalar_kind(), "标量读取必须遵守登记的值类型");
+        if (!valid_scalar(output))
+          return error::invalid_argument;
+      }
+      return output;
+    }
   }
-  return read_property(registry(), parent_type_, property_, parent_);
+  return kind() == type_kind::scalar ? read_property(registry(), parent_type_, property_, parent_)
+                                     : result<value>{error::unsupported};
 }
 template <bool Mutable>
 error basic_instance<Mutable>::assign(const value& input) const
@@ -159,14 +162,21 @@ error basic_instance<Mutable>::assign(const value& input) const
     const auto* object = std::get_if<ref<meta::object>>(&input.payload);
     return object ? ops->write_object(mutable_data(), *object) : error::invalid_argument;
   }
-  if (kind() != type_kind::scalar)
-    return error::unsupported;
-  if (mutable_data() && access() && access()->template get<scalar_ops>()->write) {
-    if (input.kind() != scalar_kind() || !valid_scalar(input))
-      return error::invalid_argument;
-    return access()->template get<scalar_ops>()->write(mutable_data(), input);
+  if (access()) {
+    if (const auto* ops = access()->template get<value_ops>()) {
+      if (kind() == type_kind::scalar && (input.kind() != scalar_kind() || !valid_scalar(input)))
+        return error::invalid_argument;
+      if (requires_replacement())
+        return replace([input_ptr = &input](const instance& candidate) {
+          return candidate.assign(*input_ptr);
+        });
+      if (mutable_data())
+        return ops->write(mutable_data(), input);
+    }
   }
-  return write_property(registry(), parent_type_, property_, mutable_parent(), input);
+  return kind() == type_kind::scalar
+             ? write_property(registry(), parent_type_, property_, mutable_parent(), input)
+             : error::unsupported;
 }
 template <bool Mutable>
 error basic_instance<Mutable>::assign(const const_instance& source) const

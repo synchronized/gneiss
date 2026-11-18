@@ -7,8 +7,8 @@
 #include <gneiss/engine/core/meta/ops/associative_ops.hpp>
 #include <gneiss/engine/core/meta/ops/optional_ops.hpp>
 #include <gneiss/engine/core/meta/ops/reference_ops.hpp>
-#include <gneiss/engine/core/meta/ops/scalar_ops.hpp>
 #include <gneiss/engine/core/meta/ops/sequence_ops.hpp>
+#include <gneiss/engine/core/meta/ops/value_ops.hpp>
 #include <gneiss/engine/core/meta/ops/variant_ops.hpp>
 #include <gneiss/engine/core/traits/type_identity.hpp>
 
@@ -26,10 +26,15 @@ struct type_ops {
   gneiss::guid guid{};
   void (*move_assign)(void*, void*){};
   void (*copy_assign)(void*, const void*){};
+  const value_ops* values{};
   category_ops category;
   template <class Ops> const Ops* get() const noexcept {
-    const auto* p = std::get_if<const Ops*>(&category);
-    return p ? *p : nullptr;
+    if constexpr (std::is_same_v<Ops, value_ops>) {
+      return values;
+    } else {
+      const auto* p = std::get_if<const Ops*>(&category);
+      return p ? *p : nullptr;
+    }
   }
   type_kind kind() const noexcept {
     if (empty)
@@ -102,6 +107,8 @@ template <class T> const type_ops& ops_of() {
     ops.id = runtime_type_of<T>();
     ops.guid = type_identity<scalar_storage<T>>::guid();
     ops.enumeration = std::is_enum_v<T>;
+    if constexpr (value_traits<T>::enabled)
+      ops.values = &value_ops_of<T>();
     if constexpr (std::is_copy_assignable_v<T>)
       ops.copy_assign = [](void* p, const void* v) {
         *static_cast<T*>(p) = *static_cast<const T*>(v);

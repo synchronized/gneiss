@@ -133,3 +133,5 @@ Reference 和实现为准。
 - [ADR-120 领域命名空间](ADR-120-domain-namespaces.md)
 
 - [ADR-121：基础模块的构建与符号归属](ADR-121-foundation-build-boundaries.md)
+
+- [ADR-125：类型结构与整体值转换独立](ADR-125-meta-value-conversion.md)

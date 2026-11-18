@@ -86,6 +86,7 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/detail/type_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/ops_fwd.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/scalar_ops.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/value_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/sequence_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/associative_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/optional_ops.hpp"

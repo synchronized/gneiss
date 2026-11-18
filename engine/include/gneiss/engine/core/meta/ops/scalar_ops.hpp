@@ -12,8 +12,6 @@ namespace gneiss::meta {
 GNEISS_API bool valid_scalar(const value&) noexcept;
 struct scalar_ops {
   value_kind kind = value_kind::invalid;
-  value (*read)(const void*){};
-  error (*write)(void*, const value&){};
 };
 namespace detail {
 template <class T, bool = std::is_enum_v<T>> struct integer_base {
@@ -64,15 +62,7 @@ template <class T, std::size_t Index = 1> constexpr value_kind reflected_value_k
 }
 
 template <class T> const scalar_ops& scalar_ops_of() {
-  static const scalar_ops ops{reflected_value_kind<T>(),
-                              [](const void* p) { return scalar_value(*static_cast<const T*>(p)); },
-                              [](void* p, const value& v) -> error {
-                                auto decoded = scalar_cast<T>(v);
-                                if (!decoded)
-                                  return decoded.error();
-                                *static_cast<T*>(p) = std::move(*decoded);
-                                return error::success;
-                              }};
+  static const scalar_ops ops{reflected_value_kind<T>()};
   return ops;
 }
 }

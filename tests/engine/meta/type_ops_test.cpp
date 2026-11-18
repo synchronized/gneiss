@@ -30,7 +30,38 @@ template <bool Mutable> struct dictionary {
   std::map<std::string, float> values{{"z", 2.0F}, {"a", 1.0F}};
 };
 
+struct mapped_value {
+  static constexpr std::string_view type_name = "mapped_value";
+  static constexpr e::guid type_guid = e::guid::literal("bcf96129-a1c2-4623-93e8-7bf1a2a32e1f");
+  std::int64_t number = 7;
+};
+
+struct mapped_owner {
+  static constexpr std::string_view type_name = "mapped_owner";
+  static constexpr e::guid type_guid = e::guid::literal("e87d2ec8-fad3-4c0a-984f-9b7a2737f378");
+  mapped_value stored;
+  const mapped_value& get() const { return stored; }
+  e::error set(const mapped_value& candidate) {
+    if (candidate.number < 0)
+      return e::error::invalid_argument;
+    stored = candidate;
+    return e::error::success;
+  }
+};
+
 namespace gneiss::meta {
+template <> struct value_traits<mapped_value> {
+  static constexpr bool enabled = true;
+  static value read(const mapped_value& input) { return value{std::int64_t{input.number}}; }
+  static error write(mapped_value& target, const value& input) {
+    const auto* decoded = std::get_if<std::int64_t>(&input.payload);
+    if (!decoded)
+      return error::invalid_argument;
+    target.number = *decoded;
+    return error::success;
+  }
+};
+
 template <> struct sequence_traits<numbers> {
   static constexpr bool enabled = true;
   using element = float;
@@ -144,7 +175,44 @@ int main() {
             .commit()
             .ok());
   CHECK(m::registration::type<throwing_value>(*registry).commit().ok());
+  CHECK(m::registration::type<mapped_value>(*registry)
+            .property<&mapped_value::number>(m::property_id{1}, "number")
+            .commit()
+            .ok());
+  CHECK((m::registration::type<mapped_owner>(*registry)
+             .property<&mapped_owner::get, &mapped_owner::set>(m::property_id{1}, "item")
+             .commit()
+             .ok()));
   CHECK(m::freeze(*registry).ok());
+  mapped_owner owner;
+  auto owner_view = m::view(*registry, owner);
+  CHECK(owner_view);
+  auto item = owner_view->member("item");
+  CHECK(item && item->requires_replacement());
+  CHECK(item->assign(e::value{std::int64_t{-1}}) == e::error::invalid_argument);
+  CHECK(owner.stored.number == 7);
+  CHECK(item->assign(e::value{std::int64_t{12}}).ok());
+  CHECK(owner.stored.number == 12);
+
+  // 整体转换不改变结构类别，也不改变默认 JSON 的对象格式。
+  mapped_value mapped;
+  auto mapped_view = m::view(*registry, mapped);
+  CHECK(mapped_view && mapped_view->kind() == m::type_kind::object);
+  CHECK(mapped_view->read_value() && *mapped_view->read_value() == e::value{std::int64_t{7}});
+  CHECK(mapped_view->assign(e::value{std::int64_t{9}}).ok());
+  CHECK(mapped.number == 9);
+  CHECK(mapped_view->assign(e::value{std::string{"wrong"}}) == e::error::invalid_argument);
+  CHECK(mapped.number == 9);
+  auto mapped_bytes =
+      e::serialization::json::encode_bytes(e::serialization::write_context{*registry}, mapped);
+  CHECK(mapped_bytes);
+  auto mapped_copy = e::serialization::json::decode<mapped_value>(
+      e::serialization::read_context{*registry}, *mapped_bytes);
+  CHECK(mapped_copy && mapped_copy->number == 9);
+  const std::string mapped_json(reinterpret_cast<const char*>(mapped_bytes->data()),
+                                mapped_bytes->size());
+  CHECK(mapped_json.find("number") != std::string::npos);
+
   document source;
   auto view = m::view(*registry, source);
   CHECK(view);
