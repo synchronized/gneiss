@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/property_edit_policy.hpp>
-#include <gneiss/engine/function/scene/prefab_property_override.hpp>
-#include <gneiss/engine/error.hpp>
+#include "function/scene/detail/component_validation.hpp"
+#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/core/utf8.hpp>
-#include "function/scene/detail/component_validation.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/scene/prefab_property_override.hpp>
 
 #include <algorithm>
 #include <cmath>

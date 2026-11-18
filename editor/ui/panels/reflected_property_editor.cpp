@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "ui/panels/reflected_property_editor.hpp"
-#include <gneiss/engine/core/property_edit_policy.hpp>
-#include <gneiss/engine/core/serialization/json.hpp>
 #include "ui/viewport/editor_rotation_math.hpp"
 #include <cstring>
+#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
 #include <imgui.h>
 namespace gneiss::editor {
 using namespace gneiss;

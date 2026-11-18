@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>

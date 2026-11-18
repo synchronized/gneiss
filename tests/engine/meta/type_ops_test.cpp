@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/throws.hpp"
 #include <cstdio>
+#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>

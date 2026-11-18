@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include <cstdio>
 #include <deque>
+#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>

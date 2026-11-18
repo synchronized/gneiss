@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/commands/prefab_authoring.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 

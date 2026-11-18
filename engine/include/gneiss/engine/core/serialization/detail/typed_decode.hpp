@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
+#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/context.hpp>
 #include <optional>

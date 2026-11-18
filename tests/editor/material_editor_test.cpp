@@ -3,6 +3,7 @@
 #include "gneiss/engine/platform/files/backends/memory.hpp"
 #include "ui/panels/material_editor_panel.hpp"
 #include <cstdio>
+#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>

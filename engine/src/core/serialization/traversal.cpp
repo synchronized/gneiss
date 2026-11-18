@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "core/serialization/detail/traversal.hpp"
 #include <algorithm>
+#include <gneiss/engine/core/meta/capabilities/container_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 namespace gneiss::serialization::detail {
 using namespace meta;

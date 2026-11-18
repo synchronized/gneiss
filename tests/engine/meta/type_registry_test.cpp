@@ -2,12 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/throws.hpp"
 #include "../../support/value_result.hpp"
+#include <array>
+#include <cstdint>
 #include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
-#include <array>
-#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <thread>

@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 
 namespace gneiss::meta {

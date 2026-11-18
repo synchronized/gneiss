@@ -4,10 +4,11 @@
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/components/component_registration.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <gneiss/engine/core/meta/instance.hpp>

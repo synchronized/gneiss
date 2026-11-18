@@ -786,3 +786,10 @@ if (enumeration) {
 
 未注册原生枚举的能力有效，但 entries() 为空；非枚举返回空能力，其 entries() 也为空。
 类型身份与注册状态仍通过 type 查询。编辑器下拉框及枚举名称编解码共用该条目来源。
+
+### 能力头文件依赖
+
+`type.hpp` 只提供通用类型查询入口，不包含具体 capability。使用方按需显式包含
+`meta/capabilities/sequence_capability.hpp`、`enum_capability.hpp` 或
+`representation_capability.hpp`；关联、可选、引用和 variant 能力定义在
+`container_capability.hpp`。实例绑定还需包含 `instance.hpp`。仅声明友元不需要包含能力实现。

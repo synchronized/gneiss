@@ -65,8 +65,3 @@ namespace detail {
 GNEISS_API meta::type resolve_type(const registry_ref&, const type_ops&);
 }
 } // namespace gneiss::meta
-
-#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
-
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>

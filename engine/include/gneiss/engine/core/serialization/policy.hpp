@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/meta/capabilities/container_capability.hpp>
 #include <gneiss/engine/core/meta/property.hpp>
+#include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <functional>
 #include <optional>

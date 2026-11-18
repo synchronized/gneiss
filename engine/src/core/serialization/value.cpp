@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/serialization/value.hpp>
+#include "core/serialization/detail/context_access.hpp"
+#include "core/serialization/detail/traversal.hpp"
+#include <algorithm>
+#include <gneiss/engine/core/meta/capabilities/container_capability.hpp>
 #include <gneiss/engine/core/meta/views/associative_view.hpp>
 #include <gneiss/engine/core/meta/views/optional_view.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
 #include <gneiss/engine/core/meta/views/sequence_view.hpp>
 #include <gneiss/engine/core/meta/views/variant_view.hpp>
-#include "core/serialization/detail/context_access.hpp"
-#include "core/serialization/detail/traversal.hpp"
 #include <gneiss/engine/core/serialization/policy.hpp>
-#include <algorithm>
+#include <gneiss/engine/core/serialization/value.hpp>
 #include <unordered_set>
 namespace gneiss::serialization {
 namespace {
