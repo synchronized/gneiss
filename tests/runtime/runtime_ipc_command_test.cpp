@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/registration.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/error.hpp>
 #include "ipc/runtime_commands.hpp"
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/protocol/registration.hpp>
 
 #include <gneiss/protocol/ipc_asset_protocol.hpp>
 #include <gneiss/protocol/ipc_inspection_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
 
 #include <array>
 #include <vector>
@@ -31,7 +32,8 @@ gneiss::error capture_send(void* context, gneiss::ipc::envelope envelope) noexce
 } // namespace
 
 int main() {
-  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
+    return 98;
   using namespace gneiss;
   using namespace gneiss::host;
 
@@ -41,19 +43,19 @@ int main() {
   }
   constexpr std::array domains{
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::session,
-                                            .version = 1U},
+                                          .version = ipc_session_domain_version},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::control,
-                                            .version = gneiss::host::ipc_control_domain_version},
+                                          .version = gneiss::host::ipc_control_domain_version},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::inspection,
-                                            .version = 1U},
+                                          .version = 1U},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::property,
-                                            .version = ipc_property_domain_version},
+                                          .version = ipc_property_domain_version},
       gneiss::protocol::domain_capability{.domain = gneiss::protocol::domain::asset,
-                                            .version = ipc_asset_domain_version}};
-  const gneiss::protocol::dispatch_context dispatch_context{
-      .remote_role = gneiss::protocol::peer_role::editor,
-      .handshake_complete = true,
-      .negotiated_domains = domains};
+                                          .version = ipc_asset_domain_version}};
+  const gneiss::protocol::dispatch_context dispatch_context{.remote_role =
+                                                                gneiss::protocol::peer_role::editor,
+                                                            .handshake_complete = true,
+                                                            .negotiated_domains = domains};
   runtime_ipc_state state = runtime_ipc_state::running;
   runtime_ipc_actions actions;
   sent_envelopes sent;
@@ -67,7 +69,8 @@ int main() {
     return 2;
   }
   ipc_control_state reported{};
-  if (decode_ipc_control_state(sent.values.back(), reported).failed() || reported != ipc_control_state::paused)
+  if (decode_ipc_control_state(sent.values.back(), reported).failed() ||
+      reported != ipc_control_state::paused)
     return 12;
   actions.pause_game = false;
   if (!router.dispatch(envelope, dispatch_context, context).accepted() || actions.pause_game ||

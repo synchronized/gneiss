@@ -8,6 +8,7 @@
 #include <gneiss/protocol/ipc_log_protocol.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
 #include <gneiss/protocol/ipc_statistics_protocol.hpp>
 #include <gneiss/protocol/registration.hpp>
 
@@ -333,6 +334,50 @@ error register_types() {
           .property<&host::ipc_inspection_batch::changes>(meta::property_id{5}, "changes")(
               serialization::field_policy{.required = true})
           .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<domain_capability>()
+               .property<&domain_capability::domain>(meta::property_id{1}, "domain")(
+                   serialization::field_policy{.required = true})
+               .property<&domain_capability::version>(meta::property_id{2}, "version")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_session_hello>()
+               .name("gneiss.protocol.ipc_session_hello")
+               .guid(guid::literal("a25b43eb-0cd3-4610-bd93-6fa230846421"))
+               .property<&host::ipc_session_hello::token>(meta::property_id{1}, "token")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_session_hello::domains>(meta::property_id{2}, "domains")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_session_heartbeat>()
+               .name("gneiss.protocol.ipc_session_heartbeat")
+               .guid(guid::literal("a575680b-2093-4cb6-b88f-0e07b31cff36"))
+               .property<&host::ipc_session_heartbeat::nonce>(meta::property_id{1}, "nonce")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_session_error>()
+               .name("gneiss.protocol.ipc_session_error")
+               .guid(guid::literal("a5af8ce9-8988-4b80-8487-bc8b44877317"))
+               .property<&host::ipc_session_error::code>(meta::property_id{1}, "code")(
+                   serialization::field_policy{.required = true})
+               .property<&host::ipc_session_error::message>(meta::property_id{2}, "message")(
+                   serialization::field_policy{.required = true})
+               .commit();
+  if (status.failed())
+    return status;
+  status = meta::registration::type<host::ipc_session_shutdown>()
+               .name("gneiss.protocol.ipc_session_shutdown")
+               .guid(guid::literal("f489891e-7db1-435a-a54e-8958279501dc"))
+               .property<&host::ipc_session_shutdown::exit_code>(meta::property_id{1}, "exit_code")(
+                   serialization::field_policy{.required = true})
+               .commit();
   if (status.failed())
     return status;
   return meta::registration::type<statistics>()

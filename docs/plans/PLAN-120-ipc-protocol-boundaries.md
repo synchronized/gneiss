@@ -196,3 +196,16 @@ logging::record_view 转为拥有文本的协议记录，并非同类型转发�
 
 验收：Windows Clang Debug 共享构建及 19 项相关测试通过，包括完整批次分片/拒绝与真实
 Runtime、Editor 工作流。未执行静态、Linux/Web 或远端验证。
+
+## Session 字段迁移
+
+- [x] 注册域能力、Hello、心跳、错误和关闭负载，删除手写 JSON 字段编解码。
+- [x] 消息描述派生方向规则；Runtime 心跳与错误接收使用类型化绑定，删除心跳纯转发文件。
+- [x] 保留认证、域协商、超时、独立候选输出和负载限制；补充类型化非法输入验证。
+
+格式升为 Session v2，Hello 响应显式携带空 token；事实见
+[IPC 参考](../reference/platform-ipc.md#session-类型化消息)。旧 Session codec 委托和部分宿主
+包装仍保留，后续需沿实际调用链收敛。stdout 编码评估尚未处理，阶段二仍进行中。
+
+验收：Windows Clang Debug 共享构建及 19 项相关测试通过，包含握手协商、错误令牌、
+负载限制、心跳数值拒绝和真实 Runtime/Editor 工作流。未执行静态库、跨平台或远端验证。

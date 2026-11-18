@@ -1,48 +1,21 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/error.hpp>
 #include "ipc/runtime_commands.hpp"
-
-#include "ipc/outbound/runtime_ipc_outbound.hpp"
-
 #include <gneiss/protocol/ipc_session_protocol.hpp>
 
 namespace gneiss::host {
-namespace {
-
-gneiss::error handle_heartbeat(const gneiss::ipc::envelope& envelope,
-                                       runtime_command_context& context) {
-  ipc_session_heartbeat heartbeat;
-  const auto operation = decode_ipc_session_heartbeat(envelope, heartbeat);
-  if (operation != gneiss::error::success) {
-    return operation;
-  }
-  gneiss::ipc::envelope response;
-  const auto encoded = make_heartbeat_response(heartbeat, envelope.request_id, response);
-  return encoded == gneiss::error::success ? context.send(std::move(response)) : encoded;
+error register_runtime_session_commands(runtime_command_router& router) noexcept {
+  auto status = router.bind(session_ping, [](runtime_command_context& context,
+                                             protocol::request_context request,
+                                             ipc_session_heartbeat heartbeat) {
+    auto response = protocol::encode(session_pong, heartbeat, request.id);
+    return response ? context.send(std::move(*response)) : response.error().error;
+  });
+  if (status.failed())
+    return status;
+  return router.bind(session_editor_error,
+                     [](runtime_command_context&, protocol::request_context,
+                        ipc_session_error failure) { return error{failure.code}; });
 }
-
-gneiss::error handle_protocol_error(const gneiss::ipc::envelope& envelope,
-                                            runtime_command_context&) {
-  ipc_session_error error;
-  const auto operation = decode_ipc_session_error(envelope, error);
-  return operation == gneiss::error::success ? gneiss::error(error.code)
-                                                     : operation;
-}
-
-} // namespace
-
-gneiss::error register_runtime_session_commands(runtime_command_router& router) noexcept {
-  auto operation =
-      router.bind(gneiss::protocol::domain::session,
-                  static_cast<std::uint16_t>(ipc_session_operation::heartbeat), handle_heartbeat);
-  if (operation == gneiss::error::success) {
-    operation = router.bind(gneiss::protocol::domain::session,
-                            static_cast<std::uint16_t>(ipc_session_operation::protocol_error),
-                            handle_protocol_error);
-  }
-  return operation;
-}
-
 } // namespace gneiss::host

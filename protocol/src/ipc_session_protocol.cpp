@@ -1,54 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/ipc_session_protocol.hpp>
-#include <gneiss/engine/error.hpp>
-
-#include <yyjson.h>
-
 #include <algorithm>
 #include <array>
-#include <cstdlib>
-#include <limits>
-#include <memory>
-#include <new>
+#include <gneiss/protocol/ipc_session_protocol.hpp>
 
 namespace {
-
 constexpr std::size_t max_token_size = 256U;
 constexpr std::size_t max_domain_count = 32U;
-constexpr std::size_t max_error_message_size = std::size_t{16U} * 1024U;
-
-constexpr std::array session_operations{
-    gneiss::protocol::operation_descriptor{
-        .operation = static_cast<std::uint16_t>(gneiss::host::ipc_session_operation::hello),
-        .editor_to_runtime_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response),
-        .runtime_to_editor_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request)},
-    gneiss::protocol::operation_descriptor{
-        .operation = static_cast<std::uint16_t>(gneiss::host::ipc_session_operation::heartbeat),
-        .editor_to_runtime_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::request),
-        .runtime_to_editor_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::response)},
-    gneiss::protocol::operation_descriptor{
-        .operation =
-            static_cast<std::uint16_t>(gneiss::host::ipc_session_operation::protocol_error),
-        .editor_to_runtime_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::error),
-        .runtime_to_editor_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::error)},
-    gneiss::protocol::operation_descriptor{
-        .operation =
-            static_cast<std::uint16_t>(gneiss::host::ipc_session_operation::shutdown_complete),
-        .editor_to_runtime_kinds = 0U,
-        .runtime_to_editor_kinds =
-            gneiss::protocol::kind_mask(gneiss::ipc::message_kind::event)}};
-
-using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
-using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
-
+constexpr std::size_t max_error_message_size = 16U * 1024U;
 [[nodiscard]] bool constant_time_equal(std::string_view left, std::string_view right) noexcept {
   std::size_t difference = left.size() ^ right.size();
   const auto count = (std::max)(left.size(), right.size());
@@ -76,281 +36,131 @@ valid_domains(std::span<const gneiss::protocol::domain_capability> domains) noex
   return true;
 }
 
-[[nodiscard]] gneiss::error write_document(yyjson_mut_doc* document, yyjson_mut_val* root,
-                                                   gneiss::ipc::envelope& envelope) {
-  yyjson_mut_doc_set_root(document, root);
-  std::size_t length = 0U;
-  std::unique_ptr<char, decltype(&std::free)> json(
-      yyjson_mut_write(document, YYJSON_WRITE_NOFLAG, &length), &std::free);
-  if (!json) {
-    return gneiss::error::out_of_memory;
-  }
-  if (length > gneiss::host::ipc_session_max_payload_size) {
-    return gneiss::error::invalid_argument;
-  }
-  envelope.payload.assign(reinterpret_cast<const std::uint8_t*>(json.get()),
-                          reinterpret_cast<const std::uint8_t*>(json.get()) + length);
-  return gneiss::error::success;
 }
-
-[[nodiscard]] document_ptr read_document(const gneiss::ipc::envelope& envelope) noexcept {
-  return {yyjson_read(reinterpret_cast<const char*>(envelope.payload.data()),
-                      envelope.payload.size(), YYJSON_READ_NOFLAG),
-          &yyjson_doc_free};
-}
-
-[[nodiscard]] bool matches(const gneiss::ipc::envelope& envelope,
-                           gneiss::host::ipc_session_operation operation) noexcept {
-  return envelope.domain == gneiss::protocol::domain::session &&
-         envelope.operation == static_cast<std::uint16_t>(operation) &&
-         envelope.protocol_major == gneiss::ipc::v2_protocol_major &&
-         envelope.protocol_minor <= gneiss::ipc::v2_protocol_minor;
-}
-
-} // namespace
-
 namespace gneiss::host {
-
-gneiss::error encode_ipc_session_hello(const ipc_session_hello& message, bool response,
-                                               std::uint32_t request_id,
-                                               gneiss::ipc::envelope& output) {
-  if ((!response && (message.token.empty() || message.token.size() > max_token_size)) ||
-      (response && !message.token.empty()) || request_id == 0U || !valid_domains(message.domains)) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-    auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    auto* domains = document ? yyjson_mut_arr(document.get()) : nullptr;
-    if (!document || root == nullptr || domains == nullptr) {
-      return gneiss::error::out_of_memory;
-    }
-    if (!response && !yyjson_mut_obj_add_strncpy(document.get(), root, "token",
-                                                 message.token.data(), message.token.size())) {
-      return gneiss::error::out_of_memory;
-    }
-    for (const auto capability : message.domains) {
-      auto* item = yyjson_mut_obj(document.get());
-      if (item == nullptr ||
-          !yyjson_mut_obj_add_uint(document.get(), item, "domain",
-                                   static_cast<std::uint16_t>(capability.domain)) ||
-          !yyjson_mut_obj_add_uint(document.get(), item, "version", capability.version) ||
-          !yyjson_mut_arr_add_val(domains, item)) {
-        return gneiss::error::out_of_memory;
-      }
-    }
-    if (!yyjson_mut_obj_add_val(document.get(), root, "domains", domains)) {
-      return gneiss::error::out_of_memory;
-    }
-    gneiss::ipc::envelope encoded{
-        .domain = gneiss::protocol::domain::session,
-        .operation = static_cast<std::uint16_t>(ipc_session_operation::hello),
-        .kind = response ? gneiss::ipc::message_kind::response
-                         : gneiss::ipc::message_kind::request,
-        .request_id = request_id,
-        .payload = {}};
-    const auto operation = write_document(document.get(), root, encoded);
-    if (operation == gneiss::error::success) {
-      output = std::move(encoded);
-    }
-    return operation;
-  }
+const protocol::message_descriptor<ipc_session_hello> session_hello{
+    protocol::domain::session,
+    static_cast<std::uint16_t>(ipc_session_operation::hello),
+    ipc::message_kind::request,
+    protocol::peer_role::runtime,
+    ipc_session_max_payload_size,
+    [](const ipc_session_hello& v) {
+      return !v.token.empty() && v.token.size() <= max_token_size && valid_domains(v.domains);
+    }};
+const protocol::message_descriptor<ipc_session_hello> session_accepted{
+    protocol::domain::session,
+    static_cast<std::uint16_t>(ipc_session_operation::hello),
+    ipc::message_kind::response,
+    protocol::peer_role::editor,
+    ipc_session_max_payload_size,
+    [](const ipc_session_hello& v) { return v.token.empty() && valid_domains(v.domains); }};
+const protocol::message_descriptor<ipc_session_heartbeat> session_ping{
+    protocol::domain::session,    static_cast<std::uint16_t>(ipc_session_operation::heartbeat),
+    ipc::message_kind::request,   protocol::peer_role::editor,
+    ipc_session_max_payload_size, nullptr};
+const protocol::message_descriptor<ipc_session_heartbeat> session_pong{
+    protocol::domain::session,    static_cast<std::uint16_t>(ipc_session_operation::heartbeat),
+    ipc::message_kind::response,  protocol::peer_role::runtime,
+    ipc_session_max_payload_size, nullptr};
+const protocol::message_descriptor<ipc_session_error> session_editor_error{
+    protocol::domain::session,
+    static_cast<std::uint16_t>(ipc_session_operation::protocol_error),
+    ipc::message_kind::error,
+    protocol::peer_role::editor,
+    ipc_session_max_payload_size,
+    [](const ipc_session_error& v) { return v.message.size() <= max_error_message_size; }};
+const protocol::message_descriptor<ipc_session_error> session_runtime_error{
+    protocol::domain::session,
+    static_cast<std::uint16_t>(ipc_session_operation::protocol_error),
+    ipc::message_kind::error,
+    protocol::peer_role::runtime,
+    ipc_session_max_payload_size,
+    [](const ipc_session_error& v) { return v.message.size() <= max_error_message_size; }};
+const protocol::message_descriptor<ipc_session_shutdown> session_shutdown{
+    protocol::domain::session,
+    static_cast<std::uint16_t>(ipc_session_operation::shutdown_complete),
+    ipc::message_kind::event,
+    protocol::peer_role::runtime,
+    ipc_session_max_payload_size,
+    nullptr};
+namespace {
+const std::array session_operations = [] {
+  auto hello = session_hello.rule();
+  hello.editor_to_runtime_kinds |= session_accepted.rule().editor_to_runtime_kinds;
+  auto heartbeat = session_ping.rule();
+  heartbeat.runtime_to_editor_kinds |= session_pong.rule().runtime_to_editor_kinds;
+  auto failure = session_editor_error.rule();
+  failure.runtime_to_editor_kinds |= session_runtime_error.rule().runtime_to_editor_kinds;
+  return std::array{hello, heartbeat, failure, session_shutdown.rule()};
+}();
 }
-
-gneiss::error decode_ipc_session_hello(const gneiss::ipc::envelope& envelope,
-                                               ipc_session_hello& output) {
-  if (!matches(envelope, ipc_session_operation::hello) ||
-      (envelope.kind != gneiss::ipc::message_kind::request &&
-       envelope.kind != gneiss::ipc::message_kind::response) ||
-      envelope.request_id == 0U || envelope.payload.size() > ipc_session_max_payload_size) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    auto document = read_document(envelope);
-    auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
-    auto* token = yyjson_is_obj(root) ? yyjson_obj_get(root, "token") : nullptr;
-    auto* domains = yyjson_is_obj(root) ? yyjson_obj_get(root, "domains") : nullptr;
-    if (!yyjson_is_arr(domains) || yyjson_arr_size(domains) > max_domain_count ||
-        (envelope.kind == gneiss::ipc::message_kind::request &&
-         (!yyjson_is_str(token) || yyjson_get_len(token) == 0U ||
-          yyjson_get_len(token) > max_token_size)) ||
-        (envelope.kind == gneiss::ipc::message_kind::response && token != nullptr)) {
-      return gneiss::error::invalid_argument;
-    }
-    ipc_session_hello decoded;
-    if (envelope.kind == gneiss::ipc::message_kind::request) {
-      decoded.token.assign(yyjson_get_str(token), yyjson_get_len(token));
-    }
-    decoded.domains.reserve(yyjson_arr_size(domains));
-    std::size_t index = 0U;
-    std::size_t count = 0U;
-    yyjson_val* item = nullptr;
-    yyjson_arr_foreach(domains, index, count, item) {
-      auto* domain = yyjson_is_obj(item) ? yyjson_obj_get(item, "domain") : nullptr;
-      auto* version = yyjson_is_obj(item) ? yyjson_obj_get(item, "version") : nullptr;
-      if (!yyjson_is_uint(domain) || yyjson_get_uint(domain) == 0U ||
-          yyjson_get_uint(domain) > std::numeric_limits<std::uint16_t>::max() ||
-          !yyjson_is_uint(version) || yyjson_get_uint(version) == 0U ||
-          yyjson_get_uint(version) > std::numeric_limits<std::uint16_t>::max()) {
-        return gneiss::error::invalid_argument;
-      }
-      decoded.domains.push_back(
-          {.domain = static_cast<std::uint16_t>(yyjson_get_uint(domain)),
-           .version = static_cast<std::uint16_t>(yyjson_get_uint(version))});
-    }
-    if (!valid_domains(decoded.domains)) {
-      return gneiss::error::invalid_argument;
-    }
-    output = std::move(decoded);
-    return gneiss::error::success;
-  }
+error encode_ipc_session_hello(const ipc_session_hello& message, bool response,
+                               std::uint32_t request_id, ipc::envelope& output) {
+  auto encoded = protocol::encode(response ? session_accepted : session_hello, message, request_id);
+  if (!encoded)
+    return encoded.error().error;
+  output = std::move(*encoded);
+  return error::success;
 }
-
-gneiss::error encode_ipc_session_heartbeat(const ipc_session_heartbeat& message,
-                                                   bool response, std::uint32_t request_id,
-                                                   gneiss::ipc::envelope& output) {
-  if (request_id == 0U) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-    auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    if (!document || root == nullptr ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "nonce", message.nonce)) {
-      return gneiss::error::out_of_memory;
-    }
-    gneiss::ipc::envelope encoded{
-        .domain = gneiss::protocol::domain::session,
-        .operation = static_cast<std::uint16_t>(ipc_session_operation::heartbeat),
-        .kind = response ? gneiss::ipc::message_kind::response
-                         : gneiss::ipc::message_kind::request,
-        .request_id = request_id,
-        .payload = {}};
-    const auto operation = write_document(document.get(), root, encoded);
-    if (operation == gneiss::error::success) {
-      output = std::move(encoded);
-    }
-    return operation;
-  }
+error decode_ipc_session_hello(const ipc::envelope& envelope, ipc_session_hello& output) {
+  auto decoded = protocol::decode(
+      envelope.kind == ipc::message_kind::response ? session_accepted : session_hello, envelope);
+  if (!decoded)
+    return decoded.error().error;
+  output = std::move(*decoded);
+  return error::success;
 }
-
-gneiss::error decode_ipc_session_heartbeat(const gneiss::ipc::envelope& envelope,
-                                                   ipc_session_heartbeat& output) noexcept {
-  if (!matches(envelope, ipc_session_operation::heartbeat) ||
-      (envelope.kind != gneiss::ipc::message_kind::request &&
-       envelope.kind != gneiss::ipc::message_kind::response) ||
-      envelope.request_id == 0U || envelope.payload.size() > ipc_session_max_payload_size) {
-    return gneiss::error::invalid_argument;
-  }
-  auto document = read_document(envelope);
-  auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
-  auto* nonce = yyjson_is_obj(root) ? yyjson_obj_get(root, "nonce") : nullptr;
-  if (!yyjson_is_uint(nonce)) {
-    return gneiss::error::invalid_argument;
-  }
-  output.nonce = yyjson_get_uint(nonce);
-  return gneiss::error::success;
+error encode_ipc_session_heartbeat(const ipc_session_heartbeat& message, bool response,
+                                   std::uint32_t request_id, ipc::envelope& output) {
+  auto encoded = protocol::encode(response ? session_pong : session_ping, message, request_id);
+  if (!encoded)
+    return encoded.error().error;
+  output = std::move(*encoded);
+  return error::success;
 }
-
-gneiss::error encode_ipc_session_error(const ipc_session_error& message,
-                                               std::uint32_t request_id,
-                                               gneiss::ipc::envelope& output) {
-  if (request_id == 0U || message.message.size() > max_error_message_size) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-    auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    if (!document || root == nullptr ||
-        !yyjson_mut_obj_add_sint(document.get(), root, "code", message.code) ||
-        !yyjson_mut_obj_add_strncpy(document.get(), root, "message", message.message.data(),
-                                    message.message.size())) {
-      return gneiss::error::out_of_memory;
-    }
-    gneiss::ipc::envelope encoded{
-        .domain = gneiss::protocol::domain::session,
-        .operation = static_cast<std::uint16_t>(ipc_session_operation::protocol_error),
-        .kind = gneiss::ipc::message_kind::error,
-        .request_id = request_id,
-        .payload = {}};
-    const auto operation = write_document(document.get(), root, encoded);
-    if (operation == gneiss::error::success) {
-      output = std::move(encoded);
-    }
-    return operation;
-  }
+error decode_ipc_session_heartbeat(const ipc::envelope& envelope,
+                                   ipc_session_heartbeat& output) noexcept {
+  auto decoded = protocol::decode(
+      envelope.kind == ipc::message_kind::response ? session_pong : session_ping, envelope);
+  if (!decoded)
+    return decoded.error().error;
+  output = std::move(*decoded);
+  return error::success;
 }
-
-gneiss::error decode_ipc_session_error(const gneiss::ipc::envelope& envelope,
-                                               ipc_session_error& output) {
-  if (!matches(envelope, ipc_session_operation::protocol_error) ||
-      envelope.kind != gneiss::ipc::message_kind::error || envelope.request_id == 0U ||
-      envelope.payload.size() > ipc_session_max_payload_size) {
-    return gneiss::error::invalid_argument;
-  }
-  {
-    auto document = read_document(envelope);
-    auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
-    auto* code = yyjson_is_obj(root) ? yyjson_obj_get(root, "code") : nullptr;
-    auto* message = yyjson_is_obj(root) ? yyjson_obj_get(root, "message") : nullptr;
-    if (!yyjson_is_int(code) || yyjson_get_sint(code) < std::numeric_limits<std::int32_t>::min() ||
-        yyjson_get_sint(code) > std::numeric_limits<std::int32_t>::max() ||
-        !yyjson_is_str(message) || yyjson_get_len(message) > max_error_message_size) {
-      return gneiss::error::invalid_argument;
-    }
-    ipc_session_error decoded{.code = static_cast<std::int32_t>(yyjson_get_sint(code)),
-                              .message = {yyjson_get_str(message), yyjson_get_len(message)}};
-    output = std::move(decoded);
-    return gneiss::error::success;
-  }
+error encode_ipc_session_error(const ipc_session_error& message, std::uint32_t request_id,
+                               ipc::envelope& output) {
+  auto encoded = protocol::encode(session_runtime_error, message, request_id);
+  if (!encoded)
+    return encoded.error().error;
+  output = std::move(*encoded);
+  return error::success;
 }
-
-gneiss::error encode_ipc_session_shutdown(const ipc_session_shutdown& message,
-                                                  gneiss::ipc::envelope& output) {
-  {
-    mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
-    auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    if (!document || root == nullptr ||
-        !yyjson_mut_obj_add_sint(document.get(), root, "exit_code", message.exit_code)) {
-      return gneiss::error::out_of_memory;
-    }
-    gneiss::ipc::envelope encoded{
-        .domain = gneiss::protocol::domain::session,
-        .operation = static_cast<std::uint16_t>(ipc_session_operation::shutdown_complete),
-        .kind = gneiss::ipc::message_kind::event,
-        .request_id = 0U,
-        .payload = {}};
-    const auto operation = write_document(document.get(), root, encoded);
-    if (operation == gneiss::error::success) {
-      output = std::move(encoded);
-    }
-    return operation;
-  }
+error decode_ipc_session_error(const ipc::envelope& envelope, ipc_session_error& output) {
+  auto decoded = protocol::decode(session_runtime_error, envelope);
+  if (!decoded)
+    return decoded.error().error;
+  output = std::move(*decoded);
+  return error::success;
 }
-
-gneiss::error decode_ipc_session_shutdown(const gneiss::ipc::envelope& envelope,
-                                                  ipc_session_shutdown& output) noexcept {
-  if (!matches(envelope, ipc_session_operation::shutdown_complete) ||
-      envelope.kind != gneiss::ipc::message_kind::event || envelope.request_id != 0U ||
-      envelope.payload.size() > ipc_session_max_payload_size) {
-    return gneiss::error::invalid_argument;
-  }
-  auto document = read_document(envelope);
-  auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
-  auto* exit_code = yyjson_is_obj(root) ? yyjson_obj_get(root, "exit_code") : nullptr;
-  if (!yyjson_is_int(exit_code) ||
-      yyjson_get_sint(exit_code) < std::numeric_limits<std::int32_t>::min() ||
-      yyjson_get_sint(exit_code) > std::numeric_limits<std::int32_t>::max()) {
-    return gneiss::error::invalid_argument;
-  }
-  output.exit_code = static_cast<std::int32_t>(yyjson_get_sint(exit_code));
-  return gneiss::error::success;
+error encode_ipc_session_shutdown(const ipc_session_shutdown& message, ipc::envelope& output) {
+  auto encoded = protocol::encode(session_shutdown, message);
+  if (!encoded)
+    return encoded.error().error;
+  output = std::move(*encoded);
+  return error::success;
 }
-
-gneiss::error negotiate_ipc_session_hello(
-    const ipc_session_hello& request, std::string_view expected_token,
-    std::span<const gneiss::protocol::domain_capability> supported_domains,
-    ipc_session_hello& acknowledgment) {
+error decode_ipc_session_shutdown(const ipc::envelope& envelope,
+                                  ipc_session_shutdown& output) noexcept {
+  auto decoded = protocol::decode(session_shutdown, envelope);
+  if (!decoded)
+    return decoded.error().error;
+  output = std::move(*decoded);
+  return error::success;
+}
+gneiss::error
+negotiate_ipc_session_hello(const ipc_session_hello& request, std::string_view expected_token,
+                            std::span<const gneiss::protocol::domain_capability> supported_domains,
+                            ipc_session_hello& acknowledgment) {
   if (expected_token.empty() || request.token.empty() || request.token.size() > max_token_size ||
       !valid_domains(request.domains) || !valid_domains(supported_domains) ||
       !constant_time_equal(request.token, expected_token)) {

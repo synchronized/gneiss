@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/platform/ipc/envelope.hpp>
 #include <gneiss/protocol/domains.hpp>
@@ -47,6 +48,8 @@ struct domain_descriptor final {
 };
 
 struct domain_capability final {
+  static constexpr auto type_guid = guid::literal("f87e7e72-ad48-443f-bef7-ce29758c207f");
+  static constexpr std::string_view type_name = "gneiss.protocol.domain_capability";
   std::uint16_t domain = domain::session;
   std::uint16_t version = 0U;
 

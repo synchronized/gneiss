@@ -146,3 +146,21 @@ inspection_snapshot 描述快照事件及方向，反射先生成独立候选，
 接收使用 `protocol::decode(inspection_snapshot, envelope)`。旧字节分片入口、带 v2 后缀的
 信封包装和 Runtime 纯转发源文件已删除。单片 payload 编解码仍供协议边界测试使用。
 resync 继续使用空负载，不为形式统一增加 JSON 对象。
+
+## Session 类型化消息
+
+Session v2 的 Hello、心跳、协议错误和关闭通知使用反射 JSON。消息描述分别为
+session_hello/session_accepted、session_ping/session_pong、session_editor_error/
+session_runtime_error 和 session_shutdown；域方向规则由这些描述生成。
+Runtime 的心跳处理直接解码请求并编码响应，不再经过单独的心跳转发源文件。
+
+Hello 请求包含 token 与 domains，响应也包含这两个字段，但 token 必须为空字符串，
+不得回传认证令牌。域能力的 domain/version 必须非零、domain 不重复，最多 32 项；
+请求令牌非空且最多 256 字节。认证仍比较预期令牌，协商仍取双方支持域的版本最小值。
+心跳保留 uint64 nonce，错误包含 code/message，关闭通知包含 exit_code。
+Session 负载上限为 64 KiB，错误文本上限为 16 KiB。超时跟踪与请求关联语义不变。
+
+宿主在握手前通过 initialize_meta(protocol::register_types) 完成注册。发送方向和握手状态
+仍由路由及会话层检查，反射不代替认证。Hello 响应从省略 token 改为显式空字符串，
+v1/v2 不兼容，需要配套升级宿主。旧 Session 编解码入口暂保留为类型化编解码的委托，
+其余宿主包装尚未全部收敛。
