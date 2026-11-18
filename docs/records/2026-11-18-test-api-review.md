@@ -28,3 +28,18 @@ Prefab 覆盖用例的路径稳定性、候选隔离和覆盖应用尚需与 Met
 Windows Clang Debug 共享、静态分别构建上述三个目标；对应三项测试均通过。
 全仓搜索已无 read_component_value。未运行全量、GPU、跨平台或发布验收。
 版本任务仍由 [PLAN-119](../plans/PLAN-119-engine-build-test-layout.md) 承接。
+
+## World 创建与对象调用续审
+
+world_service_test 与 native_world_lifecycle_test 已移除 value_result.hpp 依赖。
+create_native 直接检查结果并移动所有权；已成功创建的对象直接获取 entity，
+变换操作直接使用 game_object，删除旧 node 变量及嵌套 entity_id 转换。
+
+合并 world_service_test::native_operations 中重复的 world::object 跨线程错误检查：
+同文件 scene_object_storage 仍覆盖该错误，主函数保留所有者移动后的线程边界验证，
+native_world_lifecycle 也保留生命周期流程中的跨线程检查。count/flush 的断言子进程
+测试不变，未用查询错误测试替代断言契约测试。
+
+两个目标在共享/静态 Windows Clang Debug 下构建通过；native-world-lifecycle、
+world-service-boundary、world-thread-contract 三项在两种配置下均通过。
+只格式化受修改的两个测试源文件，未调整生产 API、超时或测试启用条件。

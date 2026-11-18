@@ -1,27 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/core/math/camera.hpp>
-#include "../../support/value_result.hpp"
 #include <thread>
 
 int main(void) {
   if (gneiss::initialize_meta().failed())
     return 1;
-  gneiss::world_owner first;
-
-  gneiss::world_owner second;
-
-  if (gneiss::test_support::assign_value(gneiss::create_native(), first) !=
-          gneiss::error::success ||
-      gneiss::test_support::assign_value(gneiss::create_native(), second) !=
-          gneiss::error::success) {
+  auto first_result = gneiss::create_native();
+  auto second_result = gneiss::create_native();
+  if (!first_result || !second_result)
     return 1;
-  }
+  auto first = std::move(*first_result);
+  auto second = std::move(*second_result);
 
   auto empty_count = first->entity_count();
   if (empty_count != 0U || first->find({}).is_valid())
@@ -40,8 +35,7 @@ int main(void) {
   gneiss::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::math::camera_settings queried_camera{1.04719755F, 0.1F, 1000.0F};
   gneiss::entity_id active_camera = gneiss::entity_id{};
-  if (gneiss::get_active_camera(*first, active_camera) !=
-          gneiss::error::not_ready ||
+  if (gneiss::get_active_camera(*first, active_camera) != gneiss::error::not_ready ||
       active_camera != gneiss::entity_id{} ||
       created_object.add_component<gneiss::camera_component>(camera).failed())
     return 4;
@@ -54,10 +48,8 @@ int main(void) {
     return 4;
   }
   if (created_object.remove_component<gneiss::camera_component>().failed() ||
-      created_object.remove_component<gneiss::camera_component>() !=
-          gneiss::error::not_found ||
-      gneiss::get_active_camera(*first, active_camera) !=
-          gneiss::error::not_ready ||
+      created_object.remove_component<gneiss::camera_component>() != gneiss::error::not_found ||
+      gneiss::get_active_camera(*first, active_camera) != gneiss::error::not_ready ||
       gneiss::set_active_camera(*first, entity) != gneiss::error::not_ready ||
       created_object.add_component<gneiss::camera_component>(camera).failed() ||
       gneiss::set_active_camera(*first, entity) != gneiss::error::success) {
@@ -81,8 +73,7 @@ int main(void) {
   if (second->find(entity).is_valid())
     return 33;
   gneiss::error thread_status;
-  std::thread worker(
-      [&] { thread_status = first->object(entity).error(); });
+  std::thread worker([&] { thread_status = first->object(entity).error(); });
   worker.join();
   if (thread_status != gneiss::error::invalid_state)
     return 34;
@@ -94,8 +85,8 @@ int main(void) {
   }
   if (object.is_valid())
     return 35;
-  if (first->find(entity).is_valid() || gneiss::get_active_camera(*first, active_camera) !=
-                                            gneiss::error::not_ready) {
+  if (first->find(entity).is_valid() ||
+      gneiss::get_active_camera(*first, active_camera) != gneiss::error::not_ready) {
     return 7;
   }
   first.reset();

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -27,7 +26,6 @@ static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_instance_i
 namespace {
 bool scene_object_storage() {
   using namespace gneiss;
-  using namespace gneiss;
   auto created = create_native();
   auto other = create_native();
   if (!created || !other)
@@ -42,9 +40,7 @@ bool scene_object_storage() {
   auto child = object_scene->create_object({"子节点", {}}, *root);
   if (!child)
     return false;
-  entity_id child_entity;
-  if (gneiss::test_support::assign_value(child, child_entity).failed())
-    return false;
+  const auto child_entity = child->entity();
   if (child->name() != "子节点")
     return false;
   child->set_name("新名称");
@@ -55,8 +51,8 @@ bool scene_object_storage() {
   auto objects = object_scene->objects();
   auto roots = object_scene->roots();
   auto children = root->children();
-  if (objects.size() != 2 || roots.size() != 1 || roots.front() != *root ||
-      children.size() != 1 || children.front() != *child)
+  if (objects.size() != 2 || roots.size() != 1 || roots.front() != *root || children.size() != 1 ||
+      children.front() != *child)
     return false;
   if (child->try_component<mesh_component>() || child->add_component<mesh_component>().failed() ||
       !child->try_component<mesh_component>() ||
@@ -86,9 +82,7 @@ bool scene_object_storage() {
   count = owner.entity_count();
   if (count != 0 || owner.find(child_entity).is_valid())
     return false;
-  if (children.front().is_valid() ||
-      child->is_valid() ||
-      root->is_valid())
+  if (children.front().is_valid() || child->is_valid() || root->is_valid())
     return false;
   auto replacement = object_scene->create_object({"新节点", {}});
   return replacement && *replacement != *root && *replacement != *child;
@@ -96,40 +90,30 @@ bool scene_object_storage() {
 
 bool native_operations() {
   using namespace gneiss;
-  gneiss::world_owner owner;
-  if (gneiss::test_support::assign_value(gneiss::create_native(), owner) !=
-      gneiss::error::success)
+  auto created = create_native();
+  if (!created)
     return false;
-  entity_id entity{};
-  entity_id node{};
+  auto owner = std::move(*created);
   auto object_scene = owner->create_scene();
   if (!object_scene)
     return false;
   auto object = object_scene->create_object({"object", {}});
   if (!object)
     return false;
-  entity = object->entity();
-  node = entity_id{entity.get()};
+  const auto entity = object->entity();
   if (!owner->find(entity).is_valid() || owner->entity_count() != 1)
     return false;
   gneiss::math::transform local;
   local.translation = {2, 3, 4};
-  if (owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).set_local_transform(local) !=
-          gneiss::error::success ||
-      owner->find(node).world_transform().translation != local.translation)
+  if (object->set_local_transform(local) != gneiss::error::success ||
+      object->world_transform().translation != local.translation)
     return false;
   auto invalid = local;
   invalid.scale[0] = 0;
-  if (owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()})
-              .set_local_transform(invalid) != gneiss::error::invalid_argument ||
-      owner->find(gneiss::entity_id{(gneiss::entity_id{node}).get()}).local_transform().scale[0] != 1)
+  if (object->set_local_transform(invalid) != gneiss::error::invalid_argument ||
+      object->local_transform().scale[0] != 1)
     return false;
   if (owner->object(gneiss::entity_id{}).error() != gneiss::error::invalid_handle)
-    return false;
-  gneiss::error foreign{};
-  std::thread worker([&] { foreign = owner->object(entity).error(); });
-  worker.join();
-  if (foreign != gneiss::error::invalid_state || !owner->find(entity).is_valid())
     return false;
   owner.reset();
   return !owner;
@@ -166,11 +150,10 @@ int main(int argc, char** argv) {
   if (!native_operations())
     return 20;
   namespace service = gneiss;
-  gneiss::world_owner world{};
-  if (gneiss::test_support::assign_value(gneiss::create_native(), world) !=
-      gneiss::error::success) {
+  auto created_world = gneiss::create_native();
+  if (!created_world)
     return 1;
-  }
+  auto world = std::move(*created_world);
   auto scene = world->create_scene();
   if (!scene)
     return 2;
@@ -198,7 +181,8 @@ int main(int argc, char** argv) {
   const auto original_projection = projection;
   if (camera_component->settings.valid() ||
       gneiss::math::perspective_rh_zo(camera_component->settings, 1.0F, projection) !=
-          gneiss::error::invalid_argument || projection != original_projection) {
+          gneiss::error::invalid_argument ||
+      projection != original_projection) {
     return 6;
   }
   camera_component->settings = camera;
@@ -208,40 +192,39 @@ int main(int argc, char** argv) {
   gneiss::math::transform candidate_transform;
   gneiss::value proposed;
   proposed.payload = gneiss::math::vector3{2, 3, 4};
-  if (gneiss::meta::write_property(
-          service::math::transform::type_guid, gneiss::meta::transform_translation_field,
-          &candidate_transform, proposed) != gneiss::error::success ||
+  if (gneiss::meta::write_property(service::math::transform::type_guid,
+                                   gneiss::meta::transform_translation_field, &candidate_transform,
+                                   proposed) != gneiss::error::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload = gneiss::math::vector3{0, 1, 1};
-  if (gneiss::meta::write_property(
-          service::math::transform::type_guid, gneiss::meta::transform_scale_field,
-          &candidate_transform, proposed) != gneiss::error::invalid_argument ||
+  if (gneiss::meta::write_property(service::math::transform::type_guid,
+                                   gneiss::meta::transform_scale_field, &candidate_transform,
+                                   proposed) != gneiss::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
   }
   service::camera_description candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
-  if (gneiss::meta::write_property(
-          gneiss::meta::type_of<service::math::camera_settings>().guid(),
-          gneiss::meta::property_id{2}, &candidate_camera.settings,
-          proposed) != gneiss::error::success) {
+  if (gneiss::meta::write_property(gneiss::meta::type_of<service::math::camera_settings>().guid(),
+                                   gneiss::meta::property_id{2}, &candidate_camera.settings,
+                                   proposed) != gneiss::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
   auto camera_type = gneiss::meta::type_of<service::math::camera_settings>();
-  if (gneiss::meta::write_property(
-          camera_type.guid(),
-          camera_type.find_property("far").id(), &candidate_camera.settings,
-          proposed) != gneiss::error::success ||
+  if (gneiss::meta::write_property(camera_type.guid(), camera_type.find_property("far").id(),
+                                   &candidate_camera.settings,
+                                   proposed) != gneiss::error::success ||
       candidate_camera.settings.near_plane != 30 || candidate_camera.settings.far_plane != 40) {
     return 18;
   }
   // 借用只在拥有者存活期使用；移动拥有者不改变对象地址。
-  service::world_owner native;
-  if (gneiss::test_support::assign_value(service::create_native(), native).failed())
+  auto created_native = service::create_native();
+  if (!created_native)
     return 14;
+  auto native = std::move(*created_native);
   const auto* original = native.get();
   auto independent = service::create_native();
   if (!independent || independent->get() == original || native.get() != original)
