@@ -103,17 +103,17 @@ int main() {
     captured->set(*changed);
     return gneiss::replace_components({*first->object(gneiss::entity_id{node.get()})}, *captured);
   };
-  if (change_near(0.5F).failed() ||
-      gneiss::test_support::read_component_value(
-          object.try_component<gneiss::camera_component>(), camera)
-          .failed() ||
-      std::abs(camera.near_plane - 0.5F) > 0.0001F)
+  if (change_near(0.5F).failed())
     return 8;
-  if (change_near(camera.far_plane + 1) != error::invalid_argument ||
-      gneiss::test_support::read_component_value(
-          object.try_component<gneiss::camera_component>(), camera)
-          .failed() ||
-      std::abs(camera.near_plane - 0.5F) > 0.0001F)
+  const auto* updated = object.try_component<gneiss::camera_component>();
+  if (!updated || std::abs(updated->settings.near_plane - 0.5F) > 0.0001F)
+    return 8;
+  const auto invalid_near = updated->settings.far_plane + 1;
+  if (change_near(invalid_near) != error::invalid_argument)
+    return 9;
+  // 替换操作后重新借用；失败应保留之前的组件值。
+  const auto* preserved = object.try_component<gneiss::camera_component>();
+  if (!preserved || std::abs(preserved->settings.near_plane - 0.5F) > 0.0001F)
     return 9;
   error foreign_read{}, foreign_write{};
   std::thread worker([&] {

@@ -44,12 +44,11 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   if (ed::edit_component_description(session, history, world, target, edit, 1).failed())
     return 32;
   auto read = [&](gneiss::entity_id entity) {
-    e::math::camera_settings camera;
-    if (gneiss::test_support::read_component_value(
-            world.find(entity).try_component<gneiss::camera_component>(), camera)
-            .failed())
-      throw std::runtime_error("read camera");
-    return camera;
+    const auto* camera = world.find(entity).try_component<gneiss::camera_component>();
+    if (!camera)
+      throw std::runtime_error("读取相机组件失败");
+    // 历史操作可能替换组件，只返回设置副本，不跨撤销/重做保存借用。
+    return camera->settings;
   };
 
   if (read(session.find_node(ordinary_uuid)->entity).near_plane != 2.0F || history.undo().failed() ||

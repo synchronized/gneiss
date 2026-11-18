@@ -79,18 +79,6 @@ gneiss::error take_request(R& request, T& output,
 }
 
 namespace gneiss::test_support {
-template <class T, class U> gneiss::error read_component_value(const T* value, U& out) {
-  if (!value)
-    return gneiss::error::not_found;
-  if constexpr (requires { value->settings; })
-    out = value->settings;
-  else
-    out = value->value;
-  return gneiss::error::success;
-}
-}
-
-namespace gneiss::test_support {
 // 只适配测试断言的输出形式；不拥有请求、不推进加载。
 template <class Request, class Completion>
 gneiss::error receive_request(Request& request, Completion& output, bool& ready) {

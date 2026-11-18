@@ -43,11 +43,10 @@ int main(void) {
   if (gneiss::get_active_camera(*first, active_camera) !=
           gneiss::error::not_ready ||
       active_camera != gneiss::entity_id{} ||
-      created_object.add_component<gneiss::camera_component>(camera).failed() ||
-      gneiss::test_support::read_component_value(
-          created_object.try_component<gneiss::camera_component>(), queried_camera) !=
-          gneiss::error::success ||
-      queried_camera.near_plane != camera.near_plane ||
+      created_object.add_component<gneiss::camera_component>(camera).failed())
+    return 4;
+  const auto* attached = created_object.try_component<gneiss::camera_component>();
+  if (!attached || attached->settings.near_plane != camera.near_plane ||
       gneiss::set_active_camera(*second, entity) != gneiss::error::invalid_handle ||
       gneiss::set_active_camera(*first, entity) != gneiss::error::success ||
       gneiss::get_active_camera(*first, active_camera) != gneiss::error::success ||
