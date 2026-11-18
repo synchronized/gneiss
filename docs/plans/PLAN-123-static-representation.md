@@ -54,3 +54,20 @@ MSVC Release 的 meta-instance、serialization-archive 构建及测试通过。
 注册表回归同时发现并修复 void 注册在拒绝前实例化值操作表的模板错误。
 旧查询/表示操作与旧 type_ops 路径均已迁移，不保留兼容别名；git diff --check 通过。
 未运行全量测试、静态库/安装消费者或远端矩阵。
+
+## 后续收敛：capability 与实例绑定（已完成本地验收）
+
+- [x] 类型通过 capability<C>() 查询能力；序列类型视图与表示视图分别迁为 capability。
+- [x] 容器能力共用绑定规则，连接 sequence/associative/optional/reference/variant 实例视图。
+- [x] 保留 instance/const_instance 的编译期可写性，现有 as_* 入口复用统一绑定。
+- [x] 验证能力缺失、类型/注册表不匹配、正常绑定和序列化，更新文档并本地提交。
+
+不增加能力注册表、运行时覆盖、模块贡献列表或能力版本系统。capability 持有类型上下文；
+实例 view 沿用原借用寿命。类型能力不存在时返回空 capability，绑定失败返回 result。
+representation_capability 可直接构造解码候选，不强制增加实例 view。
+
+本轮 Clang Debug 定向构建与 9 项回归通过（meta-instance、meta-type-ops、type_registry、
+serialization、serialization-archive、reflection-json、scene_description、component-description、
+value_edit）。MSVC Release 的 meta-instance、serialization-archive 构建、链接和测试通过。
+新增绑定测试覆盖空能力、类型/注册表不匹配、可写绑定及只读返回类型；现有容器测试经
+as_* 入口复用同一绑定实现。未运行全量/静态库/安装消费者及远端矩阵。

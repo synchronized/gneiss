@@ -719,28 +719,53 @@ value 分支；本能力不等于任意 C++ 类型均可存入 value。
 ## 静态类型表示
 
 representation_traits<T> 与 value_traits<T> 分别提供原生表示转换和整体 value 转换，
-都是独立于注册数据的可选能力。type::as_representation() 返回可判空的 representation_view；
-该视图的 encode(source, consume) 与 decode(read, consume) 同步访问表示和候选临时值，
+都是独立于注册数据的可选能力。type::capability<representation_capability>() 返回可判空的能力；
+其 encode(source, consume) 与 decode(read, consume) 同步访问表示和候选临时值，
 借用只在回调中有效。具体约束及用法见[序列化参考](serialization.md#值类型的文件表示适配)。
 
-## 类型能力视图与实例视图
+## 类型能力与实例视图
 
 `meta::type_ops` 位于 `ops/type_ops.hpp`，与各项 ops 同属 meta；静态生成器 `detail::ops_of<T>()`
 及内部遍历辅助仍属 detail。普通调用方使用视图，不直接操作函数指针表。
 
-`type::as_sequence()` 返回可判空的 `sequence_type_view`，提供 `is_fixed_size()`、
+`type::capability<sequence_capability>()` 返回可判空的 `sequence_capability`，提供 `is_fixed_size()`、
 `has_identity()` 和 `element_type()`；无需构造容器实例，因此也可用于 Prefab 路径校验。
 `instance::as_sequence()` 仍返回实例视图，负责实际容器的元素访问和修改。
-类型能力视图保活类型上下文，不保活对象；空视图调用操作属于契约错误，先检查 bool。
+capability 保活类型上下文，不保活对象；类型专属查询和表示转换要求有效能力，先检查 bool。
+容器 bind 的失败通过 result 返回，具体规则见下文。
 
 表示能力使用示例：
 
 ```cpp
-auto capability = source.type().as_representation();
+auto capability = source.type().capability<meta::representation_capability>();
 if (!capability)
   return error::unsupported;
 return capability.encode(source, consume_representation);
 ```
 
-表示编码要求源实例与能力视图属于同一类型及注册表，不匹配返回 invalid_argument。
+表示编码要求源实例与 capability属于同一类型及注册表，不匹配返回 invalid_argument。
 解码不要求目标已存在；候选在 consume 回调返回后销毁，需要保留时显式复制或移动。
+
+### capability 绑定实例
+
+类型级 capability 不绑定对象。sequence_capability、associative_capability、optional_capability、
+reference_capability、variant_capability 通过 bind(source) 返回对应的实例 view，保留 source
+的编译期可写性。representation_capability 直接 encode/decode，不要求实例 view。
+
+```cpp
+auto sequence = source.type().capability<meta::sequence_capability>();
+if (!sequence)
+  return error::unsupported;
+auto elements = sequence.bind(source); // result<对应只读或可写 sequence view>
+if (!elements)
+  return elements.error();
+// 也可以一步查询并绑定：
+auto same_elements = source.capability<meta::sequence_capability>();
+```
+
+能力缺失时查询返回空 capability。bind 对无效源返回 invalid_state，能力缺失或不可访问的
+属性代理返回 unsupported，类型或注册表不匹配返回 invalid_argument。已有 as_sequence 等
+实例便捷入口复用该绑定规则；可读借用不会自动升级为可写访问。
+
+容器能力共享 container_capability 绑定实现，不增加注册表、能力 key 或独立状态。
+视图继续遵循实例借用及容器结构修改后的失效规则，持有 capability 不保活被绑定的对象。

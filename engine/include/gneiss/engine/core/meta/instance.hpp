@@ -53,6 +53,10 @@ public:
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
   [[nodiscard]] GNEISS_API result<value> read_value() const;
   [[nodiscard]] GNEISS_API result<pointer> object_data() const noexcept;
+  /** 查询能力并绑定本实例；返回类型保留当前只读/可写属性。 */
+  template <class Capability> [[nodiscard]] auto capability() const {
+    return type_.template capability<Capability>().bind(*this);
+  }
   [[nodiscard]] GNEISS_API result<basic_sequence_view<Mutable>> as_sequence() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_associative_view<Mutable>> as_associative() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_optional_view<Mutable>> as_optional() const noexcept;
@@ -82,7 +86,8 @@ public:
 
 private:
   template <bool> friend class basic_instance;
-  friend class representation_view;
+  friend class representation_capability;
+  template <type_kind, template <bool> class> friend class container_capability;
   template <class T> friend result<const_instance> view(const registry_ref&, const T&);
   template <class T>
     requires(!std::is_const_v<T>)

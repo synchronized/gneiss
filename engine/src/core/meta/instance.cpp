@@ -6,14 +6,11 @@
 #include <gneiss/engine/core/meta/instance.hpp>
 
 namespace gneiss::meta {
-representation_view type::as_representation() const {
-  return access_ && access_->representation ? representation_view{*this} : representation_view{};
-}
-sequence_type_view type::as_sequence() const {
-  return access_ && access_->get<sequence_ops>() ? sequence_type_view{*this} : sequence_type_view{};
-}
-error representation_view::decode(const std::function<error(const instance&)>& read,
-                                  const std::function<error(const instance&)>& consume) const {
+representation_capability::representation_capability(meta::type target)
+    : type_(target.access_ && target.access_->representation ? std::move(target) : meta::type{}) {}
+error representation_capability::decode(
+    const std::function<error(const instance&)>& read,
+    const std::function<error(const instance&)>& consume) const {
   GNEISS_ASSERT(*this && read && consume, "表示转换要求有效能力与回调");
   return type_.access_->representation->decode(
       [&](void* p, const type_ops& ops) {
@@ -25,7 +22,7 @@ error representation_view::decode(const std::function<error(const instance&)>& r
         return view ? consume(*view) : view.error();
       });
 }
-error representation_view::encode(
+error representation_capability::encode(
     const const_instance& source,
     const std::function<error(const const_instance&)>& consume) const {
   GNEISS_ASSERT(*this && consume, "表示读取要求有效能力与回调");
@@ -43,15 +40,15 @@ error representation_view::encode(
   auto value = source.read_value();
   return value ? ops->encode_value(*value, visit) : value.error();
 }
-bool sequence_type_view::is_fixed_size() const noexcept {
+bool sequence_capability::is_fixed_size() const noexcept {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
   return type_.access_->get<sequence_ops>()->fixed_size;
 }
-bool sequence_type_view::has_identity() const noexcept {
+bool sequence_capability::has_identity() const noexcept {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
   return type_.access_->get<sequence_ops>()->identity != nullptr;
 }
-meta::type sequence_type_view::element_type() const {
+meta::type sequence_capability::element_type() const {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
   return detail::resolve_type(type_.registry_, type_.access_->get<sequence_ops>()->element());
 }
@@ -297,61 +294,74 @@ error basic_instance<Mutable>::replace(
   auto status = initialize(*temporary);
   return status.failed() ? status : binding->object_setter(target.mutable_parent(), storage.get());
 }
+template <type_kind Kind, template <bool> class View>
+template <bool Mutable>
+result<View<Mutable>>
+container_capability<Kind, View>::bind(const basic_instance<Mutable>& source) const {
+  if (source.kind() == type_kind::invalid)
+    return error::invalid_state;
+  if (!*this)
+    return error::unsupported;
+  if (source.type() != type_)
+    return error::invalid_argument;
+  if (!source.data_)
+    return error::unsupported;
+  if constexpr (Mutable)
+    if (!source.writable_)
+      return error::unsupported;
+  return View<Mutable>{source};
+}
 template <bool Mutable>
 result<basic_sequence_view<Mutable>> basic_instance<Mutable>::as_sequence() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::sequence || !data_)
-    return error::unsupported;
-  if constexpr (Mutable)
-    if (!writable_)
-      return error::unsupported;
-  return basic_sequence_view<Mutable>{*this};
+  return capability<sequence_capability>();
 }
+template GNEISS_API result<basic_sequence_view<false>>
+container_capability<type_kind::sequence, basic_sequence_view>::bind(
+    const basic_instance<false>&) const;
+template GNEISS_API result<basic_sequence_view<true>>
+container_capability<type_kind::sequence, basic_sequence_view>::bind(
+    const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_associative_view<Mutable>> basic_instance<Mutable>::as_associative() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::associative || !data_)
-    return error::unsupported;
-  if constexpr (Mutable)
-    if (!writable_)
-      return error::unsupported;
-  return basic_associative_view<Mutable>{*this};
+  return capability<associative_capability>();
 }
+template GNEISS_API result<basic_associative_view<false>>
+container_capability<type_kind::associative, basic_associative_view>::bind(
+    const basic_instance<false>&) const;
+template GNEISS_API result<basic_associative_view<true>>
+container_capability<type_kind::associative, basic_associative_view>::bind(
+    const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_optional_view<Mutable>> basic_instance<Mutable>::as_optional() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::optional || !data_)
-    return error::unsupported;
-  if constexpr (Mutable)
-    if (!writable_)
-      return error::unsupported;
-  return basic_optional_view<Mutable>{*this};
+  return capability<optional_capability>();
 }
+template GNEISS_API result<basic_optional_view<false>>
+container_capability<type_kind::optional, basic_optional_view>::bind(
+    const basic_instance<false>&) const;
+template GNEISS_API result<basic_optional_view<true>>
+container_capability<type_kind::optional, basic_optional_view>::bind(
+    const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_reference_view<Mutable>> basic_instance<Mutable>::as_reference() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::reference || !data_)
-    return error::unsupported;
-  if constexpr (Mutable)
-    if (!writable_)
-      return error::unsupported;
-  return basic_reference_view<Mutable>{*this};
+  return capability<reference_capability>();
 }
+template GNEISS_API result<basic_reference_view<false>>
+container_capability<type_kind::reference, basic_reference_view>::bind(
+    const basic_instance<false>&) const;
+template GNEISS_API result<basic_reference_view<true>>
+container_capability<type_kind::reference, basic_reference_view>::bind(
+    const basic_instance<true>&) const;
 template <bool Mutable>
 result<basic_variant_view<Mutable>> basic_instance<Mutable>::as_variant() const noexcept {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
-  if (kind() != type_kind::variant || !data_)
-    return error::unsupported;
-  if constexpr (Mutable)
-    if (!writable_)
-      return error::unsupported;
-  return basic_variant_view<Mutable>{*this};
+  return capability<variant_capability>();
 }
+template GNEISS_API result<basic_variant_view<false>>
+container_capability<type_kind::variant, basic_variant_view>::bind(
+    const basic_instance<false>&) const;
+template GNEISS_API result<basic_variant_view<true>>
+container_capability<type_kind::variant, basic_variant_view>::bind(
+    const basic_instance<true>&) const;
+
 template class basic_instance<false>;
 template class basic_instance<true>;
 result<const_instance> property::get(const const_instance& object) const {

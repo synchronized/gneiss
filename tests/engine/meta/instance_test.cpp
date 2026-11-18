@@ -439,12 +439,15 @@ bool registered_native_queries() {
   if (!check.template operator()<sequence>() || !check.template operator()<mapping>() ||
       !check.template operator()<optional>() || !check.template operator()<reference>() ||
       !check.template operator()<variant>() || before.registered() ||
-      !m::find_type(registry, e::runtime_type_of<sequence>()).as_sequence().is_fixed_size())
+      !m::find_type(registry, e::runtime_type_of<sequence>())
+           .capability<gneiss::meta::sequence_capability>()
+           .is_fixed_size())
     return false;
-  const auto sequence_type = m::type_of<sequence>(registry).as_sequence();
+  const auto sequence_type =
+      m::type_of<sequence>(registry).capability<gneiss::meta::sequence_capability>();
   if (!sequence_type ||
       sequence_type.element_type() != m::type_of<sequence>(registry).element_type() ||
-      m::type_of<int>(registry).as_sequence())
+      m::type_of<int>(registry).capability<gneiss::meta::sequence_capability>())
     return false;
   const auto runtime = m::find_type(registry, runtime_guid);
   if (!runtime || !runtime.registered() || runtime.id() || runtime.element_type() ||
@@ -458,7 +461,8 @@ bool registered_native_queries() {
     if (!entry)
       return false;
     if (entry->id() == e::runtime_type_of<sequence>() &&
-        (!entry->as_sequence().is_fixed_size() || entry->element_type() != m::type_of<float>(registry)))
+        (!entry->capability<gneiss::meta::sequence_capability>().is_fixed_size() ||
+         entry->element_type() != m::type_of<float>(registry)))
       return false;
   }
   return true;
@@ -899,7 +903,41 @@ bool property_handles() {
   field = {};
   return weak.expired();
 }
+bool capability_binding() {
+  auto first = m::create_registry();
+  auto second = m::create_registry();
+  if (!first || !second || m::freeze(*first).failed() || m::freeze(*second).failed())
+    return false;
+  std::vector<int> values{1, 2};
+  auto source = m::view(*first, values);
+  auto other_context = m::view(*second, values);
+  const int scalar = 1;
+  auto other_type = m::view(*first, scalar);
+  if (!source || !other_context || !other_type)
+    return false;
+  const auto capability = source->type().capability<m::sequence_capability>();
+  if (!capability || capability.is_fixed_size())
+    return false;
+  auto mutable_view = capability.bind(*source);
+  auto readonly_view = capability.bind(source->as_const());
+  static_assert(std::is_same_v<decltype(readonly_view), e::result<m::sequence_view>>);
+  if (!mutable_view || !readonly_view || mutable_view->resize(3).failed() ||
+      readonly_view->size() != 3)
+    return false;
+  auto direct = source->capability<m::sequence_capability>();
+  auto mismatch = capability.bind(*other_type);
+  auto foreign = capability.bind(*other_context);
+  auto missing = other_type->type().capability<m::sequence_capability>();
+  auto unsupported = missing.bind(*source);
+  return direct && direct->size() == 3 && !mismatch &&
+         mismatch.error() == e::error::invalid_argument && !foreign &&
+         foreign.error() == e::error::invalid_argument && !missing && !unsupported &&
+         unsupported.error() == e::error::unsupported;
+}
+
 int main() try {
+  if (!capability_binding())
+    return 60;
   if (!property_handles())
     return 43;
   if (!bound_property_contract())

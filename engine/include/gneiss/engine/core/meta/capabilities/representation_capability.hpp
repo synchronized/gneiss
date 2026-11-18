@@ -7,13 +7,12 @@
 
 namespace gneiss::meta {
 /** 类型能力视图，持有类型上下文，不持有实例；转换回调只允许同步借用。 */
-class representation_view {
-  friend class type;
-  explicit representation_view(meta::type target) : type_(std::move(target)) {}
+class representation_capability {
   meta::type type_;
 
 public:
-  representation_view() = default;
+  representation_capability() = default;
+  explicit GNEISS_API representation_capability(meta::type target);
   [[nodiscard]] explicit operator bool() const noexcept { return bool(type_); }
   /** 要求有效能力与回调；源实例类型/注册表不匹配返回 invalid_argument。 */
   [[nodiscard]] GNEISS_API error
