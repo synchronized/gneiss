@@ -83,7 +83,7 @@ read_next 最多接受一个在途块，消费者再次请求才继续，无隐�
 来源打开后的取消立即关闭 reader，并通过服务分发终态。
 服务关闭也关闭暂停中的流。
 
-私有桥接位于 `src/engine/platform/files/browser/fetch_stream.js`，CMake 自动以
+私有桥接位于 `engine/src/platform/files/backends/detail/fetch_stream.js`，CMake 自动以
 `--js-library` 链接；安装包携带该链接依赖，应用无需单独加载 JS。普通整读和范围读仍使用 Emscripten Fetch。
 
 ## 路由与路径

@@ -7,22 +7,19 @@
 
 版本级剩余项统一见 [DEV-052](DEV-052-architecture-cleanup.md#收尾审计后的明确待办)，本计划保留实施步骤与历史记录。
 
-2026-11-18：实施中。Engine 与宿主目录迁移、领域测试布局、测试目标 Tests 分组、
-旧 scene_access/scene_node_info 退出已完成；Windows Clang Debug 曾完成全量构建。
-历史定向验收中，共享构建的安装/打包 Runtime smoke 已通过（已修正旧日志匹配）。
-本轮共享/静态验证与首次失败复测详见[收尾审计](../records/2026-11-18-version052-closeout-audit.md)。
-后续已完成 Meta/协议 23 项分类及一处白盒冗余源码删除；两种构建 CPU 集合均为 38/38，
-见[测试分类核查](../records/2026-11-18-test-labels-and-whitebox-audit.md)。
+2026-11-18：目录、CMake 目标与测试组织实施及本地 Windows 验收已收尾。
 
-组件读取测试已删除按成员名探测的输出参数辅助，全部调用直接使用借用 API；
-共享辅助也已清理隐藏的重复请求、吞错和夹具自测预算；保留生命周期、反射修改及历史操作的不同断言，见[调用审查](../records/2026-11-18-test-api-review.md)。
+- P2：Engine/Runtime/Editor/Tooling 契约与实现目录已迁移，旧头复制清单退出。
+- P3：目标归属、共享/静态真实消费者、指定前缀安装及安装消费者已核查；冗余白盒源码已删除，
+  保留白盒边界的理由见[测试分类与构建验收](../records/2026-11-18-test-classification-build-acceptance.md)。
+- P4：测试按领域组织，目标统一 Tests 分组，233 项分类为 213 CPU、20 GPU；辅助函数清理见
+  [测试调用审查](../records/2026-11-18-test-api-review.md)。后续随接口变化维护，不重复全目录重写。
+- P5：当前 Guide/Reference 的旧目录、core-boundary 和 public-api 扫描范围已更新并验证。
+- 本轮 MSVC Release 编译诊断、DLL 导出修正、完整构建和测试证据见
+  [GPU 与 MSVC 验收](../records/2026-11-18-gpu-msvc-build-acceptance.md)。
 
-剩余收尾按以下顺序推进，不把历史阶段记录当作当前待办：
-1. CMake 文件分层、安装规则分离与测试统一装配已落地；纯转发接口目标已删除，继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
-2. 当前共享/静态 Windows 配置 233 项标签已补齐（213 CPU、20 GPU）；白盒依赖审查删除 18 份重复编译，保留理由见[三项验收记录](../records/2026-11-18-test-classification-build-acceptance.md)。
-3. core-boundary 扫描规则及反例已迁移并通过；共享/静态 Debug 完整构建与指定前缀安装已通过，静态安装包消费者已使用现有 Granit 前缀通过，已安装 Runtime 共享/静态均通过；跨平台交付验收未结束。
-4. 两个 GPU 基线失败已关闭：asset-pixel 与 pbr-negative-scale 共享/静态均通过；异步夹具与资源保活断言修正见[像素复测](../records/2026-11-18-asset-pixel-async-fixture.md)。浏览器/跨平台项尚未运行。
-P2–P5 仍未全部验收，PLAN-118 P2/P3 暂不穿插。
+本地整理闭环不代表跨平台或版本发布完成。Linux/Web、GPU 专门压力与预算验收仍由 DEV-052
+A52-04/A52-05 管理；可以恢复 PLAN-118 P2 的 Meta 属性读取链审计，不再重复目录迁移。
 目标：明确 Engine 与其余仓内模块的目录和契约边界，消除 CMake 旧路径和重复维护，
 使目标依赖与代码所有权一致，降低测试对实现布局的耦合。
 非目标：重新设计 World/Render/资产协议、恢复稳定 C++ SDK、全仓改命名空间、引入测试框架、
@@ -255,10 +252,10 @@ engine/CMakeLists 可通过少量分组 target_sources 或子目录分摊清单�
 - [x] P0：静态盘点迁移状态，明确头归属、目标原则和测试清理边界。
 - [x] P1：恢复最小构建闭环。修复 Engine 源清单、生成版本头、任务/平台目标、根装配及 tests 旧路径；
   保留用户当前内容，先得到一个能配置构建的最小闭环，再归类头文件。
-- [ ] P2：完成 include/src 分界和所有实际消费者迁移；移除重复头复制清单，检查模板包含闭包与第三方传播。
-- [ ] P3：收敛 CMake 目标归属、重复编译和脚本目录；Shared/Static 分别检查导出和链接，消除双份全局状态。
-- [ ] P4：按领域整理测试目标与辅助；先迁移必要覆盖再删除冗余，实现准确标签与最小测试入口。
-- [ ] P5：同步 coding-style/building/架构与边界文档，定向回归后检查旧路径、旧复制清单、旧测试组成退出。
+- [x] P2：完成 include/src 分界和所有实际消费者迁移；移除重复头复制清单，检查模板包含闭包与第三方传播。
+- [x] P3：收敛 CMake 目标归属、重复编译和脚本目录；Shared/Static 分别检查导出和链接，消除双份全局状态。
+- [x] P4：按领域整理测试目标与辅助；先迁移必要覆盖再删除冗余，实现准确标签与最小测试入口。
+- [x] P5：同步 coding-style/building/架构与边界文档，定向回归后检查旧路径、旧复制清单、旧测试组成退出。
 
 P1 的最小闭环：离线配置 → Engine → minimal 示例 → 一项 World 与一项 Meta/序列化 CPU 测试。
 P2/P3 覆盖 Runtime、Editor、Tooling 和两个示例的真实消费者构建；检查私有头不能仅通过 Engine

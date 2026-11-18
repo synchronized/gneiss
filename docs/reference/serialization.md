@@ -3,7 +3,7 @@
 
 # 序列化接口
 
-实现位于 `src/engine/core/serialization`，使用 Meta 的类型和属性访问，不维护第二套注册表。
+契约位于 `engine/include/gneiss/engine/core/serialization`，实现位于 `engine/src/core/serialization`，使用 Meta 的类型和属性访问，不维护第二套注册表。
 
 ## 内置注册
 

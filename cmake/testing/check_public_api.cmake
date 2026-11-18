@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 cmake_minimum_required(VERSION 3.23)
-file(GLOB adapters "${GNEISS_SOURCE_DIR}/src/engine/api/*.cpp" "${GNEISS_SOURCE_DIR}/src/runtime/api/*.cpp")
+file(GLOB_RECURSE adapters "${GNEISS_SOURCE_DIR}/engine/src/*.cpp" "${GNEISS_SOURCE_DIR}/runtime/*.cpp")
 set(definitions)
 foreach(adapter IN LISTS adapters)
   file(READ "${adapter}" content)

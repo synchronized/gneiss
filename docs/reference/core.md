@@ -7,18 +7,18 @@
 
 仓内使用 `gneiss::library_version()` 返回运行时库版本，
 `library_version_string()` 返回静态存储的版本字符串。声明位于
-`src/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
+`engine/include/gneiss/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
 游戏模块协议已撤销，不再发布模块 ABI 版本。
 
 ## 错误状态与值结果
 
-`gneiss::error`（`engine/core/error.hpp`）保存一个 32 位状态码，提供
+`gneiss::error`（`engine/include/gneiss/engine/error.hpp`）保存一个 32 位状态码，提供
 `ok()`、`failed()`、`code()`、`message()`，不提供布尔或隐式整数转换。
 默认构造产生 unknown；非负值成功，负值失败。无返回值的操作直接返回 error。
 `message()` 返回静态英文文本，未知数值返回 `unrecognized result`。
 整数仅在协议等边界显式构造或通过 `code()` 读取，旧状态类型 result 不再保留。
 
-`gneiss::result<T, E = error>`（`engine/core/result.hpp`）互斥持有成功值或失败原因：
+`gneiss::result<T, E = error>`（`engine/include/gneiss/engine/result.hpp`）互斥持有成功值或失败原因：
 
 ```cpp
 auto loaded = resources.load<texture>(uri);
@@ -40,12 +40,12 @@ auto request = std::move(*loaded);
 
 ## 内部符号可见性
 
-共享库的导入/导出宏定义在 `src/engine/core/export.hpp`，由受限内部头清单提供给仓内目标。
+共享库的导入/导出宏定义在 `engine/include/gneiss/engine/export.hpp`，由目标的包含目录直接提供给仓内消费者。
 公共 include 目录和 C 结果码副本已删除，不再安装头文件；需要新的对外接口时另行设计。
 
 ## 内部基础身份类型
 
-以下类型位于 `src/engine/core`，命名空间为 `gneiss`，不属于公共 C ABI。
+以下类型位于 `engine/include/gneiss/engine/core/types`，命名空间为 `gneiss`，不属于公共 C ABI。
 来源及许可见 [第三方声明](../../THIRD_PARTY_NOTICES.md)。
 
 - `string_name`：驻留字符串，相同文本共享稳定条目；空串和空指针生成无效值。

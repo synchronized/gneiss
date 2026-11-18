@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-反射注册与查询使用 `src/engine/core/meta/registration.hpp` 和
+反射注册与查询使用 `engine/include/gneiss/engine/core/meta/registration.hpp` 和
 `registry.hpp` 中的原生接口。Registry 的 C 函数、公共句柄表及 C 元数据缓存已删除。
 旧 `reflection.h`、C 属性值布局和转换头已删除；Editor/Runtime 属性命令直接持有原生 `guid`。
 IPC 使用 guid::string 的标准带连字符字符串编码 GUID，不传输原生对象布局。

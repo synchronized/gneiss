@@ -59,7 +59,7 @@ auto snapshot = element->read_value(); // 仅当元素为标量时成功
 
 内部 `detail::type_ops` 保存类型身份、赋值操作及一个类别 variant；不再携带全部容器回调。
 静态类别表分为 `scalar_ops`、`sequence_ops`、`associative_ops`、`optional_ops`、`variant_ops` 和 `reference_ops`，
-位于 `src/engine/core/meta/ops/`，每个 C++ 类型共享静态表，不随对象分配。
+位于 `engine/include/gneiss/engine/core/meta/ops/`，每个 C++ 类型共享静态表，不随对象分配。
 ref 表保留共享引用保活和赋值语义；目前只内置适配引擎 `ref<T>`，
 不自动接管裸指针、shared_ptr 或 unique_ptr，也不新增动态操作注册中心。
 

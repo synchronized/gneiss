@@ -255,8 +255,9 @@ GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 ## 目录与边界
 
 ```text
-src/engine/core/       内部共享值与符号可见性定义，不安装公共头
-src/                    内部 C++20 实现和平台后端
+engine/include/         仓内原生契约，不安装公共 SDK 头
+engine/src/             引擎实现与私有头
+runtime/ editor/ tooling/ 宿主及工具模块
 tests/                  C11、C++20 与行为测试
 examples/               可独立运行的最小示例
 docs/                   项目文档
