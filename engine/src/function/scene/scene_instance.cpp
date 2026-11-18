@@ -5,7 +5,7 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 
-#include "core/identifier_conversion.hpp"
+#include "function/scene/detail/identifier_conversion.hpp"
 #include "function/scene/detail/world_impl.hpp"
 #include <gneiss/engine/function/scene/world.hpp>
 

@@ -3,11 +3,11 @@
 
 #include "../support/async_application.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <gneiss/tooling/import/asset_writer.hpp>
 #include <gneiss/tooling/import/gltf_importer.hpp>
 

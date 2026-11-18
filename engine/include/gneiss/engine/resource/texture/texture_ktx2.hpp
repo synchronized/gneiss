@@ -4,6 +4,7 @@
 #ifndef GNEISS_ASSET_TEXTURE_KTX2_HPP_
 #define GNEISS_ASSET_TEXTURE_KTX2_HPP_
 
+#include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>
 
 #include <gneiss/engine/export.hpp>
@@ -36,11 +37,11 @@ struct texture_ktx2_diagnostic {
 };
 
 /** 将二维 RGBA8 完整 Mip 链写为无超级压缩 KTX2。 */
-[[nodiscard]] GNEISS_API result<std::vector<std::byte>, texture_ktx2_diagnostic>
+[[nodiscard]] GNEISS_RESOURCE_API result<std::vector<std::byte>, texture_ktx2_diagnostic>
 encode_texture_ktx2(const texture_ktx2& texture);
 
 /** 解析 Gneiss 支持的二维 RGBA8 KTX2，并复制所有 Mip 数据。 */
-[[nodiscard]] GNEISS_API result<texture_ktx2, texture_ktx2_diagnostic>
+[[nodiscard]] GNEISS_RESOURCE_API result<texture_ktx2, texture_ktx2_diagnostic>
 decode_texture_ktx2(std::span<const std::byte> bytes);
 
 } // namespace gneiss

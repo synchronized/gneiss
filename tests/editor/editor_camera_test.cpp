@@ -10,7 +10,7 @@
 #include "ui/viewport/editor_camera.hpp"
 
 #include <gneiss/engine/core/meta/type.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 
 #include <cmath>
 

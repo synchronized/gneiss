@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/function/asset/asset_loading.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_diagnostic.hpp>

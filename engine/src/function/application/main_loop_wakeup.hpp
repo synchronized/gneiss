@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/diagnostics/loop_timing.hpp>
+#include <gneiss/engine/function/diagnostics/loop_timing.hpp>
 #include <gneiss/engine/core/diagnostics/profiling.hpp>
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
 

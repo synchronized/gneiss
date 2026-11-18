@@ -5,7 +5,7 @@
 #define GNEISS_WORLD_IMPLEMENTATION_HPP_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include "core/rid_table.hpp"
 #include <gneiss/engine/function/scene/components.hpp>
 #include <atomic>

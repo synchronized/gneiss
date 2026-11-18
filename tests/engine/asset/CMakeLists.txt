@@ -14,10 +14,10 @@ endif()
 add_executable(
   gneiss_png_decoder_test
   png_decoder_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/png_decoder.cpp"
 )
 # 分配失败注入依赖可执行文件内的 operator new，保留本地编译的解码实现。
-target_compile_definitions(gneiss_png_decoder_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_png_decoder_test PRIVATE GNEISS_BUILDING_LIBRARY GNEISS_RESOURCE_STATIC_DEFINE)
 target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss::engine gneiss_png)
 target_compile_features(gneiss_png_decoder_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_png_decoder_test)
@@ -43,7 +43,7 @@ add_executable(
 )
 target_include_directories(gneiss_resource_service_test PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY GNEISS_RESOURCE_STATIC_DEFINE)
 target_link_libraries(gneiss_resource_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_resource_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_resource_service_test)
@@ -55,10 +55,9 @@ set_tests_properties(gneiss.asset_manager PROPERTIES LABELS "cpu;integration")
 add_executable(
   gneiss_mesh_binary_test
   mesh_binary_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_binary.cpp"
 )
 target_include_directories(gneiss_mesh_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math gneiss_base)
+target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_resource)
 target_link_libraries(gneiss_mesh_binary_test PRIVATE gneiss_math_dependency)
 target_compile_features(gneiss_mesh_binary_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_mesh_binary_test PRIVATE GNEISS_STATIC_DEFINE)
@@ -71,10 +70,9 @@ set_tests_properties(gneiss.mesh_binary PROPERTIES LABELS "cpu;unit")
 add_executable(
   gneiss_texture_ktx2_test
   texture_ktx2_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_ktx2.cpp"
 )
 target_include_directories(gneiss_texture_ktx2_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_texture_ktx2_test PRIVATE gneiss_base)
+target_link_libraries(gneiss_texture_ktx2_test PRIVATE gneiss_resource)
 target_compile_features(gneiss_texture_ktx2_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_texture_ktx2_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_ktx2_test)
@@ -86,10 +84,9 @@ set_tests_properties(gneiss.texture_ktx2 PROPERTIES LABELS "cpu;unit")
 add_executable(
   gneiss_texture_binary_test
   texture_binary_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_binary.cpp"
 )
 target_include_directories(gneiss_texture_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_texture_binary_test PRIVATE gneiss_base)
+target_link_libraries(gneiss_texture_binary_test PRIVATE gneiss_resource)
 target_compile_features(gneiss_texture_binary_test PRIVATE cxx_std_20)
 target_compile_definitions(gneiss_texture_binary_test PRIVATE GNEISS_STATIC_DEFINE)
 gneiss_target_compile_warnings(gneiss_texture_binary_test)
@@ -101,10 +98,10 @@ set_tests_properties(gneiss.texture_binary PROPERTIES LABELS "cpu;unit")
 # CPU 准备复用 Engine 的反射描述 codec，不创建 Application 或 GPU。
 add_executable(gneiss_render_asset_preparation_test
   asset_preparation_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp")
-target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY GNEISS_RESOURCE_STATIC_DEFINE)
 target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
   gneiss::engine gneiss_yyjson granit::granit Threads::Threads)

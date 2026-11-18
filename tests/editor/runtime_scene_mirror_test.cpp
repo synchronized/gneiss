@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include "inspection/runtime_scene_mirror.hpp"
 
 #include <limits>

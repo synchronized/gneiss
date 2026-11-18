@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/error.hpp>
 
-#include "core/service_registry.hpp"
+#include "function/application/detail/service_registry.hpp"
 
 #include <algorithm>
 #include <new>

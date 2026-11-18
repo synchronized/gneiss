@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/resource/export.hpp>
 
 #include <array>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
@@ -24,7 +25,7 @@ struct material_content {
  * 延迟回收。 */
 class material final : public asset {
 public:
-  GNEISS_API ~material();
+  GNEISS_RESOURCE_API ~material();
   /** 所属线程只读参数与依赖；更新通过 Loader/Render 受控入口执行。 */
   [[nodiscard]] const material_parameters& parameters() const noexcept {
     return content_ ? content_->parameters : empty_.parameters;
@@ -38,7 +39,7 @@ public:
 
 private:
   friend struct detail::material_resource_access;
-  GNEISS_API material(rid value) noexcept;
+  GNEISS_RESOURCE_API material(rid value) noexcept;
   rid rid_;
   std::shared_ptr<void> retirement_token_;
   inline static const material_content empty_{};
@@ -46,6 +47,6 @@ private:
 };
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-[[nodiscard]] GNEISS_API rid resource_handle(const ref<const material>& value) noexcept;
+[[nodiscard]] GNEISS_RESOURCE_API rid resource_handle(const ref<const material>& value) noexcept;
 
 } // namespace gneiss

@@ -6,7 +6,7 @@
 #include "documents/prefab_edit.hpp"
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>

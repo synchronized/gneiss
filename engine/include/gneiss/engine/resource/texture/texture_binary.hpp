@@ -4,6 +4,7 @@
 #ifndef GNEISS_ASSET_TEXTURE_BINARY_HPP_
 #define GNEISS_ASSET_TEXTURE_BINARY_HPP_
 
+#include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/result.hpp>
 #include <cstddef>
@@ -40,15 +41,15 @@ struct texture_binary_diagnostic final {
   std::string message;
 };
 
-[[nodiscard]] GNEISS_API bool is_texture_binary(std::span<const std::byte> bytes) noexcept;
+[[nodiscard]] GNEISS_RESOURCE_API bool is_texture_binary(std::span<const std::byte> bytes) noexcept;
 /** 仅解析 64 字节头；source_size 为完整来源长度，不读取负载或校验填充。 */
-[[nodiscard]] GNEISS_API result<texture_binary_layout, texture_binary_diagnostic>
+[[nodiscard]] GNEISS_RESOURCE_API result<texture_binary_layout, texture_binary_diagnostic>
 decode_texture_binary_header(std::span<const std::byte> bytes, std::uint64_t source_size);
 /** 成功结果拥有完整封装字节；失败不返回部分数据。 */
-[[nodiscard]] GNEISS_API result<std::vector<std::byte>, texture_binary_diagnostic>
+[[nodiscard]] GNEISS_RESOURCE_API result<std::vector<std::byte>, texture_binary_diagnostic>
 encode_texture_binary(std::span<const std::byte> manifest, std::span<const std::byte> payload);
 /** 成功视图借用输入字节，其有效期不得超过输入存储。 */
-[[nodiscard]] GNEISS_API result<texture_binary_view, texture_binary_diagnostic>
+[[nodiscard]] GNEISS_RESOURCE_API result<texture_binary_view, texture_binary_diagnostic>
 decode_texture_binary(std::span<const std::byte> bytes);
 
 } // namespace gneiss

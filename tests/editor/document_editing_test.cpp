@@ -7,8 +7,8 @@
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>

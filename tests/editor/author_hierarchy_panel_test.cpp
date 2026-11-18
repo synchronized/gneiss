@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include "ui/panels/author_hierarchy_panel.hpp"
 
 #include <imgui.h>

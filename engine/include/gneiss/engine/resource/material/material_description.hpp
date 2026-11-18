@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/resource/export.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/math/types.hpp>
 #include <gneiss/engine/resource/texture/texture_description.hpp>
 #include <array>
@@ -39,8 +40,8 @@ struct material_description final {
   std::array<std::string, 5> texture_uris;
 };
 /** 材质参数的领域约束，供文件、编辑提交和渲染资源采用复用。 */
-[[nodiscard]] GNEISS_API serialization::diagnostic
+[[nodiscard]] GNEISS_RESOURCE_API serialization::diagnostic
 validate_material_parameters(const material_parameters&);
-[[nodiscard]] GNEISS_API serialization::diagnostic
+[[nodiscard]] GNEISS_RESOURCE_API serialization::diagnostic
 validate_material_description(const material_description&);
 }

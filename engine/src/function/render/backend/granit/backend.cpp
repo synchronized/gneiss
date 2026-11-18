@@ -8,7 +8,7 @@
 #include <atomic>
 #include <deque>
 #include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/statistics.hpp>

@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/core/traits/type_identity.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/string_name.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 
 #include <array>
 #include <string>

@@ -5,7 +5,7 @@
 #ifndef GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 #define GNEISS_ENGINE_TYPE_IDENTITY_HPP_
 
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/types.hpp>
 #include <gneiss/engine/core/traits/type_name.hpp>

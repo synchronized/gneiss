@@ -9,7 +9,7 @@
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <cstdint>
 #include <functional>
 #include <map>

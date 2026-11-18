@@ -6,7 +6,7 @@
 #include "documents/commands/editor_prefab_edit.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
 namespace gneiss::editor {

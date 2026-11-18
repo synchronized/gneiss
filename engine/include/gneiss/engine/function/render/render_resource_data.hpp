@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_data.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>

@@ -9,7 +9,7 @@
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/types/string_name.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
 #include <stdexcept>
 namespace e = gneiss;
 struct sample {

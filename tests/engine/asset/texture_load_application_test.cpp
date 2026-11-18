@@ -5,7 +5,7 @@
 #include "../../support/codec_result.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/components.hpp>

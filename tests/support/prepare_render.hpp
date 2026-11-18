@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 namespace gneiss::test_support {
 using namespace gneiss;
 inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded,

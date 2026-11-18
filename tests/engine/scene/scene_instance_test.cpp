@@ -7,8 +7,8 @@
 #include <algorithm>
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>

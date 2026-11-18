@@ -4,3 +4,4 @@
 add_subdirectory(io)
 add_subdirectory(process)
 add_subdirectory(dynamic_library)
+add_subdirectory(window)

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/types/entity_id.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <compare>
 #include <cstdint>
 #include <string>

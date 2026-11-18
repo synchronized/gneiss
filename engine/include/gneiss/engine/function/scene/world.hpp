@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/types/entity_id.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
 #include <gneiss/engine/core/events/signal.hpp>
 #include <gneiss/engine/result.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/game_object.hpp>
 #include <gneiss/engine/function/scene/object_change.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>

@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/math/export.hpp>
 
 #include <gneiss/engine/core/math/functions.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 
 #include <algorithm>
 #include <string_view>

@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
 
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/resource/scene/component_description.hpp>
 #include <gneiss/protocol/message.hpp>
 

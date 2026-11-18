@@ -5,7 +5,7 @@
 #include <gneiss/engine/core/logging/export.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
-#include <gneiss/engine/core/types/string_name.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
 
 #include <format>
 #include <memory>

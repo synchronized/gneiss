@@ -5,7 +5,7 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/logging/logger.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>

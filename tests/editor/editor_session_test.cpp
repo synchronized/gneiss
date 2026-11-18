@@ -8,9 +8,9 @@
 #include "documents/commands/runtime_author_apply.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
 namespace gneiss {

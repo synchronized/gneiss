@@ -5,10 +5,10 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 

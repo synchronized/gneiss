@@ -3,7 +3,7 @@
 
 #include "documents/document_editing.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 namespace gneiss::editor {
 bool document_editing::active() const noexcept {

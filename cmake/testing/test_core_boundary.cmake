@@ -33,7 +33,7 @@ file(WRITE "${fixture}/engine/src/resource/probe.cpp" "#include <gneiss/core/res
 file(WRITE "${fixture}/engine/src/function/render/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/engine/src/function/asset/detail/asset_decode.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/engine/src/resource/texture/texture_decoder.hpp" "#include <gneiss/core/result.h>\n")
-file(WRITE "${fixture}/engine/src/resource/texture/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/engine/src/function/asset/loaders/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/engine/src/core/meta/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/engine/src/function/scene/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/runtime/probe.cpp" "#include <gneiss/application.h>\n")
@@ -113,14 +113,14 @@ foreach(layer IN ITEMS world scene application)
   endif()
 endforeach()
 file(WRITE "${fixture}/engine/src/function/render/probe.cpp" "#include <gneiss/render.h>\n")
-file(WRITE "${fixture}/engine/src/resource/texture/png_decoder.cpp" "#include \"render/resource.hpp\"\n")
+file(WRITE "${fixture}/engine/src/function/asset/loaders/png_decoder.cpp" "#include \"render/resource.hpp\"\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/testing/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝 PNG 解码依赖 Render")
 endif()
-file(WRITE "${fixture}/engine/src/resource/texture/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/engine/src/function/asset/loaders/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 
 foreach(layer IN ITEMS application world scene render resource apps)
   file(WRITE "${fixture}/engine/src/platform/probe.cpp" "#include \"${layer}/state.hpp\"\n")
@@ -809,13 +809,13 @@ foreach(root IN ITEMS engine/include/gneiss/engine engine/src)
   check_current_boundary("${root}/function/render/current_probe.hpp"
     "#include <gneiss/engine/function/scene/world.hpp>" "Render 不得反向包含")
   check_current_boundary("${root}/core/meta/current_probe.hpp"
-    "#include <gneiss/engine/core/types/guid.hpp>" "")
+    "#include <gneiss/engine/core/base/guid.hpp>" "")
 endforeach()
 foreach(root IN ITEMS editor runtime tooling/src project/src protocol/src)
   check_current_boundary("${root}/current_probe.cpp"
     "auto r = gneiss::meta::default_registry();" "不能直接取得默认表")
   check_current_boundary("${root}/current_probe.cpp"
-    "#include <gneiss/engine/core/types/guid.hpp>" "")
+    "#include <gneiss/engine/core/base/guid.hpp>" "")
 endforeach()
 check_current_boundary("engine/src/function/application/current_probe.cpp"
   "#include <gneiss/engine/function/asset/asset_manager.hpp>" "")

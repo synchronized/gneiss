@@ -9,9 +9,9 @@
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include "function/asset/detail/asset_construction.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>

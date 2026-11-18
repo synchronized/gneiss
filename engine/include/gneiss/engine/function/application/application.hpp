@@ -5,7 +5,7 @@
 #define GNEISS_RUNTIME_APPLICATION_HPP_
 
 #include <gneiss/engine/platform/window/input.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/input/action.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>

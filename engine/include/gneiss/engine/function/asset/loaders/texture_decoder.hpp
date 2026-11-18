@@ -4,8 +4,8 @@
 #pragma once
 #include <gneiss/engine/result.hpp>
 #include <gneiss/engine/resource/asset_diagnostic.hpp>
-#include "texture_data.hpp"
-#include "texture_description.hpp"
+#include <gneiss/engine/resource/texture/texture_data.hpp>
+#include <gneiss/engine/resource/texture/texture_description.hpp>
 namespace gneiss::detail {
 [[nodiscard]] GNEISS_API result<std::vector<std::byte>, asset_diagnostic>
 encode_texture(const texture_description& description);

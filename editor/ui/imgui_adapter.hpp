@@ -5,8 +5,8 @@
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
 #include <gneiss/engine/platform/window/input.hpp>
-#include <gneiss/engine/core/types/frame_time.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/frame_time.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/render/draw_types.hpp>
 

@@ -28,7 +28,7 @@ Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、�
   独立 Meta/Serialization/JSON 目标，迁移基础测试链接。
 - [x] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
 - [x] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
-- [ ] P5：领域归属。entity_id、业务诊断、编辑策略移回领域，Resource/功能目标各自管理源码。
+- [x] P5：领域归属。entity_id、业务诊断、编辑策略移回领域，Resource/功能目标各自管理源码。
 - [ ] P6：最终装配。静态/共享、安装包、真实消费者、跨模块身份与全量相关回归；同步当前文档。
 
 每阶段源码只属于一个生产目标。不能仅完成文件搬移就勾选独立模块化。
@@ -89,3 +89,13 @@ Files 和 IO 独立目标；删除依赖脚本的 Engine 源码注入及 libuv �
 共享构建的 IO、Files、IPC 统一使用 libuv 动态库，修复两份静态 libuv 跨 DLL 混用造成的连接失败；
 静态构建复用 uv_a 并纳入安装链接闭包。共享 Files/Native/IPC、静态 Native 测试通过。
 边界检查更新窗口值契约许可，保持平台实现禁入 Input；正反边界测试通过。
+
+2026-11-19：P5 完成。基础值头及实现归入 core/base；实体身份与标识转换回到 Scene，
+业务诊断回到 Function，编辑策略回到 Resource，服务初始化装配回到 Application。
+新增完整 Resource 目标，Granit 载荷准备移到 Asset loaders；Window 也提供独立实现目标。
+Function 自己维护运行领域源码，继续统一部署为 Engine，不为每个目录机械新增运行库。
+移除三个格式测试和动作校验测试重复编译的资源实现。Engine 构建、独立 Resource 格式测试与
+Core 边界检查通过，全部消费者和安装验收继续在 P6 完成。
+
+观测调整：平台窗口不再写入业务主循环的 window_pump/window_events/input_events 阶段，
+删除对应空计数列；Application 总体 events 阶段仍保留。窗口行为与输入交付语义不变。

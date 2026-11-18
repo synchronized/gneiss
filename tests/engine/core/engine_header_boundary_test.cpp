@@ -11,7 +11,7 @@
     __has_include("function/asset/resource_cache.hpp") || \
     __has_include(<gneiss/engine/function/application/main_loop_wakeup.hpp>) || \
     __has_include("function/application/main_loop_wakeup.hpp") || \
-    __has_include(<gneiss/engine/core/types/rid_table.hpp>) || \
+    __has_include(<gneiss/engine/core/rid_table.hpp>) || \
     __has_include("core/rid_table.hpp") || \
     __has_include(<gneiss/engine/core/serialization/detail/context_access.hpp>) || \
     __has_include("core/serialization/detail/context_access.hpp") || \

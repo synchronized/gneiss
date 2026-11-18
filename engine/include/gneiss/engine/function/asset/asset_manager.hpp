@@ -5,7 +5,7 @@
 
 #include <gneiss/engine/result.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/function/asset/asset_loading.hpp>
 #include <gneiss/engine/function/asset/asset_request.hpp>
 #include <gneiss/engine/resource/asset_decoder.hpp>

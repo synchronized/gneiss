@@ -6,7 +6,7 @@
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include "function/scene/detail/world_component_access.hpp"
 #include "function/scene/detail/world_impl.hpp"
 namespace gneiss {

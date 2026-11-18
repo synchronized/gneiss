@@ -2,7 +2,7 @@
 // Copyright (c) 2026 CAORS contributors
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/types/string_name.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
 
 #include <map>
 #include <memory>

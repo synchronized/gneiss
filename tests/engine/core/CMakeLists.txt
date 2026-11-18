@@ -78,7 +78,7 @@ set_tests_properties(gneiss.rid_table PROPERTIES LABELS "cpu;unit")
 add_executable(
   gneiss_service_registry_test
   service_registry_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/core/service_registry.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/application/detail/service_registry.cpp"
 )
 target_include_directories(gneiss_service_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_service_registry_test PRIVATE gneiss::engine)

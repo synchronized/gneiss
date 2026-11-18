@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <gneiss/engine/core/meta/property_path.hpp>
-#include <gneiss/engine/core/types/ref.hpp>
+#include <gneiss/engine/core/base/ref.hpp>
 #include <variant>
 namespace gneiss::editor {
 using gneiss::meta::property_path;

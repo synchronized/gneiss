@@ -5,7 +5,7 @@
 #ifndef GNEISS_ENGINE_TYPE_NAME_HPP_
 #define GNEISS_ENGINE_TYPE_NAME_HPP_
 
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 
 #include <chrono>
 #include <filesystem>

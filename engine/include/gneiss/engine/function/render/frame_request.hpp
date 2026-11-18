@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <gneiss/engine/core/math/types.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/ui_draw_list.hpp>
 #include <gneiss/engine/platform/window/surface_state.hpp>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/core/logging/service.hpp>
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 
 #include "detail/service_state.hpp"
 #include <stdexcept>

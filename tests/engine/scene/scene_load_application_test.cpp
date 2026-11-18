@@ -4,10 +4,10 @@
 #include "../../support/async_application.hpp"
 #include "../../support/codec_result.hpp"
 #include "../../support/value_result.hpp"
-#include "core/identifier_conversion.hpp"
+#include "function/scene/detail/identifier_conversion.hpp"
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>

@@ -4,7 +4,7 @@
 #pragma once
 
 #include <gneiss/engine/result.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 
 #include <cstddef>
 #include <cstdint>

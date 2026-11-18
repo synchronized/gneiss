@@ -3,7 +3,7 @@
 
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include "function/scene/detail/system_scheduler.hpp"
 #include "function/scene/detail/world_component_access.hpp"
 

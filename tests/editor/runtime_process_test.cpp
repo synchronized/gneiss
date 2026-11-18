@@ -3,7 +3,7 @@
 
 #include <gneiss/protocol/registration.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
@@ -12,7 +12,7 @@
 #include "runtime/runtime_property_adapter.hpp"
 #include "runtime/runtime_scene_adapter.hpp"
 
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 
 #include <algorithm>
 #include <array>

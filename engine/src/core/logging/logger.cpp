@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include <chrono>
 #include <gneiss/engine/core/logging/logger.hpp>
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <thread>
 
 #include "detail/service_state.hpp"

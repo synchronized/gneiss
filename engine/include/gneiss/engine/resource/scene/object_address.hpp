@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 namespace gneiss {
 /** 文档内地址；普通对象 source 为 nil，Prefab 成员由实例与来源 UUID 联合定位。 */
 struct object_address {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/types/entity_id.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <map>
 namespace gneiss {
 /** 变化表示需要重新读取，不保留组件借用；destroyed 优先于其他标记。 */

@@ -3,7 +3,7 @@
 
 #include "function/asset/detail/asset_construction.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include "function/asset/resource_cache.hpp"
 #include "resource/material/detail/material_resource_access.hpp"
@@ -13,7 +13,7 @@
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 
 #include <algorithm>
 #include <array>

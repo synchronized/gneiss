@@ -634,11 +634,11 @@ IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/p
 移动脚本时同步检查 `-P`、自定义命令 `DEPENDS`、独立测试工程和 CI 缓存键，
 不保留只转发旧路径的兼容脚本。
 
-基础模块的使用要求直接随真实 target 传播，不增加转发接口目标。
-`gneiss::base` 提供错误、Fatal、GUID、字符串池、类型身份和 SHA-256；`gneiss::math`
-提供数学类型与 transform/camera 实现；Events 仍为纯头文件目标，Tasks 独立提供任务调度。
-平台与任务依赖 Base，不获得数学依赖。共享构建中 Base/Math 使用独立 DLL 和导出宏，
-Engine 与宿主共享 Base 身份表；静态构建通过目标依赖链接，不在 Engine 重复编译基础实现。
-安装目标包含 Base、Math 和 Engine，不新增头文件 SDK。其余模块迁移进度见
-[PLAN-124](../plans/PLAN-124-foundation-modules.md)，边界见
-[ADR-128](../decisions/ADR-128-foundation-modules.md)。
+基础模块依赖随真实 target 传播，不增加转发接口目标。Base、Math、Data、Meta、Serialization、
+JSON、Resource、Logging、Tasks、IO、Files、Window 均提供完整实现和专属导出控制。
+纯反射/序列化消费者不链接 Engine；Runtime 与 Editor 继续链接运行领域的 Engine。
+共享构建的身份表与默认服务仅由所属 DLL 持有，IO 消费者共享 libuv 动态库；静态构建复用
+同一依赖图和上游 uv_a，安装包保留链接闭包，不重复编译实现。
+安装包包含这些运行模块，不新增头文件 SDK。源码归属见
+[目录与模块所有权](../concepts/repository-layout.md)，验收见
+[PLAN-124](../plans/PLAN-124-foundation-modules.md)。

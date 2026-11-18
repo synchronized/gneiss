@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/object.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
@@ -32,7 +33,7 @@ public:
 };
 using component_description = ref<const component_description_base>;
 /** 提交组件编辑前执行领域规则；结构编解码本身不承担这些规则。 */
-GNEISS_API serialization::diagnostic validate_component_description(const component_description&);
+GNEISS_RESOURCE_API serialization::diagnostic validate_component_description(const component_description&);
 template <class T>
   requires std::derived_from<T, component_description_base>
 component_description make_component_description(T value) {

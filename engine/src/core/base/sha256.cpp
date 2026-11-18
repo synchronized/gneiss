@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/sha256.hpp>
+#include <gneiss/engine/core/base/sha256.hpp>
 
 #include <algorithm>
 #include <array>

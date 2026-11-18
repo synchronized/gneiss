@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/resource/asset_serialization.hpp>

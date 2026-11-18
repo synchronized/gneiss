@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/core/types/string_name.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 
 #ifdef _WIN32
 #define IDENTITY_EXPORT __declspec(dllexport)

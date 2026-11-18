@@ -7,9 +7,9 @@
 #include <gneiss/engine/platform/window/configuration.hpp>
 
 #include <functional>
-#include <gneiss/engine/core/diagnostics/diagnostic.hpp>
-#include <gneiss/engine/core/types/frame_time.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/function/diagnostics/diagnostic.hpp>
+#include <gneiss/engine/core/base/frame_time.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <string_view>
 

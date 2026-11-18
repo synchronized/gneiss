@@ -162,8 +162,8 @@ add_executable(
   gneiss_render_asset_loader_test
   render_asset_loader_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE
@@ -186,8 +186,8 @@ add_executable(
   gneiss_texture_load_service_test
   texture_load_service_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/texture_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")

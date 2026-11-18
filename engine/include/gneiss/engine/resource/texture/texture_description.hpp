@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/resource/export.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
 #include <cstdint>
 #include <string>
@@ -43,6 +44,6 @@ struct texture_description final {
   texture_usage usage{};
 };
 /** 文件读写及原生采用前的领域校验；不修改输入。 */
-[[nodiscard]] GNEISS_API serialization::diagnostic
+[[nodiscard]] GNEISS_RESOURCE_API serialization::diagnostic
 validate_texture_description(const texture_description&);
 } // namespace gneiss

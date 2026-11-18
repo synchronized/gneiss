@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/core/sha256.hpp>
+#include <gneiss/engine/core/base/sha256.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>
 #include <string>

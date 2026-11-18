@@ -14,14 +14,14 @@
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 
 #include "function/asset/resource_cache.hpp"
 #include <algorithm>

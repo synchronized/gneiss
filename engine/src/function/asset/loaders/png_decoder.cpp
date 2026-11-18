@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/resource/texture/png_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/png_decoder.hpp>
 #include <gneiss/engine/error.hpp>
 
 #include <spng.h>

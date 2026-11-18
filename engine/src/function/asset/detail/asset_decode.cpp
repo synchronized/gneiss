@@ -4,8 +4,8 @@
 #include "asset_decode.hpp"
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
-#include <gneiss/engine/resource/mesh/mesh_decoder.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/mesh_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <algorithm>
 #include <cmath>
 #include <limits>

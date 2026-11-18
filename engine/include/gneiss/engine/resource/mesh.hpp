@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/resource/export.hpp>
 
 #include <gneiss/engine/export.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
 #include <cstddef>
@@ -28,7 +29,7 @@ struct mesh_metadata {
  * 延迟回收。 */
 class mesh final : public asset {
 public:
-  GNEISS_API ~mesh();
+  GNEISS_RESOURCE_API ~mesh();
   /** 所属线程查询轻量信息；未加载时为空，内容保留不可变 CPU 快照。 */
   [[nodiscard]] const std::optional<mesh_metadata>& metadata() const noexcept { return metadata_; }
   [[nodiscard]] ref<const mesh_data> snapshot() const { return content_; }
@@ -37,7 +38,7 @@ public:
 
 private:
   friend struct detail::mesh_resource_access;
-  GNEISS_API mesh(rid value) noexcept;
+  GNEISS_RESOURCE_API mesh(rid value) noexcept;
   mutable ref<const mesh_data> content_;
   rid rid_;
   std::shared_ptr<void> retirement_token_;
@@ -45,6 +46,6 @@ private:
 };
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-[[nodiscard]] GNEISS_API rid resource_handle(const ref<const mesh>& value) noexcept;
+[[nodiscard]] GNEISS_RESOURCE_API rid resource_handle(const ref<const mesh>& value) noexcept;
 
 } // namespace gneiss

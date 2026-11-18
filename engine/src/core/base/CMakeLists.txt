@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Gneiss contributors
 
 # 共享构建的身份表与字符串池由此唯一动态库持有。
-add_library(gneiss_base ../../fatal.cpp ../../error.cpp
-  ../types/guid.cpp ../types/string_name.cpp ../types/type_id.cpp ../sha256.cpp)
+add_library(gneiss_base fatal.cpp error.cpp
+  guid.cpp string_name.cpp type_id.cpp sha256.cpp)
 add_library(gneiss::base ALIAS gneiss_base)
 target_include_directories(gneiss_base PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../include>")

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/diagnostics/loop_timing.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/platform/window/service.hpp>
 
@@ -181,14 +180,13 @@ service::poll_events(const std::function<error(const input::event&)>& on_input) 
   GNEISS_ASSERT(impl_->id_ && on_input);
   event_status status;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
-  const auto pump_result = gneiss::measure(
-      loop_stage::window_pump, [&]() noexcept { return impl_->window_system_.process_events(); });
+  const auto pump_result = impl_->window_system_.process_events();
   if (pump_result.failed()) {
     return map_result(pump_result);
   }
   granit::result result;
   {
-    const loop_span events(loop_stage::window_events);
+
     granit::window_event event{};
     result = impl_->window_system_.poll(event);
     while (result == granit::result::success) {
@@ -220,7 +218,7 @@ service::poll_events(const std::function<error(const input::event&)>& on_input) 
     if (result != granit::result::not_ready)
       return map_result(result);
   }
-  const loop_span inputs(loop_stage::input_events);
+
   granit::input_event source{};
   while ((result = impl_->window_system_.poll(source)) == granit::result::success) {
     if (source.window && source.window != impl_->window_.ref())

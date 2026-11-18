@@ -4,7 +4,7 @@
 #include "function/asset/detail/asset_decode.hpp"
 #include "function/asset/detail/loader_factory.hpp"
 #include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <optional>
 namespace gneiss::detail {
 namespace {

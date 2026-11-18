@@ -4,14 +4,14 @@
 #include <gneiss/tooling/build/asset_build.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include "build/texture_mip_generator.hpp"
 
 #include <gneiss/tooling/build/ktx2_probe.hpp>
 #include "build/runtime_texture_builder.hpp"
 
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
-#include <gneiss/engine/resource/texture/png_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/png_decoder.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 
 #include <yyjson.h>

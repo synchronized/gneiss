@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/core/meta/property.hpp>
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
-#include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/result.hpp>
 
 #include <span>

@@ -68,4 +68,3 @@ function(gneiss_resolve_libuv)
   endforeach()
 
 endfunction()
-

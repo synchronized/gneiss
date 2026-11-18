@@ -5,7 +5,7 @@
 #include <cstring>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <imgui.h>
 namespace gneiss::editor {

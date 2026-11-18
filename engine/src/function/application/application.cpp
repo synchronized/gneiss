@@ -5,11 +5,11 @@
 #include "function/scene/rendering/render_camera.hpp"
 #include "function/scene/rendering/world_render_binding.hpp"
 #include <atomic>
-#include <gneiss/engine/core/diagnostics/loop_timing.hpp>
+#include <gneiss/engine/function/diagnostics/loop_timing.hpp>
 #include <gneiss/engine/core/diagnostics/profiling.hpp>
 #include <gneiss/engine/core/logging/logger.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>

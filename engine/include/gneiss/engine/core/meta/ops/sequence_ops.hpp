@@ -3,7 +3,7 @@
 #pragma once
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
 
 #include <array>

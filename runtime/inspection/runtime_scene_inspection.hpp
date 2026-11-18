@@ -5,15 +5,15 @@
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/scene/component_description.hpp>
 #include <gneiss/protocol/ipc_inspection_protocol.hpp>
 
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 
 #include <array>
 #include <cstdint>

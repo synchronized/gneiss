@@ -7,8 +7,8 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/scene_document_edit.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include "ui/viewport/transform_gizmo_drag.hpp"
 

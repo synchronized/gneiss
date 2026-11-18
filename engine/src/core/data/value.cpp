@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <gneiss/engine/core/data/value.hpp>
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <unordered_set>
 namespace gneiss {
 namespace {

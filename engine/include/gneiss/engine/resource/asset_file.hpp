@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <limits>
 namespace gneiss {
@@ -27,32 +28,32 @@ template <class T> struct format_traits {
 };
 template <> struct format_traits<mesh_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get();
+  static GNEISS_RESOURCE_API format get();
 };
 
 template <> struct format_traits<material_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get();
+  static GNEISS_RESOURCE_API format get();
 };
 template <> struct format_traits<gneiss::input::action_map_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get();
+  static GNEISS_RESOURCE_API format get();
 };
 template <> struct format_traits<scene_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get();
+  static GNEISS_RESOURCE_API format get();
 };
 template <> struct format_traits<prefab_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get();
+  static GNEISS_RESOURCE_API format get();
 };
 template <> struct format_traits<texture_description> {
   static constexpr bool enabled = true;
-  static GNEISS_API format get();
+  static GNEISS_RESOURCE_API format get();
 };
-GNEISS_API result<std::vector<std::byte>, serialization::diagnostic>
+GNEISS_RESOURCE_API result<std::vector<std::byte>, serialization::diagnostic>
 serialize_instance(const serialization::write_context&, format, const meta::const_instance&);
-GNEISS_API result<ref<void>, serialization::diagnostic>
+GNEISS_RESOURCE_API result<ref<void>, serialization::diagnostic>
 deserialize_object(const serialization::read_context&, format, type_id, std::span<const std::byte>);
 template <class T>
 result<std::vector<std::byte>, serialization::diagnostic>

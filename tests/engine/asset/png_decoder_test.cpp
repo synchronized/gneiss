@@ -3,7 +3,7 @@
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/resource/texture/png_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/png_decoder.hpp>
 
 #include <array>
 #include <cstddef>

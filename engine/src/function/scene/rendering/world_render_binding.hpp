@@ -3,7 +3,7 @@
 #pragma once
 #include <gneiss/engine/core/events/signal.hpp>
 #include <gneiss/engine/result.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
 #include <gneiss/engine/function/scene/object_change.hpp>
 #include <memory>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/resource/mesh/mesh_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/mesh_decoder.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 #include <gneiss/engine/resource/mesh/mesh_description.hpp>

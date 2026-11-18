@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <string_view>
 
 namespace gneiss::paths {

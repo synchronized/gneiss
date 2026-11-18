@@ -6,7 +6,7 @@
 #include "documents/commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include "ui/viewport/transform_gizmo_math.hpp"
 
 namespace gneiss::editor {

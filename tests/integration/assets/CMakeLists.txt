@@ -72,8 +72,8 @@ endif()
 # 使用正式资源注册入口，验证 CPU 描述与保活契约；不创建 GPU 设备。
 add_executable(gneiss_asset_material_test material_description_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/mesh/mesh_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/resource/texture/texture_decoder.cpp")
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/texture_decoder.cpp")
 set_target_properties(gneiss_asset_material_test PROPERTIES FOLDER "Tests")
 target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")

@@ -3,14 +3,14 @@
 
 #pragma once
 
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/resource/scene/component_description.hpp>
 #include "inspection/runtime_object_id.hpp"
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 
 #include <string>
 #include <vector>

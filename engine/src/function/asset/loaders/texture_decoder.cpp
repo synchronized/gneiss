@@ -3,10 +3,10 @@
 
 #include <granit/renderer/texture_asset.hpp>
 
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
-#include <gneiss/engine/core/sha256.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
+#include <gneiss/engine/core/base/sha256.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
-#include <gneiss/engine/resource/texture/png_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/png_decoder.hpp>
 #include <gneiss/engine/resource/texture/texture_binary.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 

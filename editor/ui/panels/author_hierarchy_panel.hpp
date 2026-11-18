@@ -4,7 +4,7 @@
 #pragma once
 
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 
 #include <span>
 #include <string>

@@ -36,7 +36,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/prefab_property_override.cpp"
 )
 target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/editor" "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY GNEISS_RESOURCE_STATIC_DEFINE)
 target_link_libraries(gneiss_prefab_property_override_test PRIVATE gneiss::engine gneiss_yyjson EnTT::EnTT)
 target_compile_features(gneiss_prefab_property_override_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_prefab_property_override_test)

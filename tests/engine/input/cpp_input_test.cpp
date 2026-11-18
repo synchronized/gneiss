@@ -4,7 +4,7 @@
 #include "../../support/async_input.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/types/entity_id.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <thread>
 #include <type_traits>

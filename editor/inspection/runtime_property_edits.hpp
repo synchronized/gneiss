@@ -7,7 +7,7 @@
 #include "inspection/runtime_object_id.hpp"
 
 #include <gneiss/engine/core/data/value.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/error.hpp>
 
 #include <array>

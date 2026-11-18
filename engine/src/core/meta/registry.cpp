@@ -6,8 +6,8 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/types/string_name.hpp>
-#include <gneiss/engine/core/utf8.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/error.hpp>
 
 #include <algorithm>

@@ -8,7 +8,7 @@
 #include "assets/author_asset_service.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <gneiss/engine/error.hpp>

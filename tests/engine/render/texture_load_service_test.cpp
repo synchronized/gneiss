@@ -16,7 +16,7 @@
 #include <gneiss/engine/function/files/backend.hpp>
 #include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <gneiss/engine/resource/mesh/mesh_decoder.hpp>
+#include <gneiss/engine/function/asset/loaders/mesh_decoder.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 #include <stdexcept>
 

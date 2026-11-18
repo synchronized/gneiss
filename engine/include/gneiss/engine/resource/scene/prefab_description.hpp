@@ -5,7 +5,7 @@
 #define GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
 #include <gneiss/engine/resource/scene/game_object_description.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>

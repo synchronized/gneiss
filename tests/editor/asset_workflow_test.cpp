@@ -11,7 +11,7 @@
 #include "assets/asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include "project/package_archive.hpp"
 #include "project/project_workspace.hpp"

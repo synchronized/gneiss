@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <gneiss/engine/resource/export.hpp>
 
 #include <gneiss/engine/export.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
 #include <gneiss/engine/resource/texture/texture_description.hpp>
@@ -29,7 +30,7 @@ struct texture_metadata {
  * 延迟回收。 */
 class texture final : public asset {
 public:
-  GNEISS_API ~texture();
+  GNEISS_RESOURCE_API ~texture();
   /** 所属线程查询轻量信息；未加载时为空，内容保留不可变 CPU 快照。 */
   [[nodiscard]] const std::optional<texture_metadata>& metadata() const noexcept {
     return metadata_;
@@ -40,7 +41,7 @@ public:
 
 private:
   friend struct detail::texture_resource_access;
-  GNEISS_API texture(rid value) noexcept;
+  GNEISS_RESOURCE_API texture(rid value) noexcept;
   mutable ref<const texture_data> content_;
   rid rid_;
   std::shared_ptr<void> retirement_token_;
@@ -48,6 +49,6 @@ private:
 };
 
 /** Render 内部标识提取；不转移所有权，不表示内容已就绪。 */
-[[nodiscard]] GNEISS_API rid resource_handle(const ref<const texture>& value) noexcept;
+[[nodiscard]] GNEISS_RESOURCE_API rid resource_handle(const ref<const texture>& value) noexcept;
 
 } // namespace gneiss

@@ -3,7 +3,7 @@
 #pragma once
 
 #include <gneiss/engine/core/math/types.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 namespace gneiss {
 /** 持久渲染实例的值描述；不包含 World、资产对象或后端指针。 */
 struct mesh_instance_description {

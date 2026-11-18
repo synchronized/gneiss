@@ -20,7 +20,7 @@
 
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 
 #include <algorithm>
 #include <cmath>

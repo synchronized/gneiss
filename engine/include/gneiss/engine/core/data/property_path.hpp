@@ -3,7 +3,7 @@
 #pragma once
 
 #include <gneiss/engine/core/data/property_id.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <span>
 #include <string>
 #include <variant>

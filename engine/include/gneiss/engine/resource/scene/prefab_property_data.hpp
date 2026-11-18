@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/data/value_edit.hpp>
 #include <gneiss/engine/core/meta/property_path.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
 #include <string>
 #include <string_view>
 #include <variant>
