@@ -21,18 +21,14 @@
 
 ## 阶段概览
 
-根目录 Engine 的头文件、CMake 目标及测试组织整理已形成计划，实施待开始，见
-[PLAN-119](plans/PLAN-119-engine-build-test-layout.md)。
+0.52 架构整理仍在实施；当前跨计划剩余工作以
+[DEV-052 收尾清单](plans/DEV-052-architecture-cleanup.md#收尾审计后的明确待办) 为唯一来源。
 
-错误返回与内部契约收敛规则已整理，代码迁移待开始，见 [PLAN-118](plans/PLAN-118-error-contracts.md)。
-
-优先整理事件与日志，当前完成初步适配核查，生产实现待开始，见 [PLAN-116](plans/PLAN-116-events-and-logging.md)。
-
-持久渲染场景与增量同步设计已确认、待实施，见 [PLAN-115](plans/PLAN-115-persistent-render-scene.md)。
-
-应用装配与场景模块代码迁移已清理旧服务，验收汇总待收尾，见 [PLAN-113](plans/PLAN-113-application-scene-boundaries.md)。
-
-World 对象入口与场景归属收敛开始实施，见 [PLAN-110](plans/PLAN-110-world-scene-ownership.md)。
+- [PLAN-119](plans/PLAN-119-engine-build-test-layout.md)：模块目录与多轮目标/测试迁移已落地，依赖闭包、标签及完整验收仍在收尾。
+- [PLAN-118](plans/PLAN-118-error-contracts.md)：P0/P1 已完成，Meta、Render/Prefab 契约审计及最终验收未完成。
+- [PLAN-115](plans/PLAN-115-persistent-render-scene.md)：命令同步与双视图已接入，GPU 压力、回收、预算及基线问题未完成。
+- [PLAN-116](plans/PLAN-116-events-and-logging.md)、[PLAN-117](plans/PLAN-117-domain-namespaces.md)、[PLAN-120](plans/PLAN-120-ipc-protocol-boundaries.md)：已完成各自本地实施与验收范围。
+- [PLAN-110](plans/PLAN-110-world-scene-ownership.md)、[PLAN-113](plans/PLAN-113-application-scene-boundaries.md)：对象/场景边界迁移已完成本地范围。
 
 异常边界与进程 OOM 收敛已完成，验证范围及跨平台限制见 [PLAN-109](plans/PLAN-109-exception-boundaries.md)。
 

@@ -30,4 +30,4 @@ meta/events/math/serialization/logging/files 迁至 gneiss 下同名领域；通
 - CMake 的 `gneiss::engine` 目标仍保留；它不是 C++ 命名空间。
 - `git diff --check` 通过。未运行 GPU、浏览器、Linux、MSVC 或远端 CI 验证。
 
-PLAN-116 尚待完成的日志宿主接入不属于此次命名空间迁移的验收范围。
+PLAN-116 已独立完成日志宿主接入；其验收结果不归此次命名空间迁移记录。

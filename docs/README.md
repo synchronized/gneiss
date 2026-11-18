@@ -115,6 +115,7 @@
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
 - [VER-052：0.52.0 原生接口与模块职责整理](plans/VER-052-0.52.0-architecture-cleanup.md)
 - [DEV-052：原生接口与模块职责整理实施计划](plans/DEV-052-architecture-cleanup.md)
+- [0.52 收尾审计（2026-11-18）](records/2026-11-18-version052-closeout-audit.md)
 - [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
 - [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
 - [共享资产与场景实例实施设计](plans/asset-scene-ownership.md)
@@ -680,7 +681,7 @@
 
 - [PLAN-113 应用装配与场景模块职责重整](plans/PLAN-113-application-scene-boundaries.md)
 - [PLAN-114 测试分层与维护规则收敛](plans/PLAN-114-test-maintenance.md)
-- [PLAN-115 持久渲染场景与增量同步（待实施）](plans/PLAN-115-persistent-render-scene.md)
+- [PLAN-115 持久渲染场景与增量同步（实施与验收中）](plans/PLAN-115-persistent-render-scene.md)
 - [ADR-118 持久渲染场景、增量同步与帧视图边界](decisions/ADR-118-persistent-render-scene.md)
 - [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)
 

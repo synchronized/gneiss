@@ -103,25 +103,24 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 
 ### 安装并通过 CMake package 使用
 
-构建后可将库、公共头文件、CMake package 和示例资产安装到同一前缀：
+构建后可将库、CMake package、已启用的 Runtime、模板及运行资产安装到同一前缀；
+当前不安装原生 C++ 头文件，不提供可独立使用的对象 SDK：
 
 ```sh
 cmake --install build/windows-clang-debug --prefix build/gneiss-install
 ```
 
-下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine`。Windows 共享库 Consumer
-运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
-资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
-`Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
-如果 Granit 安装在另一个前缀，Windows 运行时还需把该前缀的 `bin` 加入 `PATH`；Gneiss 不会把
-外部 Granit package 复制进自身安装前缀。
-Linux Shared 构建应将 package 导出的 `GNEISS_LIBRARY_DIR` 及外部 Granit 前缀的 `lib` 加入动态库
-搜索路径；仓库安装 Consumer 会自动配置该测试环境。
+安装 package 导出 Engine 链接目标与运行目录。仓内原生 C++ 消费者仍使用各模块的
+include/src 契约，不能把 find_package 成功等同于公共 SDK 可用。
+共享 Runtime 安装会复制 Granit 共享依赖；静态 package 继续要求 libassert 与 Granit 的
+Window/RenderPipeline 依赖。安装输出与真实启动是两种验证：后者可能需要 GPU，不能当作
+纯 CPU 检查。具体安装规则以 cmake/package/install.cmake 为准。
 
 ### 启用 Granit 窗口与渲染适配
 
-普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
-Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
+Granit 是当前构建依赖；没有独立的可选 Granit 平台开关。是否创建窗口和 GPU 资源由运行
+配置与调用路径决定，核心测试按实际依赖选择。窗口应用通过 Granit 创建 Renderer、Surface
+和 Swapchain；无窗口运行不等同于 Granit headless 渲染。
 Granit 0.43 的标准 PBR 要求设备支持 `shaderDemoteToHelperInvocation`；后端查询并启用该特性，
 不支持时设备选择失败，不会继续执行依赖该能力的 Shader。
 Renderer 初始化时会查询设备的 Uniform Buffer 对齐与绑定范围；渲染服务按设备对齐创建逐帧

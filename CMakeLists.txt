@@ -10,6 +10,9 @@ project(
   LANGUAGES C CXX
 )
 
+# 依赖模块也会声明安装规则，必须在加载它们之前初始化安装目录。
+include(GNUInstallDirs)
+
 if(PROJECT_IS_TOP_LEVEL)
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()

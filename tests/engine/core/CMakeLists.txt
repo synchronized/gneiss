@@ -52,7 +52,7 @@ set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
 
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
 target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::engine)
-target_include_directories(gneiss_cpp_version_test PRIVATE "${PROJECT_BINARY_DIR}/src/generated/include")
+target_include_directories(gneiss_cpp_version_test PRIVATE "${PROJECT_BINARY_DIR}/engine/generated/include")
 target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_version_test)
 gneiss_target_output_directories(gneiss_cpp_version_test)
