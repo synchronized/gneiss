@@ -24,18 +24,18 @@ struct service_metrics {
 class default_service_binding;
 /** 独占日志服务。生命周期操作由宿主串行调用；关闭前停止生产者。
  * Sink 不得重入 flush/close；默认 Logger 与连接均不保活服务。 */
-class GNEISS_API service final {
+class service final {
 public:
-  explicit service(service_options = {});
-  ~service();
+  GNEISS_API explicit service(service_options = {});
+  GNEISS_API ~service();
   service(const service&) = delete;
   service& operator=(const service&) = delete;
-  logger get_logger(std::string_view channel) const;
-  sink_connection attach(std::unique_ptr<sink>, sink_options = {});
-  void set_level(level);
-  void flush();
-  void close();
-  service_metrics metrics() const noexcept;
+  GNEISS_API logger get_logger(std::string_view channel) const;
+  GNEISS_API sink_connection attach(std::unique_ptr<sink>, sink_options = {});
+  GNEISS_API void set_level(level);
+  GNEISS_API void flush();
+  GNEISS_API void close();
+  GNEISS_API service_metrics metrics() const noexcept;
 
 private:
   friend class default_service_binding;

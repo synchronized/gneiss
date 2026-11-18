@@ -326,13 +326,13 @@ result<void> service::replace_mesh(rid rid, std::shared_ptr<const mesh_data> dat
     if (!tracked)
       return tracked.error();
     auto identity = slot->identity;
-    auto data = *tracked;
-    if (auto status =
-            dispatch_render_work([identity, data] { identity->consume(data); },
-                                 static_cast<std::size_t>(measure(*data).cpu_data_bytes), data);
+    auto next_data = *tracked;
+    if (auto status = dispatch_render_work(
+            [identity, next_data] { identity->consume(next_data); },
+            static_cast<std::size_t>(measure(*next_data).cpu_data_bytes), next_data);
         !status)
       return status.error();
-    identity->accept(std::move(data));
+    identity->accept(std::move(next_data));
   }
   return {};
 }

@@ -245,9 +245,9 @@ bool nested_json_contract() {
         gneiss::serialization::read_context{*node_registry}, bytes(std::string(65, ' ')));
     if (too_large || too_large.error().error != e::error::invalid_argument)
       return false;
-    auto invalid = gneiss::serialization::json::encode_bytes(
+    auto invalid_child = gneiss::serialization::json::encode_bytes(
         gneiss::serialization::write_context{*node_registry}, child{-1});
-    if (invalid || invalid.error().path != "/value")
+    if (invalid_child || invalid_child.error().path != "/value")
       return false;
   }
   // 默认字段遍历保持对象层级，不引入额外包装层。

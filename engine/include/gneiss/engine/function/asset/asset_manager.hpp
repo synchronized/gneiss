@@ -276,8 +276,10 @@ private:
                 if constexpr (requires(const T& v) { detail::capture_asset_content(v); })
                   return detail::capture_asset_content(*std::static_pointer_cast<const T>(value))
                       .shared();
-                else
+                else {
+                  (void)value;
                   return {};
+                }
               }};
     } else
       return {};

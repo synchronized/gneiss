@@ -1038,17 +1038,17 @@ error backend::implementation::prepare_resources(
           default_white_srgb_.view.native_handle()};
       const auto handles = material->texture_handles();
       for (std::size_t slot = 0; slot < handles.size(); ++slot) {
-        const auto handle = handles[slot];
-        if (handle == null_rid)
+        const auto texture_handle = handles[slot];
+        if (texture_handle == null_rid)
           continue;
-        const auto* texture = resources.get_texture(handle);
-        if (resources.texture_pending(handle)) {
+        const auto* texture = resources.get_texture(texture_handle);
+        if (resources.texture_pending(texture_handle)) {
           continue;
         }
         if (texture == nullptr)
           return gneiss::error::invalid_handle;
-        refresh_texture(handle, resources.share_texture(handle));
-        const auto found = texture_mirrors_.find(handle);
+        refresh_texture(texture_handle, resources.share_texture(texture_handle));
+        const auto found = texture_mirrors_.find(texture_handle);
         if (found != texture_mirrors_.end())
           textures[slot] = found->second->view.native_handle();
       }

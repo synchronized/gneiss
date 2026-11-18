@@ -537,13 +537,13 @@ int main() try {
     ed::component_edit_target ref_target{.object_uuid = id,
                                          .component_type = reference_description::type_guid};
     ed::editor_command_history ref_history;
-    auto current = [&] {
+    auto ref_current = [&] {
       ref_node = document.find_node(id)->node;
       auto list = document.components(ref_node);
       check(bool(list));
       return list->get<reference_description>()->settings;
     };
-    auto initial = current();
+    auto initial = ref_current();
     e::value input{e::ref<e::meta::object>{initial}};
     auto changed = ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{5.0F}});
     check(changed.has_value() && initial->amount == 1);
@@ -553,14 +553,14 @@ int main() try {
     initial->amount = 99;
     dynamic_cast<reference_settings*>(std::get<e::ref<e::meta::object>>(changed->payload).get())
         ->amount = 88;
-    check(current()->amount == 5);
-    auto installed = current();
+    check(ref_current()->amount == 5);
+    auto installed = ref_current();
     installed->amount = 77;
-    check(ref_history.undo().ok() && current()->amount == 1);
-    current()->amount = 66;
-    check(ref_history.redo().ok() && current()->amount == 5);
-    auto rejected = ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{-1.0F}});
-    check(!rejected && initial->amount == 99);
+    check(ref_history.undo().ok() && ref_current()->amount == 1);
+    ref_current()->amount = 66;
+    check(ref_history.redo().ok() && ref_current()->amount == 5);
+    auto ref_rejected = ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{-1.0F}});
+    check(!ref_rejected && initial->amount == 99);
     auto read_ref = e::read_component_property(world, entity(world, ref_node),
                                                reference_description::type_guid, p{1});
     check(read_ref && read_ref->kind() == e::value_kind::object);
@@ -574,24 +574,24 @@ int main() try {
     ref_io.IniFilename = nullptr;
     ref_io.DisplaySize = {800, 600};
     ref_io.DeltaTime = 1.0F / 60;
-    unsigned char* pixels;
-    int width, height;
-    ref_io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    unsigned char* ref_pixels;
+    int ref_width, ref_height;
+    ref_io.Fonts->GetTexDataAsRGBA32(&ref_pixels, &ref_width, &ref_height);
     auto ref_view = e::meta::view(std::as_const(input));
     check(bool(ref_view));
-    std::uint64_t serial = 0;
-    e::error status = e::error::success;
+    std::uint64_t ref_serial = 0;
+    e::error ref_status = e::error::success;
     ImGui::NewFrame();
     ImGui::Begin("References");
-    auto emitted = ed::draw_reflected_properties(*ref_view, "Object", serial, status);
+    auto emitted = ed::draw_reflected_properties(*ref_view, "Object", ref_serial, ref_status);
     e::ref<reference_settings> empty;
     auto empty_view = e::meta::view(std::as_const(empty));
     check(bool(empty_view));
-    (void)ed::draw_reflected_properties(*empty_view, "Empty", serial, status);
+    (void)ed::draw_reflected_properties(*empty_view, "Empty", ref_serial, ref_status);
     ImGui::End();
     ImGui::Render();
     ImGui::DestroyContext();
-    check(!emitted && status.ok() && initial->amount == 99);
+    check(!emitted && ref_status.ok() && initial->amount == 99);
   }
   // 缺失稳定元素的旧覆盖仍保留；修改同组件的其他字段不得吞掉冲突。
   {

@@ -91,10 +91,11 @@ make_scene_document_snapshot(std::string uri, const gneiss::scene_content& sourc
   for (const auto& [path, prefab] : source.prefabs) {
     if (!prefab.description)
       return gneiss::error::invalid_argument;
-    auto content = gneiss::capture_prefab_record(*prefab.description);
-    if (!content)
-      return content.error();
-    snapshot.prefabs.emplace(path, prefab_document_snapshot{std::move(*content), prefab.resource});
+    auto prefab_content = gneiss::capture_prefab_record(*prefab.description);
+    if (!prefab_content)
+      return prefab_content.error();
+    snapshot.prefabs.emplace(path,
+                             prefab_document_snapshot{std::move(*prefab_content), prefab.resource});
   }
   return snapshot;
 }
@@ -106,13 +107,14 @@ make_scene_document_inputs(const scene_document_snapshot& snapshot) {
   gneiss::scene_content inputs;
   inputs.description = gneiss::make_ref<const gneiss::scene_description>(std::move(*description));
   for (const auto& [uri, prefab] : snapshot.prefabs) {
-    auto description = gneiss::restore_prefab_record(prefab.content);
-    if (!description)
-      return description.error();
+    auto prefab_description = gneiss::restore_prefab_record(prefab.content);
+    if (!prefab_description)
+      return prefab_description.error();
     inputs.prefabs.emplace(
-        uri, gneiss::scene_prefab_dependency{
-                 prefab.source_asset,
-                 gneiss::make_ref<const gneiss::prefab_description>(std::move(*description)), 0});
+        uri,
+        gneiss::scene_prefab_dependency{
+            prefab.source_asset,
+            gneiss::make_ref<const gneiss::prefab_description>(std::move(*prefab_description)), 0});
   }
   return inputs;
 }
@@ -199,7 +201,7 @@ prepare_scene_document(const scene_document_snapshot& before,
 gneiss::result<std::vector<gneiss::object_reference_issue>>
 scene_document_snapshot::reference_issues() const {
   std::vector<gneiss::document_object_view> documents{{content.get().uuid, content.get().objects}};
-  for (const auto& [uri, source] : prefabs)
+  for (const auto& [prefab_uri, source] : prefabs)
     documents.push_back({source.content.get().uuid, source.content.get().objects});
   std::vector<gneiss::object_reference_issue> result;
   for (const auto& document : documents) {

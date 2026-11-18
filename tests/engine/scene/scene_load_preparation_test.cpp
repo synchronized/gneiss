@@ -63,7 +63,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
   }
 };
 
-constexpr std::string_view object = R"({"uuid":"00000000-0000-4000-8000-000000000002",
+constexpr std::string_view object_json = R"({"uuid":"00000000-0000-4000-8000-000000000002",
 "parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"ccb2708e-09e4-4d1c-86c6-8ff0f3c19cf4"}}]})";
 constexpr std::string_view scene_prefix = R"({"format":"gneiss.scene","version":5,
@@ -99,9 +99,9 @@ struct linked_loader final : asset_loader {
   void decode(const std::vector<std::byte>& bytes) override {
     value = std::make_shared<linked_asset>(source);
     if (!bytes.empty()) {
-      std::string uri(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+      std::string child_uri(reinterpret_cast<const char*>(bytes.data()), bytes.size());
       child = std::make_shared<detail::content_dependency<linked_asset, int>>(
-          uri, false, [](const linked_asset&) { return 1; });
+          child_uri, false, [](const linked_asset&) { return 1; });
       child->path = "/child";
       dependencies.push_back(child);
     }
@@ -173,11 +173,11 @@ void dependency_cycles() {
 }
 void run() {
   auto memory = std::make_shared<memory_files>();
-  memory->files["main.scene"] = std::string(scene_prefix) + std::string(object) + "," +
+  memory->files["main.scene"] = std::string(scene_prefix) + std::string(object_json) + "," +
                                 instance("3") + "," + instance("4") + "]}";
   memory->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","root_uuid":"00000000-0000-4000-8000-000000000002","objects":[)" +
-      std::string(object) + "]}";
+      std::string(object_json) + "]}";
   gneiss::test_support::fixture_files files;
   check(files.mount("asset://", memory) == gneiss::error::success);
   auto& executor = gneiss::test_support::asset_tasks();
@@ -407,14 +407,14 @@ void run() {
   check(prepare() == gneiss::error::not_found && output.prefabs.empty());
 
   // 输入顺序不要求父节点优先；准备保留描述顺序，实际应用负责父子创建顺序。
-  auto child = std::string(object);
+  auto child = std::string(object_json);
   child.replace(child.find("000000000002"), 12U, "000000000003");
   child.replace(child.find("null"), 4U, "\"00000000-0000-4000-8000-000000000002\"");
   memory->files["main.scene"] =
-      std::string(scene_prefix) + child + "," + std::string(object) + R"(]})";
+      std::string(scene_prefix) + child + "," + std::string(object_json) + R"(]})";
   check(prepare() == gneiss::error::success && output.description->objects.size() == 2U &&
         output.description->objects[0].parent.object == output.description->objects[1].uuid);
-  auto parent = std::string(object);
+  auto parent = std::string(object_json);
   parent.replace(parent.find("null"), 4U, "\"00000000-0000-4000-8000-000000000003\"");
   memory->files["main.scene"] = std::string(scene_prefix) + child + "," + parent + R"(]})";
   check(prepare() == gneiss::error::invalid_argument && !output.description);

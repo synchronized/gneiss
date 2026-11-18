@@ -15,14 +15,14 @@ struct service_state;
 }
 class service;
 /** 可复制的频道句柄；不保活工作线程，关闭后禁用并丢弃提交。 */
-class GNEISS_API logger {
+class logger {
 public:
   logger() = default;
   /** 持有频道名，调用时使用默认服务；允许动态文本，构造可能分配。 */
-  explicit logger(std::string_view channel);
-  [[nodiscard]] bool enabled(level severity) const;
+  GNEISS_API explicit logger(std::string_view channel);
+  [[nodiscard]] GNEISS_API bool enabled(level severity) const;
   /** 内部结构化记录；保留上下文/错误码，空来源和类别使用频道。文本借用至返回。 */
-  void write(message_view message) const;
+  GNEISS_API void write(message_view message) const;
   template <class... Args>
   void write(level severity, std::format_string<Args...> format, Args&&... args) const {
     if (enabled(severity))
@@ -51,8 +51,8 @@ private:
   friend class service;
   logger(std::weak_ptr<detail::service_state> state, string_name channel)
       : state_(std::move(state)), channel_(channel) {}
-  std::shared_ptr<detail::service_state> resolve() const;
-  void submit(level severity, std::string_view text) const;
+  GNEISS_API std::shared_ptr<detail::service_state> resolve() const;
+  GNEISS_API void submit(level severity, std::string_view text) const;
   bool use_default_{};
   std::weak_ptr<detail::service_state> state_;
   string_name channel_;

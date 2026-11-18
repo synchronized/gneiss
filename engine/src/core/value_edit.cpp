@@ -247,7 +247,8 @@ error validate_value_operation(const value_operation& op) {
                       std::is_same_v<T, insert_value_operation> ||
                       std::is_same_v<T, put_value_operation>)
           return validate_persistent_value(item.content);
-        return error::success;
+        else
+          return error::success;
       },
       op);
 }

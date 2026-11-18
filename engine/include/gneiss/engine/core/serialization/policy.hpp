@@ -121,16 +121,14 @@ template <auto Encode, auto Decode>
 inline constexpr auto codec = []<class T>() -> result<content_codec> {
   content_codec output;
   if constexpr (!std::is_null_pointer_v<decltype(Encode)>) {
-    const auto encode = Encode;
-    if (encode)
+    if constexpr (static_cast<bool>(Encode))
       output.encode = [](const write_context& ctx, writer& out,
                          const void* object) -> result<void*, diagnostic> {
         return std::invoke(Encode, ctx, out, *static_cast<const T*>(object));
       };
   }
   if constexpr (!std::is_null_pointer_v<decltype(Decode)>) {
-    const auto decode = Decode;
-    if (decode)
+    if constexpr (static_cast<bool>(Decode))
       output.decode = [](const read_context& ctx, reader& in,
                          const void* node) -> result<ref<void>, diagnostic> {
         auto decoded = std::invoke(Decode, ctx, in, node);

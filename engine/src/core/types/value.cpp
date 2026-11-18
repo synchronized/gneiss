@@ -36,6 +36,7 @@ error validate(const value& input, std::size_t depth, std::size_t maximum) {
             if (status.failed())
               return status;
           }
+          return error::success;
         } else if constexpr (std::is_same_v<T, sequence_value>) {
           const auto& sequence = data.get();
           if (sequence.keyed) {
@@ -52,6 +53,7 @@ error validate(const value& input, std::size_t depth, std::size_t maximum) {
             if (status.failed())
               return status;
           }
+          return error::success;
         } else if constexpr (std::is_same_v<T, map_value>) {
           const auto& entries = data.get().entries;
           for (std::size_t i = 0; i < entries.size(); ++i) {
@@ -75,9 +77,11 @@ error validate(const value& input, std::size_t depth, std::size_t maximum) {
             if (status.failed())
               return status;
           }
+          return error::success;
         } else if constexpr (std::is_same_v<T, optional_value>) {
           if (data.get().content)
             return child(*data.get().content);
+          return error::success;
         } else if constexpr (std::is_same_v<T, variant_value>) {
           if (data.get().alternative.empty() || !utf8::is_valid(data.get().alternative))
             return error::invalid_argument;
@@ -85,8 +89,10 @@ error validate(const value& input, std::size_t depth, std::size_t maximum) {
         } else if constexpr (std::is_same_v<T, asset_reference_value>) {
           if (!data.type || !utf8::is_valid(data.uri))
             return error::invalid_argument;
+          return error::success;
+        } else {
+          return error::success;
         }
-        return error::success;
       },
       input.payload);
 }

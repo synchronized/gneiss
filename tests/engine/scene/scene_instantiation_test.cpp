@@ -62,7 +62,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
     return gneiss::error::out_of_memory;
   }
 };
-constexpr std::string_view object =
+constexpr std::string_view object_json =
     R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"ac333749-72c7-4d50-bb9f-1751770a897c"}}]})";
@@ -125,10 +125,10 @@ void run() {
   auto files = std::make_shared<memory_files>();
   files->files["s.scene"] =
       R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)" +
-      std::string(object) + R"(]})";
+      std::string(object_json) + R"(]})";
   files->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000003","root_uuid":"00000000-0000-4000-8000-000000000002","objects":[)" +
-      std::string(object) + "]}";
+      std::string(object_json) + "]}";
   files->files["m.mesh"] =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[0,0],[0,0]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
   files->files["m.material"] =

@@ -126,7 +126,7 @@ int main() {
       return 46;
     if (!meta::resolve_path(*root, index))
       return 47;
-    std::map<std::string, float> mapping{{"a/b", 3}};
+    std::map<std::string, float> mapping{{"a/b", 3.0F}};
     auto map = meta::view(mapping);
     const meta::property_path map_path{std::string("a/b")};
     auto leaf = meta::resolve_path(*map, map_path, true);

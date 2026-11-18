@@ -536,11 +536,11 @@ int main() {
       output != saved)
     return 13;
   for (unsigned version : {1U, 2U, 3U, 4U, 5U, 7U}) {
-    const auto text = std::string{R"({"format":"gneiss.material","version":)"} +
+    const auto version_text = std::string{R"({"format":"gneiss.material","version":)"} +
                       std::to_string(version) + R"(,"color":[1,1,1,1]})";
     if (gneiss::test_support::assign_decoded(
             gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
-                gneiss::serialization::read_context{registry}, bytes(text)),
+                gneiss::serialization::read_context{registry}, bytes(version_text)),
             restored, diagnostic) != e::error::unsupported ||
         restored.parameters.color[0] != 0.25F)
       return 14;

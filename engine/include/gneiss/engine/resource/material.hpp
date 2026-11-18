@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include <gneiss/engine/export.hpp>
+#include <array>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/texture.hpp>
-#include <array>
 
 namespace gneiss {
 namespace detail {
@@ -22,9 +22,9 @@ struct material_content {
 };
 /** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。CPU 对象随最后强引用释放，只有后端 RID
  * 延迟回收。 */
-class GNEISS_API material final : public asset {
+class material final : public asset {
 public:
-  ~material();
+  GNEISS_API ~material();
   /** 所属线程只读参数与依赖；更新通过 Loader/Render 受控入口执行。 */
   [[nodiscard]] const material_parameters& parameters() const noexcept {
     return content_ ? content_->parameters : empty_.parameters;
@@ -38,7 +38,7 @@ public:
 
 private:
   friend struct detail::material_resource_access;
-  material(rid value) noexcept;
+  GNEISS_API material(rid value) noexcept;
   rid rid_;
   std::shared_ptr<void> retirement_token_;
   inline static const material_content empty_{};

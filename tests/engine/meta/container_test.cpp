@@ -46,7 +46,7 @@ struct optional_description {
   static constexpr std::string_view type_name = "optional_description";
   static constexpr e::guid type_guid = e::guid::from_bytes({95, 4});
   std::optional<child> item;
-  std::optional<float> number{3};
+  std::optional<float> number{3.0F};
   std::optional<std::vector<float>> values;
   std::optional<e::guid> identifier;
   const std::optional<float>& get_number() const { return number; }

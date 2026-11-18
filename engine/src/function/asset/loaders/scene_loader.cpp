@@ -31,7 +31,7 @@ template <class T, class D> struct scene_loader final : asset_loader {
           if (!object.prefab || required.contains(object.prefab->uri))
             continue;
           auto dependency = std::make_shared<prefab_dependency>(
-              object.prefab->uri, reload, [](const prefab& value) { return value.snapshot(); });
+              object.prefab->uri, reload, [](const prefab& loaded_prefab) { return loaded_prefab.snapshot(); });
           dependency->path = "/objects/" + std::to_string(index) + "/prefab";
           required.emplace(object.prefab->uri, dependency);
           dependencies.push_back(std::move(dependency));
@@ -47,10 +47,11 @@ template <class T, class D> struct scene_loader final : asset_loader {
   }
   error finish() override {
     if constexpr (std::is_same_v<T, scene>) {
-      for (const auto& [uri, dependency] : required) {
+      for (const auto& [dependency_uri, dependency] : required) {
         const auto& loaded = dependency->resource();
-        content->prefabs.emplace(uri, scene_prefab_dependency{loaded, dependency->content(),
-                                                              dependency->source_bytes()});
+        content->prefabs.emplace(
+            dependency_uri,
+            scene_prefab_dependency{loaded, dependency->content(), dependency->source_bytes()});
       }
       required.clear();
       content.reset();

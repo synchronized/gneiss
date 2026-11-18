@@ -518,16 +518,16 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
 }
 
 namespace gneiss {
-template camera_component* game_object::try_component<camera_component>() const;
-template mesh_component* game_object::try_component<mesh_component>() const;
-template error game_object::insert_component<camera_component>(camera_component) const;
-template error game_object::insert_component<mesh_component>(mesh_component) const;
+template GNEISS_API camera_component* game_object::try_component<camera_component>() const;
+template GNEISS_API mesh_component* game_object::try_component<mesh_component>() const;
+template GNEISS_API error game_object::insert_component<camera_component>(camera_component) const;
+template GNEISS_API error game_object::insert_component<mesh_component>(mesh_component) const;
 
-template error game_object::remove_component<camera_component>() const;
-template error game_object::remove_component<mesh_component>() const;
+template GNEISS_API error game_object::remove_component<camera_component>() const;
+template GNEISS_API error game_object::remove_component<mesh_component>() const;
 }
 
 namespace gneiss {
-template error game_object::notify_component_modified<camera_component>() const;
-template error game_object::notify_component_modified<mesh_component>() const;
+template GNEISS_API error game_object::notify_component_modified<camera_component>() const;
+template GNEISS_API error game_object::notify_component_modified<mesh_component>() const;
 }

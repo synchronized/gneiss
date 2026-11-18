@@ -61,13 +61,13 @@ struct editor_prefab_edit::state {
     assets.clear();
   }
 
-  gneiss::result<scene_subtree_snapshot> freeze(prefab_header_snapshot source) const {
+  gneiss::result<scene_subtree_snapshot> freeze(prefab_header_snapshot snapshot) const {
     if (!base)
       return gneiss::error::invalid_state;
     auto retained = base.content().assets;
     for (const auto& asset : assets)
       retained.insert_or_assign(std::string(gneiss::resource_uri(asset)), asset);
-    return freeze_prefab_snapshot(std::move(source), retained);
+    return freeze_prefab_snapshot(std::move(snapshot), retained);
   }
 
   void prepare_refresh() {

@@ -561,8 +561,8 @@ public:
     }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
     if (found)
       return detail::type_factory::make(owner(), found);
-    for (const auto& record : types_) {
-      for (const auto& property : record->properties) {
+    for (const auto& registered_type : types_) {
+      for (const auto& property : registered_type->properties) {
         const auto* access = property.accessor.access;
         for (std::size_t depth = 0; access && depth <= 64; ++depth) {
           if (match(*access)) {

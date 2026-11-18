@@ -39,6 +39,7 @@ function(gneiss_target_compile_warnings target)
     PRIVATE
       $<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>
       $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>
+      $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/Zc:preprocessor>
   )
 
   if(GNEISS_ENABLE_SANITIZERS)

@@ -127,12 +127,12 @@ service::implementation::prepare_capture(const render::frame_request& request,
     sizes.assign(request.views.size(), {request.surface.width, request.surface.height});
   if (sizes.size() != request.views.size() && !(request.views.empty() && sizes.size() == 1))
     return error::invalid_argument;
-  std::set<rid> targets;
+  std::set<rid> requested_targets;
   std::vector<std::shared_ptr<render::scene>> contents;
   for (std::size_t index = 0; index < request.views.size(); ++index) {
     const auto& view = request.views[index];
     if ((view.target && (!sizes[index].width || !sizes[index].height)) ||
-        !targets.insert(view.target).second)
+        !requested_targets.insert(view.target).second)
       return error::invalid_argument;
     for (auto element : math::matrix_elements(view.view_matrix))
       if (!std::isfinite(element))

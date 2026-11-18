@@ -15,12 +15,12 @@ struct sink_slot;
 }
 class service;
 /** 非拥有输出连接，析构不解绑；断开不等待已开始的输出。 */
-class GNEISS_API sink_connection {
+class sink_connection {
 public:
   sink_connection() = default;
-  void disconnect() const;
-  bool connected() const;
-  void set_level(level) const;
+  GNEISS_API void disconnect() const;
+  GNEISS_API bool connected() const;
+  GNEISS_API void set_level(level) const;
 
 private:
   friend class service;

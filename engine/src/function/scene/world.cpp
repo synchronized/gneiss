@@ -16,11 +16,13 @@ detail::world_component_access::get(world& owner) noexcept {
   return *owner.impl_;
 }
 world::world(std::uint32_t domain) : impl_(std::make_unique<implementation>(domain)) {}
-world::~world() noexcept try {
-  impl_->scene_slots.for_each(resource_type::scene_instance,
-                              [&](scene_instance_id id) { impl_->destroy_scene_members(id); });
-} catch (...) {
-  fatal_current_exception();
+world::~world() noexcept {
+  try {
+    impl_->scene_slots.for_each(resource_type::scene_instance,
+                                [&](scene_instance_id id) { impl_->destroy_scene_members(id); });
+  } catch (...) {
+    fatal_current_exception();
+  }
 }
 events::sink<void(const object_changes&)> world::changes() const {
   return impl_->changes.changed();

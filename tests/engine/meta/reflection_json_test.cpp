@@ -549,23 +549,25 @@ int main() try {
     }
     if (invalid_case == 3)
       policy.reference = e::serialization::reference_policy{};
-    auto registry = m::create_registry();
-    if (!registry ||
-        m::registration::type<sample>(*registry)
+    auto invalid_registry = m::create_registry();
+    if (!invalid_registry ||
+        m::registration::type<sample>(*invalid_registry)
             .property<&sample::enabled>(m::property_id{1}, "enabled",
                                         invalid_case != 0 ? m::property_access::read_write
                                                           : m::property_access::read_only)(policy)
             .commit()
             .failed() ||
-        m::freeze(*registry).failed())
+        m::freeze(*invalid_registry).failed())
       return 24;
-    const e::serialization::write_context ctx{*registry};
-    e::serialization::read_context read_ctx{*registry};
-    auto encoded = e::serialization::json::encode_bytes(ctx, sample{});
-    auto decoded = e::serialization::json::decode<sample>(read_ctx, bytes(R"({"enabled":true})"));
-    if (encoded || decoded || encoded.error().error != e::error::invalid_argument ||
-        decoded.error().error != e::error::invalid_argument || encoded.error().path != "/enabled" ||
-        decoded.error().path != "/enabled")
+    const e::serialization::write_context ctx{*invalid_registry};
+    e::serialization::read_context read_ctx{*invalid_registry};
+    auto invalid_encoded = e::serialization::json::encode_bytes(ctx, sample{});
+    auto invalid_decoded =
+        e::serialization::json::decode<sample>(read_ctx, bytes(R"({"enabled":true})"));
+    if (invalid_encoded || invalid_decoded ||
+        invalid_encoded.error().error != e::error::invalid_argument ||
+        invalid_decoded.error().error != e::error::invalid_argument ||
+        invalid_encoded.error().path != "/enabled" || invalid_decoded.error().path != "/enabled")
       return 25;
   }
   return 0;

@@ -281,7 +281,7 @@ int main() try {
   check(state(world).get<movement_component>(id)->data.speed == 5);
   // 单组件失败不得破坏已有组件；跨对象应用不再承诺整体回滚。
   check(e::update_component({*world.object(gneiss::entity_id{node.get()})},
-                            e::make_ref<movement_description>(13)) == e::error::invalid_state);
+                            e::make_ref<movement_description>(13.0F)) == e::error::invalid_state);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   e::error foreign;
   std::thread worker([&] {
@@ -309,8 +309,8 @@ int main() try {
   auto recreated_node = borrowed->create_object({first.name, {}});
   check(bool(recreated_node) && recreated_node->entity() != old_node);
   node = recreated_node->entity();
-  for (const auto& component : *saved_components)
-    check(e::add_component({*world.object(gneiss::entity_id{node.get()})}, component).ok());
+  for (const auto& saved_component : *saved_components)
+    check(e::add_component({*world.object(gneiss::entity_id{node.get()})}, saved_component).ok());
   id = entity(world, node);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   lifetime = state(world).get<movement_component>(id)->lifetime;
@@ -359,7 +359,7 @@ int main() try {
   check(!recreated->is_valid() && !detached->is_valid());
   check(e::remove_component({*recreated}, movement_description::type_guid) ==
         e::error::invalid_handle);
-  check(e::add_component({}, e::make_ref<movement_description>(1)) == e::error::invalid_handle);
+  check(e::add_component({}, e::make_ref<movement_description>(1.0F)) == e::error::invalid_handle);
   check(e::resolve_component_references({}, {}) == e::error::invalid_handle);
 
   // 运行注册无需编辑属性回调；编辑不可删除不影响运行移除。
