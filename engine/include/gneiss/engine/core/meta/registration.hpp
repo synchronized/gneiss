@@ -5,6 +5,7 @@
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/meta/type_definition.hpp>
 #include <gneiss/engine/core/traits/type_identity.hpp>
 
 #include <functional>
@@ -14,6 +15,34 @@
 #include <vector>
 
 namespace gneiss::meta {
+/** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
+[[nodiscard]] GNEISS_API error register_enum(const registry_ref&, const enum_definition&);
+/** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */
+[[nodiscard]] GNEISS_API error register_type(const registry_ref& state,
+                                             const type_definition& desc);
+/** 同时登记全部字段绑定；bindings 与 properties 顺序对应，失败不登记类型。 */
+[[nodiscard]] GNEISS_API error register_type(const registry_ref&, const type_definition&,
+                                             std::span<const property_binding>);
+inline error register_enum(const enum_definition& definition) {
+  auto registry = default_registry();
+  return registry ? register_enum(*registry, definition) : registry.error();
+}
+
+/** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
+[[nodiscard]] inline error register_type(const type_definition& desc) {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return register_type(*registry, desc);
+}
+[[nodiscard]] inline error register_type(const type_definition& desc,
+                                         std::span<const property_binding> bindings) {
+  auto registry = default_registry();
+  if (!registry)
+    return registry.error();
+  return register_type(*registry, desc, bindings);
+}
+
 namespace detail {
 template <class T, class Definition> error complete_identity(Definition& definition) noexcept {
   using type = std::remove_cvref_t<T>;

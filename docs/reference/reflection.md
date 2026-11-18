@@ -57,7 +57,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 多个无 GUID 类型通过 type_id 区分，nil GUID 的 find_type 查询返回空句柄。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
-`bind_property` 绑定原生函数指针、类别和借用上下文；相同完整绑定可重复调用。
+注册时一次提交字段描述和绑定；无独立 bind_property 阶段，失败不留下部分类型。
 `freeze` 按 GUID 字节顺序和字段编号排序，之后禁止注册与绑定。重复冻结幂等成功。
 独立表创建、字段绑定与冻结不吞掉 C++ 异常；冻结使用临时索引，失败或抛异常均不发布半成品。
 冻结时同时建立包含继承属性的名称槽位索引，准备完成后统一提交；失败保留原注册内容，允许补齐后重试。
@@ -80,9 +80,10 @@ invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回
 属性句柄可继续查询类型、访问能力或通过 `get(instance)` 访问对象。
 名称、属性范围与借用对象寿命分别遵循其所属句柄和实例的约束。
 
-`type_count()` / `type_at(index)` 枚举已注册对象，保持 GUID 字节顺序；
+`registered_types()` 返回 `result<type_range>`，一次检查冻结状态后直接遍历，保持 GUID 字节顺序；
+范围保活注册表且不复制列表，包含注册对象，不包含枚举条目；下标必须小于 size()。
 `type::schema_version()` 返回注册版本，无注册版本时为零。
-`find_property(type_guid, property_id)` 是获取同一属性句柄的便利入口，不生成元数据副本。
+字段查询统一使用 `type.capability<cap::object>().find_property(id/name)`。
 
 ## C++ 类型注册
 
@@ -136,18 +137,20 @@ return gneiss::meta::registration::type<math::transform>()
   不支持的 value 类型在模板实例化时报错，不引入任意对象或偏移量访问。
 
 底层 `register_type(registry, definition, bindings)` 的非空 bindings 必须与 properties 等长、顺序对应。
-空 bindings 保留原有只登记描述、之后显式 bind_property 的入口。
+空 bindings 仅登记描述，不允许后续追加绑定；需要访问实例时随类型一起提交完整绑定。
 
 ## 查询与属性值
 
-`type_count`、`type_at` 枚举冻结类型；`find_type`、`find_property` 返回句柄。
+`registered_types` 枚举冻结类型；`find_type` 和对象能力的 `find_property` 返回句柄。
 `find_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
 `register_type<T>` 从 `type_identity<std::remove_cvref_t<T>>` 补齐名称、GUID 和运行期 ID；
 显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`type_of<T>` 解析规范化 C++ 类型并直接返回类型句柄。未注册类型仍提供原生能力；
 通过 `registered()` 判断是否关联已发布注册数据，基础值无需重复登记。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
-`property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`；`bind_property` 接收强类型字段编号。
+`property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`。
+注册描述与 property_binding 位于 type_definition.hpp，提交入口位于 registration.hpp；
+property.hpp 保留只读属性句柄、身份、权限和遍历范围。
 find_type/find_property 返回可判空句柄，type_of 提供未注册原生类型能力；枚举数量和按索引查询
 仍返回 result，未冻结为 not_ready，越界为 not_found。属性范围不复制字段数组，
 范围和句柄保活注册表；借用名称不能超过持有者寿命。
@@ -272,9 +275,9 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 ## 注册表创建与状态查询
 
 隔离测试可用 Meta 核心 `create_registry()` 创建空表，自行注册测试类型。
-`is_frozen(registry)` 返回 `result<bool>`，`type_count(registry)` 返回 `result<std::uint32_t>`；
-无效注册表返回 invalid_handle，未冻结注册表的类型数量查询返回 not_ready。
-成功的 false 或零数量不代表操作失败。
+`is_frozen(registry)` 返回 `result<bool>`，`registered_types(registry)` 返回 `result<type_range>`；
+无效注册表返回 invalid_handle，未冻结注册表的类型范围查询返回 not_ready。
+成功的 false 或空范围不代表操作失败。
 默认表首次创建、查询锁和自定义类型能力查询产生的 C++ 异常向外传播，不伪装为查询未命中。
 `type_of`、`find_type`、`property.type()`、`element_type()`、`dynamic_type()` 与实例创建不承诺 noexcept；
 直接读取既有句柄的名称、身份、属性范围等操作仍保持不抛异常。
@@ -282,8 +285,7 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 ## 元数据与属性值查询
 
 `type_of<T>`、`find_type` 直接返回 `type`；运行期查询未命中或注册表未发布时返回空句柄。
-`type_at` 暂时返回 `result<type>`；
-注册表级与对象能力上的 `find_property` 均返回可判空的 `property`；
+对象能力上的 `find_property` 返回可判空的 `property`；
 无冻结记录、未知类型或未知属性返回空句柄。属性读取和写入另行报告操作失败。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
@@ -491,7 +493,7 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 无效类型返回空范围。通过 `is_enum()`、`registered()` 和类型句柄的 bool 判断区分这些状态。
 借用结果不得超过能力句柄或注册表的生命周期。`properties()` 返回保活注册表的属性范围。
 元素类型通过对应容器 capability 查询；调用 element_type() 要求能力有效。
-模板注册会将静态原生能力关联到注册记录，按 ID/GUID 查询或 type_at 枚举时保留这些能力。
+模板注册会将静态原生能力关联到注册记录，按 ID/GUID 查询或 registered_types 枚举时保留这些能力。
 纯运行期定义可不关联原生能力，不会因此获得容器或引用操作。
 类型句柄的相等比较包含注册表身份：有运行期 ID 时比较 ID，否则比较 GUID；
 两个空句柄相等。跨表判断同一种 C++ 类型或持久类型时，显式比较 id() 或 guid()。
@@ -663,9 +665,12 @@ Meta 不再提供含糊的 serialize/deserialize 入口。
 
 ## 类型能力与序列化绑定
 
-`type_definition.object` 保存 `meta::object_ops`，通过 `find_object_ops` 查询。
-注册表冻结前返回 not_ready，未知类型返回 not_found，空注册表返回 invalid_handle。
-已登记但没有相应能力的类型返回空函数项；调用前须检查函数项。
+`type_definition.object` 保存构造与继承适配操作，消费者通过 `cap::object` 查询能力。
+`base_type()` 返回可判空基类；`can_construct()` 表示是否登记构造器，具备对象能力不等于可构造。
+`construct()` 返回 `result<ref<void>>`；所有者管理存储，能力句柄提供类型上下文，借用不可超过所有者寿命。
+缺少构造器返回 unsupported，构造器抛异常直接传播，成功返回空存储属于契约错误。
+`is_a(type)` 查询可转换关系；对象视图 `cast(type)` 调整地址并保持 const 属性，不保活实例。
+序列化复用这些入口，不直接读取原始 object_ops 或自行遍历继承链。
 各序列化策略分别存在类型扩展元数据中，通过
 `serialization::find_policies` 查询；`type_definition` 不定义专用序列化字段。
 两者由同一注册表保存；继承关系不自动启用多态保存策略，校验时机保持不变。

@@ -6,7 +6,6 @@
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
-#include <gneiss/engine/core/meta/type_definition.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
 #include <gneiss/engine/result.hpp>
 
@@ -19,40 +18,59 @@ GNEISS_API meta::type find_type(const registry_ref&, gneiss::guid);
 template <class T> meta::type type_of(const registry_ref& registry) {
   return detail::resolve_type(registry, detail::ops_of<std::remove_cvref_t<T>>());
 }
-/** 深拷贝枚举显示项；同一 C++ 类型只登记一次，冻结后禁止修改。 */
-[[nodiscard]] GNEISS_API error register_enum(const registry_ref&, const enum_definition&);
 /** 创建独立注册表，成功结果持有共享所有者。 */
 [[nodiscard]] GNEISS_API result<registry_ref> create_registry();
 /** 进程共享的默认注册表；仅创建，不自动注册或冻结，由引擎模块持有至退出。 */
 [[nodiscard]] GNEISS_API result<registry_ref> default_registry();
-/** 深拷贝元数据；重复 GUID 或非空运行期 ID 返回 invalid_argument，冻结后禁止注册。 */
-[[nodiscard]] GNEISS_API error register_type(const registry_ref& state,
-                                             const type_definition& desc);
-[[nodiscard]] GNEISS_API error bind_property(const registry_ref& state, guid type_id,
-                                             property_id property, const property_binding& desc);
-/** 同时登记全部字段绑定；bindings 与 properties 顺序对应，失败不登记类型。 */
-[[nodiscard]] GNEISS_API error register_type(const registry_ref&, const type_definition&,
-                                             std::span<const property_binding>);
 [[nodiscard]] GNEISS_API error freeze(const registry_ref& state);
 [[nodiscard]] GNEISS_API result<bool> is_frozen(const registry_ref& state);
-/** 冻结后查询类型构造与继承能力。 */
-GNEISS_API result<object_ops> find_object_ops(const registry_ref&, type_id);
-inline result<object_ops> find_object_ops(type_id id) {
-  auto registry = default_registry();
-  return registry ? find_object_ops(*registry, id) : result<object_ops>{registry.error()};
-}
-/** 冻结后返回类型数量；未冻结返回 not_ready。 */
-[[nodiscard]] GNEISS_API result<std::uint32_t> type_count(const registry_ref& registry);
-/** 按稳定 GUID 字节顺序枚举冻结注册对象，返回保活注册表的类型句柄。 */
-[[nodiscard]] GNEISS_API result<meta::type> type_at(const registry_ref&, std::uint32_t);
-/** 字段名称借用已冻结 Registry。 */
-[[nodiscard]] GNEISS_API property find_property(const registry_ref& registry, gneiss::guid type,
-                                                property_id property);
-inline error register_enum(const enum_definition& definition) {
-  auto registry = default_registry();
-  return registry ? register_enum(*registry, definition) : registry.error();
-}
+/** 冻结注册对象的只读范围；保活注册表，不复制类型列表，不包含枚举注册项。 */
+class type_range {
+  friend class type_registry_state;
+  registry_ref registry_;
+  const std::unique_ptr<detail::type_record>* records_{};
+  std::size_t size_{};
+  type_range(registry_ref registry, const std::unique_ptr<detail::type_record>* records,
+             std::size_t size)
+      : registry_(std::move(registry)), records_(records), size_(size) {}
 
+public:
+  type_range() = default;
+  class iterator {
+    friend class type_range;
+    registry_ref registry_;
+    const std::unique_ptr<detail::type_record>* records_{};
+    std::size_t index_{};
+    iterator(registry_ref registry, const std::unique_ptr<detail::type_record>* records,
+             std::size_t index)
+        : registry_(std::move(registry)), records_(records), index_(index) {}
+
+  public:
+    using value_type = meta::type;
+    using difference_type = std::ptrdiff_t;
+    using iterator_category = std::forward_iterator_tag;
+    iterator() = default;
+    [[nodiscard]] GNEISS_API meta::type operator*() const noexcept;
+    iterator& operator++() noexcept {
+      ++index_;
+      return *this;
+    }
+    iterator operator++(int) noexcept {
+      auto old = *this;
+      ++*this;
+      return old;
+    }
+    friend bool operator==(const iterator&, const iterator&) = default;
+  };
+  [[nodiscard]] iterator begin() const noexcept { return {registry_, records_, 0}; }
+  [[nodiscard]] iterator end() const noexcept { return {registry_, records_, size_}; }
+  [[nodiscard]] std::size_t size() const noexcept { return size_; }
+  [[nodiscard]] bool empty() const noexcept { return size_ == 0; }
+  /** 下标必须小于 size()；越界属于调用契约错误。 */
+  [[nodiscard]] GNEISS_API meta::type operator[](std::size_t) const noexcept;
+};
+/** 按 GUID 字节顺序借用注册对象；未冻结返回 not_ready。 */
+[[nodiscard]] GNEISS_API result<type_range> registered_types(const registry_ref&);
 template <class T> meta::type type_of() {
   auto registry = default_registry();
   return type_of<T>(registry ? *registry : registry_ref{});
@@ -69,27 +87,6 @@ inline meta::type find_type(gneiss::guid id) {
     return {};
   return find_type(*registry, id);
 }
-/** 以下重载使用默认注册表；错误与显式 registry 接口一致，不隐式冻结。 */
-[[nodiscard]] inline error register_type(const type_definition& desc) {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return register_type(*registry, desc);
-}
-[[nodiscard]] inline error register_type(const type_definition& desc,
-                                         std::span<const property_binding> bindings) {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return register_type(*registry, desc, bindings);
-}
-[[nodiscard]] inline error bind_property(guid type, property_id property,
-                                         const property_binding& binding) {
-  auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return bind_property(*registry, type, property, binding);
-}
 [[nodiscard]] inline error freeze() {
   auto registry = default_registry();
   if (!registry)
@@ -102,20 +99,9 @@ inline meta::type find_type(gneiss::guid id) {
     return registry.error();
   return is_frozen(*registry);
 }
-[[nodiscard]] inline result<std::uint32_t> type_count() {
+[[nodiscard]] inline result<type_range> registered_types() {
   auto registry = default_registry();
-  if (!registry)
-    return registry.error();
-  return type_count(*registry);
+  return registry ? registered_types(*registry) : result<type_range>{registry.error()};
 }
-[[nodiscard]] inline result<meta::type> type_at(std::uint32_t index) {
-  auto registry = default_registry();
-  return registry ? type_at(*registry, index) : result<meta::type>{registry.error()};
-}
-[[nodiscard]] inline meta::property find_property(guid type, property_id property) {
-  auto registry = default_registry();
-  if (!registry)
-    return {};
-  return find_property(*registry, type, property);
-}
+
 } // namespace gneiss::meta

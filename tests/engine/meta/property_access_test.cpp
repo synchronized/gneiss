@@ -93,16 +93,11 @@ int main(int argc, char** argv) try {
       gneiss::meta::property_definition{gneiss::meta::property_id{2}, string_type,
                                                 gneiss::meta::property_access::read_only,
                                                 "label"},
-      gneiss::meta::property_definition{gneiss::meta::property_id{3}, float_type,
-                                                gneiss::meta::property_access::read_write,
-                                                "unbound"},
       gneiss::meta::property_definition{gneiss::meta::property_id{4}, float_type,
                                                 gneiss::meta::property_access::read_write,
                                                 "malformed"}};
   gneiss::meta::registry_ref registry;
   if (gneiss::test_support::assign_value(gneiss::meta::create_registry(), registry)
-          .failed() ||
-      gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields})
           .failed())
     return 1;
   const gneiss::meta::property_binding field_of_view{
@@ -114,28 +109,20 @@ int main(int argc, char** argv) try {
                                                      .getter = get_label,
                                                      .setter = {},
                                                      .user_data = nullptr};
-  auto invalid_read_only = label;
-  invalid_read_only.setter = set_field_of_view;
-  if (gneiss::meta::bind_property(registry, camera_type,
-                                          gneiss::meta::property_id{1}, field_of_view)
-          .failed() ||
-      gneiss::meta::bind_property(registry, camera_type,
-                                          gneiss::meta::property_id{1}, field_of_view)
-          .failed() ||
-      gneiss::meta::bind_property(registry, camera_type,
-                                          gneiss::meta::property_id{2},
-                                          invalid_read_only) != error::invalid_argument ||
-      gneiss::meta::bind_property(registry, camera_type,
-                                          gneiss::meta::property_id{2}, label)
-          .failed() ||
-      gneiss::meta::bind_property(
-          registry, camera_type, gneiss::meta::property_id{4},
-          {.kind = gneiss::value_kind::float32, .getter = get_malformed, .setter = {}})
+  std::array bindings{
+      field_of_view, label,
+      gneiss::meta::property_binding{.kind = gneiss::value_kind::float32, .getter = get_malformed}};
+  bindings[1].setter = set_field_of_view;
+  if (gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields}, bindings) !=
+      error::invalid_argument)
+    return 2;
+  bindings[1] = label;
+  // 上次提交失败不留下部分类型；相同身份可以完整重试。
+  if (gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields}, bindings)
           .failed() ||
       gneiss::meta::freeze(registry).failed() ||
-      gneiss::meta::bind_property(registry, camera_type,
-                                          gneiss::meta::property_id{3},
-                                          field_of_view) != error::invalid_state)
+      gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields}, bindings) !=
+          error::invalid_state)
     return 2;
   const std::weak_ptr lifetime = registry;
   gneiss::value snapshot;
@@ -169,7 +156,7 @@ int main(int argc, char** argv) try {
         fov->assign(gneiss::value{-1.0F}) != error::invalid_argument ||
         fov->assign(gneiss::value{std::uint64_t{90}}) != error::invalid_argument ||
         fixture.field_of_view != 90.0F || object->member("label").error() != error::unsupported ||
-        readonly->member("unbound").error() != error::unsupported ||
+        readonly->member("unbound").error() != error::not_found ||
         malformed->read_value().error() != error::invalid_argument)
       return 6;
     // 同一字段描述可以绑定不同宿主；字段实例不把宿主写入共享访问器。

@@ -3,12 +3,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/error.hpp>
+#include <algorithm>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
-#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -72,8 +73,8 @@ template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_d
     auto binding = serialization::find_policies(runtime_type_of<T>());
     if (!binding)
       return binding.error() == error::not_found ? error::unsupported : binding.error();
-    auto ops = meta::find_object_ops(runtime_type_of<T>());
-    if (!binding->content.decode && (!ops || !ops->construct))
+    auto capability = type.template capability<meta::cap::object>();
+    if (!binding->content.decode && !capability.can_construct())
       return error::unsupported;
   }
   if constexpr (std::is_move_constructible_v<T> && !std::is_const_v<T>) {

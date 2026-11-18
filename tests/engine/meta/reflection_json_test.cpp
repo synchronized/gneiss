@@ -102,17 +102,18 @@ bool enum_getter_failure_contract() {
     return false;
   const m::property_definition field{m::property_id{1}, enum_guid, m::property_access::read_write,
                                      "named", std::move(policy)};
-  if (m::register_type(*registry, {enum_sample::type_guid,
-                                   e::runtime_type_of<enum_sample>(),
-                                   1,
-                                   enum_sample::type_name,
-                                   {&field, 1}})
-          .failed() ||
-      m::bind_property(*registry, enum_sample::type_guid, m::property_id{1},
-                       {.kind = e::value_kind::int64,
-                        .getter = [](void*, const void*, e::value&) { return e::error::not_ready; },
-                        .setter = [](void*, void*, const e::value&) { return e::error::success; },
-                        .enum_type = e::runtime_type_of<named_number>()})
+  const m::property_binding binding{
+      .kind = e::value_kind::int64,
+      .getter = [](void*, const void*, e::value&) { return e::error::not_ready; },
+      .setter = [](void*, void*, const e::value&) { return e::error::success; },
+      .enum_type = e::runtime_type_of<named_number>()};
+  if (m::register_type(*registry,
+                       {enum_sample::type_guid,
+                        e::runtime_type_of<enum_sample>(),
+                        1,
+                        enum_sample::type_name,
+                        {&field, 1}},
+                       {&binding, 1})
           .failed() ||
       m::freeze(*registry).failed())
     return false;

@@ -5,7 +5,7 @@
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
-#include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
 #include <gneiss/engine/core/utf8.hpp>
 #include <gneiss/engine/error.hpp>
@@ -307,51 +307,6 @@ public:
     return error::success;
   }
 
-  [[nodiscard]] error bind_property(guid type_id, std::uint32_t property_id,
-                                    const property_binding& desc) {
-    if (!valid_binding(desc)) {
-      return error::invalid_argument;
-    }
-    std::unique_lock lock(mutex_);
-    if (is_frozen_) {
-      return error::invalid_state;
-    }
-    auto* type = find_type_unlocked(type_id);
-    if (type == nullptr) {
-      return error::not_found;
-    }
-    auto found =
-        std::ranges::find_if(type->properties, [property_id](const property_record& property) {
-          return property.id == property_id;
-        });
-    if (found == type->properties.end()) {
-      return error::not_found;
-    }
-    if (found->access == property_access::read_only &&
-        (desc.setter != nullptr || desc.object_mutator != nullptr ||
-         desc.object_setter != nullptr)) {
-      return error::invalid_argument;
-    }
-    const auto& requested = desc;
-    if (found->accessor.kind != value_kind::invalid || found->accessor.object_type) {
-      const auto& current = found->accessor;
-      return current.kind == requested.kind && current.getter == requested.getter &&
-                     current.setter == requested.setter &&
-                     current.user_data == requested.user_data &&
-                     current.object_type == requested.object_type &&
-                     current.object_getter == requested.object_getter &&
-                     current.object_mutator == requested.object_mutator &&
-                     current.object_assign == requested.object_assign &&
-                     current.object_setter == requested.object_setter &&
-                     current.object_construct == requested.object_construct &&
-                     current.access == requested.access && current.enum_type == requested.enum_type
-                 ? error::success
-                 : error::invalid_argument;
-    }
-    found->accessor = requested;
-    return error::success;
-  }
-
   [[nodiscard]] error freeze() {
     std::unique_lock lock(mutex_);
     if (is_frozen_) {
@@ -446,12 +401,11 @@ public:
     return is_frozen_;
   }
 
-  [[nodiscard]] result<std::uint32_t> type_count() const {
+  result<type_range> registered_types() const {
     std::shared_lock lock(mutex_);
-    if (!is_frozen_) {
+    if (!is_frozen_)
       return error::not_ready;
-    }
-    return static_cast<std::uint32_t>(types_.size());
+    return type_range{owner(), types_.data(), types_.size()};
   }
 
   meta::type resolve_access(const type_ops& access) const {
@@ -529,25 +483,6 @@ public:
       }
     }
     return {};
-  }
-
-  result<meta::type> type_at(std::uint32_t index) const {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    if (index >= types_.size())
-      return error::not_found;
-    const auto& record = *types_[index];
-    return detail::type_factory::make(owner(), nullptr, &record);
-  }
-  result<object_ops> find_object_ops(gneiss::type_id id) const {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_)
-      return error::not_ready;
-    const auto found = by_cpp_type_.find(id);
-    if (found == by_cpp_type_.end())
-      return error::not_found;
-    return found->second->object;
   }
 
 private:
@@ -701,28 +636,11 @@ error register_type(const registry_ref& state, const type_definition& desc,
   return state ? state->register_type(desc, bindings) : error::invalid_handle;
 }
 
-error bind_property(const registry_ref& state, guid type_id, property_id property,
-                    const property_binding& desc) {
-  return state ? state->bind_property(type_id, property.get(), desc) : error::invalid_handle;
-}
 error freeze(const registry_ref& state) { return state ? state->freeze() : error::invalid_handle; }
 result<bool> is_frozen(const registry_ref& state) {
   return state ? state->is_frozen() : error::invalid_handle;
 }
-result<std::uint32_t> type_count(const registry_ref& state) {
-  return state ? state->type_count() : error::invalid_handle;
-}
-result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) {
-  return registry ? registry->type_at(index) : result<meta::type>{error::invalid_handle};
-}
-property find_property(const registry_ref& registry, guid id, property_id field) {
-  auto owner = find_type(registry, id);
-  return owner ? owner.template capability<gneiss::meta::cap::object>().find_property(field)
-               : property{};
-}
-result<object_ops> find_object_ops(const registry_ref& registry, type_id id) {
-  return registry ? registry->find_object_ops(id) : error::invalid_handle;
-}
+
 property property_range::iterator::operator*() const noexcept {
   return property{registry_, records_ + index_};
 }
@@ -750,5 +668,65 @@ property_capabilities property::capabilities() const noexcept {
 namespace gneiss::meta {
 property property_range::operator[](std::size_t index) const noexcept {
   return property{registry_, records_ + index};
+}
+}
+
+namespace gneiss::meta {
+meta::type cap::object::base_type() const {
+  return type_.record_ && type_.record_->object.base_type
+             ? find_type(type_.registry_, type_.record_->object.base_type)
+             : meta::type{};
+}
+bool cap::object::can_construct() const noexcept {
+  return type_.record_ && type_.record_->object.construct;
+}
+result<ref<void>> cap::object::construct() const {
+  if (!can_construct())
+    return error::unsupported;
+  auto owner = type_.record_->object.construct();
+  GNEISS_ASSERT(owner, "对象构造器必须返回存储，分配失败通过异常传播");
+  return owner;
+}
+result<const void*> cap::object::cast_address(meta::type target, const void* address) const {
+  if (!type_ || !target || type_.registry_ != target.registry_)
+    return error::invalid_argument;
+  auto current = type_;
+  for (std::size_t depth = 0; depth <= 64; ++depth) {
+    if (current == target)
+      return address;
+    if (!current.record_)
+      return error::unsupported;
+    const auto& ops = current.record_->object;
+    if (target.id() == runtime_type_of<meta::object>()) {
+      if (!ops.as_object)
+        return error::unsupported;
+      return address ? static_cast<const void*>(ops.as_object(const_cast<void*>(address)))
+                     : nullptr;
+    }
+    if (!ops.base_type || !ops.upcast)
+      return error::invalid_argument;
+    if (address)
+      address = ops.upcast(const_cast<void*>(address));
+    current = find_type(type_.registry_, ops.base_type);
+    if (!current)
+      return error::not_found;
+  }
+  return error::invalid_state;
+}
+bool cap::object::is_a(meta::type target) const {
+  return bool(cast_address(std::move(target), nullptr));
+}
+}
+
+namespace gneiss::meta {
+result<type_range> registered_types(const registry_ref& registry) {
+  return registry ? registry->registered_types() : result<type_range>{error::invalid_handle};
+}
+meta::type type_range::operator[](std::size_t index) const noexcept {
+  GNEISS_ASSERT(index < size_, "类型范围下标必须有效");
+  return detail::type_factory::make(registry_, nullptr, records_[index].get());
+}
+meta::type type_range::iterator::operator*() const noexcept {
+  return detail::type_factory::make(registry_, nullptr, records_[index_].get());
 }
 }

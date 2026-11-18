@@ -60,7 +60,7 @@ static int calls = 0;
 e::error register_project() {
   ++calls;
   // 内置类型已注册但尚未冻结；查询不得提前冻结。
-  if (m::type_count().error() != e::error::not_ready)
+  if (m::registered_types().error() != e::error::not_ready)
     return e::error::internal;
   return m::registration::type<sample>()
       .property<&sample::speed>(m::property_id{1}, "speed")
@@ -118,12 +118,12 @@ int main(int argc, char** argv) {
   auto isolated = m::create_registry();
   if (!isolated || *isolated == *initial ||
       m::register_type<sample>(*isolated, {.schema_version = 1}).failed() ||
-      m::freeze(*isolated).failed() || *m::type_count(*isolated) != 1)
+      m::freeze(*isolated).failed() || m::registered_types(*isolated)->size() != 1)
     return 9;
   // 默认引用释放后再次取得仍为同一张表；隔离注册不改变默认表。
-  const auto count = *m::type_count();
+  const auto count = m::registered_types()->size();
   again->reset();
-  if (*m::default_registry() != *initial || *m::type_count() != count)
+  if (*m::default_registry() != *initial || m::registered_types()->size() != count)
     return 10;
 #ifdef GNEISS_TEST_THREADS
   std::atomic<bool> good{true};

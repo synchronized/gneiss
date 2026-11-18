@@ -7,6 +7,7 @@
 #include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/core/meta/type_definition.hpp>
 
 namespace gneiss::meta {
 cap::representation::representation(meta::type target)
@@ -101,6 +102,16 @@ basic_instance<Mutable>::from_access(registry_ref registry, const type_ops& acce
   return output;
 }
 template <bool Mutable>
+result<basic_instance<Mutable>> basic_object_view<Mutable>::cast(meta::type type) const {
+  auto address = target_.type_.template capability<cap::object>().cast_address(type, target_.data_);
+  if (!address)
+    return address.error();
+  if constexpr (Mutable)
+    return instance::from_object(std::move(type), const_cast<void*>(*address));
+  else
+    return const_instance::from_object(std::move(type), *address);
+}
+template <bool Mutable>
 result<basic_instance<Mutable>> basic_object_view<Mutable>::member(std::string_view name) const {
   if (target_.kind() == type_kind::invalid)
     return error::invalid_state;
@@ -108,7 +119,7 @@ result<basic_instance<Mutable>> basic_object_view<Mutable>::member(std::string_v
     return error::unsupported;
   const auto field =
       target_.type_.template capability<gneiss::meta::cap::object>().find_property(name);
-  return field ? member(field.id()) : result<basic_instance<Mutable>>{error::not_found};
+  return field ? bind_field(field) : result<basic_instance<Mutable>>{error::not_found};
 }
 template <bool Mutable>
 result<basic_instance<Mutable>> basic_object_view<Mutable>::member(property_id id) const {
@@ -123,16 +134,18 @@ result<basic_instance<Mutable>> basic_object_view<Mutable>::member(property_id i
       target_.type_.template capability<gneiss::meta::cap::object>().find_property(id);
   if (!field)
     return error::not_found;
+  return bind_field(field);
+}
+template <bool Mutable>
+result<basic_instance<Mutable>>
+basic_object_view<Mutable>::bind_field(const property& field) const {
   if (field.declaring_type_id() != target_.type_id()) {
-    auto ops = find_object_ops(target_.registry(), target_.type_id());
-    if (!ops || !ops->upcast)
-      return ops ? error::invalid_state : ops.error();
-    auto base = basic_instance<Mutable>::from_object(target_.registry(), ops->base_type,
-                                                     ops->upcast(const_cast<void*>(target_.data_)));
+    auto base_type = target_.type_.template capability<cap::object>().base_type();
+    auto base = cast(base_type);
     if (!base)
       return base.error();
     auto object = base->template capability<cap::object>();
-    return object ? object->member(id) : result<basic_instance<Mutable>>{object.error()};
+    return object ? object->bind_field(field) : result<basic_instance<Mutable>>{object.error()};
   }
   if constexpr (Mutable)
     if (!has_flags(field.capabilities(), property_capabilities::writable))
@@ -412,7 +425,7 @@ result<const_instance> property::get(const const_instance& object) const {
   if (info.declaring_type_id() != declaring_type_id() || info.declaring_type() != declaring_type())
     return error::invalid_argument;
   auto bound = object.capability<cap::object>();
-  return bound ? bound->member(id()) : result<const_instance>{bound.error()};
+  return bound ? bound->bind_field(info) : result<const_instance>{bound.error()};
 }
 result<instance> property::get(const instance& object) const {
   if (!record_)
@@ -426,6 +439,6 @@ result<instance> property::get(const instance& object) const {
   if (info.declaring_type_id() != declaring_type_id() || info.declaring_type() != declaring_type())
     return error::invalid_argument;
   auto bound = object.capability<cap::object>();
-  return bound ? bound->member(id()) : result<instance>{bound.error()};
+  return bound ? bound->bind_field(info) : result<instance>{bound.error()};
 }
 }

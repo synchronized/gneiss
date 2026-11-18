@@ -413,8 +413,8 @@ struct restore_state {
       auto type = find_type(registry, record->get().type);
       if (!type)
         return gneiss::error{gneiss::error::not_found};
-      auto ops = find_object_ops(registry, type.id());
-      if (!ops || !ops->construct)
+      auto capability = type.capability<meta::cap::object>();
+      if (!capability.can_construct())
         return error::unsupported;
       auto element = target.type().capability<gneiss::meta::cap::reference>().element_type();
       if (!element)
@@ -424,9 +424,10 @@ struct restore_state {
       auto compatible = detail::cast_base(registry, type.id(), element.id(), nullptr);
       if (!compatible)
         return compatible.error().error;
-      auto owner = ops->construct();
-      if (!owner)
-        return error::out_of_memory;
+      auto created = capability.construct();
+      if (!created)
+        return created.error();
+      auto owner = std::move(*created);
       auto child = instance::from_object(registry, type.id(), owner.get());
       if (!child)
         return child.error();

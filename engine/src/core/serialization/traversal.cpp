@@ -80,13 +80,19 @@ diagnostic decode_representation(const read_context& ctx, const instance& target
 /** 统一验证反射对象实际身份，普通值结构无此要求。 */
 serialization::diagnostic validate_identity(const registry_ref& registry, type_id id,
                                             const void* address) {
-  auto ops = find_object_ops(registry, id);
-  if (!ops)
-    return failure(ops.error());
-  if (!ops->as_object)
-    return {};
   auto type = find_type(registry, id);
-  auto* object = ops->as_object(const_cast<void*>(address));
+  if (!type)
+    return failure(error::not_found);
+  auto object_type = meta::type_of<meta::object>(registry);
+  if (!type.capability<meta::cap::object>().is_a(object_type))
+    return {};
+  auto instance = meta::const_instance::from_object(type, address);
+  if (!instance)
+    return failure(instance.error());
+  auto cast = instance->capability<meta::cap::object>()->cast(object_type);
+  if (!cast)
+    return failure(cast.error());
+  auto* object = static_cast<const meta::object*>(*cast->object_data());
   const auto actual = object ? object->dynamic_type(registry) : meta::type{};
   if (!type || !actual || actual.id() != id || actual.guid() != type.guid() ||
       object->dynamic_address() != address)
@@ -96,26 +102,25 @@ serialization::diagnostic validate_identity(const registry_ref& registry, type_i
 /** 检查注册继承链并按 C++ 转换逐层调整地址。 */
 result<void*, serialization::diagnostic> cast_base(const registry_ref& registry, type_id actual,
                                                    type_id declared, void* pointer) {
-  if (declared == runtime_type_of<meta::object>()) {
-    auto ops = find_object_ops(registry, actual);
-    if (!ops)
-      return failure(ops.error());
-    if (!ops->as_object)
-      return failure(error::unsupported);
-    return pointer ? static_cast<void*>(ops->as_object(pointer)) : nullptr;
-  }
-  for (std::size_t depth = 0; depth <= 64; ++depth) {
-    if (actual == declared)
-      return pointer;
-    auto binding = find_object_ops(registry, actual);
-    if (!binding || !binding->base_type || !binding->upcast)
-      return failure(error::invalid_argument, "", "实际类型不属于声明基类");
-    if (pointer)
-      pointer = binding->upcast(pointer);
-    actual = binding->base_type;
-  }
-  return failure(error::invalid_argument, "", "继承链过深或存在环");
+  auto actual_type = find_type(registry, actual);
+  auto declared_type = declared == runtime_type_of<meta::object>()
+                           ? meta::type_of<meta::object>(registry)
+                           : find_type(registry, declared);
+  auto capability = actual_type.capability<meta::cap::object>();
+  if (!capability.is_a(declared_type))
+    return failure(error::invalid_argument, "", "实际类型不属于声明基类");
+  if (!pointer)
+    return nullptr;
+  auto root = instance::from_object(actual_type, pointer);
+  if (!root)
+    return failure(root.error());
+  auto adjusted = root->capability<meta::cap::object>()->cast(declared_type);
+  if (!adjusted)
+    return failure(adjusted.error());
+  auto address = adjusted->object_data();
+  return address ? result<void*, serialization::diagnostic>{*address} : failure(address.error());
 }
+
 result<writer::node, serialization::diagnostic> encode_members(const write_context& ctx,
                                                                const registry_ref&, type_id,
                                                                const void*, writer*, std::size_t);
@@ -567,12 +572,13 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     else
       object = std::move(*decoded);
   } else {
-    auto ops = find_object_ops(registry, actual);
-    if (!ops || !ops->construct)
+    auto capability = find_type(registry, actual).capability<meta::cap::object>();
+    if (!capability.can_construct())
       return failure(error::unsupported);
-    object = ops->construct();
-    if (!object)
-      return failure(error::internal);
+    auto created = capability.construct();
+    if (!created)
+      return failure(created.error());
+    object = std::move(*created);
     if (find_type(registry, actual).capability<gneiss::meta::cap::representation>()) {
       auto view = instance::from_object(registry, actual, object.get());
       if (!view)

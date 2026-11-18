@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/serialization/json.hpp>
-#include <gneiss/engine/core/meta/instance.hpp>
 #include "core/serialization/detail/json_adapter.hpp"
 #include "core/serialization/detail/traversal.hpp"
-#include <gneiss/engine/core/serialization/policy.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
 #include <limits>
 #include <new>
 #include <unordered_set>
@@ -397,14 +398,15 @@ read_fields_object(const read_context& ctx, yyjson_val* input, type_id id,
   auto binding = find_policies(*selected, id);
   if (!binding)
     return failure(binding.error());
-  auto ops = find_object_ops(*selected, id);
-  if (!ops || !ops->construct)
+  auto capability = find_type(*selected, id).capability<meta::cap::object>();
+  if (!capability.can_construct())
     return failure(error::unsupported);
   if (context_access::depth(ctx) > ctx.maximum_depth())
     return failure(error::invalid_argument);
-  auto object = ops->construct();
-  if (!object)
-    return failure(error::internal);
+  auto created = capability.construct();
+  if (!created)
+    return failure(created.error());
+  auto object = std::move(*created);
   auto status =
       decode_members(ctx, *selected, id, object.get(), input, context_access::depth(ctx), ignored);
   if (status.error.failed())

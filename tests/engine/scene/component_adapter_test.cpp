@@ -4,6 +4,9 @@
 #include "../../support/scene_application.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
+#include "function/scene/detail/world_component_access.hpp"
+#include <cstdio>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
@@ -14,12 +17,10 @@
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
-#include "function/scene/detail/world_component_access.hpp"
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
-#include <cstdio>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -136,8 +137,9 @@ int main() try {
         e::camera_description::type_guid);
   check(e::component_description_type(unknown_description::type_guid) ==
         unknown_description::type_guid);
-  const auto primary =
-      e::meta::find_property(e::camera_description::type_guid, e::meta::property_id{4});
+  const auto primary = gneiss::meta::find_type(e::camera_description::type_guid)
+                           .capability<gneiss::meta::cap::object>()
+                           .find_property(e::meta::property_id{4});
   check(primary && gneiss::is_edit_read_only(primary));
   check(gneiss::meta::has_flags(primary.capabilities(),
                                         gneiss::meta::property_capabilities::writable));

@@ -496,16 +496,13 @@ bool registered_native_queries() {
   if (!runtime || !runtime.registered() || runtime.id() || runtime.capability<m::cap::sequence>() ||
       runtime.kind() != m::type_kind::object)
     return false;
-  const auto count = m::type_count(registry);
-  if (!count)
+  const auto types = m::registered_types(registry);
+  if (!types)
     return false;
-  for (std::uint32_t i = 0; i < *count; ++i) {
-    const auto entry = m::type_at(registry, i);
-    if (!entry)
-      return false;
-    if (entry->id() == e::runtime_type_of<sequence>() &&
-        (!entry->capability<m::cap::sequence>().is_fixed_size() ||
-         entry->capability<m::cap::sequence>().element_type() != m::type_of<float>(registry)))
+  for (const auto entry : *types) {
+    if (entry.id() == e::runtime_type_of<sequence>() &&
+        (!entry.capability<m::cap::sequence>().is_fixed_size() ||
+         entry.capability<m::cap::sequence>().element_type() != m::type_of<float>(registry)))
       return false;
   }
   return true;
@@ -688,17 +685,28 @@ bool polymorphic_references() {
       detached.guid() != polymorphic_child::type_guid || base.dynamic_address() != &native ||
       !base.dynamic_type() || missing_dynamic_type{}.dynamic_type(registry))
     return false;
-  auto ops = m::find_object_ops(registry, e::runtime_type_of<polymorphic_child>());
-  if (!ops || ops->base_type != e::runtime_type_of<polymorphic_base>() || !ops->construct ||
-      !ops->upcast || !ops->as_object)
+  auto capability = registered.capability<m::cap::object>();
+  if (capability.base_type() != m::type_of<polymorphic_base>(registry) ||
+      !capability.can_construct())
     return false;
-  auto owner = ops->construct();
-  auto* child = static_cast<polymorphic_child*>(owner.get());
-  if (ops->upcast(child) != static_cast<polymorphic_base*>(child) ||
-      ops->as_object(child) != static_cast<m::object*>(child))
+  auto owner = capability.construct();
+  if (!owner)
     return false;
-  if (m::find_object_ops(m::registry_ref{}, e::runtime_type_of<polymorphic_child>()).error() !=
-      e::error::invalid_handle)
+  auto* child = static_cast<polymorphic_child*>(owner->get());
+  auto root = m::instance::from_object(registered, child);
+  auto object_view = root->capability<m::cap::object>();
+  auto parent = object_view->cast(capability.base_type());
+  auto object = object_view->cast(m::type_of<m::object>(registry));
+  if (!parent || !object || *parent->object_data() != static_cast<polymorphic_base*>(child) ||
+      *object->object_data() != static_cast<m::object*>(child) ||
+      detached.capability<m::cap::object>().can_construct())
+    return false;
+  auto readonly = root->as_const().capability<m::cap::object>()->cast(capability.base_type());
+  static_assert(std::is_same_v<decltype(readonly), e::result<m::const_instance>>);
+  if (!readonly || *readonly->object_data() != static_cast<const polymorphic_base*>(child) ||
+      object_view->cast(m::type_of<polymorphic_base>(*other)).error() !=
+          e::error::invalid_argument ||
+      capability.is_a(m::type_of<int>(registry)))
     return false;
   auto input = e::make_ref<polymorphic_child>();
   input->number = 42;

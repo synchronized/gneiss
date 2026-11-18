@@ -85,15 +85,12 @@ int main() try {
   gneiss::install_fatal_handler();
   if (gneiss::initialize_meta().failed())
     return 99;
-  auto count = gneiss::meta::type_count();
-  if (!count)
+  auto types = gneiss::meta::registered_types();
+  if (!types)
     return 1;
-  for (std::uint32_t i = 0; i < *count; ++i) {
-    auto type = gneiss::meta::type_at(i);
-    if (!type)
-      return 1;
-    std::printf("类型 %.*s\n", static_cast<int>(type->name().size()), type->name().data());
-    auto properties = type->template capability<gneiss::meta::cap::object>().properties();
+  for (const auto type : *types) {
+    std::printf("类型 %.*s\n", static_cast<int>(type.name().size()), type.name().data());
+    auto properties = type.template capability<gneiss::meta::cap::object>().properties();
     for (const auto& field : properties)
       std::printf("  字段 %u: %.*s\n", field.id().get(), static_cast<int>(field.name().size()),
                   field.name().data());
