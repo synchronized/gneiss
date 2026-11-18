@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 namespace gneiss::test_support {
 inline gneiss::result<gneiss::game_object> mesh_target(gneiss::world& owner, scene_instance scene,
                                                        entity_id id) {
@@ -60,28 +60,10 @@ inline gneiss::result<entity_id> spawn_mesh(gneiss::world& owner, gneiss::asset_
   auto made = destination.create_object({fixture.name, {}}, owner.find(fixture.parent));
   if (!made)
     return made.error();
-  gneiss::component_context context{*made};
-  context.lookup_resource = [&](const gneiss::render_resource_source& source)
-      -> gneiss::result<gneiss::render_resource_ref> {
-    if (retained) {
-      if (source.type == gneiss::render_resource_kind::mesh)
-        return gneiss::render_resource_ref{retained->mesh};
-      return gneiss::render_resource_ref{retained->material};
-    }
-    if (source.type == gneiss::render_resource_kind::mesh) {
-      auto value = assets.find<gneiss::mesh>(source.uri);
-      if (!value)
-        return value.error();
-      return gneiss::render_resource_ref{*value};
-    }
-    auto value = assets.find<gneiss::material>(source.uri);
-    if (!value)
-      return value.error();
-    return gneiss::render_resource_ref{*value};
-  };
-  auto status = gneiss::add_component(
-      context, gneiss::make_component_description(gneiss::mesh_component_description{
-                   std::string(fixture.mesh_uri), std::string(fixture.material_uri)}));
+  // 运行对象夹具直接安装组件，不经描述反射转换。
+  const auto status = retained ? made->add_component<gneiss::mesh_component>(*retained)
+                               : assign_mesh(owner, assets, scene, made->entity(), fixture.mesh_uri,
+                                             fixture.material_uri);
   if (status.failed()) {
     made->destroy();
     return status;

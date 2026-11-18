@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "memory_file_fixture.hpp"
+#include "value_result.hpp"
+#include <chrono>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/platform/files/service.hpp>
 #include <gneiss/engine/resource/prefab.hpp>
 #include <gneiss/engine/resource/scene.hpp>
-#include "memory_file_fixture.hpp"
-#include "value_result.hpp"
-#include <chrono>
 #include <stdexcept>
 namespace gneiss::test_support {
 inline gneiss::tasks::task_scheduler& asset_tasks() {
-  static gneiss::tasks::task_scheduler tasks({.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  static gneiss::tasks::task_scheduler tasks(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   return tasks;
 }
 // 测试只取得异步请求提供的身份，不推进 I/O；未配置夹具使用测试共享执行器。
@@ -46,7 +47,8 @@ gneiss::error load_asset(gneiss::asset_manager& assets, std::string_view uri,
   while ((status = gneiss::test_support::take_request(request, output, diagnostic)) ==
          gneiss::error::not_ready) {
     (void)tasks.run_ready();
-    (void)assets.async_files()->dispatch_completions(64);
+    if (const auto dispatched = assets.async_files()->dispatch_completions(64); dispatched.failed())
+      return dispatched;
     assets.advance();
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("资产请求测试超时");

@@ -16,7 +16,8 @@ inline gneiss::error await_file(gneiss::files::service& files,
   while (!receipt->complete) {
     if (std::chrono::steady_clock::now() > deadline)
       return gneiss::error::internal;
-    (void)files.dispatch_completions(64);
+    if (const auto dispatched = files.dispatch_completions(64); dispatched.failed())
+      return dispatched;
     std::this_thread::yield();
   }
   return receipt->status;
@@ -64,9 +65,10 @@ struct author_scene {
     return status.ok();
   }
   std::string content() {
-    std::string text;
-    (void)gneiss::test_support::assign_value(document.serialize(), text);
-    return text;
+    auto text = document.serialize();
+    if (!text)
+      throw std::runtime_error("序列化测试文档失败");
+    return std::move(*text);
   }
   bool apply(const std::vector<editor::author_document_change>& changes, bool save_source) {
     auto captured = editor::capture_scene_document(*application, document);
@@ -96,8 +98,8 @@ struct author_scene {
     return true;
   }
   bool counts(std::size_t nodes, std::size_t prefabs) const {
-    return gneiss::test_support::scene_query(document).nodes.size() == nodes &&
-           gneiss::test_support::scene_query(document).prefab_nodes.size() == prefabs;
+    const auto snapshot = gneiss::test_support::scene_query(document);
+    return snapshot.nodes.size() == nodes && snapshot.prefab_nodes.size() == prefabs;
   }
 };
 }

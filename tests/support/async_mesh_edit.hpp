@@ -18,7 +18,8 @@ create_mesh_document(runtime::application& app, editor::scene_edit_session& doc,
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (edit.active()) {
-    (void)app.run(1);
+    if (const auto frame = app.run(1); frame.failed())
+      return frame;
     edit.advance(app, doc, history);
     if (std::chrono::steady_clock::now() >= deadline)
       return gneiss::error::internal;

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/scene/camera_selection.hpp>
-#include <gneiss/engine/function/scene/instantiation.hpp>
-#include <gneiss/engine/resource/scene.hpp>
 #include "scene_instantiation.hpp"
 #include "value_result.hpp"
 #include <chrono>
 #include <cstdio>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/instantiation.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 #include <thread>
 namespace gneiss::test_support {
 /** 测试宿主的实例化回执；视觉批次由调用方驱动和领取，不隐藏等待或场景替换。 */
@@ -69,10 +69,12 @@ inline gneiss::tasks::task_scheduler& application_tasks() {
   static gneiss::tasks::task_scheduler tasks({.workers = 1U});
   return tasks;
 }
-inline gneiss::error
-prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_content& prepared,
-              gneiss::scene_resource_bindings& bindings, gneiss::tasks::task_scheduler* tasks = nullptr,
-              gneiss::ref<const gneiss::scene>* identity = nullptr, bool reload = false) {
+inline gneiss::error prepare_scene(runtime::application& app, std::string_view uri,
+                                   gneiss::scene_content& prepared,
+                                   gneiss::scene_resource_bindings& bindings,
+                                   gneiss::tasks::task_scheduler* tasks = nullptr,
+                                   gneiss::ref<const gneiss::scene>* identity = nullptr,
+                                   bool reload = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto attached = app.attach_task_executor(*tasks);
@@ -82,17 +84,19 @@ prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_con
   const auto step = [&] {
     if (tasks->mode() == gneiss::tasks::execution_mode::cooperative)
       (void)tasks->run_ready();
-    (void)app.run(1);
+    if (const auto frame = app.run(1); frame.failed())
+      return frame;
     std::this_thread::yield();
-    return std::chrono::steady_clock::now() < deadline;
+    return std::chrono::steady_clock::now() < deadline ? gneiss::error{gneiss::error::success}
+                                                       : gneiss::error{gneiss::error::internal};
   };
-  auto load = [&]<class T>() -> gneiss::error {
-    auto request = app.assets().load<T>(uri, {.reload = reload});
+  auto load = [&]() -> gneiss::error {
+    auto request = app.assets().load<gneiss::scene>(uri, {.reload = reload});
     if (!request)
       return request.error();
     for (;;) {
-      if (!step())
-        return gneiss::error::internal;
+      if (const auto advanced = step(); advanced.failed())
+        return advanced;
       auto loaded = request->take();
       if (!loaded) {
         if (loaded.error().error == gneiss::error::not_ready)
@@ -110,10 +114,9 @@ prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_con
       return gneiss::error::success;
     }
   };
-  auto loaded_status = load.template operator()<gneiss::scene>();
+  auto loaded_status = load();
   if (loaded_status.failed())
     return loaded_status;
-  auto status = gneiss::error::success;
   bindings.clear();
   auto composed = compose(prepared);
   if (!composed)
@@ -121,29 +124,31 @@ prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_con
   auto dependencies = gneiss::scene_dependencies(*composed);
   if (!dependencies)
     return dependencies.error();
-  for (const auto& source : *dependencies) {
-    gneiss::asset_batch_request request;
-    status = gneiss::test_support::take_value(app.load_assets(std::span(&source, 1)), request);
-    if (status.failed())
-      return status;
-    gneiss::asset_load_completion completion;
-    bool ready{};
-    while (!ready) {
-      if (!step())
-        return gneiss::error::internal;
-      status = gneiss::test_support::receive_request(request, completion, ready);
-      if (status.failed())
-        return status;
+  if (dependencies->empty())
+    return gneiss::error::success;
+  // 一次提交整个视觉批次；测试宿主只负责等待，不逐资产重做批次调度。
+  auto request = app.load_assets(*dependencies);
+  if (!request)
+    return request.error();
+  for (;;) {
+    if (const auto advanced = step(); advanced.failed())
+      return advanced;
+    auto completion = request->take();
+    if (!completion) {
+      if (completion.error() == gneiss::error::not_ready)
+        continue;
+      return completion.error();
     }
-    if (completion.result.failed()) {
-      std::fprintf(stderr, "视觉资产 %s 失败: %d %s %s\n", source.uri.c_str(),
-                   completion.result.code(), completion.path.c_str(), completion.message.c_str());
-      return completion.result;
+    if (completion->result.failed()) {
+      std::fprintf(stderr, "视觉资产批次失败: %d %s %s\n", completion->result.code(),
+                   completion->path.c_str(), completion->message.c_str());
+      return completion->result;
     }
-    for (auto& asset : completion.assets) {
+    for (auto& asset : completion->assets) {
       const auto key = std::string(gneiss::resource_uri(asset));
       bindings.insert_or_assign(key, std::move(asset));
     }
+    break;
   }
   return gneiss::error::success;
 }

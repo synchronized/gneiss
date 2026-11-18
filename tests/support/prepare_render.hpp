@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "async_asset.hpp"
-#include <gneiss/engine/function/render/render_resource_data.hpp>
 #include "function/asset/detail/asset_construction.hpp"
 #include "function/asset/detail/asset_decode.hpp"
-#include <gneiss/engine/resource/material/material_description.hpp>
-#include <gneiss/engine/resource/texture/texture_decoder.hpp>
 #include "value_result.hpp"
 #include <algorithm>
+#include <gneiss/engine/function/render/render_resource_data.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
+#include <gneiss/engine/resource/texture/texture_decoder.hpp>
 namespace gneiss::test_support {
 using namespace gneiss;
 inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded,
@@ -51,9 +51,8 @@ inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded
               return status;
             dependencies[slot] = resource_cast<gneiss::texture>(entry);
           }
-          return detail::asset_construction::adopt(service, *data,
-                                                   resource_cast<gneiss::material>(target),
-                                                   std::move(dependencies));
+          return detail::asset_construction::adopt(
+              service, *data, resource_cast<gneiss::material>(target), std::move(dependencies));
         } else
           return error::invalid_argument;
       },
@@ -63,7 +62,7 @@ inline error adopt_render_for_test(asset_manager& service, decoded_asset decoded
 inline error decode_fixture(const gneiss::test_support::fixture_files& files,
                             const render_resource_source& source, decoded_asset& output,
                             asset_diagnostic& diagnostic, std::size_t input_limit,
-                            std::size_t output_limit, texture_prepare_profile profile = {}) {
+                            texture_prepare_profile profile = {}) {
   std::vector<std::byte> description, payload;
   auto status = files.read_bounded(source.uri, input_limit, description);
   if (status.failed())
@@ -92,11 +91,6 @@ inline error decode_fixture(const gneiss::test_support::fixture_files& files,
     return error::invalid_argument;
   if (status.failed())
     return status;
-  if (output.bytes > output_limit) {
-    output = {};
-    diagnostic = {error::out_of_memory, 0, "/source", "测试输出超过准备预算"};
-    return error::out_of_memory;
-  }
   asset_identity identity;
   status = files.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);
   if (status.failed())
@@ -113,13 +107,12 @@ inline error decode_fixture(const gneiss::test_support::fixture_files& files,
 inline error decode_texture_fixture(const gneiss::test_support::fixture_files& files,
                                     std::string_view uri, texture_data& output,
                                     asset_diagnostic& diagnostic, std::size_t input_limit,
-                                    std::size_t output_limit = 256U * 1024U * 1024U,
                                     texture_prepare_profile profile = {}) {
   output = {};
   diagnostic = {};
   decoded_asset decoded;
   const auto status = decode_fixture(files, {std::string(uri), render_resource_kind::texture},
-                                     decoded, diagnostic, input_limit, output_limit, profile);
+                                     decoded, diagnostic, input_limit, profile);
   if (status.ok())
     output = std::move(std::get<texture_data>(decoded.content));
   return status;

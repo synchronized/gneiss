@@ -105,17 +105,16 @@ void texture_source_revisions() {
   const render_resource_source request{"asset://texture", render_resource_kind::texture};
   decoded_asset before, repeated, after;
   asset_diagnostic diagnostic;
-  check(gneiss::test_support::decode_fixture(files, request, before, diagnostic, SIZE_MAX, SIZE_MAX,
+  check(gneiss::test_support::decode_fixture(files, request, before, diagnostic, SIZE_MAX,
                                              {})
             .ok());
-  check(gneiss::test_support::decode_fixture(files, request, repeated, diagnostic, SIZE_MAX,
-                                             SIZE_MAX, {})
+  check(gneiss::test_support::decode_fixture(files, request, repeated, diagnostic, SIZE_MAX, {})
             .ok());
   check(before.sources.size() == 2 && repeated.sources.size() == 2);
   check(before.sources.back().digest == repeated.sources.back().digest);
   source->pixel(std::byte{20});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
-  check(gneiss::test_support::decode_fixture(files, request, after, diagnostic, SIZE_MAX, SIZE_MAX,
+  check(gneiss::test_support::decode_fixture(files, request, after, diagnostic, SIZE_MAX,
                                              {})
             .ok());
   check(after.sources.size() == 2);

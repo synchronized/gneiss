@@ -3,23 +3,17 @@
 
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "../../support/value_result.hpp"
 #include <thread>
 
 int main(void) {
   if (gneiss::initialize_meta().failed())
     return 21;
-  gneiss::world_owner world;
-
-  gneiss::entity_id entity = gneiss::entity_id{};
-  gneiss::entity_id root = gneiss::entity_id{};
-  gneiss::entity_id child = gneiss::entity_id{};
+  auto created_world = gneiss::create_native();
+  if (!created_world)
+    return 1;
+  auto world = std::move(*created_world);
   gneiss::math::transform root_transform;
   gneiss::math::transform child_transform;
-  gneiss::entity_id attached = gneiss::entity_id{};
-
-  if (gneiss::test_support::assign_value(gneiss::create_native(), world).failed())
-    return 1;
   auto object_scene = world->create_scene();
   if (!object_scene)
     return 1;
@@ -30,33 +24,24 @@ int main(void) {
   if (!child_object || child_object->name() != "root")
     return 1;
   child_object->set_name("child");
-  root = gneiss::entity_id{root_object->entity().get()};
-  child = gneiss::entity_id{child_object->entity().get()};
-  entity = child_object->entity();
+  const auto entity = child_object->entity();
 
   root_transform.translation[0] = 2.0F;
   child_transform.translation[1] = 3.0F;
-  if (world->find(gneiss::entity_id{(root).get()}).set_local_transform(root_transform) !=
-          gneiss::error::success ||
-      world->find(gneiss::entity_id{(child).get()}).set_local_transform(child_transform) !=
-          gneiss::error::success ||
-      world->find(gneiss::entity_id{(child).get()}).parent().entity() != root ||
-      world->find(gneiss::entity_id{(root).get()}).parent().entity() != gneiss::entity_id{} ||
+  if (root_object->set_local_transform(root_transform) != gneiss::error::success ||
+      child_object->set_local_transform(child_transform) != gneiss::error::success ||
+      child_object->parent() != *root_object || root_object->parent().is_valid() ||
       child_object->world_transform().translation[0] != 2.0F ||
       child_object->world_transform().translation[1] != 3.0F) {
     return 3;
   }
 
-  if (world->find(gneiss::entity_id{(root).get()})
-              .reparent(world->find(gneiss::entity_id{(child).get()})) !=
-          gneiss::error::invalid_argument)
+  if (root_object->reparent(*child_object) != gneiss::error::invalid_argument)
     return 4;
   world->find(entity).destroy();
-  if (gneiss::test_support::assign_value(world->object(gneiss::entity_id{(child).get()}),
-                                         attached) != gneiss::error::invalid_handle ||
-      attached != gneiss::entity_id{}) {
+  const auto destroyed = world->object(entity);
+  if (destroyed || destroyed.error() != gneiss::error::invalid_handle || child_object->is_valid())
     return 4;
-  }
 
   root_object->destroy();
   if (child_object->is_valid()) {

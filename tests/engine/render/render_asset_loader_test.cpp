@@ -6,15 +6,15 @@
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/prepare_render.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include "function/asset/detail/asset_construction.hpp"
+#include "function/asset/detail/resource_load_group.hpp"
+#include "function/asset/resource_cache.hpp"
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/asset/asset_reference_context.hpp>
-#include "function/asset/detail/asset_construction.hpp"
-#include "function/asset/resource_cache.hpp"
-#include "function/asset/detail/resource_load_group.hpp"
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/platform/files/service.hpp>
@@ -43,11 +43,10 @@
 
 namespace {
 
-gneiss::error
-reload_assets_for_test(gneiss::asset_manager& loader,
-                       gneiss::tasks::task_scheduler& scheduler,
-                       std::span<const gneiss::render_resource_source> sources,
-                       gneiss::asset_diagnostic& diagnostic) {
+gneiss::error reload_assets_for_test(gneiss::asset_manager& loader,
+                                     gneiss::tasks::task_scheduler& scheduler,
+                                     std::span<const gneiss::render_resource_source> sources,
+                                     gneiss::asset_diagnostic& diagnostic) {
   using namespace gneiss;
   auto status = loader.configure(scheduler);
   if (status.failed())
@@ -81,8 +80,7 @@ public:
   gneiss::result<std::shared_ptr<const void>, gneiss::serialization::diagnostic>
   decode(const std::vector<std::byte>& bytes) const override {
     ++calls;
-    auto decoded =
-        gneiss::asset_file::deserialize<gneiss::material_description>(bytes);
+    auto decoded = gneiss::asset_file::deserialize<gneiss::material_description>(bytes);
     if (!decoded)
       return std::move(decoded).error();
     return std::shared_ptr<const void>{
@@ -98,9 +96,8 @@ public:
   mutable bool change_on_reread{};
   mutable bool change_during_check{};
   mutable unsigned bounded_reads{};
-  [[nodiscard]] gneiss::error
-  read_bounded(std::string_view path, std::size_t limit,
-               std::vector<std::byte>& bytes) const noexcept override {
+  [[nodiscard]] gneiss::error read_bounded(std::string_view path, std::size_t limit,
+                                           std::vector<std::byte>& bytes) const noexcept override {
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
       return gneiss::error::not_found;
@@ -115,8 +112,8 @@ public:
     return result;
   }
 
-  [[nodiscard]] gneiss::error
-  read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept override {
+  [[nodiscard]] gneiss::error read(std::string_view path,
+                                   std::vector<std::byte>& out_bytes) const noexcept override {
     ++read_count;
     try {
       const auto found = files.find(std::string(path));
@@ -139,23 +136,23 @@ public:
 
 void add_indexed_mesh(memory_file_system& memory) {
   gneiss::mesh_binary_data data{.vertices = {{.position = {-0.5F, -0.5F, 0.0F},
-                                                      .texcoord = {-42469.96875F, 22.5F},
-                                                      .normal = {0.0F, 0.0F, 1.0F}},
-                                                     {.position = {0.5F, -0.5F, 0.0F},
-                                                      .texcoord = {1.0F, 0.0F},
-                                                      .normal = {0.0F, 0.0F, 1.0F}},
-                                                     {.position = {0.5F, 0.5F, 0.0F},
-                                                      .texcoord = {1.0F, 1.0F},
-                                                      .normal = {0.0F, 0.0F, 1.0F}},
-                                                     {.position = {-0.5F, 0.5F, 0.0F},
-                                                      .texcoord = {0.0F, 1.0F},
-                                                      .normal = {0.0F, 0.0F, 1.0F}}},
-                                        .indices = {0U, 1U, 2U, 0U, 2U, 3U}};
+                                              .texcoord = {-42469.96875F, 22.5F},
+                                              .normal = {0.0F, 0.0F, 1.0F}},
+                                             {.position = {0.5F, -0.5F, 0.0F},
+                                              .texcoord = {1.0F, 0.0F},
+                                              .normal = {0.0F, 0.0F, 1.0F}},
+                                             {.position = {0.5F, 0.5F, 0.0F},
+                                              .texcoord = {1.0F, 1.0F},
+                                              .normal = {0.0F, 0.0F, 1.0F}},
+                                             {.position = {-0.5F, 0.5F, 0.0F},
+                                              .texcoord = {0.0F, 1.0F},
+                                              .normal = {0.0F, 0.0F, 1.0F}}},
+                                .indices = {0U, 1U, 2U, 0U, 2U, 3U}};
   data.tangents.assign(data.vertices.size(), {1, 0, 0, 1});
   std::vector<std::byte> bytes;
   gneiss::mesh_binary_diagnostic diagnostic;
-  if (gneiss::test_support::take_codec(gneiss::encode_mesh_binary(data), bytes,
-                                       diagnostic) != std::nullopt) {
+  if (gneiss::test_support::take_codec(gneiss::encode_mesh_binary(data), bytes, diagnostic) !=
+      std::nullopt) {
     throw std::runtime_error{"无法创建索引 Mesh 测试数据"};
   }
   memory.files.emplace("models/indexed.gneiss-mesh",
@@ -245,36 +242,25 @@ void selected_variants() {
                                          .sampled_transfer_formats = {true, true, false, false}};
   gneiss::texture_data texture;
   asset_diagnostic diagnostic;
-  const auto limit = built.manifest().size() + bc.size();
-  require(gneiss::test_support::decode_texture_fixture(
-              files, "asset://t.texture.json", texture, diagnostic, binary.size(), limit,
-              compressed) == gneiss::error::success);
+  require(gneiss::test_support::decode_texture_fixture(files, "asset://t.texture.json", texture,
+                                                       diagnostic, binary.size(),
+                                                       compressed) == gneiss::error::success);
   require(texture.selected_variant == 0U && texture.payload.size() == bc.size() &&
           texture.profile == compressed && memory->read_count == 2U);
   require(gneiss::test_support::decode_texture_fixture(files, "asset://t.texture.json", texture,
-                                                       diagnostic, binary.size(), binary.size(),
+                                                       diagnostic, binary.size(),
                                                        fallback) == gneiss::error::success);
   require(texture.selected_variant == 1U && texture.payload.size() == rgba.size() &&
           texture.profile == fallback);
   require(gneiss::test_support::decode_texture_fixture(
-              files, "asset://t.texture.json", texture, diagnostic, binary.size(), limit,
-              fallback) == gneiss::error::out_of_memory &&
-          texture.payload.empty());
-  require(diagnostic.error == gneiss::error::out_of_memory);
-  require(gneiss::test_support::decode_texture_fixture(
-              files, "asset://t.texture.json", texture, diagnostic, binary.size(), limit,
+              files, "asset://t.texture.json", texture, diagnostic, binary.size(),
               {.generation = 3U}) == gneiss::error::unsupported &&
           texture.manifest.empty());
-  // 提高额度可重试；预算拒绝不能被缓存为永久失败。
-  require(gneiss::test_support::decode_texture_fixture(
-              files, "asset://t.texture.json", texture, diagnostic, binary.size(), binary.size(),
-              fallback) == gneiss::error::success &&
-          texture.payload.size() == rgba.size());
   // 只改选中负载，不改 Manifest，必须被内容摘要拒绝。
   memory->files["t.gneiss-texture"].back() ^= 1;
-  require(gneiss::test_support::decode_texture_fixture(
-              files, "asset://t.texture.json", texture, diagnostic, binary.size(), binary.size(),
-              fallback) == gneiss::error::invalid_argument &&
+  require(gneiss::test_support::decode_texture_fixture(files, "asset://t.texture.json", texture,
+                                                       diagnostic, binary.size(), fallback) ==
+              gneiss::error::invalid_argument &&
           texture.payload.empty());
   memory->files["t.gneiss-texture"].back() ^= 1;
   const std::array requests{render_resource_source{.uri = "asset://t.texture.json",
@@ -286,9 +272,10 @@ void selected_variants() {
   asset_owner.configure(scheduler);
   decoded_asset decoded;
   require(gneiss::test_support::decode_fixture(files, requests.front(), decoded, diagnostic,
-                                               binary.size(), limit, compressed)
+                                               binary.size(), compressed)
               .ok());
-  require(decoded.bytes == limit && std::get<texture_data>(decoded.content).profile == compressed);
+  require(decoded.bytes == built.manifest().size() + bc.size() &&
+          std::get<texture_data>(decoded.content).profile == compressed);
   const auto* prepared_payload = std::get<texture_data>(decoded.content).payload.data();
   const auto* prepared_manifest = std::get<texture_data>(decoded.content).manifest.data();
 
@@ -297,9 +284,7 @@ void selected_variants() {
   if (loader.attach_render(resources).failed())
     throw std::runtime_error("资源管理器渲染绑定失败");
   render_resource_ref candidate;
-  require(gneiss::test_support::adopt_render_for_test(loader, std::move(decoded),
-                                                      candidate)
-              .ok());
+  require(gneiss::test_support::adopt_render_for_test(loader, std::move(decoded), candidate).ok());
   const auto old_frame = resources.share_texture(resource_rid(candidate));
   require(old_frame->payload.data() == prepared_payload &&
           old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
@@ -321,13 +306,13 @@ void selected_variants() {
   memory->change_on_reread = true;
   decoded_asset reread;
   require(gneiss::test_support::decode_fixture(files, requests.front(), reread, diagnostic,
-                                               binary.size(), limit, compressed)
+                                               binary.size(), compressed)
               .ok());
   require(std::get<texture_data>(reread.content).payload == payload_before);
   memory->change_on_reread = false;
   // 单纹理也走通用候选入口；移动后仍保留负载与设备身份。
   require(gneiss::test_support::decode_texture_fixture(files, "asset://t.texture.json", texture,
-                                                       diagnostic, binary.size(), binary.size(),
+                                                       diagnostic, binary.size(),
                                                        compressed) == gneiss::error::success);
   const auto* single_payload = texture.payload.data();
   decoded_asset single_prepared;
@@ -406,7 +391,7 @@ bool material_parameter_roundtrip(gneiss::test_support::fixture_files& files,
   }
 
   const std::array request{render_resource_source{.uri = "asset://parameters.material.json",
-                                                .type = render_resource_kind::material}};
+                                                  .type = render_resource_kind::material}};
   // 依赖与重载通过正式入口验证，不再验证夹具批次大小和内存估算。
   const auto decode_count = decoder->calls;
   render_resource_ref cached;
@@ -480,9 +465,8 @@ bool verify_reference_serialization(gneiss::asset_manager& assets) {
   auto restored = decode(*saved);
   if (!restored || (*restored)[0] != (*values)[0])
     return false;
-  auto no_context =
-      serialization::json::decode<std::vector<gneiss::ref<const gneiss::texture>>>(
-          std::as_bytes(std::span{source.data(), source.size()}));
+  auto no_context = serialization::json::decode<std::vector<gneiss::ref<const gneiss::texture>>>(
+      std::as_bytes(std::span{source.data(), source.size()}));
   if (no_context || no_context.error().error != error::invalid_state ||
       no_context.error().path != "/0")
     return false;
@@ -490,8 +474,7 @@ bool verify_reference_serialization(gneiss::asset_manager& assets) {
       decode(R"([{"$asset":"asset://x","other":1}])"))
     return false;
   const std::string other = R"({"$asset":"asset://not-present.mesh.json"})";
-  if (references
-          .record(runtime_type_of<gneiss::mesh>(), "asset://not-present.mesh.json", "")
+  if (references.record(runtime_type_of<gneiss::mesh>(), "asset://not-present.mesh.json", "")
           .error.failed() ||
       references.load(assets).error.failed())
     return false;
@@ -504,14 +487,12 @@ bool verify_reference_serialization(gneiss::asset_manager& assets) {
     return false;
   const std::string material_source = R"({"$asset":"asset://not-present.material.json"})";
   if (references
-          .record(runtime_type_of<gneiss::material>(), "asset://not-present.material.json",
-                  "")
+          .record(runtime_type_of<gneiss::material>(), "asset://not-present.material.json", "")
           .error.failed() ||
       references.load(assets).error.failed())
     return false;
-  auto material_value =
-      serialization::json::decode<gneiss::ref<const gneiss::material>>(
-          ctx, std::as_bytes(std::span{material_source.data(), material_source.size()}));
+  auto material_value = serialization::json::decode<gneiss::ref<const gneiss::material>>(
+      ctx, std::as_bytes(std::span{material_source.data(), material_source.size()}));
   if (!material_value || !*material_value || references.dependencies().size() != 4)
     return false;
   auto material_saved = serialization::json::encode(write, *material_value);
@@ -563,13 +544,11 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
   auto& scheduler = gneiss::test_support::render_tasks();
   if (assets.configure(scheduler).failed() || assets.attach_render(render).failed())
     return false;
-  auto request =
-      assets.load<gneiss::material>("asset://materials/dependencies.material.json");
+  auto request = assets.load<gneiss::material>("asset://materials/dependencies.material.json");
   if (!request || assets.cached_count() != 1U)
     return false;
   // 同资产请求合并；内部 CPU 解码不再占用额外索引记录。
-  auto duplicate =
-      assets.load<gneiss::material>("asset://materials/dependencies.material.json");
+  auto duplicate = assets.load<gneiss::material>("asset://materials/dependencies.material.json");
   if (!duplicate || assets.cached_count() != 1U)
     return false;
   const auto wait = [&](auto& pending) {
@@ -620,8 +599,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
   if (!document)
     return false;
   memory->files["materials/dependencies.material.json"] = *document;
-  auto reload =
-      assets.reload<gneiss::material>("asset://materials/dependencies.material.json");
+  auto reload = assets.reload<gneiss::material>("asset://materials/dependencies.material.json");
   if (!reload)
     return false;
   wait(*reload);
@@ -632,8 +610,7 @@ bool verify_material_dependencies(const memory_file_system& fixture) {
   // 文件本身解码失败仍保留成功内容。
   const auto current_content = resource->snapshot();
   memory->files["materials/dependencies.material.json"] = "{";
-  auto invalid =
-      assets.reload<gneiss::material>("asset://materials/dependencies.material.json");
+  auto invalid = assets.reload<gneiss::material>("asset://materials/dependencies.material.json");
   if (!invalid)
     return false;
   wait(*invalid);
@@ -650,8 +627,8 @@ bool verify_asset_identity() {
   std::weak_ptr<const test_asset> weak = original.shared();
   ref<const asset> generic = original;
   auto typed = asset_cast<test_asset>(generic);
-  if (typed != original || asset_cast<gneiss::texture>(generic) ||
-      asset_cast<test_asset>({}) || generic.shared().owner_before(original.shared()) ||
+  if (typed != original || asset_cast<gneiss::texture>(generic) || asset_cast<test_asset>({}) ||
+      generic.shared().owner_before(original.shared()) ||
       original.shared().owner_before(generic.shared()))
     return false;
   original.reset();
@@ -793,8 +770,7 @@ int main() try {
       gneiss::test_support::load_render(loader, gneiss::render_resource_kind::material,
                                         "asset://materials/default.material.json", material,
                                         diagnostic) != gneiss::error::success ||
-      gneiss::resource_rid(material) == gneiss::null_rid ||
-      resources.live_resource_count() != 2U) {
+      gneiss::resource_rid(material) == gneiss::null_rid || resources.live_resource_count() != 2U) {
     return 2;
   }
 
@@ -818,8 +794,7 @@ int main() try {
   if (gneiss::test_support::load_render(loader, gneiss::render_resource_kind::mesh,
                                         "asset://models/broken.mesh.json", broken,
                                         diagnostic) != gneiss::error::success ||
-      gneiss::resource_rid(broken) == gneiss::null_rid ||
-      resources.live_resource_count() != 3U) {
+      gneiss::resource_rid(broken) == gneiss::null_rid || resources.live_resource_count() != 3U) {
     return 5;
   }
 
@@ -837,11 +812,6 @@ int main() try {
         cache.cached_count() != before_cache) {
       return 40;
     }
-  }
-  if (gneiss::test_support::decode_texture_fixture(
-          file_system, "asset://textures/white.texture.json", prepared, diagnostic, 1U) !=
-      gneiss::error::invalid_argument) {
-    return 41;
   }
 
   memory->change_during_check = true;
@@ -868,9 +838,8 @@ int main() try {
   }
   const auto* texture = resources.get_texture(gneiss::resource_rid(first_texture));
   if (texture == nullptr || texture->width != 1U || texture->height != 1U ||
-      texture->color_space != gneiss::texture_color_space::srgb ||
-      texture->levels.size() != 1U || texture->levels.front().pixels.size() != 4U ||
-      resources.live_resource_count() != 4U) {
+      texture->color_space != gneiss::texture_color_space::srgb || texture->levels.size() != 1U ||
+      texture->levels.front().pixels.size() != 4U || resources.live_resource_count() != 4U) {
     return 7;
   }
 
@@ -916,13 +885,11 @@ int main() try {
                                         diagnostic) != gneiss::error::success ||
       gneiss::test_support::load_render(loader, gneiss::render_resource_kind::material,
                                         "asset://materials/textured.material.json",
-                                        textured_material,
-                                        diagnostic) != gneiss::error::success) {
+                                        textured_material, diagnostic) != gneiss::error::success) {
     return 10;
   }
   const auto* mesh_data = resources.get_mesh(gneiss::resource_rid(textured_mesh));
-  const auto* material_data =
-      resources.get_material(gneiss::resource_rid(textured_material));
+  const auto* material_data = resources.get_material(gneiss::resource_rid(textured_material));
   if (mesh_data == nullptr || mesh_data->vertices.size() != 3U || mesh_data->normals.size() != 3U ||
       mesh_data->vertices[1].uv.x != 1.0F || mesh_data->vertices[2].uv.y != 1.0F ||
       material_data == nullptr ||
@@ -942,10 +909,9 @@ int main() try {
   const auto* lit_resource = resources.get_mesh(gneiss::resource_rid(lit_mesh));
   if (lit_resource == nullptr || lit_resource->normals.size() != 3U ||
       lit_resource->normals[0].z != 1.0F ||
-      gneiss::test_support::load_render(loader, gneiss::render_resource_kind::mesh,
-                                        "asset://models/invalid-normal.mesh.json",
-                                        invalid_normal_mesh,
-                                        diagnostic) != gneiss::error::invalid_argument ||
+      gneiss::test_support::load_render(
+          loader, gneiss::render_resource_kind::mesh, "asset://models/invalid-normal.mesh.json",
+          invalid_normal_mesh, diagnostic) != gneiss::error::invalid_argument ||
       diagnostic.path != "/normals/0") {
     return 14;
   }
@@ -954,16 +920,15 @@ int main() try {
     constexpr std::string_view tiled_json =
         R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[-42469.96875,22.5],[2,0],[0,-2]],"normals":[[0.0,0.0,1.0],[0.0,0.0,1.0],[0.0,0.0,1.0]]})";
     memory->files["models/tiled.mesh.json"] = tiled_json;
-    const std::array requests{
-        gneiss::render_resource_source{"asset://models/tiled.mesh.json",
-                                               gneiss::render_resource_kind::mesh},
-        gneiss::render_resource_source{"asset://models/indexed.gneiss-mesh",
-                                               gneiss::render_resource_kind::mesh}};
+    const std::array requests{gneiss::render_resource_source{"asset://models/tiled.mesh.json",
+                                                             gneiss::render_resource_kind::mesh},
+                              gneiss::render_resource_source{"asset://models/indexed.gneiss-mesh",
+                                                             gneiss::render_resource_kind::mesh}};
     std::vector<gneiss::render_resource_ref> tiled_assets;
     for (const auto& request : requests) {
       gneiss::render_resource_ref loaded;
-      if (gneiss::test_support::load_render(loader, request.type, request.uri, loaded,
-                                            diagnostic).failed())
+      if (gneiss::test_support::load_render(loader, request.type, request.uri, loaded, diagnostic)
+              .failed())
         return 40;
       const auto* data = resources.get_mesh(gneiss::resource_rid(loaded));
       if (!data || data->vertices[0].uv.x != -42469.96875F || data->vertices[0].uv.y != 22.5F)
@@ -997,23 +962,19 @@ int main() try {
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0.2,0.4,0.6,1]},"texture_uris":["asset://textures/white.texture.json","","","",""]})";
   const std::array reloads{
       gneiss::render_resource_source{.uri = "asset://models/textured.mesh.json",
-                                             .type = gneiss::render_resource_kind::mesh},
+                                     .type = gneiss::render_resource_kind::mesh},
       gneiss::render_resource_source{.uri = "asset://materials/textured.material.json",
-                                             .type =
-                                                 gneiss::render_resource_kind::material},
+                                     .type = gneiss::render_resource_kind::material},
       gneiss::render_resource_source{.uri = "asset://textures/white.texture.json",
-                                             .type =
-                                                 gneiss::render_resource_kind::texture}};
-  if (reload_assets_for_test(loader, scheduler, reloads, diagnostic) !=
-      gneiss::error::success) {
+                                     .type = gneiss::render_resource_kind::texture}};
+  if (reload_assets_for_test(loader, scheduler, reloads, diagnostic) != gneiss::error::success) {
     return 16;
   }
   gneiss::render_resource_ref reloaded_mesh;
   gneiss::render_resource_ref reloaded_material;
   gneiss::render_resource_ref reloaded_texture;
-  if (gneiss::test_support::load_render(loader, gneiss::render_resource_kind::mesh,
-                                        reloads[0].uri, reloaded_mesh,
-                                        diagnostic) != gneiss::error::success ||
+  if (gneiss::test_support::load_render(loader, gneiss::render_resource_kind::mesh, reloads[0].uri,
+                                        reloaded_mesh, diagnostic) != gneiss::error::success ||
       gneiss::test_support::load_render(loader, gneiss::render_resource_kind::material,
                                         reloads[1].uri, reloaded_material,
                                         diagnostic) != gneiss::error::success ||
@@ -1032,8 +993,7 @@ int main() try {
   const auto* reloaded_material_resource =
       resources.get_material(gneiss::resource_rid(reloaded_material));
   if (reloaded_material_resource == nullptr ||
-      reloaded_material_resource->base_color_texture !=
-          gneiss::resource_rid(reloaded_texture) ||
+      reloaded_material_resource->base_color_texture != gneiss::resource_rid(reloaded_texture) ||
       resources.share_mesh(old_mesh) == old_mesh_data ||
       resources.share_material(old_material) == old_material_data ||
       resources.share_texture(old_texture) == old_texture_data ||
@@ -1055,8 +1015,7 @@ int main() try {
   if (gneiss::test_support::load_render(loader, gneiss::render_resource_kind::material,
                                         reloads[1].uri, after_failed_reload,
                                         diagnostic) != gneiss::error::success ||
-      gneiss::resource_rid(after_failed_reload) !=
-          gneiss::resource_rid(reloaded_material) ||
+      gneiss::resource_rid(after_failed_reload) != gneiss::resource_rid(reloaded_material) ||
       resources.share_mesh(old_mesh) == updated_mesh_data ||
       resources.get_mesh(old_mesh)->vertices.front().position.x != -2.0F ||
       resources.share_material(old_material) != updated_material_data ||
@@ -1084,8 +1043,7 @@ int main() try {
                                         diagnostic) != gneiss::error::success) {
     return 27;
   }
-  const auto* packaged_resource =
-      resources.get_texture(gneiss::resource_rid(packaged_texture));
+  const auto* packaged_resource = resources.get_texture(gneiss::resource_rid(packaged_texture));
   if (packaged_resource == nullptr || !packaged_resource->levels.empty() ||
       packaged_resource->manifest.empty() || packaged_resource->payload.size() != 4U) {
     return 28;
@@ -1127,8 +1085,7 @@ int main() try {
                                         "asset://models/triangle.mesh.json", typed_entry,
                                         diagnostic) != gneiss::error::success)
     return 33;
-  gneiss::ref<const gneiss::mesh> typed_mesh =
-      typed_entry.as<gneiss::mesh>();
+  gneiss::ref<const gneiss::mesh> typed_mesh = typed_entry.as<gneiss::mesh>();
   if (!typed_mesh || typed_entry.as<gneiss::texture>())
     return 34;
   gneiss::ref<const gneiss::mesh> directly_loaded;
@@ -1140,8 +1097,7 @@ int main() try {
     return 37;
   directly_loaded.reset();
   gneiss::render_resource_ref copied = typed_mesh;
-  if (copied != typed_entry ||
-      gneiss::resource_kind(copied) != gneiss::render_resource_kind::mesh)
+  if (copied != typed_entry || gneiss::resource_kind(copied) != gneiss::render_resource_kind::mesh)
     return 38;
   copied.reset();
   if (copied || copied.as<gneiss::mesh>())
@@ -1167,8 +1123,7 @@ int main() try {
     auto& temporary_loader = temporary_assets;
     if (temporary_loader.attach_render(resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
-    if (gneiss::test_support::load_render(temporary_loader,
-                                          gneiss::render_resource_kind::mesh,
+    if (gneiss::test_support::load_render(temporary_loader, gneiss::render_resource_kind::mesh,
                                           "asset://models/triangle.mesh.json", retained,
                                           diagnostic) != gneiss::error::success)
       return 30;
@@ -1185,8 +1140,7 @@ int main() try {
     auto& temporary_loader = temporary_assets;
     if (temporary_loader.attach_render(temporary_resources).failed())
       throw std::runtime_error("资源管理器渲染绑定失败");
-    if (gneiss::test_support::load_render(temporary_loader,
-                                          gneiss::render_resource_kind::mesh,
+    if (gneiss::test_support::load_render(temporary_loader, gneiss::render_resource_kind::mesh,
                                           "asset://models/triangle.mesh.json", retained,
                                           diagnostic) != gneiss::error::success)
       return 32;

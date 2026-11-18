@@ -56,3 +56,25 @@ compose_transform 生成预期，避免实现与测试共用算法掩盖错误�
 
 Windows Clang Debug 共享、静态目标构建和 gneiss.scene_tree_transform 均通过；
 未修改生产代码，未运行全量或跨平台测试。
+
+## 共享辅助与资产加载续审
+
+本次集中检查 tests/support 的职责及其场景、Prefab、文档、资产消费者：
+
+- 异步宿主传播 application::run、dispatch_completions、reload 推进失败，避免真实错误被超时掩盖。
+- reload 等待辅助不再偷偷提交第二个请求；重复请求拒绝由 runtime.scene-loader 的显式用例覆盖。
+- application 场景夹具一次提交完整视觉资产批次，直接等待批次结果，不逐项重新实现批次调度。
+- mesh 对象夹具直接添加运行组件；保留资源强引用，不为安装组件绕经描述构造和反射装配。
+- native-scene-lifecycle 直接使用创建结果及对象句柄；保留卸载、跨场景与失效身份检查。
+- author_scene 序列化失败明确报错，不再用空字符串掩盖；查询计数共用一次快照。
+- 删除 decode_fixture 自行模拟的输出预算和对应“预算拒绝后重试”断言，以及只命中内存夹具的输入限额断言。
+  这些并未验证生产预算逻辑；生产预算、解码选择、摘要校验、缓存与资源生命周期不变。
+
+保留可控 I/O、任务驱动、数据构造和失败注入辅助。它们用于建立测试条件，不能仅因位于 support
+就全部展开。旧 value_result 输出适配仍按真实调用逐项处理，本次没有机械替换全仓剩余引用。
+同样读取相机或资源的上层用例，若分别验证撤销、投影与生命周期，仍保留其不同的行为断言。
+
+共享 Windows Clang Debug 完整构建通过；按 scene/prefab/document/asset_manager/
+render_asset_loader/author/save/texture-load 名称选择并排除 scene-viewer/lantern 的 42 项测试全部通过。
+静态 Windows Clang Debug 完整构建及同一 42 项测试也全部通过。最后修改的三个场景用例在两种配置下均复测通过。
+本次不含 GPU、跨平台和发布矩阵，不代表 PLAN-119 全部完成。
