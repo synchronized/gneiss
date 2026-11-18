@@ -86,6 +86,7 @@ struct property_binding {
   void (*object_assign)(void*, void*){};
   /** 受约束属性只允许整项替换；失败须保持原对象，不提供可写成员地址。 */
   error (*object_setter)(void*, const void*){};
+  /** 返回非空的独立候选；分配失败抛异常，不以空指针表达可恢复失败。 */
   ref<void> (*object_construct)(){};
   gneiss::type_id enum_type{};
   const detail::type_ops* access{}; // 静态只读操作表，不持有对象。

@@ -418,6 +418,11 @@ auto snapshot = near->read_value(); // result<value>，拥有读取结果
 对象视图的 object_data 返回借用的对象地址，不复制嵌套对象。
 
 `meta::view(T&)` 返回可写视图；`as_const()` 转为只读视图，不提供反向转换。
+assign 的目标实例、实例复制的来源实例以及 replace 的目标必须有效且借用存活；
+默认空实例操作触发契约断言。类型不匹配、非法标量内容、能力缺失和 setter 拒绝仍返回错误。
+replace 在独立候选中初始化，初始化失败直接返回其错误且不调用 setter；成功才提交给 setter。
+属性候选构造器必须返回非空对象，分配异常向执行边界传播，不以空指针伪装 out_of_memory。
+
 可写 member 拒绝只读/无 setter 的属性，通过 assign 执行原 setter 的校验与错误语义。
 只读属性仍可通过 as_const().member 读取。单字段编辑不自动执行整对象跨字段校验，业务方应在
 完成编辑后执行对应验证。嵌套自定义 codec 的整体赋值通过 assign_object 接入，先校验类型 ID，

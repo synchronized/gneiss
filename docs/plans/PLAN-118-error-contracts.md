@@ -17,7 +17,11 @@ PLAN-119 的测试集中整理已完成。P2 首条链
 - 数值/文本内容非法返回 invalid_argument；getter 显式失败、能力缺失仍保留诊断。
 - 保留 read_value 的 result 签名和面板失败处理；修复枚举名称编码吞掉 getter 原错误的问题。
 - 验证范围见[读取链路记录](../records/2026-11-18-meta-read-contracts.md)。
-  P2 其余 ops、写入与覆盖应用链尚待审计，不代表整个 P2 完成。
+  写入/候选替换链已接续收敛，验证见[写入记录](../records/2026-11-18-meta-write-contracts.md)。
+  Prefab 覆盖的输入校验和失败保持语义保留，不代表重放错误分类已完成。
+- P2 下一组为容器/引用视图：size、has_value、owner 等无失败查询的 result 包装；
+  保留索引越界、空引用解引用、variant valueless 与可选能力缺失的诊断。
+  需同步迁移序列化、属性面板与测试消费者，不保留平行接口。
 
 P3 在 P2 完整调用链后处理；P4 的相关跨平台与最终回归仍未完成。
 

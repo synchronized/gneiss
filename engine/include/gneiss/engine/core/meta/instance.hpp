@@ -63,8 +63,10 @@ public:
   {
     return parent_ && !writable_ && kind() != type_kind::scalar;
   }
+  /** 在独立候选上初始化，成功后交给 setter；初始化失败不调用 setter。要求有效实例。 */
   [[nodiscard]] GNEISS_API error replace(const std::function<error(const instance&)>&) const
     requires(Mutable);
+  /** 要求有效目标实例；类型/内容不匹配、能力缺失及 setter 业务拒绝仍返回错误。 */
   [[nodiscard]] GNEISS_API error assign(const value&) const
     requires(Mutable);
   template <class T>
@@ -72,7 +74,7 @@ public:
   [[nodiscard]] error assign(const T& input) const {
     return assign(detail::scalar_value(input));
   }
-  /** 普通对象按值复制；引用共享控制块；受约束属性调用 setter。 */
+  /** 要求有效的来源与目标实例。普通对象按值复制；引用共享控制块；受约束属性调用 setter。 */
   [[nodiscard]] GNEISS_API error assign(const const_instance&) const
     requires(Mutable);
   [[nodiscard]] GNEISS_API error assign_object(gneiss::type_id, void*) const

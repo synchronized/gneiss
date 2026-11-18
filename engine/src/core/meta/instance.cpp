@@ -148,8 +148,7 @@ template <bool Mutable>
 error basic_instance<Mutable>::assign(const value& input) const
   requires(Mutable)
 {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
+  GNEISS_ASSERT(kind() != type_kind::invalid, "写入要求有效的目标实例");
   if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && mutable_data()) {
     *static_cast<value*>(mutable_data()) = input;
     return error::success;
@@ -174,8 +173,8 @@ template <bool Mutable>
 error basic_instance<Mutable>::assign(const const_instance& source) const
   requires(Mutable)
 {
-  if (kind() == type_kind::invalid || source.kind() == type_kind::invalid)
-    return error::invalid_state;
+  GNEISS_ASSERT(kind() != type_kind::invalid, "写入要求有效的目标实例");
+  GNEISS_ASSERT(source.kind() != type_kind::invalid, "复制要求有效的来源实例");
   if (requires_replacement()) {
     if (type_id() != source.type_id())
       return error::invalid_argument;
@@ -198,8 +197,7 @@ template <bool Mutable>
 error basic_instance<Mutable>::assign_object(gneiss::type_id id, void* source) const
   requires(Mutable)
 {
-  if (kind() == type_kind::invalid)
-    return error::invalid_state;
+  GNEISS_ASSERT(kind() != type_kind::invalid, "写入要求有效的目标实例");
   if (requires_replacement()) {
     if (!source || id != type_id())
       return error::invalid_argument;
@@ -234,6 +232,7 @@ error basic_instance<Mutable>::replace(
     const std::function<error(const instance&)>& initialize) const
   requires(Mutable)
 {
+  GNEISS_ASSERT(kind() != type_kind::invalid, "替换要求有效的目标实例");
   const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
@@ -241,8 +240,7 @@ error basic_instance<Mutable>::replace(
   if (!binding)
     return binding.error();
   auto storage = binding->object_construct();
-  if (!storage)
-    return error::out_of_memory;
+  GNEISS_ASSERT(storage, "属性构造器必须返回有效候选对象，分配失败通过异常传播");
   auto temporary = instance::from_access(target.registry(), *binding->access, storage.get());
   if (!temporary)
     return temporary.error();

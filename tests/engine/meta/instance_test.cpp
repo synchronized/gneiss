@@ -785,6 +785,17 @@ bool bound_property_contract() {
   if (decode(*values, "[2,-3]").has_value() || object.calls != 1 ||
       object.values != std::vector<std::int64_t>{1})
     return false;
+  const auto calls_before = object.calls;
+  auto cancelled = values->replace([](const m::instance& candidate) {
+    auto sequence = candidate.as_sequence();
+    if (!sequence)
+      return sequence.error();
+    auto status = sequence->resize(2);
+    return status.failed() ? status : e::error::not_ready;
+  });
+  if (cancelled != e::error::not_ready || object.calls != calls_before ||
+      object.values != std::vector<std::int64_t>{1})
+    return false;
   if (decode(*values, "[2,3]").failed() || object.calls != 2 ||
       object.values != std::vector<std::int64_t>{2, 3})
     return false;
@@ -979,15 +990,12 @@ int main() try {
       editable_config->assign_object(e::runtime_type_of<settings>(), &replacement).failed() ||
       source.config.speed != 9)
     return 19;
-  if (m::instance{}.assign(e::value{1.0F}) != e::error::invalid_state)
-    return 20;
   {
     settings other{7};
     auto borrowed = m::view(registry, std::as_const(other));
     if (!borrowed || editable_config->assign(*borrowed).failed() || source.config.speed != 7 ||
         other.speed != 7 || editable_config->assign(*root) != e::error::invalid_argument ||
-        editable_speed->assign(*borrowed) != e::error::unsupported ||
-        m::instance{}.assign(*borrowed) != e::error::invalid_state)
+        editable_speed->assign(*borrowed) != e::error::unsupported)
       return 25;
     object copy;
     auto destination = m::view(registry, copy);

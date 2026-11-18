@@ -74,6 +74,10 @@ int main(int argc, char** argv) try {
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
 #endif
     std::signal(SIGABRT, [](int) { std::_Exit(86); });
+    if (mode == "empty-write") {
+      (void)gneiss::meta::instance{}.assign(gneiss::value{1.0F});
+      return 90;
+    }
     if (mode == "empty-instance") {
       (void)gneiss::meta::const_instance{}.read_value();
       return 90;
@@ -132,6 +136,13 @@ int main(int argc, char** argv) try {
                                           gneiss::meta::property_id{3},
                                           field_of_view) != error::invalid_state)
     return 2;
+  if (mode == "empty-source") {
+    auto target = gneiss::meta::view(registry, fixture.field_of_view);
+    if (!target)
+      return 91;
+    (void)target->assign(gneiss::meta::const_instance{});
+    return 90;
+  }
   if (mode == "wrong-kind") {
     fixture.wrong_kind = true;
     (void)gneiss::meta::read_property(registry, camera_type, gneiss::meta::property_id{1},
