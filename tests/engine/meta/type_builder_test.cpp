@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/views/sequence_view.hpp>
@@ -67,14 +68,15 @@ bool explicit_registration() {
     return false;
   const auto pooled = e::string_name::find("external_model");
   if (!pooled || type.name().data() != pooled->view().data() ||
-      type.find_property("not_registered_property") ||
+      type.template capability<gneiss::meta::cap::object>().find_property(
+          "not_registered_property") ||
       e::string_name::find("not_registered_property"))
     return false;
   external_model model{{{1.0F, 2.0F}}};
   auto root = m::view(*registry, model);
   if (!root)
     return false;
-  auto member = root->member("items");
+  auto member = root->template capability<gneiss::meta::cap::object>()->member("items");
   if (!member)
     return false;
   auto sequence = member->as_sequence();
@@ -141,11 +143,12 @@ bool runtime_only_registration() {
   auto foreign = m::view(*registry, other);
   if (!root || !foreign)
     return false;
-  auto child = root->member("child");
+  auto child = root->template capability<gneiss::meta::cap::object>()->member("child");
   if (!child)
     return false;
-  auto number = child->member("number");
-  auto field = child->type().find_property(m::property_id{1});
+  auto number = child->template capability<gneiss::meta::cap::object>()->member("number");
+  auto field = child->type().template capability<gneiss::meta::cap::object>().find_property(
+      m::property_id{1});
   if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
       field.get(*foreign).error() != e::error::invalid_argument)
     return false;
@@ -193,7 +196,8 @@ bool extension_registration() {
   auto type = m::type_of<sample>(*registry);
   if (!type)
     return false;
-  auto field = type.find_property(m::property_id{1});
+  auto field =
+      type.template capability<gneiss::meta::cap::object>().find_property(m::property_id{1});
   const auto* type_data = type.extension<display_metadata>();
   const auto* field_data = field ? field.extension<display_metadata>() : nullptr;
   if (!type_data || type_data->label != "original" || !field_data || field_data->label != "Speed" ||
@@ -259,7 +263,7 @@ bool pooled_enum_names() {
   if (m::freeze(*registry).failed())
     return false;
   auto type = m::type_of<named_mode>(*registry);
-  auto entries = type.capability<gneiss::meta::enum_capability>().entries();
+  auto entries = type.capability<gneiss::meta::cap::enumeration>().entries();
   const auto pooled = e::string_name::find("pooled_enum_first");
   return entries.size() == 2 && pooled && entries[0].name == "pooled_enum_first" &&
          entries[0].name.data() == pooled->view().data() && entries[1].name == "pooled_enum_second";

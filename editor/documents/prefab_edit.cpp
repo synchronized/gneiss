@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/prefab_edit.hpp"
+#include <algorithm>
+#include <array>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
-#include <algorithm>
-#include <array>
 namespace gneiss::editor {
 using namespace gneiss;
 namespace {
@@ -16,7 +17,7 @@ error collect_component_overrides(meta::const_instance source, meta::const_insta
   if (depth > 64 || source.type_id() != candidate.type_id())
     return error::invalid_argument;
   if (source.kind() == meta::type_kind::object) {
-    auto properties = source.properties();
+    auto properties = source.type().template capability<gneiss::meta::cap::object>().properties();
     if (!source.type().registered())
       return error::not_found;
     for (const auto& property : properties) {

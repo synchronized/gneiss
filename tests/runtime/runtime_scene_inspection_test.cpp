@@ -5,15 +5,16 @@
 #include "../support/movement_component.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/protocol/registration.hpp>
+#include "inspection/runtime_property_editor.hpp"
+#include "inspection/runtime_scene_inspection.hpp"
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
-#include "inspection/runtime_property_editor.hpp"
-#include "inspection/runtime_scene_inspection.hpp"
+#include <gneiss/protocol/registration.hpp>
 
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -299,7 +300,7 @@ bool test_registered_component_inspection() {
       !received.get<e::mesh_component_description>()->mesh_uri.empty())
     return false;
   auto reflected = (*received.find(movement_description::type_guid))->view();
-  if (!reflected || !reflected->member("speed"))
+  if (!reflected || !reflected->template capability<gneiss::meta::cap::object>()->member("speed"))
     return false;
   gneiss::host::runtime_property_editor editor;
   if (editor.initialize(world, inspection, 83).failed())

@@ -5,7 +5,8 @@
 #include <array>
 #include <cstdint>
 #include <gneiss/engine/core/math/camera.hpp>
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
@@ -123,8 +124,9 @@ bool math_registration() {
     return false;
   auto transform = m::type_of<e::math::transform>(*registry);
   auto camera = m::type_of<e::math::camera_settings>(*registry);
-  if (!transform || !camera || transform.properties().size() != 3 ||
-      camera.properties().size() != 3)
+  if (!transform || !camera ||
+      transform.template capability<gneiss::meta::cap::object>().properties().size() != 3 ||
+      camera.template capability<gneiss::meta::cap::object>().properties().size() != 3)
     return false;
   e::serialization::write_context context{*registry};
   e::serialization::read_context read_context{*registry};
@@ -173,13 +175,16 @@ bool frozen_lookup() {
   if (!type)
     return false;
   for (const auto& field : fields) {
-    auto by_id = type.find_property(field.id);
-    auto by_name = type.find_property(field.name);
+    auto by_id = type.template capability<gneiss::meta::cap::object>().find_property(field.id);
+    auto by_name = type.template capability<gneiss::meta::cap::object>().find_property(field.name);
     if (!by_id || !by_name || by_id.name() != field.name || by_name.id() != field.id)
       return false;
   }
-  return !type.find_property(m::property_id{2}) && !type.find_property(m::property_id{999}) &&
-         !type.find_property("") && !type.find_property("field_128");
+  return !type.template capability<gneiss::meta::cap::object>().find_property(m::property_id{2}) &&
+         !type.template capability<gneiss::meta::cap::object>().find_property(
+             m::property_id{999}) &&
+         !type.template capability<gneiss::meta::cap::object>().find_property("") &&
+         !type.template capability<gneiss::meta::cap::object>().find_property("field_128");
 }
 // 冻结时扩展能力查询抛异常，不能伪装为普通注册错误；临时状态不发布。
 bool freeze_exception_contract() {
@@ -218,15 +223,17 @@ bool freeze_exception_contract() {
     return false;
   fail = true;
   // 查询自定义元素能力时抛异常不能变成“未找到”，也不能在视图 noexcept 内终止。
-  auto property = m::find_type(*registry, definition.guid).find_property(field.id);
+  auto property = m::find_type(*registry, definition.guid)
+                      .template capability<gneiss::meta::cap::object>()
+                      .find_property(field.id);
   if (!property || !gneiss::test_support::throws<std::runtime_error>([&] {
-        (void)property.type().capability<m::sequence_capability>().element_type();
+        (void)property.type().capability<m::cap::sequence>().element_type();
       }) ||
       !gneiss::test_support::throws<std::runtime_error>(
           [&] { (void)m::find_type(*registry, e::runtime_type_of<unregistered_object>()); }))
     return false;
   fail = false;
-  return property.type().capability<m::sequence_capability>().element_type() &&
+  return property.type().capability<m::cap::sequence>().element_type() &&
          !m::find_type(*registry, e::runtime_type_of<unregistered_object>());
 }
 int main() {
@@ -318,16 +325,14 @@ int main() {
     return 6;
   gneiss::meta::type info;
   gneiss::meta::property metadata;
-  if (gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 0), info)
-          .failed() ||
-      info.guid() != scalar_type ||
-      !(info = gneiss::meta::find_type(registry, object_type)) || info.name() != "Object" ||
-      info.schema_version() != 1 || info.properties().size() != 1 ||
-      !(metadata = gneiss::meta::find_property(registry, object_type,
-                                                       gneiss::meta::property_id{1})) ||
+  if (gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 0), info).failed() ||
+      info.guid() != scalar_type || !(info = gneiss::meta::find_type(registry, object_type)) ||
+      info.name() != "Object" || info.schema_version() != 1 ||
+      info.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
+      !(metadata =
+            gneiss::meta::find_property(registry, object_type, gneiss::meta::property_id{1})) ||
       metadata.name() != "value" ||
-      gneiss::meta::find_property(registry, object_type,
-                                          gneiss::meta::property_id{2}))
+      gneiss::meta::find_property(registry, object_type, gneiss::meta::property_id{2}))
     return 7;
   gneiss::value value;
   if (gneiss::test_support::assign_value(

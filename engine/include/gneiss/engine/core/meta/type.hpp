@@ -11,8 +11,13 @@
 #include <span>
 
 namespace gneiss::meta {
-class representation_capability;
-class sequence_capability;
+namespace cap {
+class representation;
+class sequence;
+class enumeration;
+class object;
+template <type_kind, template <bool> class> class container;
+}
 namespace detail {
 struct type_factory;
 struct type_record;
@@ -38,10 +43,6 @@ public:
   [[nodiscard]] GNEISS_API std::string_view name() const noexcept;
   /** 未登记版本的类型返回零。 */
   [[nodiscard]] GNEISS_API std::uint32_t schema_version() const noexcept;
-  /** 未注册或非对象类型返回空范围；是否注册由 registered 判断。 */
-  [[nodiscard]] GNEISS_API property_range properties() const noexcept;
-  [[nodiscard]] GNEISS_API property find_property(property_id) const noexcept;
-  [[nodiscard]] GNEISS_API property find_property(std::string_view) const noexcept;
   /** 查询静态能力；不支持时返回空 capability，不要求已有对象或已注册字段。 */
   template <class Capability> [[nodiscard]] Capability capability() const {
     return Capability{*this};
@@ -53,10 +54,11 @@ public:
 private:
   template <bool> friend class basic_instance;
   friend struct detail::type_factory;
-  friend class representation_capability;
-  friend class sequence_capability;
-  friend class enum_capability;
-  template <type_kind, template <bool> class> friend class container_capability;
+  friend class cap::representation;
+  friend class cap::sequence;
+  friend class cap::enumeration;
+  friend class cap::object;
+  template <type_kind, template <bool> class> friend class cap::container;
   registry_ref registry_;
   const type_ops* access_{};
   const detail::type_record* record_{};

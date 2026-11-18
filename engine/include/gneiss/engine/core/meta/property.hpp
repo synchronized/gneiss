@@ -22,6 +22,9 @@
 #include <vector>
 
 namespace gneiss::meta {
+namespace cap {
+class object;
+}
 struct type_ops;
 namespace detail {
 struct property_record;
@@ -121,7 +124,7 @@ public:
 
 private:
   friend class property_range;
-  friend class type;
+  friend class cap::object;
   property(registry_ref registry, const detail::property_record* record)
       : registry_(std::move(registry)), record_(record) {}
   registry_ref registry_;
@@ -170,7 +173,7 @@ public:
 
 private:
   friend class type_registry_state;
-  friend class type;
+  friend class cap::object;
   property_range(registry_ref registry, const detail::property_record* records, std::size_t size)
       : registry_(std::move(registry)), records_(records), size_(size) {}
   registry_ref registry_;

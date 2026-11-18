@@ -3,7 +3,8 @@
 #include "core/serialization/detail/context_access.hpp"
 #include "core/serialization/detail/traversal.hpp"
 #include <algorithm>
-#include <gneiss/engine/core/meta/capabilities/container_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/container.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/views/associative_view.hpp>
 #include <gneiss/engine/core/meta/views/optional_view.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
@@ -20,7 +21,7 @@ bool supports_field_snapshot(const meta::type& type) {
   const auto policy = policies_of(type);
   if (!policy.content.encode && !policy.content.decode)
     return true;
-  for (const auto& field : type.properties())
+  for (const auto& field : type.template capability<gneiss::meta::cap::object>().properties())
     if (field.declaring_type_id() == type.id())
       return true;
   return false;
@@ -49,7 +50,7 @@ struct capture_state {
       if (!source.guid())
         return error::unsupported;
       record_value_data record{source.guid(), {}};
-      auto fields = source.properties();
+      auto fields = source.type().template capability<gneiss::meta::cap::object>().properties();
       if (!source.type().registered())
         return error::not_found;
       if (!supports_field_snapshot(source.type()))
@@ -164,8 +165,7 @@ struct capture_state {
       auto present = reference_slot->has_value();
       if (!present)
         return gneiss::value{};
-      auto target_type =
-          source.type().capability<gneiss::meta::reference_capability>().element_type();
+      auto target_type = source.type().capability<gneiss::meta::cap::reference>().element_type();
       if (!target_type)
         return error::unsupported;
       auto binding = reference_policy_for(source.type(), override);
@@ -236,7 +236,9 @@ struct restore_state {
         if (!field.id || !seen.insert(field.id).second)
           return error::invalid_argument;
         detail::path_scope path{ctx, "/properties/" + std::to_string(field.id)};
-        auto descriptor = target.type().find_property(property_id{field.id});
+        auto descriptor =
+            target.type().template capability<gneiss::meta::cap::object>().find_property(
+                property_id{field.id});
         if (!descriptor)
           return error::not_found;
         auto field_policy = policy_of(descriptor);
@@ -252,7 +254,8 @@ struct restore_state {
         if (status.failed())
           return status;
       }
-      auto fields = target.as_const().properties();
+      auto fields =
+          target.as_const().type().template capability<gneiss::meta::cap::object>().properties();
       if (!target.type().registered())
         return error::not_found;
       for (const auto& field : fields) {
@@ -388,8 +391,7 @@ struct restore_state {
         if (!policy->capture)
           return error::invalid_argument;
         auto type = find_type(registry, asset->type);
-        auto element =
-            target.type().capability<gneiss::meta::reference_capability>().element_type();
+        auto element = target.type().capability<gneiss::meta::cap::reference>().element_type();
         if (!type || !element || type.id() != element.id())
           return error::invalid_argument;
         if (asset->uri.empty()) {
@@ -414,7 +416,7 @@ struct restore_state {
       auto ops = find_object_ops(registry, type.id());
       if (!ops || !ops->construct)
         return error::unsupported;
-      auto element = target.type().capability<gneiss::meta::reference_capability>().element_type();
+      auto element = target.type().capability<gneiss::meta::cap::reference>().element_type();
       if (!element)
         return error::unsupported;
       if (!policy->polymorphic && type.id() != element.id())

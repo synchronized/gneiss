@@ -3,7 +3,8 @@
 #include "gneiss/engine/platform/files/backends/memory.hpp"
 #include "ui/panels/material_editor_panel.hpp"
 #include <cstdio>
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
@@ -108,16 +109,34 @@ int main() try {
     check(model.discard().ok(), "restore fixture");
     auto metadata = e::meta::find_type(e::runtime_type_of<e::material_parameters>());
     check(bool(metadata), "material metadata");
-    auto alpha_entries =
-        metadata.properties()[6].type().capability<e::meta::enum_capability>().entries();
+    auto alpha_entries = metadata.template capability<gneiss::meta::cap::object>()
+                             .properties()[6]
+                             .type()
+                             .capability<e::meta::cap::enumeration>()
+                             .entries();
     check(alpha_entries.size() == 3 && alpha_entries[2].name == "blend", "owned enum metadata");
     auto sampling_type = e::meta::find_type(e::runtime_type_of<e::texture_sampling>());
     check(bool(sampling_type), "sampling metadata");
-    auto min_filter = sampling_type.properties()[1].type().capability<e::meta::enum_capability>();
-    auto mag_filter = sampling_type.properties()[2].type().capability<e::meta::enum_capability>();
-    auto wrap_u = sampling_type.properties()[4].type().capability<e::meta::enum_capability>();
-    auto wrap_v = sampling_type.properties()[5].type().capability<e::meta::enum_capability>();
-    check(sampling_type.properties()[1].type().id() == e::runtime_type_of<e::texture_filter>() &&
+    auto min_filter = sampling_type.template capability<gneiss::meta::cap::object>()
+                          .properties()[1]
+                          .type()
+                          .capability<e::meta::cap::enumeration>();
+    auto mag_filter = sampling_type.template capability<gneiss::meta::cap::object>()
+                          .properties()[2]
+                          .type()
+                          .capability<e::meta::cap::enumeration>();
+    auto wrap_u = sampling_type.template capability<gneiss::meta::cap::object>()
+                      .properties()[4]
+                      .type()
+                      .capability<e::meta::cap::enumeration>();
+    auto wrap_v = sampling_type.template capability<gneiss::meta::cap::object>()
+                      .properties()[5]
+                      .type()
+                      .capability<e::meta::cap::enumeration>();
+    check(sampling_type.template capability<gneiss::meta::cap::object>()
+                      .properties()[1]
+                      .type()
+                      .id() == e::runtime_type_of<e::texture_filter>() &&
               min_filter.entries().data() == mag_filter.entries().data() &&
               wrap_u.entries().data() == wrap_v.entries().data(),
           "shared enum options");

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include <cstdio>
 #include <deque>
-#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
@@ -237,14 +237,14 @@ int main() {
   s::write_context adapted_write{*r};
   s::read_context adapted_read{*r};
   CHECK(!m::type_of<external_id>(*r).registered());
-  CHECK(m::type_of<external_id>(*r).capability<gneiss::meta::representation_capability>());
-  CHECK(!m::type_of<std::int64_t>(*r).capability<gneiss::meta::representation_capability>());
+  CHECK(m::type_of<external_id>(*r).capability<gneiss::meta::cap::representation>());
+  CHECK(!m::type_of<std::int64_t>(*r).capability<gneiss::meta::cap::representation>());
   const std::int64_t unrelated = 42;
   auto unrelated_view = m::view(*r, unrelated);
   CHECK(unrelated_view);
   bool consumed = false;
   auto mismatch =
-      m::type_of<external_id>(*r).capability<gneiss::meta::representation_capability>().encode(
+      m::type_of<external_id>(*r).capability<gneiss::meta::cap::representation>().encode(
           *unrelated_view, [&](const m::const_instance&) {
             consumed = true;
             return gneiss::error::success;

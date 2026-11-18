@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/types/guid.hpp>
@@ -214,9 +215,10 @@ int main(int argc, char** argv) {
   }
   proposed.payload = 40.0F;
   auto camera_type = gneiss::meta::type_of<service::math::camera_settings>();
-  if (gneiss::meta::write_property(camera_type.guid(), camera_type.find_property("far").id(),
-                                   &candidate_camera.settings,
-                                   proposed) != gneiss::error::success ||
+  if (gneiss::meta::write_property(
+          camera_type.guid(),
+          camera_type.template capability<gneiss::meta::cap::object>().find_property("far").id(),
+          &candidate_camera.settings, proposed) != gneiss::error::success ||
       candidate_camera.settings.near_plane != 30 || candidate_camera.settings.far_plane != 40) {
     return 18;
   }

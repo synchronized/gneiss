@@ -4,11 +4,12 @@
 #include "../../support/async_asset.hpp"
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
@@ -533,12 +534,18 @@ int main() try {
     auto slot = meta::view(std::as_const(scene.objects[1]));
     if (!slot)
       return 98;
-    auto reference = slot->member("prefab")->as_optional();
+    auto reference =
+        slot->template capability<gneiss::meta::cap::object>()->member("prefab")->as_optional();
     if (!reference || !reference->has_value())
       return 98;
     auto contents = reference->get();
-    if (!contents || contents->properties().size() != 3 ||
-        contents->member("overrides")->as_sequence()->size() != 1)
+    if (!contents ||
+        contents->type().template capability<gneiss::meta::cap::object>().properties().size() !=
+            3 ||
+        contents->template capability<gneiss::meta::cap::object>()
+                ->member("overrides")
+                ->as_sequence()
+                ->size() != 1)
       return 98;
     auto copied = scene.objects[1];
     copied.prefab->uri = "asset://prefabs/copy.prefab.json";

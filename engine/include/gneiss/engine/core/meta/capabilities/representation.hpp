@@ -5,14 +5,14 @@
 #include <functional>
 #include <gneiss/engine/core/meta/type.hpp>
 
-namespace gneiss::meta {
+namespace gneiss::meta::cap {
 /** 类型能力视图，持有类型上下文，不持有实例；转换回调只允许同步借用。 */
-class representation_capability {
+class representation {
   meta::type type_;
 
 public:
-  representation_capability() = default;
-  explicit GNEISS_API representation_capability(meta::type target);
+  representation() = default;
+  explicit GNEISS_API representation(meta::type target);
   [[nodiscard]] explicit operator bool() const noexcept { return bool(type_); }
   /** 要求有效能力与回调；源实例类型/注册表不匹配返回 invalid_argument。 */
   [[nodiscard]] GNEISS_API error

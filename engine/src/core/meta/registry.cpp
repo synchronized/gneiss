@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/assert.hpp>
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
@@ -714,42 +715,44 @@ gneiss::guid type::guid() const noexcept {
 value_kind type::scalar_kind() const noexcept {
   return access_ ? access_->scalar_kind() : record_ ? record_->scalar : value_kind::invalid;
 }
-std::span<const enum_entry> enum_capability::entries() const noexcept {
+std::span<const enum_entry> cap::enumeration::entries() const noexcept {
   return type_.record_ ? std::span<const enum_entry>{type_.record_->entries}
                        : std::span<const enum_entry>{};
 }
-property type::find_property(property_id property) const noexcept {
+property cap::object::find_property(property_id property) const noexcept {
   if (!*this)
     return {};
-  if (kind() != type_kind::object)
+  if (type_.kind() != type_kind::object)
     return {};
-  if (!record_)
+  if (!type_.record_)
     return {};
   const auto found =
-      std::ranges::lower_bound(record_->properties, property.get(), {}, &property_record::id);
-  if (found == record_->properties.end() || found->id != property.get())
+      std::ranges::lower_bound(type_.record_->properties, property.get(), {}, &property_record::id);
+  if (found == type_.record_->properties.end() || found->id != property.get())
     return {};
-  return meta::property{registry_, &*found};
+  return meta::property{type_.registry_, &*found};
 }
-property type::find_property(std::string_view name) const noexcept {
+property cap::object::find_property(std::string_view name) const noexcept {
   if (!*this)
     return {};
-  if (kind() != type_kind::object)
+  if (type_.kind() != type_kind::object)
     return {};
-  if (!record_)
+  if (!type_.record_)
     return {};
-  const auto found = std::ranges::lower_bound(record_->property_names, name, {},
+  const auto found = std::ranges::lower_bound(type_.record_->property_names, name, {},
                                               [&](std::size_t index) -> std::string_view {
-                                                return record_->properties[index].name.view();
+                                                return type_.record_->properties[index].name.view();
                                               });
-  if (found == record_->property_names.end() || record_->properties[*found].name != name)
+  if (found == type_.record_->property_names.end() ||
+      type_.record_->properties[*found].name != name)
     return {};
-  return meta::property{registry_, &record_->properties[*found]};
+  return meta::property{type_.registry_, &type_.record_->properties[*found]};
 }
-property_range type::properties() const noexcept {
-  if (kind() != type_kind::object || !record_)
+property_range cap::object::properties() const noexcept {
+  if (type_.kind() != type_kind::object || !type_.record_)
     return {};
-  return property_range{registry_, record_->properties.data(), record_->properties.size()};
+  return property_range{type_.registry_, type_.record_->properties.data(),
+                        type_.record_->properties.size()};
 }
 bool operator==(const type& left, const type& right) noexcept {
   if (!left || !right)
@@ -811,7 +814,8 @@ result<meta::type> type_at(const registry_ref& registry, std::uint32_t index) {
 }
 property find_property(const registry_ref& registry, guid id, property_id field) {
   auto owner = find_type(registry, id);
-  return owner ? owner.find_property(field) : property{};
+  return owner ? owner.template capability<gneiss::meta::cap::object>().find_property(field)
+               : property{};
 }
 result<value> read_property(const registry_ref& registry, gneiss::type_id type,
                             property_id property, const void* object) {

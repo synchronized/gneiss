@@ -2,25 +2,26 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../../examples/support/scene_activation.hpp"
 #include "../../../examples/support/scope_exit.hpp"
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
-#include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/function/scene/component_registration.hpp>
-#include <gneiss/engine/function/scene/components.hpp>
-#include <gneiss/engine/function/scene/scene_instance.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/resource/asset_file.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -92,7 +93,7 @@ int main() try {
     if (!type)
       return 1;
     std::printf("类型 %.*s\n", static_cast<int>(type->name().size()), type->name().data());
-    auto properties = type->properties();
+    auto properties = type->template capability<gneiss::meta::cap::object>().properties();
     for (const auto& field : properties)
       std::printf("  字段 %u: %.*s\n", field.id().get(), static_cast<int>(field.name().size()),
                   field.name().data());
@@ -131,12 +132,14 @@ int main() try {
   auto camera = components->find(gneiss::camera_description::type_guid);
   if (!camera)
     return 3;
-  auto changed = gneiss::modify_component(
-      *camera, [](gneiss::meta::instance root) -> gneiss::error {
-        auto settings = root.member(gneiss::meta::property_id{1});
+  auto changed =
+      gneiss::modify_component(*camera, [](gneiss::meta::instance root) -> gneiss::error {
+        auto settings = root.template capability<gneiss::meta::cap::object>()->member(
+            gneiss::meta::property_id{1});
         if (!settings)
           return settings.error();
-        auto near = settings->member(gneiss::meta::property_id{2});
+        auto near = settings->template capability<gneiss::meta::cap::object>()->member(
+            gneiss::meta::property_id{2});
         return near ? near->assign(gneiss::value{0.25F}) : near.error();
       });
   if (!changed)

@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/throws.hpp"
 #include <cstdio>
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
@@ -205,7 +206,7 @@ int main() {
   mapped_owner owner;
   auto owner_view = m::view(*registry, owner);
   CHECK(owner_view);
-  auto item = owner_view->member("item");
+  auto item = owner_view->template capability<gneiss::meta::cap::object>()->member("item");
   CHECK(item && item->requires_replacement());
   CHECK(item->assign(e::value{std::int64_t{-1}}) == e::error::invalid_argument);
   CHECK(owner.stored.number == 7);
@@ -246,7 +247,8 @@ int main() {
   document source;
   auto view = m::view(*registry, source);
   CHECK(view);
-  auto sequence = view->member("sequence")->as_sequence();
+  auto sequence =
+      view->template capability<gneiss::meta::cap::object>()->member("sequence")->as_sequence();
   CHECK(sequence && sequence->resize(3).ok());
   CHECK(sequence->at(2)->assign(e::value{9.0F}).ok());
   CHECK(sequence->at(3).error() == e::error::not_found);
@@ -263,7 +265,8 @@ int main() {
   CHECK(bounded_view);
   CHECK(bounded_view->as_sequence()->resize(bounded.max_size() + 1) == e::error::invalid_argument);
   CHECK(bounded.size() == 1);
-  auto mapping = view->member("mapping")->as_associative();
+  auto mapping =
+      view->template capability<gneiss::meta::cap::object>()->member("mapping")->as_associative();
   CHECK(mapping && *mapping->keys() == std::vector<std::string>({"a", "z"}));
   CHECK(mapping->find("missing").error() == e::error::not_found);
   auto encoded = gneiss::serialization::json::encode_bytes(
@@ -295,7 +298,9 @@ int main() {
   std::vector<non_default> values;
   values.emplace_back(7.0F);
   auto values_view = m::view(*registry, values);
-  CHECK(values_view && values_view->as_sequence()->at(0)->member("number"));
+  CHECK(values_view &&
+        values_view->as_sequence()->at(0)->template capability<gneiss::meta::cap::object>()->member(
+            "number"));
   CHECK(values_view->as_sequence()->resize(2) == e::error::unsupported);
   std::map<std::string, non_default> non_default_map;
   non_default_map.try_emplace("x", 7.0F);
@@ -355,7 +360,11 @@ int main() {
   cannot_construct.emplace<1>(1.0F);
   auto unknown_object = lazy->as_variant()->value();
   CHECK(unknown_object && unknown_object->kind() == m::type_kind::object);
-  CHECK(unknown_object->as_const().properties().empty());
+  CHECK(unknown_object->as_const()
+            .type()
+            .template capability<gneiss::meta::cap::object>()
+            .properties()
+            .empty());
   CHECK(m::type_of<decltype(cannot_construct)>(*empty_registry));
   auto rejected_object = gneiss::serialization::json::encode_bytes(
       gneiss::serialization::write_context{*empty_registry}, std::get<1>(cannot_construct));
@@ -363,7 +372,7 @@ int main() {
   std::vector<non_default> unknown_elements;
   unknown_elements.emplace_back(1.0F);
   auto unknown_sequence = m::type_of<decltype(unknown_elements)>(*empty_registry);
-  CHECK(unknown_sequence && unknown_sequence.capability<m::sequence_capability>().element_type());
+  CHECK(unknown_sequence && unknown_sequence.capability<m::cap::sequence>().element_type());
   auto unknown_view = m::view(*empty_registry, unknown_elements);
   CHECK(unknown_view && unknown_view->as_sequence()->at(0));
   throwing_choice throwing_source{std::in_place_index<1>};

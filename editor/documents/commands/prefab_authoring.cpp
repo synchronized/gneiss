@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/commands/prefab_authoring.hpp"
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/error.hpp>
@@ -523,13 +524,15 @@ describe_prefab_overrides(const gneiss::prefab_reference_description& reference,
     text += " / " + (type ? std::string(type.name()) : key.target.target_type_guid.string());
     if (!key.first_property().is_valid())
       return text;
-    auto property = type ? type.find_property(key.first_property()) : meta::property{};
+    auto property = type ? type.template capability<gneiss::meta::cap::object>().find_property(
+                               key.first_property())
+                         : meta::property{};
     text += " / " +
             (property ? std::string(property.name()) : std::to_string(key.first_property().get()));
     auto current = property ? property.type() : meta::type{};
     for (const auto& step : std::span{key.path}.subspan(1)) {
       if (auto* id = std::get_if<meta::property_id>(&step)) {
-        auto fields = current.properties();
+        auto fields = current.template capability<gneiss::meta::cap::object>().properties();
         if (!fields.empty()) {
           auto found = std::ranges::find(fields, *id, &meta::property::id);
           if (found != fields.end()) {
@@ -544,11 +547,11 @@ describe_prefab_overrides(const gneiss::prefab_reference_description& reference,
         text += "[" + meta::property_step_text(step) + "]";
         meta::type element;
         if (std::holds_alternative<std::string>(step)) {
-          auto capability = current.capability<meta::associative_capability>();
+          auto capability = current.capability<meta::cap::associative>();
           if (capability)
             element = capability.element_type();
         } else {
-          auto capability = current.capability<meta::sequence_capability>();
+          auto capability = current.capability<meta::cap::sequence>();
           if (capability)
             element = capability.element_type();
         }

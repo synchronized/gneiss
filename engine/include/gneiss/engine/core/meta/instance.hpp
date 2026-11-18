@@ -46,9 +46,6 @@ public:
     return registry ? from_object(*registry, id, object) : result<basic_instance>{registry.error()};
   }
   [[nodiscard]] const_instance as_const() const noexcept;
-  [[nodiscard]] property_range properties() const noexcept { return type_.properties(); }
-  [[nodiscard]] GNEISS_API result<basic_instance> member(property_id) const;
-  [[nodiscard]] GNEISS_API result<basic_instance> member(std::string_view) const;
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
   [[nodiscard]] GNEISS_API result<value> read_value() const;
@@ -86,8 +83,10 @@ public:
 
 private:
   template <bool> friend class basic_instance;
-  friend class representation_capability;
-  template <type_kind, template <bool> class> friend class container_capability;
+  friend class cap::representation;
+  friend class cap::object;
+  template <bool> friend class basic_object_view;
+  template <type_kind, template <bool> class> friend class cap::container;
   template <class T> friend result<const_instance> view(const registry_ref&, const T&);
   template <class T>
     requires(!std::is_const_v<T>)

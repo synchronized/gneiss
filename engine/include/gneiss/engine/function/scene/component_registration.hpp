@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <functional>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/function/asset/render_resource.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/scene/object_address.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-#include <functional>
 #include <optional>
 namespace gneiss {
 class asset_manager;
@@ -131,7 +132,12 @@ template <class T> component_adapter make_component_adapter(component_operations
         if (ops.properties->read)
           return ops.properties->read(*typed, type, property);
         auto root = meta::view(std::as_const(*typed));
-        auto field = root ? root->member(property) : result<meta::const_instance>{root.error()};
+        if (!root)
+          return root.error();
+        auto object = root->template capability<meta::cap::object>();
+        if (!object)
+          return object.error();
+        auto field = object->member(property);
         return field ? field->read_value() : result<value>{field.error()};
       },
       .edit = [ops](const component_description& source, guid type, meta::property_id property,
@@ -145,7 +151,10 @@ template <class T> component_adapter make_component_adapter(component_operations
           auto root = meta::view(copy);
           if (!root)
             return root.error();
-          auto field = root->member(property);
+          auto object = root->template capability<meta::cap::object>();
+          if (!object)
+            return object.error();
+          auto field = object->member(property);
           return field ? field->assign(input) : field.error();
         }();
         if (status.ok())

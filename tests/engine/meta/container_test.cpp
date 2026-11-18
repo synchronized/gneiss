@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <cstdio>
+#include <future>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
-#include <cstdio>
-#include <future>
 #include <limits>
 namespace e = gneiss;
 namespace m = e::meta;
@@ -128,17 +129,33 @@ int main() try {
   optional_description optional;
   auto optional_root = m::view(*r, optional);
   CHECK(optional_root);
-  CHECK(optional_root->member("number")->as_optional().error() == e::error::unsupported);
-  CHECK(optional_root->as_const().member("number")->as_optional()->has_value());
+  CHECK(optional_root->template capability<gneiss::meta::cap::object>()
+            ->member("number")
+            ->as_optional()
+            .error() == e::error::unsupported);
+  CHECK(optional_root->as_const()
+            .template capability<gneiss::meta::cap::object>()
+            ->member("number")
+            ->as_optional()
+            ->has_value());
   auto rejected_number = gneiss::serialization::json::decode<optional_description>(
       gneiss::serialization::read_context{*r}, bytes(R"({"number":-1})"));
   CHECK(!rejected_number && rejected_number.error().path == "/number");
-  auto slot = optional_root->member("item")->as_optional();
+  auto slot = optional_root->template capability<gneiss::meta::cap::object>()
+                  ->member("item")
+                  ->as_optional();
   CHECK(slot && !slot->has_value());
   CHECK(slot->get().error() == e::error::not_found);
-  CHECK(optional_root->member("item")->read_value().error() == e::error::unsupported);
+  CHECK(optional_root->template capability<gneiss::meta::cap::object>()
+            ->member("item")
+            ->read_value()
+            .error() == e::error::unsupported);
   CHECK(slot->ensure() && optional.item.has_value());
-  CHECK(slot->get()->member("speed")->assign(e::value{4.0f}).ok());
+  CHECK(slot->get()
+            ->template capability<gneiss::meta::cap::object>()
+            ->member("speed")
+            ->assign(e::value{4.0f})
+            .ok());
   auto optional_json = gneiss::serialization::json::encode_bytes(
       gneiss::serialization::write_context{*r}, optional);
   CHECK(optional_json);
@@ -172,7 +189,7 @@ int main() try {
   CHECK(root);
   auto info = m::find_property(*r, tree::type_guid, m::property_id{1});
   CHECK(info && info.type().kind() == m::type_kind::sequence && !info.type().guid());
-  auto items = root->member("items");
+  auto items = root->template capability<gneiss::meta::cap::object>()->member("items");
   CHECK(items);
   CHECK(items->read_value().error() == e::error::unsupported);
   CHECK(items->as_associative().error() == e::error::unsupported);
@@ -182,13 +199,21 @@ int main() try {
   CHECK(seq->resize(2).ok());
   auto object = seq->at(1);
   CHECK(object);
-  CHECK(object->member("speed")->assign(e::value{5.0F}).ok());
+  CHECK(object->template capability<gneiss::meta::cap::object>()
+            ->member("speed")
+            ->assign(e::value{5.0F})
+            .ok());
   CHECK(source.items[1].speed == 5);
-  CHECK(root->member("readonly").error() == e::error::unsupported);
-  auto readonly = root->as_const().member("readonly")->as_sequence();
+  CHECK(root->template capability<gneiss::meta::cap::object>()->member("readonly").error() ==
+        e::error::unsupported);
+  auto readonly = root->as_const()
+                      .template capability<gneiss::meta::cap::object>()
+                      ->member("readonly")
+                      ->as_sequence();
   CHECK(readonly);
   CHECK(std::get<float>(readonly->at(0)->read_value()->payload) == 4);
-  auto groups = root->member("groups")->as_associative();
+  auto groups =
+      root->template capability<gneiss::meta::cap::object>()->member("groups")->as_associative();
   CHECK(groups && groups->size() == source.groups.size());
   auto inserted = groups->insert("a/b~");
   CHECK(inserted);
@@ -203,7 +228,8 @@ int main() try {
   CHECK(groups->insert(std::string("bad\0key", 7)).error() == e::error::invalid_argument);
   CHECK(groups->insert("a/b~")->as_sequence()->at(1)->read_value()->kind() ==
         e::value_kind::float32);
-  auto maybe = root->member("maybe")->as_sequence();
+  auto maybe =
+      root->template capability<gneiss::meta::cap::object>()->member("maybe")->as_sequence();
   CHECK(maybe && maybe->resize(1).ok() && source.maybe.size() == 1);
   source.labels = {{"z", "last"}, {"a", "first"}};
   auto encoded = gneiss::serialization::json::encode_bytes(
@@ -253,7 +279,10 @@ int main() try {
   CHECK(tree::alive == alive_before_failure);
   // 读任务期间没有修改目标；视图本身不提供线程同步。
   auto future = std::async(std::launch::async, [view = root->as_const()] {
-    return view.member("items")->as_sequence()->size();
+    return view.template capability<gneiss::meta::cap::object>()
+        ->member("items")
+        ->as_sequence()
+        ->size();
   });
   auto count = future.get();
   CHECK(count == source.items.size());

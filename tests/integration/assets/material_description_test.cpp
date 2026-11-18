@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
+#include "function/asset/detail/asset_decode.hpp"
+#include <cstdio>
+#include <cstring>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
-#include "function/asset/detail/asset_decode.hpp"
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <cstdio>
-#include <cstring>
 #include <stdexcept>
 #include <type_traits>
 using namespace gneiss;
@@ -33,15 +34,17 @@ void native_material_contract() {
   check(material.ok());
   auto root = meta::view(*material);
   check(root.ok());
-  auto parameters = root->member("parameters");
+  auto parameters = root->template capability<gneiss::meta::cap::object>()->member("parameters");
   check(parameters.ok());
-  auto color = parameters->member("color");
+  auto color = parameters->template capability<gneiss::meta::cap::object>()->member("color");
   check(color && color->read_value()->kind() == value_kind::vec4);
   check(color->assign(value{math::vector4{0.2F, 0.4F, 0.6F, 1}}).ok());
-  auto sampling = parameters->member("sampling")->as_sequence();
+  auto sampling = parameters->template capability<gneiss::meta::cap::object>()
+                      ->member("sampling")
+                      ->as_sequence();
   check(sampling && !sampling->is_resizable() && sampling->size() == 5);
   check(sampling->resize(4) == error::invalid_argument && sampling->resize(5).ok());
-  auto uv = sampling->at(0)->member("uv_set");
+  auto uv = sampling->at(0)->template capability<gneiss::meta::cap::object>()->member("uv_set");
   check(uv.ok());
   check(uv->assign(value{std::uint64_t{1} << 32}) == error::invalid_argument);
   check(material->parameters.sampling[0].uv_set == 0);

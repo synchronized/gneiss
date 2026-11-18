@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/scene/detail/component_validation.hpp"
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
@@ -97,7 +98,8 @@ error validate_prefab_property_override(const prefab_property_override& value) {
   auto owner = meta::find_type(value.key.target.target_type_guid);
   if (!owner)
     return gneiss::error{gneiss::error::not_found};
-  auto field = owner.find_property(value.key.first_property());
+  auto field = owner.template capability<gneiss::meta::cap::object>().find_property(
+      value.key.first_property());
   if (!field)
     return error::not_found;
   if (!has_flags(field.capabilities(), meta::property_capabilities::writable) ||
@@ -106,7 +108,7 @@ error validate_prefab_property_override(const prefab_property_override& value) {
   auto type = field.type();
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
     if (const auto* property = std::get_if<meta::property_id>(&step)) {
-      auto properties = type.properties();
+      auto properties = type.template capability<gneiss::meta::cap::object>().properties();
       if (!type.registered())
         return error::not_found;
       auto found = std::ranges::find(properties, *property, &meta::property::id);
@@ -121,14 +123,14 @@ error validate_prefab_property_override(const prefab_property_override& value) {
                                                                     : meta::type_kind::sequence))
         return error::invalid_argument;
       if (std::holds_alternative<std::size_t>(step) &&
-          !type.capability<gneiss::meta::sequence_capability>().is_fixed_size())
+          !type.capability<gneiss::meta::cap::sequence>().is_fixed_size())
         return error::unsupported;
       if (const auto* id = std::get_if<guid>(&step);
-          id && (!*id || !type.capability<gneiss::meta::sequence_capability>().has_identity()))
+          id && (!*id || !type.capability<gneiss::meta::cap::sequence>().has_identity()))
         return error::invalid_argument;
       auto element = std::holds_alternative<std::string>(step)
-                         ? type.capability<meta::associative_capability>().element_type()
-                         : type.capability<meta::sequence_capability>().element_type();
+                         ? type.capability<meta::cap::associative>().element_type()
+                         : type.capability<meta::cap::sequence>().element_type();
       if (!element)
         return error::unsupported;
       type = element;
@@ -138,7 +140,7 @@ error validate_prefab_property_override(const prefab_property_override& value) {
     if (std::holds_alternative<put_value_operation>(value.operation) ||
         std::holds_alternative<erase_key_operation>(value.operation))
       return type.kind() == meta::type_kind::associative ? error::success : error::invalid_argument;
-    const auto sequence = type.capability<gneiss::meta::sequence_capability>();
+    const auto sequence = type.capability<gneiss::meta::cap::sequence>();
     return sequence && sequence.has_identity() && !sequence.is_fixed_size()
                ? error::success
                : error::invalid_argument;

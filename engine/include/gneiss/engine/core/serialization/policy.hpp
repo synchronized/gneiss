@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/meta/capabilities/container_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/container.hpp>
 #include <gneiss/engine/core/meta/property.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
@@ -98,7 +98,7 @@ inline result<reference_policy> reference_policy_for(const meta::type& reference
                                                      const reference_policy* override = nullptr) {
   if (reference.kind() != meta::type_kind::reference)
     return error::invalid_argument;
-  auto target = reference.capability<gneiss::meta::reference_capability>().element_type();
+  auto target = reference.capability<gneiss::meta::cap::reference>().element_type();
   if (!target || target.kind() != meta::type_kind::object)
     return error::unsupported;
   if (override)

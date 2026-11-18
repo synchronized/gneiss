@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/error.hpp>
+#include <array>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_description.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-#include <array>
 #ifdef GNEISS_TEST_THREADS
 #include <atomic>
 #include <thread>
@@ -97,7 +98,9 @@ int main(int argc, char** argv) {
   sample object;
   auto view = m::const_instance::from_object(e::runtime_type_of<sample>(), &object);
   auto mutable_view = m::instance::from_object(e::runtime_type_of<sample>(), &object);
-  if (!view || !mutable_view || !view->member("speed") || !mutable_view->member("speed") ||
+  if (!view || !mutable_view ||
+      !view->template capability<gneiss::meta::cap::object>()->member("speed") ||
+      !mutable_view->template capability<gneiss::meta::cap::object>()->member("speed") ||
       m::const_instance::from_object(e::runtime_type_of<sample>(), nullptr).error() !=
           e::error::invalid_argument)
     return 12;

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
@@ -185,7 +186,8 @@ int main() try {
   auto object_view = e::meta::view(guarded);
   if (!object_view)
     return 37;
-  auto property = object_view->member("components");
+  auto property =
+      object_view->template capability<gneiss::meta::cap::object>()->member("components");
   if (!property || !property->as_sequence() || !property->as_sequence()->supports_replacement() ||
       property->as_sequence()->at(0).error() != e::error::unsupported ||
       property->as_sequence()->resize(2) != e::error::unsupported ||

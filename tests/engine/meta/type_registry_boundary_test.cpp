@@ -3,8 +3,9 @@
 
 #include "../../support/throws.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/error.hpp>
 
 #include <array>
 #include <stdexcept>
@@ -130,20 +131,23 @@ bool native_values() {
   }
   gneiss::meta::type metadata;
   if (!(metadata = gneiss::meta::find_type(registry, native_id)) ||
-      metadata.properties().size() != 1 ||
-      metadata.properties()[0].type().scalar_kind() != gneiss::value_kind::string ||
+      metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
+      metadata.template capability<gneiss::meta::cap::object>()
+              .properties()[0]
+              .type()
+              .scalar_kind() != gneiss::value_kind::string ||
       metadata.guid() != native_id ||
-      metadata.properties()[0].type().guid() !=
+      metadata.template capability<gneiss::meta::cap::object>().properties()[0].type().guid() !=
           gneiss::type_identity<std::string>::guid() ||
-      gneiss::meta::find_type(registry, gneiss::guid{}) ||
-      metadata.guid() != native_id || metadata.properties().size() != 1 ||
+      gneiss::meta::find_type(registry, gneiss::guid{}) || metadata.guid() != native_id ||
+      metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
       gneiss::meta::find_type({}, native_id) || metadata.guid() != native_id ||
-      metadata.properties().size() != 1) {
+      metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1) {
     return false;
   }
-  if (gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 0), metadata)
-          .failed() ||
-      metadata.guid() != native_id || metadata.properties().size() != 1 ||
+  if (gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 0), metadata).failed() ||
+      metadata.guid() != native_id ||
+      metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
       gneiss::test_support::assign_value(gneiss::meta::type_at(registry, 1), metadata) !=
           gneiss::error::not_found ||
       metadata.guid() != native_id ||
@@ -242,7 +246,7 @@ int main() try {
   }
   gneiss::meta::type info;
   if (!(info = gneiss::meta::find_type(state, type_id)) || info.name() != "sample" ||
-      info.properties().size() != 2U) {
+      info.template capability<gneiss::meta::cap::object>().properties().size() != 2U) {
     return 4;
   }
   if (gneiss::meta::write_property(state, type_id, gneiss::meta::property_id{1U},

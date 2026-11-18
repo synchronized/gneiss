@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "inspection/runtime_property_editor.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
@@ -92,7 +93,7 @@ gneiss::error runtime_property_editor::execute(const ipc_property_write& command
     output = std::move(response);
     return gneiss::error::success;
   }
-  auto properties = description.properties();
+  auto properties = description.template capability<gneiss::meta::cap::object>().properties();
   if (!description.registered()) {
     response.code = gneiss::error::not_found.code();
     response.message = "属性不存在或不可写";

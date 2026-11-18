@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/throws.hpp"
 #include "../../support/value_result.hpp"
+#include <array>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
@@ -14,7 +16,6 @@
 #include <gneiss/engine/resource/asset_decoder.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <array>
 #include <limits>
 #include <map>
 #include <optional>
@@ -137,10 +138,11 @@ bool inherited_properties() {
     return false;
   auto view = gneiss::meta::view(registry, input);
   auto properties = find_type(registry, e::runtime_type_of<inherited_leaf>());
-  if (!view || !properties || properties.properties().size() != 5)
+  if (!view || !properties ||
+      properties.template capability<gneiss::meta::cap::object>().properties().size() != 5)
     return false;
-  auto number = view->member("number");
-  auto values = view->member("values");
+  auto number = view->template capability<gneiss::meta::cap::object>()->member("number");
+  auto values = view->template capability<gneiss::meta::cap::object>()->member("values");
   if (!number || !values || number->assign(e::value{std::int64_t{42}}).failed() ||
       input.number != 42 || input.sentinel != 123 || !values->as_sequence())
     return false;
@@ -157,13 +159,14 @@ bool inherited_properties() {
   auto element = sequence->at(2);
   if (!element || element->assign(e::value{std::int64_t{9}}).failed() || input.values[2] != 9)
     return false;
-  auto nested = view->member("nested");
+  auto nested = view->template capability<gneiss::meta::cap::object>()->member("nested");
   captured_data candidate{{7}, {{"entry", {8}}}};
   auto candidate_view = gneiss::meta::view(registry, std::as_const(candidate));
   if (!nested || !candidate_view || nested->assign(*candidate_view).failed() ||
       input.nested != candidate)
     return false;
-  auto nested_values = nested->as_const().member("values");
+  auto nested_values =
+      nested->as_const().template capability<gneiss::meta::cap::object>()->member("values");
   if (!nested_values || !nested_values->as_sequence())
     return false;
   candidate.values.clear();

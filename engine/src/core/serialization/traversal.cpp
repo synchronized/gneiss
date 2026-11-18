@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "core/serialization/detail/traversal.hpp"
 #include <algorithm>
-#include <gneiss/engine/core/meta/capabilities/container_capability.hpp>
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
-#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/container.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 namespace gneiss::serialization::detail {
 using namespace meta;
@@ -36,7 +37,7 @@ encode_representation(const write_context& ctx, const const_instance& source, wr
     return failure(error::invalid_argument);
   result<writer::node, diagnostic> encoded = failure(error::unsupported);
   bool visited = false;
-  auto status = source.type().capability<gneiss::meta::representation_capability>().encode(
+  auto status = source.type().capability<gneiss::meta::cap::representation>().encode(
       source, [&](const const_instance& representation) {
         visited = true;
         encoded = encode_view(ctx, source.registry(), representation, &output,
@@ -52,7 +53,7 @@ diagnostic decode_representation(const read_context& ctx, const instance& target
   if (context_access::depth(ctx) >= ctx.maximum_depth())
     return failure(error::invalid_argument);
   diagnostic diagnostic;
-  auto status = target.type().capability<gneiss::meta::representation_capability>().decode(
+  auto status = target.type().capability<gneiss::meta::cap::representation>().decode(
       [&](const instance& representation) {
         diagnostic = decode_view(ctx, target.registry(), representation, input,
                                  context_access::depth(ctx) + 1);
@@ -139,7 +140,7 @@ result<writer::node, serialization::diagnostic> encode_nested(const write_contex
       return status;
   }
   auto type = find_type(registry, id);
-  if (type.capability<gneiss::meta::representation_capability>()) {
+  if (type.capability<gneiss::meta::cap::representation>()) {
     auto view = const_instance::from_object(registry, id, object);
     if (!view)
       return failure(view.error());
@@ -163,8 +164,7 @@ result<writer::node, serialization::diagnostic>
 encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
             writer* doc, std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
-  if (view.type().capability<gneiss::meta::representation_capability>() &&
-      !view.type().registered()) {
+  if (view.type().capability<gneiss::meta::cap::representation>() && !view.type().registered()) {
     if (depth > ctx.maximum_depth())
       return failure(error::invalid_argument);
     return encode_representation(ctx, view, *doc);
@@ -175,7 +175,7 @@ encode_view(const write_context& ctx, const registry_ref& registry, const const_
       return failure(p.error());
     return encode_nested(ctx, registry, view.type().id(), *p, doc, depth);
   }
-  if (view.type().capability<gneiss::meta::representation_capability>()) {
+  if (view.type().capability<gneiss::meta::cap::representation>()) {
     if (depth > ctx.maximum_depth())
       return failure(error::invalid_argument);
     return encode_representation(ctx, view, *doc);
@@ -196,7 +196,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     auto owned = reference_slot->owner();
     if (!owned)
       return doc->null();
-    auto target = value_type.capability<gneiss::meta::reference_capability>().element_type();
+    auto target = value_type.capability<gneiss::meta::cap::reference>().element_type();
     if (!target)
       return failure(error::unsupported);
     if (target.kind() != type_kind::object)
@@ -338,7 +338,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
 result<writer::node, serialization::diagnostic> encode_enum_name(const const_instance& view,
                                                                  writer* doc) {
   const auto type = view.type();
-  const auto entries = type.capability<gneiss::meta::enum_capability>().entries();
+  const auto entries = type.capability<gneiss::meta::cap::enumeration>().entries();
   if (!type.is_enum() || !type.registered())
     return failure(error::invalid_argument, "", "属性必须是已注册枚举");
   auto scalar = view.read_value();
@@ -355,7 +355,7 @@ result<writer::node, serialization::diagnostic> encode_enum_name(const const_ins
 serialization::diagnostic decode_enum_name(const read_context& ctx, const instance& view,
                                            reader::node input) {
   const auto type = view.type();
-  const auto entries = type.capability<gneiss::meta::enum_capability>().entries();
+  const auto entries = type.capability<gneiss::meta::cap::enumeration>().entries();
   if (!type.is_enum() || !type.registered() || !context_access::input(ctx)->is_string(input))
     return failure(error::invalid_argument, "", "属性必须是枚举名称");
   const auto name = context_access::input(ctx)->string(input);
@@ -375,7 +375,7 @@ result<writer::node, serialization::diagnostic> encode_members(const write_conte
   auto view = const_instance::from_object(registry, id, object);
   if (!view)
     return failure(view.error());
-  auto properties = view->properties();
+  auto properties = view->type().template capability<gneiss::meta::cap::object>().properties();
   if (!view->type().registered())
     return failure(error::not_found);
   auto* root = doc->object();
@@ -422,7 +422,7 @@ serialization::diagnostic validate_view(const read_context& ctx, const registry_
   }
   if (depth > ctx.maximum_depth() && value_type.kind() != type_kind::scalar)
     return failure(error::invalid_argument, "", "嵌套值超过深度限制");
-  if (value_type.capability<gneiss::meta::representation_capability>()) {
+  if (value_type.capability<gneiss::meta::cap::representation>()) {
     if (depth >= ctx.maximum_depth())
       return failure(error::invalid_argument, "", "类型表示超过深度限制");
     const auto policy = policies_of(value_type);
@@ -435,7 +435,7 @@ serialization::diagnostic validate_view(const read_context& ctx, const registry_
         return status;
     }
     diagnostic checked;
-    auto status = view.type().capability<gneiss::meta::representation_capability>().encode(
+    auto status = view.type().capability<gneiss::meta::cap::representation>().encode(
         view, [&](const const_instance& representation) {
           checked = validate_view(ctx, registry, representation, depth + 1);
           return checked.error;
@@ -521,7 +521,7 @@ serialization::diagnostic validate_defaults(const read_context& ctx, const regis
   auto view = const_instance::from_object(registry, id, object);
   if (!view)
     return failure(view.error());
-  auto properties = view->properties();
+  auto properties = view->type().template capability<gneiss::meta::cap::object>().properties();
   if (!view->type().registered())
     return failure(error::not_found);
   for (const auto& property : properties) {
@@ -557,7 +557,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
   ref<void> object;
   serialization::diagnostic status;
   if (binding->content.decode &&
-      !find_type(registry, actual).capability<gneiss::meta::representation_capability>()) {
+      !find_type(registry, actual).capability<gneiss::meta::cap::representation>()) {
     depth_scope custom_depth{ctx, depth + (root ? 0 : 1)};
     if (context_access::depth(ctx) > ctx.maximum_depth())
       return failure(error::invalid_argument);
@@ -573,7 +573,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     object = ops->construct();
     if (!object)
       return failure(error::internal);
-    if (find_type(registry, actual).capability<gneiss::meta::representation_capability>()) {
+    if (find_type(registry, actual).capability<gneiss::meta::cap::representation>()) {
       auto view = instance::from_object(registry, actual, object.get());
       if (!view)
         return failure(view.error());
@@ -587,7 +587,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
   if (status.error.ok())
     status = validate_identity(registry, actual, object.get());
   if (status.error.ok() &&
-      !find_type(registry, actual).capability<gneiss::meta::representation_capability>() &&
+      !find_type(registry, actual).capability<gneiss::meta::cap::representation>() &&
       binding->validation.validate && !(ctx.references() && ctx.references()->collecting()))
     status = binding->validation.validate(object.get());
   if (status.error.failed())
@@ -636,7 +636,7 @@ serialization::diagnostic decode_view(const read_context& ctx, const registry_re
                                       const instance& view, reader::node input, std::size_t depth,
                                       const reference_policy* override) {
   depth_scope scope{ctx, depth};
-  if (view.type().capability<gneiss::meta::representation_capability>()) {
+  if (view.type().capability<gneiss::meta::cap::representation>()) {
     if (depth > ctx.maximum_depth())
       return failure(error::invalid_argument);
     return decode_representation(ctx, view, input);
@@ -671,7 +671,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       reference_slot->reset();
       return {};
     }
-    auto target = value_type.capability<gneiss::meta::reference_capability>().element_type();
+    auto target = value_type.capability<gneiss::meta::cap::reference>().element_type();
     if (!target || target.kind() != type_kind::object)
       return failure(error::unsupported);
     auto declared = reference_policy_for(value_type, override);
@@ -707,7 +707,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
         return failure(gneiss::error{gneiss::error::not_found}, "/$type_guid");
       actual = type.id();
       if (!context_access::input(ctx)->is_object(content) &&
-          !find_type(registry, actual).capability<gneiss::meta::representation_capability>())
+          !find_type(registry, actual).capability<gneiss::meta::cap::representation>())
         return failure(error::invalid_argument, "/$content", "对象内容需要对象或静态表示能力");
     }
     auto compatible = cast_base(registry, actual, target.id(), nullptr);
@@ -852,7 +852,8 @@ serialization::diagnostic decode_members(const read_context& ctx, const registry
   auto view = instance::from_object(registry, id, object);
   if (!view)
     return failure(view.error());
-  auto properties = view->as_const().properties();
+  auto properties =
+      view->as_const().type().template capability<gneiss::meta::cap::object>().properties();
   if (!view->type().registered())
     return failure(error::not_found);
   if (!context_access::input(ctx)->is_object(root))

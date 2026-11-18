@@ -2,12 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ui/panels/runtime_panels.hpp"
-#include <gneiss/engine/error.hpp>
+#include "ui/panels/reflected_property_editor.hpp"
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
-#include "ui/panels/reflected_property_editor.hpp"
 
 #include "ui/viewport/editor_rotation_math.hpp"
 
@@ -216,7 +217,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     auto view = component->view();
     if (!view)
       continue;
-    auto properties = view->properties();
+    auto properties = view->type().template capability<gneiss::meta::cap::object>().properties();
     auto type = gneiss::meta::find_type(component->guid());
     if (!type)
       continue;

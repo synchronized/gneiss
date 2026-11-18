@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/throws.hpp"
+#include "core/serialization/detail/json_adapter.hpp"
+#include <cstdio>
+#include <cstdlib>
+#include <future>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include "core/serialization/detail/json_adapter.hpp"
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/resource/asset_decoder.hpp>
-#include <cstdio>
-#include <cstdlib>
-#include <future>
 #include <limits>
 #include <memory>
 #include <new>
@@ -119,7 +120,7 @@ bool enum_getter_failure_contract() {
   auto root = m::const_instance::from_object(*registry, e::runtime_type_of<enum_sample>(), &object);
   if (!root)
     return false;
-  auto member = root->member(m::property_id{1});
+  auto member = root->template capability<gneiss::meta::cap::object>()->member(m::property_id{1});
   if (!member || member->read_value().error() != e::error::not_ready)
     return false;
   auto encoded = e::serialization::json::encode_instance(*root);
@@ -476,7 +477,7 @@ int main() try {
   auto view = m::view(registry, original);
   if (!view)
     return 32;
-  auto uv = view->member(m::property_id{11});
+  auto uv = view->template capability<gneiss::meta::cap::object>()->member(m::property_id{11});
   if (!uv || uv->read_value()->kind() != e::value_kind::vec2 ||
       uv->assign(e::value{e::math::vector2{2, 3}}).failed() || original.uv.x != 2 ||
       uv->assign(e::value{e::math::vector3{2, 3, 4}}).ok())

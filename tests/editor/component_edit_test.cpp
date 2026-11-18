@@ -9,7 +9,8 @@
 #include "ui/panels/reflected_property_editor.hpp"
 #include <algorithm>
 #include <cstdio>
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
@@ -234,7 +235,7 @@ int main() try {
     description.settings = shared;
     auto original = e::make_component_description(description);
     auto change = [](e::meta::instance root) -> e::error {
-      auto property = root.member(p{1});
+      auto property = root.template capability<gneiss::meta::cap::object>()->member(p{1});
       if (!property)
         return property.error();
       auto reference = property->as_reference();
@@ -243,7 +244,7 @@ int main() try {
       auto target = reference->get();
       if (!target)
         return target.error();
-      auto amount = target->member(p{1});
+      auto amount = target->template capability<gneiss::meta::cap::object>()->member(p{1});
       return amount ? amount->assign(e::value{8.0F}) : amount.error();
     };
     auto changed = e::modify_component(original, change);
@@ -328,9 +329,9 @@ int main() try {
   check(components && components->size() == 1);
   auto view = (*components->begin())->view();
   check(view.has_value());
-  auto fields = view->type().properties();
+  auto fields = view->type().template capability<gneiss::meta::cap::object>().properties();
   check(!fields.empty() && fields.size() == 6 && fields[1].type().is_enum());
-  check(fields[1].type().capability<gneiss::meta::enum_capability>().entries().size() == 2);
+  check(fields[1].type().capability<gneiss::meta::cap::enumeration>().entries().size() == 2);
   check(apply({.path = {p{1}}, .data = e::value{3.0F}}, 1).ok());
   check(apply({.path = {p{1}}, .data = e::value{4.0F}}, 1).ok());
   check(history.size() == 1 && read().speed == 4 && document.is_dirty());

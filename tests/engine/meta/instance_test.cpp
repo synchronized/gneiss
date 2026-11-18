@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <future>
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
@@ -67,7 +68,7 @@ bool object_values() {
   auto view = m::view(*registry, holder);
   if (!view)
     return false;
-  auto field = view->member("item");
+  auto field = view->template capability<m::cap::object>()->member("item");
   if (!field || field->kind() != m::type_kind::reference)
     return false;
   // 显式保活独立于槽位；错误类型赋值不得改变原引用。
@@ -183,8 +184,8 @@ bool enum_registration() {
   enum class unknown_mode { value };
   unknown_mode unknown{};
   auto unknown_view = m::view(registry, std::as_const(unknown));
-  if (!unknown_view || !unknown_view->type().capability<m::enum_capability>() ||
-      !unknown_view->type().capability<m::enum_capability>().entries().empty())
+  if (!unknown_view || !unknown_view->type().capability<m::cap::enumeration>() ||
+      !unknown_view->type().capability<m::cap::enumeration>().entries().empty())
     return false;
   if (m::registration::type<enum_object>(registry)
           .property<&enum_object::left>(m::property_id{1}, "left")
@@ -255,39 +256,47 @@ bool enum_registration() {
   auto type = m::type_of<enum_object>(registry);
   if (!type)
     return false;
-  auto left_entries = type.properties()[0].type().capability<m::enum_capability>().entries();
-  auto right_entries = type.properties()[1].type().capability<m::enum_capability>().entries();
-  if (type.properties()[0].type().id() != e::runtime_type_of<mode>() ||
+  auto left_entries = type.template capability<m::cap::object>()
+                          .properties()[0]
+                          .type()
+                          .capability<m::cap::enumeration>()
+                          .entries();
+  auto right_entries = type.template capability<m::cap::object>()
+                           .properties()[1]
+                           .type()
+                           .capability<m::cap::enumeration>()
+                           .entries();
+  if (type.template capability<m::cap::object>().properties()[0].type().id() !=
+          e::runtime_type_of<mode>() ||
       left_entries.size() != 2 || left_entries.data() != right_entries.data() ||
-      left_entries[0].name != "First" ||
-      std::get<std::int64_t>(left_entries[0].data.payload) != -1)
+      left_entries[0].name != "First" || std::get<std::int64_t>(left_entries[0].data.payload) != -1)
     return false;
-  if (!unknown_view->type().capability<m::enum_capability>().entries().empty())
+  if (!unknown_view->type().capability<m::cap::enumeration>().entries().empty())
     return false;
   std::vector<mode> modes{mode::first};
   auto sequence = m::view(registry, std::as_const(modes));
   if (!sequence || sequence->type().is_enum())
     return false;
-  auto element_type = sequence->type().capability<m::sequence_capability>().element_type();
+  auto element_type = sequence->type().capability<m::cap::sequence>().element_type();
   if (!element_type || !element_type.is_enum() || element_type.id() != e::runtime_type_of<mode>())
     return false;
-  auto entries = element_type.capability<m::enum_capability>().entries();
+  auto entries = element_type.capability<m::cap::enumeration>().entries();
   auto elements = sequence->as_sequence();
   if (entries.size() != 2 || !elements)
     return false;
   auto element = elements->at(0);
   if (!element || !element->type().is_enum() ||
-      element->type().capability<m::enum_capability>().entries().empty())
+      element->type().capability<m::cap::enumeration>().entries().empty())
     return false;
-  if (!m::type{}.capability<m::enum_capability>().entries().empty())
+  if (!m::type{}.capability<m::cap::enumeration>().entries().empty())
     return false;
   enum_object object;
   auto view = m::view(registry, object);
   if (!view)
     return false;
-  auto field = view->member("left");
+  auto field = view->template capability<m::cap::object>()->member("left");
   if (!field || !field->type().is_enum() ||
-      field->type().capability<m::enum_capability>().entries().empty() ||
+      field->type().capability<m::cap::enumeration>().entries().empty() ||
       field->assign(e::value{std::int64_t{2}}).failed() || object.left != mode::second ||
       field->assign(e::value{std::int64_t{128}}) != e::error::invalid_argument ||
       object.left != mode::second)
@@ -372,25 +381,28 @@ bool type_queries() {
   auto by_guid = m::find_type(*registry, query_model::type_guid);
   if (!typed || !by_id || !by_guid || typed != by_id || typed != by_guid)
     return false;
-  auto named = typed.find_property("count");
-  auto numbered = typed.find_property(m::property_id{2});
+  auto named = typed.template capability<m::cap::object>().find_property("count");
+  auto numbered = typed.template capability<m::cap::object>().find_property(m::property_id{2});
   if (typed.name() != query_model::type_name || !named || !numbered ||
       named.id() != numbered.id() || named.type().id() != e::runtime_type_of<std::int8_t>() ||
-      typed.find_property("missing") || typed.find_property(m::property_id{}) ||
-      m::type{}.find_property("count") || default_float.find_property("count") ||
-      !m::type{}.name().empty() || !m::type{}.properties().empty() ||
-      !default_float.properties().empty())
+      typed.template capability<m::cap::object>().find_property("missing") ||
+      typed.template capability<m::cap::object>().find_property(m::property_id{}) ||
+      m::type{}.template capability<m::cap::object>().find_property("count") ||
+      default_float.template capability<m::cap::object>().find_property("count") ||
+      !m::type{}.name().empty() ||
+      !m::type{}.template capability<m::cap::object>().properties().empty() ||
+      !default_float.template capability<m::cap::object>().properties().empty())
     return false;
-  auto props = typed.properties();
+  auto props = typed.template capability<m::cap::object>().properties();
   if (props.empty() || props.size() != 2 || props[0].type().kind() != m::type_kind::sequence ||
       props[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
   auto sequence = m::find_type(*registry, e::runtime_type_of<std::vector<mode>>());
-  auto element = sequence.capability<m::sequence_capability>().element_type();
+  auto element = sequence.capability<m::cap::sequence>().element_type();
   auto enumeration = m::find_type(*registry, e::runtime_type_of<mode>());
   if (!element || !element.is_enum() || !enumeration ||
-      element.capability<m::enum_capability>().entries().data() !=
-          enumeration.capability<m::enum_capability>().entries().data())
+      element.capability<m::cap::enumeration>().entries().data() !=
+          enumeration.capability<m::cap::enumeration>().entries().data())
     return false;
   auto scalar = m::type_of<float>(*registry);
   if (!scalar || !m::find_type(*registry, scalar.guid()) || !m::type_of<settings>(*registry) ||
@@ -402,17 +414,31 @@ bool type_queries() {
   auto isolated = m::create_registry();
   if (!isolated || m::type_of<float>(*isolated) == scalar ||
       m::type_of<float>(*isolated).id() != scalar.id() || scalar == typed ||
-      m::type{} != m::type{} || scalar == m::type{} ||
-      m::type{}.capability<m::sequence_capability>() ||
-      scalar.capability<m::sequence_capability>() || element != enumeration)
+      m::type{} != m::type{} || scalar == m::type{} || m::type{}.capability<m::cap::sequence>() ||
+      scalar.capability<m::cap::sequence>() || element != enumeration)
     return false;
   const auto unregistered = m::type_of<settings>(*registry);
   if (!unregistered || unregistered.registered() || unregistered != m::type_of<settings>(*registry))
     return false;
+  auto object_capability = unregistered.capability<m::cap::object>();
+  settings source{};
+  auto source_view = m::view(*registry, source);
+  auto other_view = m::view(*isolated, source);
+  if (!object_capability || !object_capability.properties().empty() ||
+      m::type{}.capability<m::cap::object>() || scalar.capability<m::cap::object>() ||
+      !source_view || !other_view || !object_capability.bind(*source_view) ||
+      object_capability.bind(*other_view).error() != e::error::invalid_argument ||
+      m::cap::object{}.bind(*source_view).error() != e::error::unsupported ||
+      object_capability.bind(m::const_instance{}).error() != e::error::invalid_state)
+    return false;
+  static_assert(std::same_as<decltype(source_view->as_const().capability<m::cap::object>()),
+                             e::result<m::object_view>>);
+  static_assert(std::same_as<decltype(source_view->capability<m::cap::object>()),
+                             e::result<m::mutable_object_view>>);
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = *registry;
   registry = e::error::not_found;
-  return !weak.expired() && typed.properties().size() == 2 &&
+  return !weak.expired() && typed.template capability<m::cap::object>().properties().size() == 2 &&
          typed.name() == query_model::type_name && named.name() == "count";
 }
 // 原生描述由注册记录借用；查询过程不写入冻结注册表。
@@ -445,32 +471,30 @@ bool registered_native_queries() {
           native.kind() == lookup.kind() && native.scalar_kind() == lookup.scalar_kind()))
       return false;
     using C = std::conditional_t<
-        std::is_same_v<T, sequence>, m::sequence_capability,
-        std::conditional_t<std::is_same_v<T, mapping>, m::associative_capability,
-                           std::conditional_t<std::is_same_v<T, optional>, m::optional_capability,
-                                              m::reference_capability>>>;
+        std::is_same_v<T, sequence>, m::cap::sequence,
+        std::conditional_t<
+            std::is_same_v<T, mapping>, m::cap::associative,
+            std::conditional_t<std::is_same_v<T, optional>, m::cap::optional, m::cap::reference>>>;
     if constexpr (!std::is_same_v<T, variant>)
       return native.template capability<C>().element_type() ==
              lookup.template capability<C>().element_type();
     else
-      return bool(native.template capability<m::variant_capability>());
+      return bool(native.template capability<m::cap::variant>());
   };
   if (!check.template operator()<sequence>() || !check.template operator()<mapping>() ||
       !check.template operator()<optional>() || !check.template operator()<reference>() ||
       !check.template operator()<variant>() || before.registered() ||
       !m::find_type(registry, e::runtime_type_of<sequence>())
-           .capability<gneiss::meta::sequence_capability>()
+           .capability<m::cap::sequence>()
            .is_fixed_size())
     return false;
-  const auto sequence_type =
-      m::type_of<sequence>(registry).capability<gneiss::meta::sequence_capability>();
-  if (!sequence_type ||
-      sequence_type.element_type() != m::type_of<float>(registry) ||
-      m::type_of<int>(registry).capability<gneiss::meta::sequence_capability>())
+  const auto sequence_type = m::type_of<sequence>(registry).capability<m::cap::sequence>();
+  if (!sequence_type || sequence_type.element_type() != m::type_of<float>(registry) ||
+      m::type_of<int>(registry).capability<m::cap::sequence>())
     return false;
   const auto runtime = m::find_type(registry, runtime_guid);
-  if (!runtime || !runtime.registered() || runtime.id() ||
-      runtime.capability<m::sequence_capability>() || runtime.kind() != m::type_kind::object)
+  if (!runtime || !runtime.registered() || runtime.id() || runtime.capability<m::cap::sequence>() ||
+      runtime.kind() != m::type_kind::object)
     return false;
   const auto count = m::type_count(registry);
   if (!count)
@@ -480,8 +504,8 @@ bool registered_native_queries() {
     if (!entry)
       return false;
     if (entry->id() == e::runtime_type_of<sequence>() &&
-        (!entry->capability<gneiss::meta::sequence_capability>().is_fixed_size() ||
-         entry->capability<m::sequence_capability>().element_type() != m::type_of<float>(registry)))
+        (!entry->capability<m::cap::sequence>().is_fixed_size() ||
+         entry->capability<m::cap::sequence>().element_type() != m::type_of<float>(registry)))
       return false;
   }
   return true;
@@ -524,12 +548,12 @@ bool reference_properties() {
   auto root = m::view(registry, owner);
   if (!root)
     return false;
-  auto field = root->member("target");
+  auto field = root->template capability<m::cap::object>()->member("target");
   if (!field || field->kind() != m::type_kind::reference ||
       field->as_reference()->get().error() != e::error::not_found ||
       field->read_value().error() != e::error::unsupported)
     return false;
-  auto target_type = field->type().capability<m::reference_capability>().element_type();
+  auto target_type = field->type().capability<m::cap::reference>().element_type();
   if (!target_type || target_type.id() != e::runtime_type_of<reference_target>())
     return false;
   auto target = e::make_ref<reference_target>();
@@ -539,11 +563,11 @@ bool reference_properties() {
   auto pointed = field->as_reference()->get();
   if (!pointed)
     return false;
-  auto number = pointed->member("number");
+  auto number = pointed->template capability<m::cap::object>()->member("number");
   if (!number || number->assign(e::value{std::int64_t{42}}).failed() || target->number != 42)
     return false;
   owner.readonly = target;
-  auto readonly = root->member("readonly");
+  auto readonly = root->template capability<m::cap::object>()->member("readonly");
   if (!readonly || readonly->as_reference()->get().error() != e::error::unsupported ||
       !readonly->as_const().as_reference()->get() ||
       field->assign(readonly->as_const()) != e::error::invalid_argument)
@@ -695,7 +719,7 @@ bool polymorphic_references() {
     return false;
   auto target = view->as_reference()->get();
   if (!target || target->type().id() != e::runtime_type_of<polymorphic_child>() ||
-      !target->member("number"))
+      !target->template capability<m::cap::object>()->member("number"))
     return false;
   std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   auto position = text.find(polymorphic_child::type_guid.string());
@@ -800,11 +824,13 @@ bool bound_property_contract() {
   auto root = m::view(*registry, object);
   if (!root)
     return false;
-  auto values = root->member("values"), child = root->member("child");
+  auto values = root->template capability<m::cap::object>()->member("values"),
+       child = root->template capability<m::cap::object>()->member("child");
   if (!values || !child || values->as_sequence().error() != e::error::unsupported ||
       child->object_data().error() != e::error::unsupported ||
-      child->member("number").error() != e::error::unsupported ||
-      !values->as_const().as_sequence() || !child->as_const().member("number"))
+      child->capability<m::cap::object>().error() != e::error::unsupported ||
+      !values->as_const().as_sequence() ||
+      !child->as_const().template capability<m::cap::object>()->member("number"))
     return false;
   auto decode = [&](const m::instance& target, std::string_view json) {
     return gneiss::serialization::json::read_into(
@@ -882,7 +908,7 @@ bool property_handles() {
   auto type = m::type_of<shared_probe>(*first);
   if (!view || !foreign || !unrelated || !type)
     return false;
-  auto fields = type.properties();
+  auto fields = type.template capability<m::cap::object>().properties();
   if (fields.empty() || fields.size() != 1)
     return false;
   auto field = fields[0];
@@ -901,7 +927,8 @@ bool property_handles() {
     auto inherited = field.get(*derived);
     if (!inherited || inherited->assign(e::value{std::int64_t{42}}).failed() || child.number != 42)
       return false;
-    auto inherited_fields = derived->as_const().properties();
+    auto inherited_fields =
+        derived->as_const().type().template capability<m::cap::object>().properties();
     if (inherited_fields.empty() || inherited_fields[0].declaring_type() != shared_probe::type_guid)
       return false;
   }
@@ -934,7 +961,7 @@ bool capability_binding() {
   auto other_type = m::view(*first, scalar);
   if (!source || !other_context || !other_type)
     return false;
-  const auto capability = source->type().capability<m::sequence_capability>();
+  const auto capability = source->type().capability<m::cap::sequence>();
   if (!capability || capability.is_fixed_size())
     return false;
   auto mutable_view = capability.bind(*source);
@@ -943,10 +970,10 @@ bool capability_binding() {
   if (!mutable_view || !readonly_view || mutable_view->resize(3).failed() ||
       readonly_view->size() != 3)
     return false;
-  auto direct = source->capability<m::sequence_capability>();
+  auto direct = source->capability<m::cap::sequence>();
   auto mismatch = capability.bind(*other_type);
   auto foreign = capability.bind(*other_context);
-  auto missing = other_type->type().capability<m::sequence_capability>();
+  auto missing = other_type->type().capability<m::cap::sequence>();
   auto unsupported = missing.bind(*source);
   return direct && direct->size() == 3 && !mismatch &&
          mismatch.error() == e::error::invalid_argument && !foreign &&
@@ -994,7 +1021,7 @@ int main() try {
   if (!root || root->kind() != m::type_kind::object || root->guid() != object::type_guid ||
       root->type_id() != e::runtime_type_of<object>())
     return 4;
-  auto entries = root->properties();
+  auto entries = root->type().template capability<m::cap::object>().properties();
   if (entries.empty() || entries.size() != 4)
     return 5;
   {
@@ -1003,26 +1030,27 @@ int main() try {
         entries[2].get(*writable_root).error() != e::error::unsupported)
       return 44;
   }
-  auto config = root->member("config");
+  auto config = root->template capability<m::cap::object>()->member("config");
   if (!config || config->guid() != settings::type_guid || config->kind() != m::type_kind::object)
     return 6;
-  auto speed = config->member(m::property_id{1});
+  auto speed = config->template capability<m::cap::object>()->member(m::property_id{1});
   if (!speed || speed->kind() != m::type_kind::scalar ||
       speed->scalar_kind() != e::value_kind::float32 ||
       std::get<float>(speed->read_value()->payload) != 1)
     return 7;
-  if (speed->member("x").error() != e::error::unsupported ||
-      root->member("missing").error() != e::error::not_found ||
+  if (speed->capability<m::cap::object>().error() != e::error::unsupported ||
+      root->template capability<m::cap::object>()->member("missing").error() !=
+          e::error::not_found ||
       root->read_value().error() != e::error::unsupported ||
       speed->object_data().error() != e::error::unsupported)
     return 8;
   auto writable = m::view(registry, source);
   if (!writable)
     return 9;
-  auto editable_config = writable->member("config");
+  auto editable_config = writable->template capability<m::cap::object>()->member("config");
   if (!editable_config)
     return 10;
-  auto editable_speed = editable_config->member("speed");
+  auto editable_speed = editable_config->template capability<m::cap::object>()->member("speed");
   if (!editable_speed || editable_speed->assign(e::value{3.0F}).failed() ||
       source.config.speed != 3)
     return 11;
@@ -1030,14 +1058,16 @@ int main() try {
       source.config.speed != 3 ||
       editable_speed->assign(e::value{true}) != e::error::invalid_argument)
     return 12;
-  if (writable->member("computed").error() != e::error::unsupported)
+  if (writable->template capability<m::cap::object>()->member("computed").error() !=
+      e::error::unsupported)
     return 13;
-  if (writable->member("readonly_config").error() != e::error::unsupported)
+  if (writable->template capability<m::cap::object>()->member("readonly_config").error() !=
+      e::error::unsupported)
     return 28;
-  auto computed = writable->as_const().member("computed");
+  auto computed = writable->as_const().template capability<m::cap::object>()->member("computed");
   if (!computed || std::get<float>(computed->read_value()->payload) != 6)
     return 14;
-  auto label = root->member("label");
+  auto label = root->template capability<m::cap::object>()->member("label");
   if (!label)
     return 15;
   auto snapshot = label->read_value();
@@ -1047,7 +1077,7 @@ int main() try {
   if (std::get<std::string>(snapshot->payload) != "old!" ||
       std::get<std::string>(label->read_value()->payload) != "new!")
     return 17;
-  auto edit_label = writable->member("label");
+  auto edit_label = writable->template capability<m::cap::object>()->member("label");
   if (!edit_label || edit_label->assign(e::value{std::string("written")}).failed() ||
       source.label != "written")
     return 18;

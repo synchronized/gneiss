@@ -4,7 +4,8 @@
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/components/component_registration.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/core/meta/capabilities/sequence_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/types/rid.hpp>
@@ -210,7 +211,7 @@ gneiss::error edit_component_description(scene_edit_session& document,
       return gneiss::error{gneiss::error::not_found};
     for (const auto& step : edit.path) {
       if (const auto* id = std::get_if<meta::property_id>(&step)) {
-        auto fields = type.properties();
+        auto fields = type.template capability<gneiss::meta::cap::object>().properties();
         if (!type.registered())
           return error::not_found;
         auto field = std::ranges::find(fields, *id, &meta::property::id);
@@ -224,11 +225,11 @@ gneiss::error edit_component_description(scene_edit_session& document,
       } else {
         meta::type element;
         if (std::holds_alternative<std::string>(step)) {
-          auto capability = type.capability<meta::associative_capability>();
+          auto capability = type.capability<meta::cap::associative>();
           if (capability)
             element = capability.element_type();
         } else {
-          auto capability = type.capability<meta::sequence_capability>();
+          auto capability = type.capability<meta::cap::sequence>();
           if (capability)
             element = capability.element_type();
         }

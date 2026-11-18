@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "ui/panels/reflected_property_editor.hpp"
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-#include "ui/panels/reflected_property_editor.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -61,8 +62,10 @@ int main() try {
     auto source_view = gneiss::meta::view(std::as_const(source));
     if (!current_view || !source_view)
       return false;
-    auto current_property = current_view->member(property);
-    auto source_property = source_view->member(property);
+    auto current_property =
+        current_view->template capability<gneiss::meta::cap::object>()->member(property);
+    auto source_property =
+        source_view->template capability<gneiss::meta::cap::object>()->member(property);
     if (!current_property || !source_property)
       return false;
     std::optional<property_edit> requested;
@@ -87,8 +90,9 @@ int main() try {
     frame();
     io.AddMouseButtonEvent(0, false);
     frame();
-    auto unchanged = current_view->member(property);
-    auto original = source_view->member(property);
+    auto unchanged =
+        current_view->template capability<gneiss::meta::cap::object>()->member(property);
+    auto original = source_view->template capability<gneiss::meta::cap::object>()->member(property);
     if (!unchanged || !original)
       return false;
     auto actual = unchanged->read_value();

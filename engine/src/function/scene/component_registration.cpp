@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/property_edit_policy.hpp>
-#include <gneiss/engine/function/scene/component_registration.hpp>
+#include "function/scene/detail/world_component_access.hpp"
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
-#include "function/scene/detail/world_component_access.hpp"
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 #include <map>
 #include <mutex>
@@ -468,7 +469,7 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   auto reflected = meta::find_type(adapter->type);
   if (!reflected)
     return gneiss::error{gneiss::error::not_found};
-  auto properties = reflected.properties();
+  auto properties = reflected.template capability<gneiss::meta::cap::object>().properties();
   if (!reflected.registered())
     return error::not_found;
   for (const auto& field : properties) {
@@ -496,7 +497,10 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
   auto root = meta::view(std::as_const(object));
   if (!root)
     return root.error();
-  auto member = root->member(field);
+  auto bound = root->capability<meta::cap::object>();
+  if (!bound)
+    return bound.error();
+  auto member = bound->member(field);
   return member ? member->read_value() : result<value>{member.error()};
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
@@ -510,7 +514,10 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
   auto root = meta::view(transform);
   if (!root)
     return root.error();
-  auto member = root->member(field);
+  auto bound = root->capability<meta::cap::object>();
+  if (!bound)
+    return bound.error();
+  auto member = bound->member(field);
   auto status = member ? member->assign(value) : member.error();
   return status.failed() ? status : target->set_local_transform(transform);
 }

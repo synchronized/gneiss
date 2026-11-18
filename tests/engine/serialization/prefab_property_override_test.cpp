@@ -4,9 +4,10 @@
 #include "../../support/movement_component.hpp"
 #include "../../support/value_result.hpp"
 #include "documents/prefab_edit.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/types/guid.hpp>
+#include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 
@@ -65,7 +66,8 @@ int main() {
     propagated = false;
     try {
       (void)modify_component(original, [](meta::instance candidate) -> error {
-        auto speed = candidate.member(meta::property_id{1});
+        auto speed = candidate.template capability<gneiss::meta::cap::object>()->member(
+            meta::property_id{1});
         if (!speed || speed->assign(value{99.0F}).failed())
           return error::invalid_argument;
         throw std::runtime_error("测试编辑回调异常");
@@ -237,7 +239,8 @@ int main() {
     using gneiss::test_support::movement_description;
     movement_description movement;
     auto view = meta::view(std::as_const(movement));
-    auto samples = view->member(meta::property_id{4});
+    auto samples =
+        view->template capability<gneiss::meta::cap::object>()->member(meta::property_id{4});
     auto before = serialization::capture_value(*samples);
     movement.samples = {8, 9, 10};
     auto after = serialization::capture_value(*samples);

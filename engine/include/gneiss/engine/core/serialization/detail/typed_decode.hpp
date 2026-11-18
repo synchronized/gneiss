@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/meta/capabilities/representation_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/context.hpp>
 #include <optional>
@@ -33,7 +33,7 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
     if (!type.registered()) {
       std::optional<T> candidate;
       diagnostic issue;
-      auto status = type.template capability<gneiss::meta::representation_capability>().decode(
+      auto status = type.template capability<gneiss::meta::cap::representation>().decode(
           [&](const meta::instance& representation) {
             auto decoded = decode_view(representation);
             if (!decoded)

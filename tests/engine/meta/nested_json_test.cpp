@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
@@ -128,9 +128,15 @@ bool nested_json_contract() {
   if (invalid_default || invalid_default.error().path != "/item/value")
     return false;
   auto metadata = m::type_of<parent>(*registry);
-  if (!metadata || metadata.properties()[0].type().id() != e::runtime_type_of<child>() ||
-      metadata.properties()[0].type().guid() != child::type_guid ||
-      metadata.properties()[0].type().scalar_kind() != e::value_kind::invalid)
+  if (!metadata ||
+      metadata.template capability<gneiss::meta::cap::object>().properties()[0].type().id() !=
+          e::runtime_type_of<child>() ||
+      metadata.template capability<gneiss::meta::cap::object>().properties()[0].type().guid() !=
+          child::type_guid ||
+      metadata.template capability<gneiss::meta::cap::object>()
+              .properties()[0]
+              .type()
+              .scalar_kind() != e::value_kind::invalid)
     return false;
   {
     parent original;

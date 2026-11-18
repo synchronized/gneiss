@@ -9,7 +9,7 @@ namespace gneiss::meta {
 template <bool Mutable> class basic_reference_view {
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
   template <bool> friend class basic_instance;
-  template <type_kind, template <bool> class> friend class container_capability;
+  template <type_kind, template <bool> class> friend class cap::container;
   template <bool> friend class basic_reference_view;
   explicit basic_reference_view(target_type target) : target_(std::move(target)) {}
   const_instance readonly() const noexcept {

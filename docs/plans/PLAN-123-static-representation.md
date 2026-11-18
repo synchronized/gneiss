@@ -92,3 +92,21 @@ meta-instance、serialization-archive 构建、链接和测试通过。验证覆
 - [x] 完成受影响引擎、序列化和编辑器目标构建及定向回归。
 
 本轮 Clang Debug 的上述 11 项定向测试通过；仅调整头文件依赖，未重跑 MSVC、全量及远端矩阵。
+
+## 对象能力与命名收敛（已完成）
+
+调用方通过 type.capability<meta::cap::object>() 查询字段，通过
+instance.capability<meta::cap::object>() 绑定只读或可写对象视图后访问 member。
+保留 instance/const_instance 名称与借用语义，不改变数据所有权。
+
+- [x] 能力统一迁入 meta::cap，枚举使用 enumeration（enum 是关键字），删除旧命名。
+- [x] properties/find_property 归 cap::object，member 归 basic_object_view；迁移真实消费者。
+- [x] 验证字段访问、继承、只读/受约束属性、缺失能力及序列化和编辑器链路。
+
+未注册原生 object 类型具备对象能力但字段为空；已注册空对象同样有效。
+无效或非对象类型返回空能力；绑定时检查类型上下文、地址及写入限制，错误沿用既有规则。
+对象视图借用宿主，不要求继承 meta::object。字段访问失败仍返回 result。
+不扩展对象构造、继承关系查询或额外注册表；object_data/assign_object 本轮保持既有存储访问职责。
+
+本轮 Clang Debug 的 22 项定向测试、MSVC Release 的 meta-instance 与 serialization-archive
+测试通过；7 个类型/能力/对象视图头文件通过独立包含检查。未运行全量、静态库及远端矩阵。

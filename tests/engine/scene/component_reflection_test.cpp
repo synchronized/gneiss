@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
+#include <cmath>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/core/types/rid.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
-#include <cmath>
 #include <thread>
 
 int main() {
@@ -38,12 +39,12 @@ int main() {
   const auto transform_type = gneiss::math::transform::type_guid;
   const auto camera_type = gneiss::camera_description::type_guid;
   gneiss::meta::type info;
-  if (!(info = gneiss::meta::find_type(transform_type)) || info.properties().size() != 3 ||
-      !(info = gneiss::meta::find_type(camera_type)) || info.properties().size() != 3 ||
-      !(info = gneiss::meta::type_of<gneiss::math::transform>()) ||
-      info.guid() != transform_type ||
-      !(info = gneiss::meta::type_of<gneiss::camera_description>()) ||
-      info.guid() != camera_type)
+  if (!(info = gneiss::meta::find_type(transform_type)) ||
+      info.template capability<gneiss::meta::cap::object>().properties().size() != 3 ||
+      !(info = gneiss::meta::find_type(camera_type)) ||
+      info.template capability<gneiss::meta::cap::object>().properties().size() != 3 ||
+      !(info = gneiss::meta::type_of<gneiss::math::transform>()) || info.guid() != transform_type ||
+      !(info = gneiss::meta::type_of<gneiss::camera_description>()) || info.guid() != camera_type)
     return 2;
   gneiss::value value;
   if (gneiss::test_support::assign_value(
@@ -92,10 +93,12 @@ int main() {
       return captured.error();
     auto changed = gneiss::modify_component(
         *captured->find(camera_type), [&](gneiss::meta::instance root) -> error {
-          auto settings = root.member(gneiss::meta::property_id{1});
+          auto settings = root.template capability<gneiss::meta::cap::object>()->member(
+              gneiss::meta::property_id{1});
           if (!settings)
             return settings.error();
-          auto field = settings->member(gneiss::meta::property_id{2});
+          auto field = settings->template capability<gneiss::meta::cap::object>()->member(
+              gneiss::meta::property_id{2});
           return field ? field->assign(gneiss::value{near}) : field.error();
         });
     if (!changed)

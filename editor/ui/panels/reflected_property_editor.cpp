@@ -3,7 +3,8 @@
 #include "ui/panels/reflected_property_editor.hpp"
 #include "ui/viewport/editor_rotation_math.hpp"
 #include <cstring>
-#include <gneiss/engine/core/meta/capabilities/enum_capability.hpp>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <imgui.h>
@@ -161,7 +162,7 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
     if (!expanded)
       return;
     if (value_type.kind() == meta::type_kind::object) {
-      auto properties = view.properties();
+      auto properties = view.type().template capability<gneiss::meta::cap::object>().properties();
       if (!value_type.registered())
         status = error::not_found;
       else
@@ -180,9 +181,12 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
           ImGui::BeginDisabled(!writable);
           std::optional<meta::const_instance> original;
           if (source && writable) {
-            auto member = source->member(property.id());
-            if (member)
-              original = *member;
+            auto object = source->capability<meta::cap::object>();
+            if (object) {
+              auto member = object->member(property.id());
+              if (member)
+                original = *member;
+            }
           }
           draw_value(*child, std::string(property.name()), path, pending, serial, status, readonly,
                      original ? &*original : nullptr, depth + 1);
@@ -271,7 +275,7 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
       status = error::not_found;
       return false;
     }
-    choices = type.capability<gneiss::meta::enum_capability>().entries();
+    choices = type.capability<gneiss::meta::cap::enumeration>().entries();
   }
   bool changed = false;
   error operation = error::success;

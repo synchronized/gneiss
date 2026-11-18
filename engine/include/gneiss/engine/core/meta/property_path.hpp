@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 
 #include <variant>
@@ -52,9 +53,12 @@ template <class View>
 result<View> resolve_path(View root, std::span<const property_step> path, bool persistent = false) {
   for (const auto& step : path) {
     result<View> next = error::unsupported;
-    if (const auto* property = std::get_if<property_id>(&step))
-      next = root.member(*property);
-    else if (const auto* key = std::get_if<std::string>(&step)) {
+    if (const auto* property = std::get_if<property_id>(&step)) {
+      auto object = root.template capability<cap::object>();
+      if (!object)
+        return object.error();
+      next = object->member(*property);
+    } else if (const auto* key = std::get_if<std::string>(&step)) {
       auto map = root.as_associative();
       if (!map)
         return map.error();

@@ -74,7 +74,7 @@ invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回
 
 普通消费者通过 `find_type` / `type_of<T>` 获取保活注册表的 `meta::type`。
 `name()` 借用注册对象名称；空句柄或没有注册名称的类型返回空字符串。
-`type::find_property(property_id)` / `type::find_property(name)` 直接返回可判空的属性句柄，
+`cap::object::find_property(property_id)` / `cap::object::find_property(name)` 直接返回可判空的属性句柄，
 缺少记录或属性时返回空句柄，不复制整份属性列表。
 空类型、非对象类型和不存在的属性均返回空属性句柄；需要数据的实际读写操作继续返回错误。
 属性句柄可继续查询类型、访问能力或通过 `get(instance)` 访问对象。
@@ -108,7 +108,7 @@ static constexpr guid type_guid =
 两种 builder 共享 `.name()`、`.guid()`、`.schema_version()`、`.metadata()`、`.extend()` 和 `.commit()`；
 类型 builder 提供属性和基类注册，枚举 builder 提供 `.value(name, E)`。
 枚举名称和 GUID 可从 traits 提取或显式补充；无名称、无 GUID 的枚举仍可登记显示项。
-登记后的枚举类型支持 `type::name/guid/schema_version/extension` 及 `enum_capability::entries` 查询，
+登记后的枚举类型支持 `type::name/guid/schema_version/extension` 及 `cap::enumeration::entries` 查询，
 非空 GUID 可用于 `find_type`，并与普通类型共用唯一性约束。
 枚举仍按整数读写，不新增逐枚举项 metadata，也不会自动以显示项约束值域。
 
@@ -283,7 +283,7 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 
 `type_of<T>`、`find_type` 直接返回 `type`；运行期查询未命中或注册表未发布时返回空句柄。
 `type_at` 暂时返回 `result<type>`；
-注册表级与类型句柄上的 `find_property` 均返回可判空的 `property`；
+注册表级与对象能力上的 `find_property` 均返回可判空的 `property`；
 无冻结记录、未知类型或未知属性返回空句柄。属性读取和写入另行报告操作失败。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
@@ -363,14 +363,14 @@ World 运行期属性与 IPC 仍保留既有名称，这些协议不等于资产
 
 ## 属性句柄与范围
 
-`type::properties()` 与只读实例的 `properties()` 直接返回 `property_range`。
+`cap::object::properties()` 与对象视图的 `properties()` 直接返回 `property_range`。
 未注册、无效或非对象类型返回空范围；空范围不等于已注册空对象，通过 `registered()` 区分。
 序列化、快照和编辑等操作在需要注册数据时显式检查，仍返回操作错误。
 范围和迭代器保活冻结注册表，直接访问冻结属性数组，不为每次遍历复制属性列表。
 范围只读；下标访问要求 index 小于 size，end 不能解引用。
 
 ```cpp
-auto fields = root->properties();
+auto fields = root->type().capability<meta::cap::object>().properties();
 for (auto property : fields) {
   auto member = property.get(*root);
   if (!member) return member.error();
@@ -397,14 +397,19 @@ for (auto property : fields) {
 ```cpp
 auto root = meta::view(registry, std::as_const(camera));
 if (!root) return root.error();
-auto settings = root->member("settings");
+auto object = root->capability<meta::cap::object>();
+if (!object) return object.error();
+auto settings = object->member("settings");
 if (!settings) return settings.error();
-auto near = settings->member("near");
+auto settings_object = settings->capability<meta::cap::object>();
+if (!settings_object) return settings_object.error();
+auto near = settings_object->member("near");
 if (!near) return near.error();
 auto snapshot = near->read_value(); // result<value>，拥有读取结果
 ```
 
-`member(name)` 和 `member(property_id)` 返回同一种视图。对象支持 `properties()` 枚举，
+对象视图的 `member(name)` 和 `member(property_id)` 返回同一种实例借用。对象能力支持 `properties()` 枚举。
+
 `read_value()` 要求有效且仍存活的借用实例，默认空实例读取触发断言。
 已绑定对象访问器必须返回成员存储地址；空强引用仍是合法值，不等于空成员地址。
 读取继续返回 `result<value>`，保留 getter 失败、内容校验和不支持该能力的诊断。
@@ -478,7 +483,7 @@ vec2、vec4 和 quaternion 保持独立分支，矩阵按列优先数组保存�
 `is_enum()` 区分 C++ 枚举与整数，`id()` 保留枚举自己的运行期类型身份。
 枚举 GUID 来自自身注册数据；未登记 GUID 时为空，不冒用整数 GUID。
 
-`type.capability<enum_capability>().entries()` 直接返回只读 span，借用冻结注册表中的枚举项；没有注册记录、非枚举或
+`type.capability<cap::enumeration>().entries()` 直接返回只读 span，借用冻结注册表中的枚举项；没有注册记录、非枚举或
 无效类型返回空范围。通过 `is_enum()`、`registered()` 和类型句柄的 bool 判断区分这些状态。
 借用结果不得超过能力句柄或注册表的生命周期。`properties()` 返回保活注册表的属性范围。
 元素类型通过对应容器 capability 查询；调用 element_type() 要求能力有效。
@@ -525,7 +530,7 @@ kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name �
 ### 引用属性访问
 
 注册 `ref<T>` 成员后，`property.type.kind()` 为 `type_kind::reference`，
-`reference_capability::element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
+`cap::reference::element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
 
 通过 `const_instance::as_reference()` 获取 `reference_view`，再用 `get()` 获取只读借用目标。
 `instance::as_reference()` 返回可写引用视图，get 仅对 ref<T> 的可写目标有效；
@@ -614,7 +619,7 @@ setter 返回的业务错误定位到属性，嵌套解码错误保留具体子�
 ## 可选值反射
 
 `std::optional<T>` 对应独立 `type_kind::optional` 和 `optional_ops`，不改变值所有权，
-也不引入共享引用。`type.capability<optional_capability>().element_type()` 返回 T 的类型。
+也不引入共享引用。`type.capability<cap::optional>().element_type()` 返回 T 的类型。
 通过 `const_instance::as_optional()` 获取只读借用视图，提供直接返回 bool 的 `has_value()` 和保留失败诊断的 `get()`；
 可写视图增加 `ensure()` 和 `reset()`。空值的 `get()` 返回 not_found；T 无默认构造时，
 空槽位的 ensure 返回 unsupported。清空、替换或移动宿主后须重新获取内部视图。
@@ -692,7 +697,7 @@ Meta 不解释扩展内容；其用途及策略优先级由消费模块定义。
 
 ### 能力查询与适配器前置条件
 
-`member()`、`as_sequence/as_associative/as_optional/as_reference/as_variant()` 和
+实例的 `capability<cap::object>()`、`as_sequence/as_associative/as_optional/as_reference/as_variant()` 和
 `property::get()` 是检查式入口：空实例/空属性返回 invalid_state，能力缺失返回 unsupported，
 成员缺失返回 not_found；跨注册表或不匹配的属性身份仍返回 invalid_argument。
 它们用于从动态类型逐步取得借用，与要求有效借用的 read_value/assign/replace 区分。
@@ -719,7 +724,7 @@ value 分支；本能力不等于任意 C++ 类型均可存入 value。
 ## 静态类型表示
 
 representation_traits<T> 与 value_traits<T> 分别提供原生表示转换和整体 value 转换，
-都是独立于注册数据的可选能力。type::capability<representation_capability>() 返回可判空的能力；
+都是独立于注册数据的可选能力。type::capability<cap::representation>() 返回可判空的能力；
 其 encode(source, consume) 与 decode(read, consume) 同步访问表示和候选临时值，
 借用只在回调中有效。具体约束及用法见[序列化参考](serialization.md#值类型的文件表示适配)。
 
@@ -728,7 +733,7 @@ representation_traits<T> 与 value_traits<T> 分别提供原生表示转换和�
 `meta::type_ops` 位于 `ops/type_ops.hpp`，与各项 ops 同属 meta；静态生成器 `detail::ops_of<T>()`
 及内部遍历辅助仍属 detail。普通调用方使用视图，不直接操作函数指针表。
 
-`type::capability<sequence_capability>()` 返回可判空的 `sequence_capability`，提供 `is_fixed_size()`、
+`type::capability<cap::sequence>()` 返回可判空的 `cap::sequence`，提供 `is_fixed_size()`、
 `has_identity()` 和 `element_type()`；无需构造容器实例，因此也可用于 Prefab 路径校验。
 `instance::as_sequence()` 仍返回实例视图，负责实际容器的元素访问和修改。
 capability 保活类型上下文，不保活对象；类型专属查询和表示转换要求有效能力，先检查 bool。
@@ -737,7 +742,7 @@ capability 保活类型上下文，不保活对象；类型专属查询和表示
 表示能力使用示例：
 
 ```cpp
-auto capability = source.type().capability<meta::representation_capability>();
+auto capability = source.type().capability<meta::cap::representation>();
 if (!capability)
   return error::unsupported;
 return capability.encode(source, consume_representation);
@@ -748,26 +753,26 @@ return capability.encode(source, consume_representation);
 
 ### capability 绑定实例
 
-类型级 capability 不绑定对象。sequence_capability、associative_capability、optional_capability、
-reference_capability、variant_capability 通过 bind(source) 返回对应的实例 view，保留 source
-的编译期可写性。representation_capability 直接 encode/decode，不要求实例 view。
+类型级 capability 不绑定对象。cap::sequence、cap::associative、cap::optional、
+cap::reference、cap::variant 通过 bind(source) 返回对应的实例 view，保留 source
+的编译期可写性。cap::representation 直接 encode/decode，不要求实例 view。
 
 ```cpp
-auto sequence = source.type().capability<meta::sequence_capability>();
+auto sequence = source.type().capability<meta::cap::sequence>();
 if (!sequence)
   return error::unsupported;
 auto elements = sequence.bind(source); // result<对应只读或可写 sequence view>
 if (!elements)
   return elements.error();
 // 也可以一步查询并绑定：
-auto same_elements = source.capability<meta::sequence_capability>();
+auto same_elements = source.capability<meta::cap::sequence>();
 ```
 
 能力缺失时查询返回空 capability。bind 对无效源返回 invalid_state，能力缺失或不可访问的
 属性代理返回 unsupported，类型或注册表不匹配返回 invalid_argument。已有 as_sequence 等
 实例便捷入口复用该绑定规则；可读借用不会自动升级为可写访问。
 
-容器能力共享 container_capability 绑定实现，不增加注册表、能力 key 或独立状态。
+容器能力共享 cap::container 绑定实现，不增加注册表、能力 key 或独立状态。
 视图继续遵循实例借用及容器结构修改后的失效规则，持有 capability 不保活被绑定的对象。
 
 ### 元素类型与枚举项
@@ -777,7 +782,7 @@ capability 提供 element_type()，分别返回序列元素、映射值、可选
 查询前检查能力；variant 不提供该方法，它有多个分支，仍通过 variant_view::alternative(i) 查询。
 
 ```cpp
-auto enumeration = type.capability<meta::enum_capability>();
+auto enumeration = type.capability<meta::cap::enumeration>();
 if (enumeration) {
   auto choices = enumeration.entries();
   // choices 借用已注册枚举项；须保活 enumeration 或其注册表。
@@ -790,6 +795,30 @@ if (enumeration) {
 ### 能力头文件依赖
 
 `type.hpp` 只提供通用类型查询入口，不包含具体 capability。使用方按需显式包含
-`meta/capabilities/sequence_capability.hpp`、`enum_capability.hpp` 或
-`representation_capability.hpp`；关联、可选、引用和 variant 能力定义在
-`container_capability.hpp`。实例绑定还需包含 `instance.hpp`。仅声明友元不需要包含能力实现。
+`meta/capabilities/sequence.hpp`、`meta/capabilities/enumeration.hpp` 或
+`meta/capabilities/representation.hpp`；关联、可选、引用和 variant 能力定义在
+`meta/capabilities/container.hpp`。实例绑定还需包含 `instance.hpp`。仅声明友元不需要包含能力实现。
+
+### 对象字段能力
+
+对象专属字段查询通过 `type.capability<meta::cap::object>()` 获取；type 不再提供
+properties/find_property，instance 不再提供 properties/member。
+
+```cpp
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+
+auto fields = type.capability<meta::cap::object>();
+for (auto field : fields.properties()) {
+  // 字段范围保活注册表。
+}
+auto object = source.capability<meta::cap::object>();
+if (object) {
+  auto position = object->member("position");
+  // position 是 instance 或 const_instance，沿用源实例的可写性。
+}
+```
+
+未注册原生对象的能力有效，但字段为空；非对象或无效类型返回空能力，字段查询安全返回空。
+能力绑定检查实例类型及注册表上下文、存储和可写性。对象视图不拥有宿主；普通结构体无需
+继承 meta::object。只读成员和受约束 setter 的原有规则保持不变。
+所有能力统一位于 meta::cap；枚举命名为 enumeration，避免 C++ enum 关键字。
