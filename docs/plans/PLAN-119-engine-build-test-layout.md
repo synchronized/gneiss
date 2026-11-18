@@ -21,7 +21,7 @@
 1. CMake 文件分层、安装规则分离与测试统一装配已落地；纯转发接口目标已删除，继续核查白盒重复编译与接口闭包；未导出实现不得为测试强行扩大 DLL 接口。
 2. 当前共享/静态 Windows 配置 233 项标签已补齐（213 CPU、20 GPU）；白盒依赖审查删除 18 份重复编译，保留理由见[三项验收记录](../records/2026-11-18-test-classification-build-acceptance.md)。
 3. core-boundary 扫描规则及反例已迁移并通过；共享/静态 Debug 完整构建与指定前缀安装已通过，静态安装包消费者已使用现有 Granit 前缀通过，已安装 Runtime 共享/静态均通过；跨平台交付验收未结束。
-4. 两个 GPU 基线失败已复核：相机夹具修正后 pbr-negative-scale 通过；asset-pixel 仍有纹理颜色失败，详见上述记录。浏览器/跨平台项尚未运行。
+4. 两个 GPU 基线失败已关闭：asset-pixel 与 pbr-negative-scale 共享/静态均通过；异步夹具与资源保活断言修正见[像素复测](../records/2026-11-18-asset-pixel-async-fixture.md)。浏览器/跨平台项尚未运行。
 P2–P5 仍未全部验收，PLAN-118 P2/P3 暂不穿插。
 目标：明确 Engine 与其余仓内模块的目录和契约边界，消除 CMake 旧路径和重复维护，
 使目标依赖与代码所有权一致，降低测试对实现布局的耦合。

@@ -36,6 +36,20 @@ void check(bool value, std::source_location where = std::source_location::curren
     throw std::runtime_error("像素验收失败，行=" + std::to_string(where.line()));
   }
 }
+// 通道对照需要确定已使用真实纹理，而非默认贴图；等待 CPU 请求后用完成的回读跨过上传提交。
+void prepare_texture_capture(runtime::application& app) {
+  auto request = app.assets().load<texture>("asset://t.texture.json");
+  check(bool(request));
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (request->status() == error::not_ready) {
+    check(app.run(1).ok());
+    check(std::chrono::steady_clock::now() < deadline);
+    std::this_thread::yield();
+  }
+  check(bool(request->take()));
+  gneiss::render::frame_image submitted;
+  check(app.capture_frame(128U, 128U, submitted).ok());
+}
 struct fixture {
   std::filesystem::path root =
       std::filesystem::temp_directory_path() /
@@ -141,7 +155,8 @@ void run_asset_reload() {
                                  "，实际 R=" + std::to_string(value[0]) +
                                  " B=" + std::to_string(value[1]));
       }
-      // 回读只提交渲染请求；宿主更新负责消费资源发布并推进绑定。
+      // 材质完成不代表纹理依赖已完成；协作式执行器也必须继续驱动。
+      (void)scheduler.run_ready();
       check(app->run(1).ok());
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       value = pixel();
@@ -276,13 +291,13 @@ void run_pending_resources() {
   check(resources.replace_texture(texture, blue).ok());
   const auto updated = await_pixel(true);
   check(updated[2] > updated[0] + 30U && updated[2] > updated[1] + 30U);
-  // 无效完成不能覆盖旧内容；已缓存 GPU 镜像也不能掩盖 RID 销毁。
+  // 无效完成不能覆盖旧内容；交还 RID 后已有材质依赖仍保留内容。
   check(!resources.replace_texture(texture, {}));
   check(!resources.replace_mesh(mesh, {}));
   check(pixel() == updated);
   check(gneiss::error{resources.destroy_texture(texture)} == gneiss::error::success);
-  gneiss::render::frame_image invalid;
-  check(app->capture_frame(128U, 128U, invalid) == gneiss::error::invalid_handle);
+  check(resources.texture_status(texture) == gneiss::error::invalid_handle);
+  check(pixel() == updated);
   check(!resources.replace_texture(texture, red));
   check(gneiss::error{mesh_object.remove_component<gneiss::mesh_component>()} ==
         gneiss::error::success);
@@ -418,13 +433,20 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     }
     check(selected_camera);
   }
-  check(gneiss::error{app->run(3U)} == gneiss::error::success);
-  gneiss::render::frame_image image;
-  check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
-  const auto offset = (64U * 128U + 64U) * 4U;
-  // LOD0 全蓝，缩小时应采样全红的较低分辨率层；阈值不依赖具体色调映射曲线。
-  check(std::to_integer<unsigned>(image.pixels[offset]) >
-        std::to_integer<unsigned>(image.pixels[offset + 2U]) + 30U);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  for (;;) {
+    (void)scheduler.run_ready();
+    check(app->run(1).ok());
+    gneiss::render::frame_image image;
+    check(app->capture_frame(128U, 128U, image).ok());
+    const auto offset = (64U * 128U + 64U) * 4U;
+    // LOD0 全蓝，缩小时应采样全红的较低分辨率层；等待真实采样而非固定帧数。
+    if (std::to_integer<unsigned>(image.pixels[offset]) >
+        std::to_integer<unsigned>(image.pixels[offset + 2U]) + 30U)
+      break;
+    check(std::chrono::steady_clock::now() < deadline);
+    std::this_thread::yield();
+  }
 }
 
 std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::byte, 4> pixel,
@@ -502,7 +524,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     }
   }
   check(selected_camera);
-  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  prepare_texture_capture(*app);
   gneiss::render::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   const auto offset = (64U * 128U + 64U) * 4U;
@@ -633,7 +655,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
     }
   }
   check(selected_camera);
-  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  prepare_texture_capture(*app);
   gneiss::render::frame_image image;
   check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
   if (frame != nullptr)
@@ -742,7 +764,9 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
     auto color = center(image);
     while (!(is_blue ? color[2] > color[0] + 30U : color[0] > color[2] + 30U) &&
            std::chrono::steady_clock::now() < deadline) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      (void)scheduler.run_ready();
+      check(app->run(1).ok());
+      std::this_thread::yield();
       image = capture();
       color = center(image);
     }
@@ -865,6 +889,15 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
     return image.pixels;
   };
   auto active_pixels = capture();
+  const auto initial_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  constexpr auto center = (64U * 128U + 64U) * 4U;
+  while (std::to_integer<unsigned>(active_pixels[center + 2U]) <=
+         std::to_integer<unsigned>(active_pixels[center]) + 30U) {
+    check(std::chrono::steady_clock::now() < initial_deadline);
+    (void)scheduler.run_ready();
+    check(app->run(1).ok());
+    active_pixels = capture();
+  }
   // 打开场景只复用已有成功内容；外部文件更新由显式重载处理。
   const auto load = [&](std::uint64_t, bool cancel) {
     const auto old_scene = scene;
