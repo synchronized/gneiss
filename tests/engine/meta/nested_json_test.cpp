@@ -141,8 +141,12 @@ bool nested_json_contract() {
   {
     parent original;
     original.item.value = 12;
-    if (m::read_property(*registry, parent::type_guid, m::property_id{1}, &original).error() !=
-        e::error::unsupported)
+    if (gneiss::meta::instance::from_object(gneiss::meta::find_type(*registry, parent::type_guid),
+                                            &original)
+            ->capability<gneiss::meta::cap::object>()
+            ->member(m::property_id{1})
+            ->read_value()
+            .error() != e::error::unsupported)
       return false;
     auto encoded = gneiss::serialization::json::encode_bytes(
         gneiss::serialization::write_context{*registry}, original);

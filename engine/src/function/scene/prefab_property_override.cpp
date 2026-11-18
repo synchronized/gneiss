@@ -224,8 +224,11 @@ gneiss::error apply_candidate_object(const prefab_property_override& value,
   const auto is_type = [&](guid type) { return value.key.target.target_type_guid == type; };
   if (is_type(math::transform::type_guid)) {
     auto transform = object.transform;
-    result = meta::write_property(value.key.target.target_type_guid, value.key.first_property(),
-                                  &transform, native);
+    auto root = meta::view(transform);
+    if (!root)
+      return root.error();
+    auto field = meta::resolve_path(*root, value.key.path);
+    result = field ? field->assign(native) : field.error();
     if (result != gneiss::error::success) {
       return result;
     }

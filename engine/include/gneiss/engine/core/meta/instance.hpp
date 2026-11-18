@@ -41,6 +41,8 @@ public:
   [[nodiscard]] gneiss::type_id type_id() const noexcept { return type_.id(); }
   /** 类型擦除入口，调用方保证类型与地址匹配且目标仍然存活。 */
   static GNEISS_API result<basic_instance> from_object(registry_ref, gneiss::type_id, pointer);
+  /** 从已解析类型借用对象；支持无 C++ ID 的动态描述，调用方保证地址与描述匹配。 */
+  static GNEISS_API result<basic_instance> from_object(meta::type, pointer);
   static result<basic_instance> from_object(gneiss::type_id id, pointer object) {
     auto registry = default_registry();
     return registry ? from_object(*registry, id, object) : result<basic_instance>{registry.error()};
@@ -111,8 +113,7 @@ private:
   meta::type type_;
   const void* data_{};
   const void* parent_{};
-  gneiss::type_id parent_type_{};
-  property_id property_{};
+  const property_binding* binding_{};
   bool writable_ = Mutable;
 };
 
@@ -121,8 +122,7 @@ template <bool Mutable> const_instance basic_instance<Mutable>::as_const() const
   out.type_ = type_;
   out.data_ = data_;
   out.parent_ = parent_;
-  out.parent_type_ = parent_type_;
-  out.property_ = property_;
+  out.binding_ = binding_;
   return out;
 }
 

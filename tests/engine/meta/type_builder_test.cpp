@@ -309,40 +309,24 @@ int main() {
       gneiss::meta::freeze(registry).failed())
     return 5;
   sample object;
+  auto reflected = gneiss::meta::view(registry, object)->capability<gneiss::meta::cap::object>();
+  auto speed = reflected->member("speed");
+  auto raw_speed = reflected->member("raw_speed");
+  if (!speed || !raw_speed)
+    return 6;
   e::value output;
-  if (gneiss::test_support::assign_value(
-          gneiss::meta::read_property(registry, sample::type_guid,
-                                              gneiss::meta::property_id{1}, &object),
-          output)
-          .failed() ||
+  if (gneiss::test_support::assign_value(speed->read_value(), output).failed() ||
       std::get<float>(output.payload) != 1)
     return 6;
-  if (gneiss::meta::write_property(registry, sample::type_guid,
-                                           gneiss::meta::property_id{1}, &object,
-                                           e::value{2.0F})
-          .failed() ||
-      object.speed != 2)
+  if (speed->assign(e::value{2.0F}).failed() || object.speed != 2)
     return 7;
-  if (gneiss::meta::write_property(registry, sample::type_guid,
-                                           gneiss::meta::property_id{1}, &object,
-                                           e::value{-1.0F}) != e::error::invalid_argument ||
-      object.speed != 2)
+  if (speed->assign(e::value{-1.0F}) != e::error::invalid_argument || object.speed != 2)
     return 8;
-  if (gneiss::meta::write_property(registry, sample::type_guid,
-                                           gneiss::meta::property_id{2}, &object,
-                                           e::value{false}) == e::error::success ||
-      !object.active)
+  if (reflected->member("active").error() == e::error::success || !object.active)
     return 9;
-  if (gneiss::meta::write_property(registry, sample::type_guid,
-                                           gneiss::meta::property_id{3}, &object,
-                                           e::value{3.0F})
-          .failed() ||
-      object.speed != 3)
+  if (raw_speed->assign(e::value{3.0F}).failed() || object.speed != 3)
     return 10;
-  if (gneiss::meta::write_property(registry, sample::type_guid,
-                                           gneiss::meta::property_id{1}, &object,
-                                           e::value{true}) != e::error::invalid_argument ||
-      object.speed != 3)
+  if (speed->assign(e::value{true}) != e::error::invalid_argument || object.speed != 3)
     return 11;
   return 0;
 }

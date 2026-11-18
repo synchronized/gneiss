@@ -125,6 +125,8 @@ public:
 private:
   friend class property_range;
   friend class cap::object;
+  template <bool> friend class basic_object_view;
+  [[nodiscard]] GNEISS_API const property_binding* binding() const noexcept;
   property(registry_ref registry, const detail::property_record* record)
       : registry_(std::move(registry)), record_(record) {}
   registry_ref registry_;

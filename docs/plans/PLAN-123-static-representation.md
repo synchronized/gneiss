@@ -110,3 +110,21 @@ instance.capability<meta::cap::object>() 绑定只读或可写对象视图后访
 
 本轮 Clang Debug 的 22 项定向测试、MSVC Release 的 meta-instance 与 serialization-archive
 测试通过；7 个类型/能力/对象视图头文件通过独立包含检查。未运行全量、静态库及远端矩阵。
+
+## 实例读写收敛（已完成）
+
+字段实例在 member 定位时绑定冻结访问器和调整后的宿主地址，read_value/assign/replace
+直接执行值操作或 getter/setter，不再按父类型和字段 ID 重查注册表。
+绑定指针由实例中的注册表引用保活，不复制访问器；用它替换 parent_type/property 成员。
+只读、继承地址调整、候选整体替换及业务错误传播保持不变。
+
+- [x] 完成实例绑定及读写实现，删除注册表执行读写的职责。
+- [x] 迁移业务和测试，删除 read_property/write_property 及不再需要的访问器查询入口。
+- [x] 验证动态描述、继承、受约束 setter、错误传播、快照与元数据生命周期。
+
+动态描述允许通过 from_object(type, address) 创建类型擦除实例；支持没有 C++ 类型 ID
+但有注册字段的对象描述。类型与地址匹配、宿主生命周期仍由调用方保证。
+
+本轮 Clang Debug 构建及 16 项定向测试通过，覆盖属性访问契约、动态注册、实例、
+JSON/归档序列化、Prefab 覆盖、World 与编辑器资产编辑。instance/property/registry
+三个头文件通过独立包含检查。未运行本轮 MSVC、全量及远端矩阵。

@@ -158,11 +158,11 @@ find_type/find_property 返回可判空句柄，type_of 提供未注册原生类
 
 回调、read/write 及组件接口统一使用 [gneiss::value](value.md)。
 getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，不保留输入引用。
-不再存在借用值和拥有值之间的转换。`read_property` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
-`write_property` 直接传递同一份 const 值。
+不再存在借用值和拥有值之间的转换。`instance::read_value()` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
+`instance::assign(value)` 直接传递同一份 const 值。
 
 未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 成功时必须返回登记的值类别，违反此约定触发断言；数值非有限或文本非法返回
-`invalid_argument`，`read_property` 不交付属性快照。getter 显式失败保留原始错误码。getter/setter 抛出的异常（包括 bad_alloc）直接传播，
+`invalid_argument`，`instance::read_value()` 不交付属性快照。getter 显式失败保留原始错误码。getter/setter 抛出的异常（包括 bad_alloc）直接传播，
 由执行边界按致命异常策略处理，不转换为普通属性错误。
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
@@ -287,7 +287,7 @@ Scene / Prefab 的结构编解码继续使用专用实现。
 无冻结记录、未知类型或未知属性返回空句柄。属性读取和写入另行报告操作失败。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。
 句柄保活冻结 Registry；名称借用该表，不保活业务对象。
-`read_property` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
+`instance::read_value()` 返回 `result<value>`；成功快照拥有字符串等数据，可在 Registry 释放后使用。
 getter 显式失败或数值/文本内容非法时返回错误；成功却返回错误类别属于适配器契约违例，触发断言。
 抛出的异常直接传播，不交付部分属性快照。
 写属性仍返回 error；编解码与序列化模板返回 result。
@@ -337,9 +337,9 @@ application 自动调用无参入口，重复无参调用返回首次结果。�
 `type.kind()` 为 object；它不占用通用 value 的新类别。冻结时检查子类型已登记且两种身份匹配，
 缺失子类型返回 not_found，身份不匹配返回 invalid_argument。登记顺序不限。
 
-`find_object_property` 查询借用成员访问器；地址仅在父对象存活且地址稳定时有效。
+对象视图的 `member()` 返回借用字段实例；地址仅在父对象存活且地址稳定时有效。
 可写访问用于解码中的临时对象，禁止与父对象的其他写操作并发。
-普通 `read_property/write_property` 不对嵌套对象作字节复制，返回 unsupported。
+普通 `read_value/assign` 不对嵌套对象作字节复制，返回 unsupported。
 自动成员绑定要求值对象可移动赋值；不提供嵌套 getter/setter；直接成员可标记 read_only。
 
 反射 JSON 对同一文档递归读写，根深度为零，最多允许 64 层嵌套成员；超限返回 invalid_argument。
@@ -438,7 +438,11 @@ replace 在独立候选中初始化，初始化失败直接返回其错误且不
 修改与读取仍需调用方同步。from_object 是内部类型擦除入口，调用方必须保证实际对象匹配类型 ID。
 
 现有反射 JSON 的属性枚举、基础值读写、嵌套遍历和子 codec 赋值均通过实例视图完成。
-底层 find_object_property 仍用于实现成员地址访问；序列化器不再直接操作这些回调。
+字段实例在定位时绑定冻结访问器与宿主地址，由实例中的注册表引用保活访问器；
+后续 read_value/assign/replace 直接执行绑定，不重复按字段 ID 查询注册表。
+动态注册描述可用 `instance::from_object(type, address)` 借用，即使没有 C++ 类型 ID；
+调用方仍须保证地址与类型匹配。普通 C++ 对象使用 `meta::view(object)`。
+注册表只负责注册和查询，不再提供独立的属性读写执行入口。
 
 容器注册、访问与 JSON 规则见[反射容器视图](reflection-containers.md)。
 
@@ -567,10 +571,9 @@ base 链同时用于身份校验、指针调整和继承属性访问。freeze �
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
 基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
 property::declaring_type() 提供声明类型的可选 GUID，declaring_type_id() 提供运行期身份；
-原生实例用运行期身份定位父对象及继承字段，const_instance 和 read_property/write_property
+原生实例用运行期身份定位父对象及继承字段，对象视图定位字段时
 自动按注册的 upcast 链调整基类地址，支持基类在完整 C++ 对象中具有非零偏移。
-底层 find_object_property 返回声明类型的原始访问器，调用回调时须传入声明类型的地址；
-普通调用方使用 const_instance。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、
+字段实例保存调整后的声明类型地址，普通调用方无需处理 upcast 或访问器。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、
 read_only 与 setter 校验，不需要在每个派生类重复注册。
 
 重复引用独立保存并恢复为不同对象，不保持内存共享身份。递归活动路径检测循环并报错，

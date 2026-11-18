@@ -142,8 +142,11 @@ bool math_registration() {
   auto unchecked = e::serialization::json::decode<e::math::camera_settings>(
       read_context, std::as_bytes(std::span{invalid.data(), invalid.size()}));
   e::math::transform value;
-  auto status = m::write_property(*registry, e::math::transform::type_guid, m::property_id{3},
-                                  &value, e::value{e::math::vector3{0, 1, 1}});
+  auto status = gneiss::meta::instance::from_object(
+                    gneiss::meta::find_type(*registry, e::math::transform::type_guid), &value)
+                    ->capability<gneiss::meta::cap::object>()
+                    ->member(m::property_id{3})
+                    ->assign(e::value{e::math::vector3{0, 1, 1}});
   // 通用解码只恢复字段；相机采用边界显式检查透视范围。
   return unchecked && !unchecked->valid() &&
          status == e::error::invalid_argument && value.scale.x == 1;
@@ -334,26 +337,22 @@ int main() {
       metadata.name() != "value" ||
       gneiss::meta::find_property(registry, object_type, gneiss::meta::property_id{2}))
     return 7;
-  gneiss::value value;
-  if (gneiss::test_support::assign_value(
-          gneiss::meta::read_property(registry, object_type,
-                                              gneiss::meta::property_id{1}, &stored),
-          value)
-          .failed() ||
-      std::get<std::int64_t>(value.payload) != 2)
-    return 8;
-  value.payload = std::int64_t{7};
-  if (gneiss::meta::write_property(registry, object_type,
-                                           gneiss::meta::property_id{1}, &stored, value)
-          .failed() ||
-      stored != 7)
-    return 9;
-  value.payload = std::int64_t{11};
-  if (gneiss::meta::write_property(registry, object_type,
-                                           gneiss::meta::property_id{1}, &stored,
-                                           value) != error::invalid_argument ||
-      stored != 7)
-    return 10;
+  {
+    auto root = gneiss::meta::instance::from_object(info, &stored);
+    auto field = root->capability<gneiss::meta::cap::object>()->member("value");
+    if (!field)
+      return 8;
+    gneiss::value value;
+    if (gneiss::test_support::assign_value(field->read_value(), value).failed() ||
+        std::get<std::int64_t>(value.payload) != 2)
+      return 8;
+    value.payload = std::int64_t{7};
+    if (field->assign(value).failed() || stored != 7)
+      return 9;
+    value.payload = std::int64_t{11};
+    if (field->assign(value) != error::invalid_argument || stored != 7)
+      return 10;
+  }
   const std::weak_ptr lifetime = registry;
   registry.reset();
   if (lifetime.expired() || metadata.name() != "value")

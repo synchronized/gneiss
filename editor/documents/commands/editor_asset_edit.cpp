@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/commands/editor_asset_edit.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/prefab_authoring.hpp"
 #include "documents/prefab_edit.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/error.hpp>
+#include <algorithm>
 #include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/core/meta/property_path.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
-#include <algorithm>
 
 namespace gneiss::editor {
 namespace {
@@ -165,9 +166,11 @@ gneiss::error editor_asset_edit::request_property(runtime::application& app,
     return error::not_found;
   mesh_component_description description{std::string(resource_uri(binding.mesh)),
                                          std::string(resource_uri(binding.material))};
-  auto status =
-      meta::write_property(mesh_component_description::type_guid,
-                           std::get<meta::property_id>(edit.path.front()), &description, edit.data);
+  auto root = meta::view(description);
+  if (!root)
+    return root.error();
+  auto field = meta::resolve_path(*root, edit.path);
+  auto status = field ? field->assign(edit.data) : field.error();
   if (status.failed())
     return status;
   auto valid = gneiss::serialization::json::encode_bytes(description);

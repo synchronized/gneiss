@@ -74,7 +74,13 @@ basic_instance<Mutable>::from_object(registry_ref registry, gneiss::type_id id, 
     return frozen.error();
   if (!*frozen)
     return error::not_ready;
-  auto description = find_type(registry, id);
+  return from_object(find_type(registry, id), object);
+}
+template <bool Mutable>
+result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(meta::type description,
+                                                                     pointer object) {
+  if (!object)
+    return error::invalid_argument;
   if (!description || description.kind() != type_kind::object)
     return error::not_found;
   basic_instance output;
@@ -82,6 +88,7 @@ basic_instance<Mutable>::from_object(registry_ref registry, gneiss::type_id id, 
   output.data_ = object;
   return output;
 }
+
 template <bool Mutable>
 result<basic_instance<Mutable>>
 basic_instance<Mutable>::from_access(registry_ref registry, const type_ops& access, pointer data) {
@@ -133,16 +140,13 @@ result<basic_instance<Mutable>> basic_object_view<Mutable>::member(property_id i
   basic_instance<Mutable> output;
   output.type_ = field.type();
   output.parent_ = target_.data_;
-  output.parent_type_ = target_.type_id();
-  output.property_ = id;
+  output.binding_ = field.binding();
   if (output.kind() == type_kind::scalar) {
     if (output.scalar_kind() == value_kind::invalid)
       return error::unsupported;
     return output;
   }
-  auto binding = find_object_property(target_.registry(), target_.type_id(), id);
-  if (!binding)
-    return binding.error();
+  const auto* binding = output.binding_;
   if (!binding->object_getter)
     return error::unsupported;
   output.data_ = binding->object_getter(target_.data_);
@@ -192,8 +196,16 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
       return output;
     }
   }
-  return kind() == type_kind::scalar ? read_property(registry(), parent_type_, property_, parent_)
-                                     : result<value>{error::unsupported};
+  if (kind() != type_kind::scalar || !binding_ || !binding_->getter)
+    return error::unsupported;
+  value output;
+  auto status = binding_->getter(binding_->user_data, parent_, output);
+  if (status.failed())
+    return status;
+  GNEISS_ASSERT(output.kind() == scalar_kind(), "getter 成功时必须返回登记的值类型");
+  if (!valid_scalar(output))
+    return error::invalid_argument;
+  return output;
 }
 template <bool Mutable>
 error basic_instance<Mutable>::assign(const value& input) const
@@ -223,9 +235,11 @@ error basic_instance<Mutable>::assign(const value& input) const
         return ops->write(mutable_data(), input);
     }
   }
-  return kind() == type_kind::scalar
-             ? write_property(registry(), parent_type_, property_, mutable_parent(), input)
-             : error::unsupported;
+  if (kind() != type_kind::scalar || !binding_ || !binding_->setter || !writable_)
+    return error::unsupported;
+  if (input.kind() != scalar_kind() || !valid_scalar(input))
+    return error::invalid_argument;
+  return binding_->setter(binding_->user_data, mutable_parent(), input);
 }
 template <bool Mutable>
 error basic_instance<Mutable>::assign(const const_instance& source) const
@@ -236,9 +250,7 @@ error basic_instance<Mutable>::assign(const const_instance& source) const
   if (requires_replacement()) {
     if (type_id() != source.type_id())
       return error::invalid_argument;
-    auto binding = find_object_property(registry(), parent_type_, property_);
-    if (!binding)
-      return binding.error();
+    const auto* binding = binding_;
     return binding->object_setter(mutable_parent(), source.data_);
   }
   if ((kind() != type_kind::object && kind() != type_kind::reference) || source.kind() != kind())
@@ -259,9 +271,7 @@ error basic_instance<Mutable>::assign_object(gneiss::type_id id, void* source) c
   if (requires_replacement()) {
     if (!source || id != type_id())
       return error::invalid_argument;
-    auto binding = find_object_property(registry(), parent_type_, property_);
-    if (!binding)
-      return binding.error();
+    const auto* binding = binding_;
     return binding->object_setter(mutable_parent(), source);
   }
   if (kind() != type_kind::object)
@@ -276,9 +286,9 @@ error basic_instance<Mutable>::assign_object(gneiss::type_id id, void* source) c
   }
   if (!mutable_parent())
     return error::unsupported;
-  auto binding = find_object_property(registry(), parent_type_, property_);
+  const auto* binding = binding_;
   if (!binding)
-    return binding.error();
+    return error::unsupported;
   if (!binding->object_assign)
     return error::unsupported;
   binding->object_assign(mutable_parent(), source);
@@ -294,9 +304,7 @@ error basic_instance<Mutable>::replace(
   const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
-  auto binding = find_object_property(target.registry(), target.parent_type_, target.property_);
-  if (!binding)
-    return binding.error();
+  const auto* binding = target.binding_;
   auto storage = binding->object_construct();
   GNEISS_ASSERT(storage, "属性构造器必须返回有效候选对象，分配失败通过异常传播");
   auto temporary = instance::from_access(target.registry(), *binding->access, storage.get());

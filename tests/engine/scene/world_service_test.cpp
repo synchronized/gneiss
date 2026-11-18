@@ -193,32 +193,34 @@ int main(int argc, char** argv) {
   gneiss::math::transform candidate_transform;
   gneiss::value proposed;
   proposed.payload = gneiss::math::vector3{2, 3, 4};
-  if (gneiss::meta::write_property(service::math::transform::type_guid,
-                                   gneiss::meta::transform_translation_field, &candidate_transform,
-                                   proposed) != gneiss::error::success ||
+  if (gneiss::meta::view(candidate_transform)
+              ->capability<gneiss::meta::cap::object>()
+              ->member(gneiss::meta::transform_translation_field)
+              ->assign(proposed) != gneiss::error::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload = gneiss::math::vector3{0, 1, 1};
-  if (gneiss::meta::write_property(service::math::transform::type_guid,
-                                   gneiss::meta::transform_scale_field, &candidate_transform,
-                                   proposed) != gneiss::error::invalid_argument ||
+  if (gneiss::meta::view(candidate_transform)
+              ->capability<gneiss::meta::cap::object>()
+              ->member(gneiss::meta::transform_scale_field)
+              ->assign(proposed) != gneiss::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;
   }
   service::camera_description candidate_camera{{1, 10, 20}, false};
   proposed.payload = 30.0F;
-  if (gneiss::meta::write_property(gneiss::meta::type_of<service::math::camera_settings>().guid(),
-                                   gneiss::meta::property_id{2}, &candidate_camera.settings,
-                                   proposed) != gneiss::error::success) {
+  if (gneiss::meta::view(candidate_camera.settings)
+          ->capability<gneiss::meta::cap::object>()
+          ->member(gneiss::meta::property_id{2})
+          ->assign(proposed) != gneiss::error::success) {
     return 17;
   }
   proposed.payload = 40.0F;
-  auto camera_type = gneiss::meta::type_of<service::math::camera_settings>();
-  if (gneiss::meta::write_property(
-          camera_type.guid(),
-          camera_type.template capability<gneiss::meta::cap::object>().find_property("far").id(),
-          &candidate_camera.settings, proposed) != gneiss::error::success ||
+  if (gneiss::meta::view(candidate_camera.settings)
+              ->capability<gneiss::meta::cap::object>()
+              ->member("far")
+              ->assign(proposed) != gneiss::error::success ||
       candidate_camera.settings.near_plane != 30 || candidate_camera.settings.far_plane != 40) {
     return 18;
   }

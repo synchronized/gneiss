@@ -104,9 +104,9 @@ int main(int argc, char** argv) {
       m::const_instance::from_object(e::runtime_type_of<sample>(), nullptr).error() !=
           e::error::invalid_argument)
     return 12;
-  if (m::write_property(sample::type_guid, m::property_id{1}, &object, e::value{2.0F}).failed())
+  if (mutable_view->capability<m::cap::object>()->member("speed")->assign(e::value{2.0F}).failed())
     return 5;
-  auto value = m::read_property(sample::type_guid, m::property_id{1}, &object);
+  auto value = mutable_view->capability<m::cap::object>()->member("speed")->read_value();
   if (!value || std::get<float>(value->payload) != 2.0F || object.speed != 2.0F)
     return 6;
   auto encoded = gneiss::asset_file::serialize_bytes(e::material_description{});

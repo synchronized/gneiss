@@ -109,7 +109,6 @@ using detail::type_record;
       value.payload);
 }
 
-using property_accessor = property_binding;
 bool valid_binding(const property_binding& binding) noexcept {
   if (binding.enum_type && binding.kind != value_kind::int64 && binding.kind != value_kind::uint64)
     return false;
@@ -442,54 +441,6 @@ public:
     return error::success;
   }
 
-  template <class Key>
-  [[nodiscard]] result<value> get_property(Key type_id, std::uint32_t property_id,
-                                           const void* object) const {
-    if (!object)
-      return error::invalid_argument;
-    auto accessor = find_accessor(type_id, property_id);
-    if (!accessor)
-      return accessor.error();
-    if (accessor->getter == nullptr) {
-      return error::unsupported;
-    }
-    value output;
-    auto target = property_target(type_id, property_id, const_cast<void*>(object));
-    if (!target)
-      return target.error();
-    auto result = accessor->getter(accessor->user_data, *target, output);
-    if (result != error::success) {
-      return result;
-    }
-    GNEISS_ASSERT(output.kind() == accessor->kind, "getter 成功时必须返回登记的值类型");
-    if (!is_valid_property_value(output))
-      return error::invalid_argument;
-    return output;
-  }
-
-  template <class Key>
-  [[nodiscard]] error set_property(Key type_id, std::uint32_t property_id, void* object,
-                                   const value& value) const {
-    if (!is_valid_property_value(value)) {
-      return error::invalid_argument;
-    }
-    if (!object)
-      return error::invalid_argument;
-    auto accessor = find_accessor(type_id, property_id);
-    if (!accessor)
-      return accessor.error();
-    if (accessor->setter == nullptr) {
-      return error::unsupported;
-    }
-    if (value.kind() != accessor->kind) {
-      return error::invalid_argument;
-    }
-    auto target = property_target(type_id, property_id, object);
-    if (!target)
-      return target.error();
-    return accessor->setter(accessor->user_data, *target, value);
-  }
-
   [[nodiscard]] result<bool> is_frozen() const {
     std::shared_lock lock(mutex_);
     return is_frozen_;
@@ -599,60 +550,9 @@ public:
     return found->second->object;
   }
 
-  template <class Key>
-  result<property_binding> find_object_property(Key type, property_id id) const {
-    auto binding = find_accessor(type, id.get());
-    if (!binding)
-      return binding.error();
-    if (!binding->object_type)
-      return error::unsupported;
-    return *binding;
-  }
-
 private:
-  template <class Key>
-  result<void*> property_target(Key id, std::uint32_t property, void* object) const {
-    std::shared_lock lock(mutex_);
-    const auto* current = find_type_unlocked(id);
-    if (!is_frozen_ || !current)
-      return error::invalid_state;
-    const auto* found = find_property_unlocked(*current, property);
-    if (!found)
-      return error::not_found;
-    const auto owner = found->declaring_type;
-    while (found->declaring_id ? current->type_id != found->declaring_id : current->guid != owner) {
-      object = current->object.upcast(object);
-      current = by_cpp_type_.at(current->object.base_type);
-    }
-    return object;
-  }
   registry_ref owner() const {
     return std::const_pointer_cast<type_registry_state>(shared_from_this());
-  }
-  template <class Key>
-  [[nodiscard]] result<property_accessor> find_accessor(Key type_id,
-                                                        std::uint32_t property_id) const {
-    std::shared_lock lock(mutex_);
-    if (!is_frozen_) {
-      return error::not_ready;
-    }
-    const auto* type = find_type_unlocked(type_id);
-    if (type == nullptr) {
-      return error::not_found;
-    }
-    const auto* found = find_property_unlocked(*type, property_id);
-    if (!found)
-      return error::not_found;
-    if (found->accessor.kind == value_kind::invalid && !found->accessor.object_type) {
-      return error::unsupported;
-    }
-    return found->accessor;
-  }
-
-  static const property_record* find_property_unlocked(const type_record& type,
-                                                       std::uint32_t id) noexcept {
-    const auto found = std::ranges::lower_bound(type.properties, id, {}, &property_record::id);
-    return found != type.properties.end() && found->id == id ? &*found : nullptr;
   }
   [[nodiscard]] const type_record* find_enum_unlocked(guid id) const noexcept {
     if (!id)
@@ -718,6 +618,9 @@ value_kind type::scalar_kind() const noexcept {
 std::span<const enum_entry> cap::enumeration::entries() const noexcept {
   return type_.record_ ? std::span<const enum_entry>{type_.record_->entries}
                        : std::span<const enum_entry>{};
+}
+const property_binding* property::binding() const noexcept {
+  return record_ ? &record_->accessor : nullptr;
 }
 property cap::object::find_property(property_id property) const noexcept {
   if (!*this)
@@ -817,37 +720,8 @@ property find_property(const registry_ref& registry, guid id, property_id field)
   return owner ? owner.template capability<gneiss::meta::cap::object>().find_property(field)
                : property{};
 }
-result<value> read_property(const registry_ref& registry, gneiss::type_id type,
-                            property_id property, const void* object) {
-  return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
-}
-error write_property(const registry_ref& registry, gneiss::type_id type, property_id property,
-                     void* object, const value& input) {
-  return registry ? registry->set_property(type, property.get(), object, input)
-                  : error::invalid_handle;
-}
-result<property_binding> find_object_property(const registry_ref& registry, gneiss::type_id type,
-                                              property_id id) {
-  return registry ? registry->find_object_property(type, id)
-                  : result<property_binding>{error::invalid_handle};
-}
-result<value> read_property(const registry_ref& registry, guid type, property_id property,
-                            const void* object) {
-  return registry ? registry->get_property(type, property.get(), object) : error::invalid_handle;
-}
-
-error write_property(const registry_ref& registry, guid type, property_id property, void* object,
-                     const value& input) {
-  return registry ? registry->set_property(type, property.get(), object, input)
-                  : error::invalid_handle;
-}
 result<object_ops> find_object_ops(const registry_ref& registry, type_id id) {
   return registry ? registry->find_object_ops(id) : error::invalid_handle;
-}
-result<property_binding> find_object_property(const registry_ref& registry, guid type,
-                                              property_id id) {
-  return registry ? registry->find_object_property(type, id)
-                  : result<property_binding>{error::invalid_handle};
 }
 property property_range::iterator::operator*() const noexcept {
   return property{registry_, records_ + index_};

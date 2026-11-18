@@ -146,12 +146,9 @@ bool inherited_properties() {
   if (!number || !values || number->assign(e::value{std::int64_t{42}}).failed() ||
       input.number != 42 || input.sentinel != 123 || !values->as_sequence())
     return false;
-  auto read = read_property(registry, inherited_leaf::type_guid, property_id{1}, &input);
+  auto read = number->read_value();
   if (!read || *read != e::value{std::int64_t{42}} ||
-      write_property(registry, inherited_leaf::type_guid, property_id{1}, &input,
-                     e::value{std::int64_t{43}})
-          .failed() ||
-      input.number != 43)
+      number->assign(e::value{std::int64_t{43}}).failed() || input.number != 43)
     return false;
   auto sequence = values->as_sequence();
   if (!sequence || sequence->resize(3).failed())
