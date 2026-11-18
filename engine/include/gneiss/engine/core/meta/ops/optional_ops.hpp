@@ -13,7 +13,7 @@
 
 namespace gneiss::meta {
 struct optional_ops {
-  const detail::type_ops& (*element)();
+  const type_ops& (*element)();
   bool (*has_value)(const void*);
   const void* (*get)(const void*);
   void* (*get_mut)(void*);

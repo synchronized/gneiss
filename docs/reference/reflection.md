@@ -719,6 +719,28 @@ value 分支；本能力不等于任意 C++ 类型均可存入 value。
 ## 静态类型表示
 
 representation_traits<T> 与 value_traits<T> 分别提供原生表示转换和整体 value 转换，
-都是独立于注册数据的可选能力。type::has_representation() 查询前者；
-instance::read_representation 与 type::decode_representation 同步访问表示和候选临时值，
+都是独立于注册数据的可选能力。type::as_representation() 返回可判空的 representation_view；
+该视图的 encode(source, consume) 与 decode(read, consume) 同步访问表示和候选临时值，
 借用只在回调中有效。具体约束及用法见[序列化参考](serialization.md#值类型的文件表示适配)。
+
+## 类型能力视图与实例视图
+
+`meta::type_ops` 位于 `ops/type_ops.hpp`，与各项 ops 同属 meta；静态生成器 `detail::ops_of<T>()`
+及内部遍历辅助仍属 detail。普通调用方使用视图，不直接操作函数指针表。
+
+`type::as_sequence()` 返回可判空的 `sequence_type_view`，提供 `is_fixed_size()`、
+`has_identity()` 和 `element_type()`；无需构造容器实例，因此也可用于 Prefab 路径校验。
+`instance::as_sequence()` 仍返回实例视图，负责实际容器的元素访问和修改。
+类型能力视图保活类型上下文，不保活对象；空视图调用操作属于契约错误，先检查 bool。
+
+表示能力使用示例：
+
+```cpp
+auto capability = source.type().as_representation();
+if (!capability)
+  return error::unsupported;
+return capability.encode(source, consume_representation);
+```
+
+表示编码要求源实例与能力视图属于同一类型及注册表，不匹配返回 invalid_argument。
+解码不要求目标已存在；候选在 consume 回调返回后销毁，需要保留时显式复制或移动。

@@ -82,7 +82,7 @@ public:
       return error::unsupported;
     if (!initialize)
       return error::invalid_argument;
-    return ops()->replace(target_.mutable_data(), [&](void* data, const detail::type_ops& access) {
+    return ops()->replace(target_.mutable_data(), [&](void* data, const type_ops& access) {
       auto candidate = instance::from_access(readonly().registry(), access, data);
       return candidate ? initialize(*candidate) : candidate.error();
     });

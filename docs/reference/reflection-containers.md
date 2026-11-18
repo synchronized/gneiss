@@ -61,7 +61,7 @@ auto snapshot = element->read_value(); // 仅当元素为标量时成功
 
 ## 操作表与自定义适配
 
-内部 `detail::type_ops` 保存类型身份、赋值操作及一个类别 variant；不再携带全部容器回调。
+静态 `meta::type_ops` 保存类型身份、赋值操作及一个类别 variant；不再携带全部容器回调。
 静态类别表分为 `scalar_ops`、`sequence_ops`、`associative_ops`、`optional_ops`、`variant_ops` 和 `reference_ops`，
 位于 `engine/include/gneiss/engine/core/meta/ops/`，每个 C++ 类型共享静态表，不随对象分配。
 ref 表保留共享引用保活和赋值语义；目前只内置适配引擎 `ref<T>`，
@@ -113,7 +113,7 @@ sequence_traits 可提供 max_size；resize 在调用适配器前拒绝超过此
 视图提供 `has_identity()`、`identity(index)` 与 `find(guid)`；find 每次检查序列身份并线性查找，
 空身份或重复身份返回 invalid_argument，目标消失返回 not_found，不回退位置下标。
 它不缓存元素指针。结构修改后重新从根解析路径，原借用视图的失效规则仍然适用。
-类型视图提供 `is_fixed_sequence()` 和 `has_sequence_identity()`，可在没有对象实例时检查地址能力。
+`type::as_sequence()` 返回的能力视图提供 `is_fixed_size()` 和 `has_identity()`，可在没有对象实例时检查地址能力。
 
 `resolve_path(root, path)` 支持字段 ID、下标、映射字符串键与元素 GUID。
 `resolve_path(root, path, true)` 用于持久化地址，拒绝可变序列的下标步骤；固定长度序列仍允许下标。

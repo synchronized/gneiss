@@ -439,7 +439,12 @@ bool registered_native_queries() {
   if (!check.template operator()<sequence>() || !check.template operator()<mapping>() ||
       !check.template operator()<optional>() || !check.template operator()<reference>() ||
       !check.template operator()<variant>() || before.registered() ||
-      !m::find_type(registry, e::runtime_type_of<sequence>()).is_fixed_sequence())
+      !m::find_type(registry, e::runtime_type_of<sequence>()).as_sequence().is_fixed_size())
+    return false;
+  const auto sequence_type = m::type_of<sequence>(registry).as_sequence();
+  if (!sequence_type ||
+      sequence_type.element_type() != m::type_of<sequence>(registry).element_type() ||
+      m::type_of<int>(registry).as_sequence())
     return false;
   const auto runtime = m::find_type(registry, runtime_guid);
   if (!runtime || !runtime.registered() || runtime.id() || runtime.element_type() ||
@@ -453,7 +458,7 @@ bool registered_native_queries() {
     if (!entry)
       return false;
     if (entry->id() == e::runtime_type_of<sequence>() &&
-        (!entry->is_fixed_sequence() || entry->element_type() != m::type_of<float>(registry)))
+        (!entry->as_sequence().is_fixed_size() || entry->element_type() != m::type_of<float>(registry)))
       return false;
   }
   return true;
@@ -603,7 +608,7 @@ struct missing_dynamic_type : m::object {
   const void* dynamic_address() const noexcept override { return this; }
 
 protected:
-  const m::detail::type_ops* dynamic_ops() const noexcept override { return nullptr; }
+  const m::type_ops* dynamic_ops() const noexcept override { return nullptr; }
 };
 bool polymorphic_references() {
   auto created = m::create_registry();

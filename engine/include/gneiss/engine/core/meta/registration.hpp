@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/meta/detail/type_ops.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/traits/type_identity.hpp>
 
@@ -30,7 +30,10 @@ template <class T, class Definition> error complete_identity(Definition& definit
   if (!id || (definition.type_id && definition.type_id != id))
     return error::invalid_argument;
   definition.type_id = id;
-  definition.native = &detail::ops_of<type>();
+  if constexpr (std::is_void_v<type>)
+    return error::invalid_argument;
+  else
+    definition.native = &detail::ops_of<type>();
   return error::success;
 }
 }

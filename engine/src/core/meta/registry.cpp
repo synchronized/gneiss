@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/assert.hpp>
-#include <gneiss/engine/core/meta/detail/type_ops.hpp>
+#include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/types/string_name.hpp>
 #include <gneiss/engine/core/utf8.hpp>
@@ -386,7 +386,7 @@ public:
           const auto* access = property.accessor.access;
           if (access->id != property.accessor.object_type || access->guid != property.type_guid)
             return error::invalid_argument;
-          auto status = detail::visit_type_leaves(*access, [&](const detail::type_ops& leaf) {
+          auto status = detail::visit_type_leaves(*access, [&](const type_ops& leaf) {
             if (leaf.kind() != type_kind::object)
               return error::success;
             const auto found = by_cpp_type_.find(leaf.id);
@@ -501,7 +501,7 @@ public:
     return static_cast<std::uint32_t>(types_.size());
   }
 
-  meta::type resolve_access(const detail::type_ops& access) const {
+  meta::type resolve_access(const type_ops& access) const {
     std::shared_lock lock(mutex_);
     const type_record* record = nullptr;
     if (is_frozen_) {
@@ -541,8 +541,8 @@ public:
       if (entry != enums_.end())
         return detail::type_factory::make(owner(), nullptr, &entry->second);
     }
-    const detail::type_ops* found = nullptr;
-    auto match = [&](const detail::type_ops& access) {
+    const type_ops* found = nullptr;
+    auto match = [&](const type_ops& access) {
       if constexpr (std::is_same_v<Key, gneiss::guid>)
         return !access.enumeration && access.guid == key;
       else

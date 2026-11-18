@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/meta/detail/type_ops.hpp>
+#include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 
 #include <functional>
@@ -52,9 +52,6 @@ public:
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
   [[nodiscard]] GNEISS_API result<value> read_value() const;
-  /** 访问转换后的表示值；回调不得保存借用，未适配类型返回 unsupported。 */
-  [[nodiscard]] GNEISS_API error
-  read_representation(const std::function<error(const const_instance&)>&) const;
   [[nodiscard]] GNEISS_API result<pointer> object_data() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_sequence_view<Mutable>> as_sequence() const noexcept;
   [[nodiscard]] GNEISS_API result<basic_associative_view<Mutable>> as_associative() const noexcept;
@@ -85,7 +82,7 @@ public:
 
 private:
   template <bool> friend class basic_instance;
-  friend class type;
+  friend class representation_view;
   template <class T> friend result<const_instance> view(const registry_ref&, const T&);
   template <class T>
     requires(!std::is_const_v<T>)
@@ -95,9 +92,8 @@ private:
   template <bool> friend class basic_optional_view;
   template <bool> friend class basic_variant_view;
   template <bool> friend class basic_reference_view;
-  static GNEISS_API result<basic_instance> from_access(registry_ref, const detail::type_ops&,
-                                                       pointer);
-  [[nodiscard]] const detail::type_ops* access() const noexcept { return type_.access_; }
+  static GNEISS_API result<basic_instance> from_access(registry_ref, const type_ops&, pointer);
+  [[nodiscard]] const type_ops* access() const noexcept { return type_.access_; }
   [[nodiscard]] void* mutable_data() const noexcept
     requires(Mutable)
   {

@@ -3,12 +3,12 @@
 
 #pragma once
 
-#include <gneiss/engine/core/meta/detail/type_ops.hpp>
+#include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/meta/type_definition.hpp>
-#include <gneiss/engine/result.hpp>
 #include <gneiss/engine/core/types/type_id.hpp>
+#include <gneiss/engine/result.hpp>
 
 #include <memory>
 

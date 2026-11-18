@@ -36,3 +36,21 @@ MSVC Release 定向构建及上述 serialization、serialization-archive、refle
 meta-type-ops、component-description 共 5 项测试通过。git diff --check 通过。
 未运行全量测试、静态库/安装消费者及远端矩阵；本次没有修改 C ABI、安装规则或增加后端。
 无默认构造的未注册值类型、空注册表、setter 拒绝、缺省值和多态表示均由现有目标覆盖。
+
+## 后续收敛：能力视图（已完成本地验收）
+
+- [x] type_ops 移入 ops/ 并统一到 meta 命名空间；生成器和遍历辅助仍属 detail。
+- [x] representation_view 承担同步表示读写，type 只提供可判空的能力入口。
+- [x] sequence_type_view 承担无实例的序列能力查询，迁移 Prefab 路径校验。
+- [x] 迁移测试、同步参考文档并完成定向验收。
+
+视图持有 type 上下文，不持有源对象或候选。正常流程先查询能力，再调用；类型不支持时
+返回空视图，空视图操作属于契约错误。表示编码传入不匹配的源类型/注册表返回 invalid_argument。
+枚举、字段等通用反射查询保留在 type，不增加对应的包装层。type::element_type 暂保留
+为 sequence/associative/optional/reference 的通用查询，序列消费者可使用类型视图查询。
+
+本轮 Clang Debug 定向构建与 9 项测试通过：上一阶段 8 项加 type_registry；
+MSVC Release 的 meta-instance、serialization-archive 构建及测试通过。
+注册表回归同时发现并修复 void 注册在拒绝前实例化值操作表的模板错误。
+旧查询/表示操作与旧 type_ops 路径均已迁移，不保留兼容别名；git diff --check 通过。
+未运行全量测试、静态库/安装消费者或远端矩阵。

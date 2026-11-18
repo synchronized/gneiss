@@ -32,7 +32,7 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
     if (!type.registered()) {
       std::optional<T> candidate;
       diagnostic issue;
-      auto status = type.decode_representation(
+      auto status = type.as_representation().decode(
           [&](const meta::instance& representation) {
             auto decoded = decode_view(representation);
             if (!decoded)

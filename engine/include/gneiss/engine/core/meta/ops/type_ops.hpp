@@ -15,12 +15,13 @@
 
 #include <variant>
 
-namespace gneiss::meta::detail {
-using category_ops =
-    std::variant<std::monostate, const scalar_ops*, const sequence_ops*, const associative_ops*,
-                 const optional_ops*, const reference_ops*, const variant_ops*>;
+namespace gneiss::meta {
 /** 每个 C++ 类型共享的静态只读表；不持有实例，类别由 variant 唯一确定。 */
 struct type_ops {
+  using category_ops =
+      std::variant<std::monostate, const scalar_ops*, const sequence_ops*, const associative_ops*,
+                   const optional_ops*, const reference_ops*, const variant_ops*>;
+
   bool enumeration = false;
   bool empty = false;
   gneiss::type_id id{};
@@ -81,6 +82,7 @@ struct type_ops {
   }
   const type_ops& element() const { return *element_ops(); }
 };
+namespace detail {
 /** 遍历全部叶类型；variant 的每个分支都必须满足注册约束。 */
 template <class F>
 error visit_type_leaves(const type_ops& access, const F& check, std::size_t depth = 0) {
@@ -140,3 +142,5 @@ template <class T> const type_ops& ops_of() {
   return table;
 }
 }
+
+} // namespace gneiss::meta

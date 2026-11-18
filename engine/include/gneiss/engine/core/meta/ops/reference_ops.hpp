@@ -14,7 +14,7 @@
 namespace gneiss::meta {
 /** 仅适配引擎 ref；get 借用地址，owner 返回保活强引用，不接管裸指针。 */
 struct reference_ops {
-  const detail::type_ops& (*element)();
+  const type_ops& (*element)();
   const void* (*get)(const void*);
   void* (*get_mut)(void*){};
   ref<const void> (*owner)(const void*){};

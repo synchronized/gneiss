@@ -189,15 +189,15 @@ bool freeze_exception_contract() {
     return false;
   static bool fail = true;
   static const m::sequence_ops sequence{
-      .element = []() -> const m::detail::type_ops& {
+      .element = []() -> const m::type_ops& {
         if (fail)
           throw std::runtime_error{"type capability"};
         return m::detail::ops_of<float>();
       },
       .size = [](const void*) -> std::size_t { return 0; },
       .at = [](const void*, std::size_t) -> const void* { return nullptr; }};
-  static const m::detail::type_ops access{.id = e::runtime_type_of<std::vector<float>>(),
-                                          .category = &sequence};
+  static const m::type_ops access{.id = e::runtime_type_of<std::vector<float>>(),
+                                  .category = &sequence};
   const m::property_definition field{.id = m::property_id{1}, .name = "values"};
   const m::type_definition definition{.guid = e::guid::from_bytes({0x79}),
                                       .schema_version = 1,

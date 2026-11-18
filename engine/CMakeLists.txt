@@ -83,7 +83,7 @@ target_sources(
 target_sources(
   gneiss_engine
   PRIVATE
-    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/detail/type_ops.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/type_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/ops_fwd.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/scalar_ops.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/ops/value_ops.hpp"
@@ -112,6 +112,8 @@ target_sources(
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/object_type.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/instance.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/sequence_view.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/sequence_type_view.hpp"
+    "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/representation_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/associative_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/optional_view.hpp"
     "${PROJECT_SOURCE_DIR}/engine/include/gneiss/engine/core/meta/views/variant_view.hpp"

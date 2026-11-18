@@ -60,8 +60,8 @@ struct representation_traits<math::matrix4> : detail::math_representation<math::
 
 /** 回调中的地址仅在调用期间有效；转换不修改已有实例，也不依赖注册数据。 */
 struct representation_ops {
-  using const_visitor = std::function<error(const void*, const detail::type_ops&)>;
-  using visitor = std::function<error(void*, const detail::type_ops&)>;
+  using const_visitor = std::function<error(const void*, const type_ops&)>;
+  using visitor = std::function<error(void*, const type_ops&)>;
   error (*encode)(const void*, const const_visitor&);
   error (*decode)(const visitor& read, const visitor& consume);
   error (*encode_value)(const value&, const const_visitor&){};

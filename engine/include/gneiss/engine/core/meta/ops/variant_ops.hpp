@@ -16,7 +16,7 @@ namespace gneiss::meta {
 /** 稳定分支名显式配置；供视图查询和持久化使用，未配置时仍支持按索引访问。 */
 template <class T> struct variant_case_traits {};
 struct variant_ops {
-  std::span<const detail::type_ops* const> alternatives;
+  std::span<const type_ops* const> alternatives;
   std::span<const std::string_view> names;
   bool (*valueless)(const void*);
   std::size_t (*index)(const void*);

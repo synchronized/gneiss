@@ -18,7 +18,7 @@ struct type_definition {
   object_ops object{};
   meta::metadata extensions{};
   /** 模板注册填充的静态能力；运行期定义可留空，不拥有描述或对象。 */
-  const detail::type_ops* native{};
+  const type_ops* native{};
 };
 /** 枚举注册输入；条目和扩展在提交时复制，不拥有实例。 */
 struct enum_definition {
@@ -29,6 +29,6 @@ struct enum_definition {
   value_kind kind = value_kind::invalid;
   std::span<const enum_entry> entries{};
   meta::metadata extensions{};
-  const detail::type_ops* native{};
+  const type_ops* native{};
 };
 }

@@ -119,9 +119,10 @@ error validate_prefab_property_override(const prefab_property_override& value) {
       if (type.kind() != (std::holds_alternative<std::string>(step) ? meta::type_kind::associative
                                                                     : meta::type_kind::sequence))
         return error::invalid_argument;
-      if (std::holds_alternative<std::size_t>(step) && !type.is_fixed_sequence())
+      if (std::holds_alternative<std::size_t>(step) && !type.as_sequence().is_fixed_size())
         return error::unsupported;
-      if (const auto* id = std::get_if<guid>(&step); id && (!*id || !type.has_sequence_identity()))
+      if (const auto* id = std::get_if<guid>(&step);
+          id && (!*id || !type.as_sequence().has_identity()))
         return error::invalid_argument;
       auto element = type.element_type();
       if (!element)
@@ -133,8 +134,8 @@ error validate_prefab_property_override(const prefab_property_override& value) {
     if (std::holds_alternative<put_value_operation>(value.operation) ||
         std::holds_alternative<erase_key_operation>(value.operation))
       return type.kind() == meta::type_kind::associative ? error::success : error::invalid_argument;
-    return type.kind() == meta::type_kind::sequence && type.has_sequence_identity() &&
-                   !type.is_fixed_sequence()
+    const auto sequence = type.as_sequence();
+    return sequence && sequence.has_identity() && !sequence.is_fixed_size()
                ? error::success
                : error::invalid_argument;
   }

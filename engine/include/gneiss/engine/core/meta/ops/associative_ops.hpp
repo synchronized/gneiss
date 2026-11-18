@@ -55,7 +55,7 @@ template <class V, class H, class E, class A>
 struct associative_traits<std::unordered_map<std::string, V, H, E, A>>
     : string_map_traits<std::unordered_map<std::string, V, H, E, A>> {};
 struct associative_ops {
-  const detail::type_ops& (*element)();
+  const type_ops& (*element)();
   std::size_t (*size)(const void*);
   std::vector<std::string> (*keys)(const void*);
   const void* (*find)(const void*, std::string_view);

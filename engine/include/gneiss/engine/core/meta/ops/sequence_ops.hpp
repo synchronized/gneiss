@@ -51,7 +51,7 @@ struct sequence_traits<std::array<E, N>> : indexed_sequence_traits<std::array<E,
   static constexpr bool fixed_size = true;
 };
 struct sequence_ops {
-  const detail::type_ops& (*element)();
+  const type_ops& (*element)();
   std::size_t (*size)(const void*);
   const void* (*at)(const void*, std::size_t);
   void* (*at_mut)(void*, std::size_t){};
@@ -59,7 +59,7 @@ struct sequence_ops {
   std::size_t (*max_size)(const void*){};
   bool fixed_size = false;
   guid (*identity)(const void*, std::size_t){};
-  error (*replace)(void*, const std::function<error(void*, const detail::type_ops&)>&){};
+  error (*replace)(void*, const std::function<error(void*, const type_ops&)>&){};
 };
 namespace detail {
 template <class T> const sequence_ops& sequence_ops_of() {

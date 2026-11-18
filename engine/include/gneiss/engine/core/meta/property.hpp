@@ -22,8 +22,8 @@
 #include <vector>
 
 namespace gneiss::meta {
-namespace detail {
 struct type_ops;
+namespace detail {
 struct property_record;
 }
 /** 类型内部的字段身份，零无效。 */
@@ -89,7 +89,7 @@ struct property_binding {
   /** 返回非空的独立候选；分配失败抛异常，不以空指针表达可恢复失败。 */
   ref<void> (*object_construct)(){};
   gneiss::type_id enum_type{};
-  const detail::type_ops* access{}; // 静态只读操作表，不持有对象。
+  const type_ops* access{}; // 静态只读操作表，不持有对象。
 };
 } // namespace gneiss::meta
 

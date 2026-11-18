@@ -19,6 +19,6 @@ public:
   virtual const void* dynamic_address() const noexcept = 0;
 
 protected:
-  virtual const detail::type_ops* dynamic_ops() const noexcept = 0;
+  virtual const type_ops* dynamic_ops() const noexcept = 0;
 };
 }
