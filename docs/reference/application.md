@@ -233,3 +233,10 @@ Application 不持有请求或自动应用结果，停止回调由宿主取消�
 Application 只初始化 Render 默认环境，不保存工程环境 URI、强度或旋转。
 Runtime/Editor 的环境系统持有资产请求并显式应用；停止系统取消未完成请求。
 详细加载和快照语义见[环境包](assets.md#环境包)。
+
+## Runtime 宿主启动
+
+Runtime 使用具名 on_start 建立 World 与渲染绑定、提交环境和输入映射请求、初始化检查器、
+连接 Editor IPC 并请求初始场景。异步资产完成仍由正常更新处理；注册阶段不创建 Runtime World。
+停止回调允许启动尚未执行或只执行了一部分，加载器在 World 之前销毁。
+基础窗口和服务当前仍由 create 初始化，不能据此假定全部平台启动已经延迟到 run。

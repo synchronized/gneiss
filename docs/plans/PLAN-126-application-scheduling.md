@@ -463,3 +463,17 @@ Windows Clang Debug Editor 与文档动作目标构建通过；document-actions�
 
 Windows Clang Debug 全量构建通过，213 项 CPU 回归全部通过，包含头文件边界、三个宿主相关
 流程、文档与 Prefab 测试。git diff --check 通过。静态构建、跨工程完整 UI 操作仍待验收。
+
+### Runtime 会话启动迁移
+
+World/渲染绑定、输入映射请求、检查器初始化、Editor IPC 连接和初始场景请求迁入具名 on_start。
+场景加载器在 World 建立后构造；停止时先取消加载、解除上下文借用并销毁加载器，再释放绑定与
+World。未执行或部分执行的启动都由同一停止路径处理，不再以启动中途 return 绕过宿主收尾。
+启动步骤错误现在统一通过 run 失败返回宿主退出码 7；工程配置解析错误仍在循环前返回。
+IPC 最终通知和连接释放尚有 run 后逻辑，本批不宣称整个 Runtime 停止协议已收敛。
+
+Windows Clang Debug Runtime 构建通过，Application 两项与 Editor Runtime launch/process/scene-loading
+共五项回归通过；线程池和协作模式环境回退 smoke 均退出 0。空环境资产异步加载失败退出 7，
+渲染关闭完成且任务 retained=0，验证已建立会话后的失败清理。无效 URI 和缺失文件由项目加载
+提前拒绝，不作为 on_start 失败证据；步骤失败测试仍由 native-application-flow 覆盖。
+Editor/示例启动迁移、基础服务延迟初始化、跨工程 UI 和静态验收仍待完成。

@@ -575,16 +575,22 @@ private:
     context.environment_pending = false;
   });
 
-  auto created_world = gneiss::create_native();
-  if (!created_world)
-    return 3;
-  auto world_owner = std::move(*created_world);
-  auto* world = world_owner.get();
-  context.world = world;
-  auto created_binding = gneiss::world_render_binding::create(*world, application->render());
-  if (!created_binding)
-    return 3;
-  auto render_binding = std::move(*created_binding);
+  gneiss::world_owner world_owner;
+  gneiss::world* world{};
+  std::unique_ptr<gneiss::world_render_binding> render_binding;
+  application->on_start("runtime.create_world", [&]() -> gneiss::result<void> {
+    auto created_world = gneiss::create_native();
+    if (!created_world)
+      return created_world.error();
+    world_owner = std::move(*created_world);
+    world = world_owner.get();
+    context.world = world;
+    auto binding = gneiss::world_render_binding::create(*world, application->render());
+    if (!binding)
+      return binding.error();
+    render_binding = std::move(*binding);
+    return {};
+  });
   application->add_system(gneiss::app::stage::synchronize, "runtime.synchronize", [&] {
     world->flush_changes();
     return render_binding->synchronize();
@@ -625,28 +631,31 @@ private:
              .message = "Application 创建完成",
              .result = gneiss::error::success});
 
-  if (!project.input_map.empty()) {
-    auto submitted = application->assets().reload<gneiss::input::action_map>(project.input_map);
-    const auto input_result = submitted ? gneiss::error::success : submitted.error();
-    if (submitted) {
-      context.input_request = std::move(*submitted);
-      context.input_uri = project.input_map;
-      log.write({.severity = gneiss::logging::level::info,
-                 .category = "input_map_pending",
-                 .message = std::format("{} ({})", "正在异步加载输入映射", project.input_map),
-                 .result = gneiss::error::success});
+  application->on_start("runtime.load_input", [&]() -> gneiss::error {
+    if (!project.input_map.empty()) {
+      auto submitted = application->assets().reload<gneiss::input::action_map>(project.input_map);
+      const auto input_result = submitted ? gneiss::error::success : submitted.error();
+      if (submitted) {
+        context.input_request = std::move(*submitted);
+        context.input_uri = project.input_map;
+        log.write({.severity = gneiss::logging::level::info,
+                   .category = "input_map_pending",
+                   .message = std::format("{} ({})", "正在异步加载输入映射", project.input_map),
+                   .result = gneiss::error::success});
+      }
+      if (input_result != gneiss::error::success) {
+        log.write({.severity = gneiss::logging::level::error,
+                   .category = "input_map",
+                   .message = std::format("{} ({})", "输入映射加载失败", project.input_map),
+                   .result = input_result});
+        return input_result;
+      }
     }
-    if (input_result != gneiss::error::success) {
-      log.write({.severity = gneiss::logging::level::error,
-                 .category = "input_map",
-                 .message = std::format("{} ({})", "输入映射加载失败", project.input_map),
-                 .result = input_result});
-      return 4;
-    }
-  }
+
+    return gneiss::error::success;
+  });
 
   gneiss::scene_instance scene = {};
-  auto native_result = gneiss::error::success;
   std::string active_scene_uri = project.startup_scene;
   // 宿主只记录加载回执的依赖 URI，不从运行对象反推作者描述。
   std::set<std::string, std::less<>> active_prefab_uris;
@@ -660,8 +669,7 @@ private:
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
   gneiss::ref<gneiss::host::scene_reload_state> scene_source;
-  gneiss::host::runtime_scene_loader scene_loader(*application, *world);
-  context.scene_loader = &scene_loader;
+  std::optional<gneiss::host::runtime_scene_loader> scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
       [&, native_application = application](const gneiss::host::ipc_asset_reload_request& request) {
         const auto& first = request.assets.front();
@@ -675,8 +683,8 @@ private:
           structural_reload = first;
           auto accepted = gneiss::error{gneiss::error::success};
           if (!structural_ignored) {
-            accepted = scene_loader.reload(scene_source, first.uri,
-                                           first.type == gneiss::host::ipc_asset_type::prefab);
+            accepted = scene_loader->reload(scene_source, first.uri,
+                                            first.type == gneiss::host::ipc_asset_type::prefab);
           }
           if (accepted.failed())
             structural_reload.reset();
@@ -705,7 +713,7 @@ private:
               result = gneiss::error::success;
               ready = true;
             } else {
-              auto completed = scene_loader.take_reload();
+              auto completed = scene_loader->take_reload();
               if (!completed && completed.error() != gneiss::error::not_ready)
                 operation = completed.error();
               else if (completed) {
@@ -767,27 +775,14 @@ private:
       });
   context.asset_reloader = &asset_reloader;
 
-  native_result = gneiss::error::success;
   gneiss::host::runtime_property_editor property_editor;
-  if (native_result == gneiss::error::success) {
-    operation = property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
-  } else {
-    operation = native_result;
-  }
-  if (operation != gneiss::error::success) {
-    log.write({.severity = gneiss::logging::level::error,
-               .category = "property_edit",
-               .message = "Runtime 属性写入执行器初始化失败",
-               .result = operation});
-    if (scene.is_valid())
-      scene.unload();
-    return 5;
-  }
-  context.property_editor = &property_editor;
+  application->on_start("runtime.initialize_inspection", [&] {
+    context.property_editor = &property_editor;
+    return property_editor.initialize(*world, scene_inspection, context.inspection_session_id);
+  });
 
   context.smoke = options.smoke;
-  scene_loader.after_activate =
-      [&](const gneiss::host::scene_open_result& loaded) -> gneiss::error {
+  const auto after_activate = [&](const gneiss::host::scene_open_result& loaded) -> gneiss::error {
     const auto started = std::chrono::steady_clock::now();
     if (!loaded.content)
       return gneiss::error::invalid_argument;
@@ -798,7 +793,7 @@ private:
     scene_source = loaded.reload_state;
     scene = loaded.scene;
     context.scene = scene;
-    active_scene_uri = scene_loader.progress().source.uri;
+    active_scene_uri = scene_loader->progress().source.uri;
     property_editor.reset();
     ++context.inspection_session_id;
     scene_inspection.reset(context.inspection_session_id);
@@ -841,44 +836,54 @@ private:
     }
   } ipc_logging{logs, {}};
 
-  if (options.ipc_port != 0U) {
-    gneiss::host::runtime_ipc_config ipc_config;
-    ipc_config.endpoint = {options.ipc_address, options.ipc_port};
-    ipc_config.session_token = options.ipc_token;
-    ipc_session = std::make_unique<gneiss::host::runtime_ipc_session>(std::move(ipc_config));
-    operation = ipc_session->start(gneiss::host::runtime_ipc_session::clock::now());
-    if (operation == gneiss::error::success) {
-      operation = ipc_session->notify_running();
-    }
-    if (operation != gneiss::error::success) {
-      log.write({.severity = gneiss::logging::level::error,
+  application->on_start("runtime.connect_editor", [&]() -> gneiss::error {
+    if (options.ipc_port != 0U) {
+      gneiss::host::runtime_ipc_config ipc_config;
+      ipc_config.endpoint = {options.ipc_address, options.ipc_port};
+      ipc_config.session_token = options.ipc_token;
+      ipc_session = std::make_unique<gneiss::host::runtime_ipc_session>(std::move(ipc_config));
+      operation = ipc_session->start(gneiss::host::runtime_ipc_session::clock::now());
+      if (operation == gneiss::error::success) {
+        operation = ipc_session->notify_running();
+      }
+      if (operation != gneiss::error::success) {
+        log.write({.severity = gneiss::logging::level::error,
+                   .category = "ipc",
+                   .message = "Editor IPC 会话启动失败",
+                   .result = operation});
+
+        if (scene.is_valid())
+          scene.unload();
+        return operation;
+      }
+      context.ipc_session = ipc_session.get();
+      ipc_logging.connection = logs.attach(std::make_unique<ipc_log_sink>(*ipc_session));
+      log.write({.severity = gneiss::logging::level::info,
                  .category = "ipc",
-                 .message = "Editor IPC 会话启动失败",
-                 .result = operation});
-
-      if (scene.is_valid())
-        scene.unload();
-      return 11;
+                 .message = "Editor IPC 会话正在连接",
+                 .result = gneiss::error::success});
     }
-    context.ipc_session = ipc_session.get();
-    ipc_logging.connection = logs.attach(std::make_unique<ipc_log_sink>(*ipc_session));
-    log.write({.severity = gneiss::logging::level::info,
-               .category = "ipc",
-               .message = "Editor IPC 会话正在连接",
-               .result = gneiss::error::success});
-  }
 
-  native_result =
-      scene_loader.request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
-  if (native_result != gneiss::error::success)
-    return 4;
+    return gneiss::error::success;
+  });
+
+  application->on_start("runtime.open_scene", [&] {
+    scene_loader.emplace(*application, *world);
+    context.scene_loader = &*scene_loader;
+    scene_loader->after_activate = after_activate;
+    return scene_loader->request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
+  });
   // 运行所有者后创建先销毁，停止回调借用的会话局部对象覆盖关闭及异常展开。
   auto application_owner = std::move(*created);
   application->on_stop("runtime.release_session", [&] {
-    scene_loader.stop();
+    if (scene_loader)
+      scene_loader->stop();
+    context.scene_loader = nullptr;
+    scene_loader.reset();
     context.asset_request.reset();
     context.input_request.cancel();
     property_editor.reset();
+    context.property_editor = nullptr;
     scene_source.reset();
     context.scene = {};
     if (scene.is_valid())
