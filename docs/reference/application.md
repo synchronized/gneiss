@@ -54,6 +54,7 @@ Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的�
 有限帧运行或外部事件循环直接调用 `step()`；需要确认 GPU 已执行完成时显式调用
 `render().finish_frames()`，不把 GPU 等待隐含在单步推进中。
 系统可接收帧时间或不带参数，关闭请求回调不带参数；宿主状态由可调用项捕获。
+系统失败记录系统名称、执行阶段（含 start/stop/enter/exit）及原始错误码。
 运行失败通过结果返回，并写入 logging；Application 不提供 report 或独立诊断回调。
 重入或跨线程调用返回 `invalid_state`；终态不能重启，重复观察返回同一停止结果。
 

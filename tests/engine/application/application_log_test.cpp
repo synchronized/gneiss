@@ -8,8 +8,15 @@
 int main() try {
   namespace e = gneiss;
   unsigned count{};
+  bool system_reported = false;
   bool valid = true;
   gneiss::test_support::log_capture logs{[&](const e::logging::record_view& event) {
+    if (event.message.source == "failing.present") {
+      system_reported = event.message.category == "application" &&
+                        event.message.result == e::error::io &&
+                        event.message.message.find("present") != std::string_view::npos;
+      return;
+    }
     ++count;
     valid = valid && event.message.context == 123 && event.message.result == e::error::not_found &&
             event.message.source == "loader" && event.message.category == "asset" &&
@@ -36,8 +43,15 @@ int main() try {
     return 2;
   application.reset();
   emit();
+  auto failing = gneiss::app::application::create({});
+  if (!failing)
+    return 5;
+  (*failing)->add_system(gneiss::app::stage::present, "failing.present",
+                         [] { return e::error::io; });
+  if ((*failing)->run().error() != e::error::io)
+    return 6;
   logs.service.flush();
-  return count == 3 && valid ? 0 : 3;
+  return count == 3 && valid && system_reported ? 0 : 3;
 } catch (const std::exception& error) {
   std::cerr << error.what();
   return 4;

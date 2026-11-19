@@ -60,7 +60,29 @@ namespace gneiss::app {
 struct system_failure {
   error code;
   std::string_view name; // 借用已冻结调度表，不能超过其有效期。
+  std::string_view phase;
 };
+namespace {
+std::string_view phase_name(stage phase) {
+  switch (phase) {
+  case stage::completions:
+    return "completions";
+  case stage::input:
+    return "input";
+  case stage::update:
+    return "update";
+  case stage::synchronize:
+    return "synchronize";
+  case stage::present:
+    return "present";
+  }
+  GNEISS_PANIC("未知应用调度阶段");
+}
+void report_system_failure(const system_failure& failure) {
+  const auto message = std::string("应用系统失败，阶段=") + std::string(failure.phase);
+  log_error("application", failure.code, failure.name, message);
+}
+}
 /** 所属线程使用；首次运行前冻结。捕获的借用对象须覆盖全部运行及关闭过程。 */
 class schedule {
 public:
@@ -82,7 +104,7 @@ public:
       const auto& item = starts_[next_start_++];
       const auto status = item.function(time);
       if (!status)
-        return system_failure{status.error(), item.name};
+        return system_failure{status.error(), item.name, "start"};
       if (*status == start_progress::pending) {
         --next_start_;
         return start_progress::pending;
@@ -102,7 +124,7 @@ public:
       const auto& item = stops_[next_stop_++];
       auto status = item.function();
       if (!status)
-        report(system_failure{status.error(), item.name});
+        report(system_failure{status.error(), item.name, "stop"});
       else if (*status == stop_progress::pending) {
         --next_stop_;
         return false;
@@ -179,7 +201,7 @@ public:
         continue;
       auto status = item.function(time);
       if (status.failed())
-        return system_failure{status, item.name};
+        return system_failure{status, item.name, phase_name(phase)};
     }
     return {};
   }
@@ -232,7 +254,8 @@ private:
       auto status = item.function(time);
       if (status.failed()) {
         // 转换不是事务；失败后不能在再次 run 时重放已产生副作用的 Enter/Exit。
-        transition_failure_ = system_failure{status, item.name};
+        transition_failure_ = system_failure{
+            status, item.name, event == detail::state_event::enter ? "enter" : "exit"};
         return *transition_failure_;
       }
     }
@@ -409,7 +432,7 @@ bool application::stop_host() {
     const bool complete = storage_->systems_.stop([&](const app::system_failure& failure) {
       if (storage_->host_stop_result_.ok())
         storage_->host_stop_result_ = failure.code;
-      log_error("application", failure.code, failure.name, "宿主停止系统失败，继续释放其余资源");
+      report_system_failure(failure);
     });
     storage_->stopping_host_ = false;
     return complete;
@@ -586,7 +609,7 @@ error application::dispatch_completion_systems() {
       app::stage::completions,
       {.frame_index = storage_->frame_index_, .elapsed_ns = storage_->elapsed_ns_}, false);
   if (!completed) {
-    log_error("application", completed.error().code, completed.error().name, "完成分发系统失败");
+    report_system_failure(completed.error());
     return completed.error().code;
   }
   return error::success;
@@ -638,15 +661,14 @@ error application::advance_frame() try {
       return error::success;
     const auto started = storage_->systems_.start(time, storage_->should_exit_);
     if (!started) {
-      log_error("application", started.error().code, started.error().name, "宿主启动系统失败");
+      report_system_failure(started.error());
       return started.error().code;
     }
     if (storage_->should_exit_ || *started == app::start_progress::pending)
       return error::success;
     const auto transitioned = storage_->systems_.transition(time, storage_->should_exit_);
     if (!transitioned) {
-      log_error("application", transitioned.error().code, transitioned.error().name,
-                "业务状态转换失败");
+      report_system_failure(transitioned.error());
       storage_->is_running_ = false;
       return transitioned.error().code;
     }
@@ -656,7 +678,7 @@ error application::advance_frame() try {
     const auto run_systems = [&](app::stage phase) {
       auto result = storage_->systems_.run(phase, time, storage_->should_exit_);
       if (!result) {
-        log_error("application", result.error().code, result.error().name, "应用系统执行失败");
+        report_system_failure(result.error());
         storage_->is_running_ = false;
         return result.error().code;
       }
