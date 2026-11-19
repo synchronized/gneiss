@@ -23,6 +23,8 @@ int main() try {
   std::shared_ptr<runtime::application> app;
   if (gneiss::test_support::assign_value(runtime::application::create(config), app).failed())
     return 1;
+  if (!app->step())
+    return 1;
   auto files = app->async_files();
   auto save = [&](editor::author_document_change change) {
     std::shared_ptr<editor::author_file_save> receipt;

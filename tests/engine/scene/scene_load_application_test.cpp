@@ -101,6 +101,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   std::shared_ptr<application> app;
   check(gneiss::test_support::assign_value(application::create(config), app) ==
         gneiss::error::success);
+  check(app->step().ok());
 
   auto request = app->assets().load<gneiss::scene>("asset://scene.json");
   check(bool(request));
@@ -214,6 +215,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   auto created = application::create(config);
   check(bool(created));
   auto app = *created;
+  check(app->step().ok());
 
   auto created_world = create_native();
   check(bool(created_world));
@@ -281,6 +283,7 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   auto created = application::create(config);
   check(bool(created));
   auto app = *created;
+  check(app->step().ok());
   auto created_world = create_native();
   check(bool(created_world));
   auto* world = created_world->get();
@@ -347,6 +350,7 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
   desc.executor = &scheduler;
   check(gneiss::test_support::assign_value(application::create(desc), app) ==
         gneiss::error::success);
+  check(app->step().ok());
 
   auto created_world = create_native();
   check(bool(created_world));

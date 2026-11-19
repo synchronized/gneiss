@@ -132,6 +132,22 @@ int main() {
     return test_support::capture_frame(application->render(), std::move(*frame), {width, height},
                                        image);
   };
+  application->on_start("smoke.texture", [&]() -> result<void> {
+    constexpr std::array<std::uint8_t, 16> pixels{255, 255, 255, 255, 32,  64,  255, 255,
+                                                  32,  64,  255, 255, 255, 255, 255, 255};
+    native::texture_view texture_desc{};
+    texture_desc.width = 2;
+    texture_desc.height = 2;
+    texture_desc.row_stride_bytes = 8;
+    texture_desc.pixels = pixels;
+    auto created = application->assets().create(texture_desc);
+    if (!created)
+      return created.error();
+    context.texture = std::move(*created);
+    return {};
+  });
+  if (!application->step())
+    return 1;
   auto& resources = application->render();
   auto& resources_factory = application->assets();
   constexpr std::array vertices{
@@ -144,21 +160,9 @@ int main() {
   material_desc.parameters.color[0] = 0.95F;
   material_desc.parameters.color[1] = 0.35F;
   material_desc.parameters.color[2] = 0.12F;
-  constexpr std::array<std::uint8_t, 16> pixels{255, 255, 255, 255, 32,  64,  255, 255,
-                                                32,  64,  255, 255, 255, 255, 255, 255};
-  native::texture_view texture_desc{};
-  texture_desc.width = 2;
-  texture_desc.height = 2;
-  texture_desc.row_stride_bytes = 8;
-  texture_desc.pixels = pixels;
   native::rid mesh{}, material{}, plain_material{}, texture{};
   native::ref<const native::mesh> mesh_owner;
   native::ref<const native::material> material_owner, plain_material_owner;
-  if (gneiss::test_support::take_value(resources_factory.create(texture_desc), context.texture)
-          .failed()) {
-    std::fprintf(stderr, "测试 Texture 创建失败\n");
-    return 2;
-  }
   texture = resource_handle(context.texture);
 #ifdef _WIN32
   // 投递真实窗口消息，验证显式事件泵送及原生输入事件传递。
@@ -302,11 +306,13 @@ int main() {
   // 重建窗口必须分配新身份，不能再次使用单窗口占位值 1。
   auto next_config = config;
   gneiss::window::id next_id{};
+  unsigned close_requests{};
   std::shared_ptr<gneiss::runtime::application> next;
   auto created = gneiss::runtime::application::create(next_config);
   if (!created)
     return 18;
   next = *created;
+  next->on_close_request([&] { ++close_requests; });
   next->add_system(gneiss::app::stage::update, "smoke.input", [&](const native::frame_time&) {
     input::event event;
     while (next->input().poll(event) == error::success) {
@@ -315,13 +321,21 @@ int main() {
     }
     return error::success;
   });
+  if (!next->step())
+    return 18;
   const auto next_window = FindWindowA(nullptr, title.data());
   if (!next_window || !PostMessageW(next_window, WM_KEYDOWN, 'A', 0x001e0001) ||
       !PostMessageW(next_window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) ||
       next->step().failed() || next->step().failed() || !next_id || next_id == context.window_id)
     return 19;
+  // 宿主接管关闭后，窗口请求不直接停止；显式退出不再次询问宿主。
+  if (!PostMessageW(next_window, WM_CLOSE, 0, 0))
+    return 20;
+  auto close_step = next->step();
+  if (!close_step || *close_step != app::lifecycle::running || close_requests != 1)
+    return 20;
   next->request_exit();
-  if (!next->run())
+  if (!next->run() || close_requests != 1)
     return 19;
 #endif
   return 0;

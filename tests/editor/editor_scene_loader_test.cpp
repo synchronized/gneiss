@@ -72,6 +72,7 @@ void multiple_worlds(gneiss::tasks::execution_mode mode) {
     main_camera.shutdown();
     preview_camera.shutdown();
   });
+  check(application->step().ok());
   constexpr auto uri = "asset://scenes/triangle.scene.json";
   check(main_loader.request(*application, main_editing, uri).ok());
   check(preview_loader.request(*application, preview_editing, uri).ok());
@@ -116,6 +117,7 @@ void run(gneiss::tasks::execution_mode mode) {
   desc.executor = &scheduler;
   check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
         gneiss::error::success);
+  check(app->step().ok());
 
   auto created_world = gneiss::create_native();
   check(bool(created_world));

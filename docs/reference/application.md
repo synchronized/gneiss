@@ -7,7 +7,8 @@
 
 仓内宿主使用 `engine/include/gneiss/engine/function/application/application.hpp` 的 `gneiss::runtime::application`，
 配置为 `application_configuration`。`application::create(config)` 返回
-`gneiss::result<std::shared_ptr<application>>`；成功值拥有已初始化对象，失败返回错误并清理部分初始化状态。
+`gneiss::result<std::shared_ptr<application>>`；成功值拥有配置与调度对象，配置错误立即返回。基础服务在首次 step/run 初始化，
+初始化失败通过停止路径清理，最终由 step/run 返回错误。
 调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。
 完整 Application C API 与公共创建描述已删除。动态游戏模块也已撤销。
 
@@ -17,13 +18,13 @@ Application 头文件不再间接提供 World、输入服务和资产管理器�
 宿主停止系统先释放文档、场景与绑定，再释放 World，随后 Application 关闭服务。
 最后一个 Application 引用必须在创建线程释放，析构执行同步关闭保底；正常退出使用
 `request_exit()` 后持续 run()/step() 至终态。
-初始化失败会回收部分状态，已经进入初始化的平台回调与 shutdown 配对，
-包括初始化回调抛出异常的情况；清理后原异常继续传播。shutdown 回调须能清理部分初始化状态。
+初始化失败会回收部分状态。宿主 on_stop 须能清理尚未启动或部分初始化的状态；
+意外异常继续传播，应用析构保底或显式退出负责关闭。
 
-原生配置中的字符串在创建期间复制，回调由 Application 保存；回调捕获的借用对象必须
+原生配置中的字符串在创建期间复制，注册的系统由 Application 保存；回调捕获的借用对象必须
 存活至关闭结束。不要让回调强捕获自身 Application，避免引用环。
 
-创建配置的 `executor` 借用宿主任务执行器，必须覆盖 Application 关闭。提供执行器时在创建过程中
+创建配置的 `executor` 借用宿主任务执行器，必须覆盖 Application 关闭。提供执行器时在启动过程中
 完成资产服务装配；省略时不启用资产任务。协作执行器由宿主的 completions 系统执行 run_ready。
 不提供创建后 attach；是否装配资产执行器在创建时确定。
 
@@ -56,8 +57,9 @@ Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的�
 运行失败通过结果返回，并写入 logging；Application 不提供 report 或独立诊断回调。
 重入或跨线程调用返回 `invalid_state`；终态不能重启，重复观察返回同一停止结果。
 
-`request_exit()` 请求在回调返回后退出。`close_requested` 返回 false 可拦截平台关闭，
-返回 true 或未提供回调时正常退出。Application 时间不受宿主模拟暂停影响；宿主通过
+`request_exit()` 请求在回调返回后退出。窗口关闭请求默认直接退出；首次运行前注册
+`on_close_request(handler)` 后，由唯一宿主处理器执行保存确认等操作，确认后调用 request_exit，
+取消则继续运行。request_exit 不再次触发关闭确认。Application 时间不受宿主模拟暂停影响；宿主通过
 业务状态选择是否运行模拟系统，窗口、完成队列、UI 与呈现继续执行。
 回调返回失败时保留原生错误结果；意外异常向执行边界传播，自有宿主输出致命诊断后终止。
 正常退出仍执行资源清理；致命终止不承诺完整析构。
@@ -149,10 +151,10 @@ error::not_ready 仍是错误，不代替 pending。析构保底可同步等待�
 
 ## 平台与窗口
 
-`application_configuration::enable_window` 默认为 false，允许空回调无窗口模式。
+`application_configuration::enable_window` 默认为 false，允许无窗口模式。
 窗口默认 1280×720。Granit 是固定构建依赖；`enable_window=false` 时，Application
-不创建窗口、不初始化 GPU 设备，仍可执行逻辑循环与 CPU 资产加载。窗口模式不允许同时提供平台 initialize、
-poll_events 或 shutdown 回调，业务 update 与时间回调仍可使用。
+不创建窗口、不初始化 GPU 设备，仍可执行逻辑循环与 CPU 资产加载。平台事件泵送、服务初始化和
+单调时钟由 Application 内部负责，不提供平台回调配置；宿主初始化与清理使用 on_start/on_stop。
 
 Application 私有持有 `gneiss::window::service`，负责窗口生命周期及键盘/鼠标事件轮询。
 `engine/include/gneiss/engine/platform/window/service.hpp` 不包含 Granit 头；具体窗口类型、原生句柄提取和事件转换
@@ -239,7 +241,8 @@ Runtime/Editor 的环境系统持有资产请求并显式应用；停止系统�
 Runtime 使用具名 on_start 建立 World 与渲染绑定、提交环境和输入映射请求、初始化检查器、
 连接 Editor IPC 并请求初始场景。异步资产完成仍由正常更新处理；注册阶段不创建 Runtime World。
 停止回调允许启动尚未执行或只执行了一部分，加载器在 World 之前销毁。
-基础窗口和服务当前仍由 create 初始化，不能据此假定全部平台启动已经延迟到 run。
+基础窗口与服务由首次 step/run 初始化；宿主只能在 on_start 或后续业务系统中借用资产和窗口服务。
+首次运行前请求退出会跳过服务初始化，但仍执行已注册的宿主停止回调；回调须允许未启动状态。
 
 ## Editor 宿主启动
 

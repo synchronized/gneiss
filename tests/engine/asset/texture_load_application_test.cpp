@@ -66,6 +66,7 @@ void run(gneiss::tasks::execution_mode mode) {
   desc.executor = &scheduler;
   check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
         gneiss::error::success);
+  check(app->step().ok());
   gneiss::asset_batch_request empty;
   check(empty.cancel() == gneiss::error::invalid_state);
 

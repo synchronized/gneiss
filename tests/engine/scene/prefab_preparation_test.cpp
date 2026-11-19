@@ -20,6 +20,8 @@ bool run(gneiss::tasks::execution_mode mode) {
                                          application) != gneiss::error::success) {
     return false;
   }
+  if (!application->step())
+    return false;
   for (int attempt = 0; attempt < 3; ++attempt) {
 
     const auto uri =

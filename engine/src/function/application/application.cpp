@@ -272,6 +272,7 @@ struct application::storage {
   std::unique_ptr<gneiss::render::service> render_service_ =
       std::make_unique<gneiss::render::service>();
   app::schedule systems_;
+  std::weak_ptr<application> self_;
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<gneiss::io::executor> asset_io_executor_;
 #endif
@@ -299,7 +300,7 @@ struct application::storage {
   error lifecycle_result_{error::success};
   bool step_started_{};
   bool step_active_{};
-  bool platform_initialized_ = false;
+  std::function<void()> close_request_;
   bool is_running_ = false;
   bool should_exit_ = false;
   gneiss::input::service input_;
@@ -360,10 +361,7 @@ private:
 
 gneiss::result<std::shared_ptr<application>>
 application::create(const application_configuration& config) {
-  if (config.enable_window &&
-      (config.window.width == 0U || config.window.height == 0U ||
-       config.callbacks.initialize != nullptr || config.callbacks.poll_events != nullptr ||
-       config.callbacks.shutdown != nullptr)) {
+  if (config.enable_window && (config.window.width == 0U || config.window.height == 0U)) {
     return gneiss::error::invalid_argument;
   }
   {
@@ -371,15 +369,7 @@ application::create(const application_configuration& config) {
     if (meta_status.failed())
       return meta_status;
     auto instance = std::shared_ptr<application>(new application(config));
-    const auto result = instance->initialize(instance);
-    if (result != gneiss::error::success) {
-      return result;
-    }
-    if (config.executor) {
-      const auto configured = instance->configure_executor(*config.executor);
-      if (configured.failed())
-        return configured;
-    }
+    instance->storage_->self_ = instance;
     instance->storage_->accepts_requests_.store(true, std::memory_order_release);
     return instance;
   }
@@ -538,30 +528,10 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
     }
     storage_->render_service_->set_completion_wakeup(storage_->loop_wakeup_);
   }
-  // 初始化可能先取得部分资源再抛出异常；进入回调前就登记配对清理。
-  storage_->platform_initialized_ = true;
-  if (storage_->config_.callbacks.initialize != nullptr) {
-    auto result = gneiss::error::success;
-    {
-      result = storage_->config_.callbacks.initialize();
-    }
-    if (result != gneiss::error::success) {
-      log_error("application", result, "application.initialize", "application 初始化回调失败");
-      // 初始化回调可能已获得部分资源，因此失败时也执行配对清理。
-      static_cast<void>(shutdown());
-      return result;
-    }
-  }
+  storage_->asset_manager_ = std::make_unique<gneiss::asset_manager>(storage_->files_);
+  if (storage_->asset_manager_->attach_render(*storage_->render_service_).failed())
+    return gneiss::error::invalid_state;
 
-  try {
-    storage_->asset_manager_ = std::make_unique<gneiss::asset_manager>(storage_->files_);
-    if (storage_->asset_manager_->attach_render(*storage_->render_service_).failed())
-      return gneiss::error::invalid_state;
-
-  } catch (...) {
-    static_cast<void>(shutdown());
-    throw;
-  }
   // 只接收服务级完成通知；业务资产由宿主系统加载。
   const auto accepted = storage_->files_->initialize([self](error status) {
     auto owner = self.lock();
@@ -580,9 +550,6 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
 }
 
 std::uint64_t application::now_ns() const {
-  if (storage_->config_.callbacks.now_ns != nullptr) {
-    return storage_->config_.callbacks.now_ns();
-  }
   const auto now = std::chrono::steady_clock::now().time_since_epoch();
   return static_cast<std::uint64_t>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
@@ -603,12 +570,7 @@ gneiss::error application::poll_events(bool& out_should_close) {
       storage_->input_.clear_focus();
     return error::success;
   }
-  if (storage_->config_.callbacks.poll_events == nullptr) {
-    return gneiss::error::success;
-  }
-  {
-    return storage_->config_.callbacks.poll_events(out_should_close);
-  }
+  return error::success;
 }
 
 const gneiss::window::service* application::window() const noexcept {
@@ -637,11 +599,12 @@ error application::advance_frame() try {
       return poll_result;
     }
     if (should_close) {
-      if (storage_->config_.callbacks.close_requested == nullptr ||
-          storage_->config_.callbacks.close_requested()) {
-        storage_->should_exit_ = true;
+      if (storage_->close_request_)
+        storage_->close_request_();
+      else
+        request_exit();
+      if (storage_->should_exit_)
         return error::success;
-      }
     }
 
     const auto dispatched = dispatch_completion_systems();
@@ -735,12 +698,25 @@ result<app::lifecycle> application::step() {
       return storage_->lifecycle_result_;
     return app::lifecycle::stopped;
   }
-  if (!storage_->platform_initialized_ && !storage_->shutdown_requested_)
-    return error::invalid_state;
   if (!storage_->step_started_) {
     storage_->systems_.freeze();
-    storage_->previous_time_ns_ = now_ns();
     storage_->step_started_ = true;
+    if (!storage_->should_exit_) {
+      try {
+        auto initialized = initialize(storage_->self_);
+        if (initialized.ok() && storage_->config_.executor)
+          initialized = configure_executor(*storage_->config_.executor);
+        if (initialized.failed()) {
+          storage_->lifecycle_result_ = initialized;
+          storage_->should_exit_ = true;
+        }
+      } catch (...) {
+        // 已尝试的初始化不重放；异常交给调用方，后续关闭仍释放部分资源。
+        storage_->should_exit_ = true;
+        throw;
+      }
+    }
+    storage_->previous_time_ns_ = now_ns();
   }
   if (storage_->should_exit_ || storage_->shutdown_requested_)
     storage_->lifecycle_ = app::lifecycle::stopping;
@@ -915,14 +891,6 @@ gneiss::error application::shutdown() {
     storage_->asset_manager_->stop();
   storage_->asset_manager_.reset();
   storage_->files_.reset();
-  if (storage_->platform_initialized_) {
-    if (storage_->config_.callbacks.shutdown != nullptr) {
-      {
-        storage_->config_.callbacks.shutdown();
-      }
-    }
-    storage_->platform_initialized_ = false;
-  }
   if (storage_->window_service_ != nullptr) {
     gneiss::render::device_stats stats;
     const auto render_shutdown_result = storage_->render_service_->shutdown(stats);
@@ -972,6 +940,12 @@ gneiss::asset_manager& application::assets() noexcept { return *storage_->asset_
 gneiss::input::service& application::input() noexcept {
   GNEISS_ASSERT(is_owner_thread() && accepts_requests(), "输入服务只在所属线程和有效期内借用");
   return storage_->input_;
+}
+
+void application::on_close_request(std::function<void()> handler) {
+  GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->step_started_,
+                "关闭请求处理器只在所属线程首次运行前注册");
+  storage_->close_request_ = std::move(handler);
 }
 
 void application::request_exit() noexcept { storage_->should_exit_ = true; }

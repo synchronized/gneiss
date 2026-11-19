@@ -43,7 +43,7 @@ int main() try {
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
       gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
-      (world = world_owner.get()) == nullptr || camera.initialize().failed() ||
+      (world = world_owner.get()) == nullptr || camera.initialize().failed() || !app->step() ||
       loader.request(*app, editing, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }

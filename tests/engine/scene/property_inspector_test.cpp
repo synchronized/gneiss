@@ -39,6 +39,8 @@ bool open_scene(gneiss::tasks::scheduler& scheduler, std::string_view root,
   if (!created)
     return false;
   app = std::move(*created);
+  if (!app->step())
+    return false;
   auto submitted = app->assets().load<gneiss::scene>(scene_uri);
   if (!submitted)
     return false;

@@ -18,52 +18,6 @@ void check(bool value, std::source_location location = std::source_location::cur
     throw std::runtime_error("Application 原生流程失败");
   }
 }
-void loop() {
-  std::shared_ptr<runtime::application> app;
-  runtime::application_configuration config;
-  std::uint64_t clock{}, updates{}, shutdowns{}, closes{};
-  bool close{}, allow{};
-  config.callbacks.now_ns = [&] { return clock += 10; };
-  config.callbacks.poll_events = [&](bool& output) {
-    output = close;
-    return gneiss::error::success;
-  };
-  config.callbacks.close_requested = [&]() {
-    ++closes;
-    return allow;
-  };
-  config.callbacks.shutdown = [&] { ++shutdowns; };
-  const auto update = [&](const gneiss::frame_time& time) {
-    check(time.frame_index == updates && (updates == 0 || time.delta_ns == 10));
-    if (++updates == 3)
-      app->request_exit();
-    return gneiss::error::success;
-  };
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  app->add_system(app::stage::update, "test.update", update);
-  check(app->window() == nullptr);
-  gneiss::input::event event;
-  check(app->input().poll(event) == gneiss::error::not_ready &&
-        event.type == gneiss::input::event_type::none);
-  check(app->input().keyboard().modifiers == 0 && app->input().keyboard().pressed_keys[0] == 0);
-  check(app->input().pointer().buttons == 0 && !app->input().pointer().is_inside);
-  check(app->run().ok() && updates == 3);
-  app.reset();
-  check(shutdowns == 1);
-  close = allow = true;
-  updates = closes = 0;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  app->add_system(app::stage::update, "test.update", update);
-  check(app->run().ok() && updates == 0 && closes == 1);
-  app.reset();
-  allow = false;
-  closes = 0;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  app->add_system(app::stage::update, "test.update", update);
-  check(app->run().ok() && updates == 3 && closes == 3);
-  app.reset();
-  check(shutdowns == 3);
-}
 void startup_systems() {
   for (unsigned scenario = 0; scenario != 3; ++scenario) {
     auto created = runtime::application::create({});
@@ -185,7 +139,6 @@ void state_systems() {
 void host_shutdown() {
   std::string order;
   runtime::application_configuration config;
-  config.callbacks.shutdown = [&] { order += 's'; };
   auto created = runtime::application::create(config);
   check(created.ok());
   auto application = std::move(*created);
@@ -203,10 +156,10 @@ void host_shutdown() {
   auto stopping = application->step();
   check(stopping && *stopping == app::lifecycle::stopping && order == "ab");
   application->request_exit();
-  check(application->run().error() == error::io && order == "abs");
-  check(application->step().error() == error::io && order == "abs");
+  check(application->run().error() == error::io && order == "ab");
+  check(application->step().error() == error::io && order == "ab");
   application.reset();
-  check(order == "abs");
+  check(order == "ab");
 
   // 未运行就退出（例如宿主装配失败）也清理；析构保底不会重复显式关闭。
   created = runtime::application::create(config);
@@ -216,13 +169,13 @@ void host_shutdown() {
   application->request_exit();
   check(application->run().ok());
   application.reset();
-  check(order == "abscs");
+  check(order == "abc");
   created = runtime::application::create(config);
   check(created.ok());
   application = std::move(*created);
   application->on_stop("destructor", [&] { order += 'd'; });
   application.reset();
-  check(order == "abscsds");
+  check(order == "abcd");
 }
 void complete_lifecycle() {
   auto created = runtime::application::create({});
@@ -262,10 +215,9 @@ void complete_lifecycle() {
 }
 void simulation_pause() {
   enum class mode { playing, paused };
-  std::uint64_t clock{}, simulated{}, observed{};
+  std::uint64_t simulated{}, observed{}, latest_delta{};
   unsigned completions{}, updates{}, presented{};
   runtime::application_configuration config;
-  config.callbacks.now_ns = [&] { return clock += 10; };
   auto created = runtime::application::create(config);
   check(created.ok());
   auto application = std::move(*created);
@@ -275,7 +227,7 @@ void simulation_pause() {
                          [&](const frame_time& time) { simulated += time.delta_ns; });
   application->add_system(app::stage::update, "editor", [&](const frame_time& time) {
     ++updates;
-    check(time.delta_ns == 10);
+    latest_delta = time.delta_ns;
     check(time.elapsed_ns == observed + time.delta_ns);
     observed = time.elapsed_ns;
   });
@@ -289,7 +241,7 @@ void simulation_pause() {
   check(application->request_state(mode::playing).ok());
   check(application->step().ok());
   // 恢复仅消费本帧时间，不补算暂停期间的应用时间。
-  check(simulated == before_pause + 10 && observed == 40);
+  check(simulated == before_pause + latest_delta);
   application->request_exit();
   check(application->run().ok());
 }
@@ -357,14 +309,14 @@ void creation_failures() {
             *app, scheduler, "asset://input/missing.input-map.json") == gneiss::error::not_found);
   app.reset();
   config.asset_root = {};
-  config.callbacks.initialize = [] { return gneiss::error::not_found; };
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
-        gneiss::error::not_found);
-  check(!app);
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  check(!app->async_files());
+  app->on_start("fail", [] { return gneiss::error::not_found; });
+  check(app->run().error() == gneiss::error::not_found);
+  check(app->step().error() == gneiss::error::not_found);
 }
 }
 int main() try {
-  loop();
   startup_systems();
   scheduled_systems();
   state_systems();

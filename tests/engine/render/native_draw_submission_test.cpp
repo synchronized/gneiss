@@ -96,12 +96,12 @@ int main() {
   }
   app->add_system(gneiss::app::stage::update, "draw.update",
                   [&](const gneiss::frame_time&) { return update(*app, context); });
-  const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
-  const gneiss::texture_view texture{
-      .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
-  if (gneiss::test_support::take_value(app->assets().create(texture), context.texture).failed()) {
-    return 2;
-  }
+  app->on_start("draw.texture", [&] {
+    const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
+    const gneiss::texture_view texture{
+        .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
+    return gneiss::test_support::take_value(app->assets().create(texture), context.texture);
+  });
   if (!app->step() || !app->step() || context.failure != 0) {
     return 10 + static_cast<int>(context.failure);
   }

@@ -155,18 +155,23 @@ int main() {
         return !submitted && submitted.error() != gneiss::error::not_ready ? submitted
                                                                            : gneiss::result<void>{};
       });
-  const auto native = application->window()->native();
-  if (native.backend != gneiss::window::native_backend::win32)
-    return 2;
-  value.window = static_cast<HWND>(native.data.win32.window);
-  if (value.window == nullptr || value.ui.initialize(*application) != gneiss::error::success) {
-    return 2;
-  }
+  application->on_start("probe.initialize_ui", [&]() -> gneiss::error {
+    const auto native = application->window()->native();
+    if (native.backend != gneiss::window::native_backend::win32)
+      return gneiss::error::initialization_failed;
+    value.window = static_cast<HWND>(native.data.win32.window);
+    if (value.window == nullptr || value.ui.initialize(*application) != gneiss::error::success) {
+      return gneiss::error::initialization_failed;
+    }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
-  if (value.camera.initialize() != gneiss::error::success) {
-    return 5;
-  }
+    if (value.camera.initialize() != gneiss::error::success) {
+      return gneiss::error::initialization_failed;
+    }
 #endif
+    return gneiss::error::success;
+  });
+  if (!application->step())
+    return 2;
   gneiss::error foreign_result{};
   std::thread foreign([&] { foreign_result = value.ui.begin_frame(*application, {}); });
   foreign.join();

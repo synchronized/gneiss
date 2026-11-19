@@ -2969,7 +2969,6 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   gneiss::runtime::application_configuration desc;
   desc.user_root = user_root_text;
   desc.executor = &state.scheduler;
-  desc.callbacks.close_requested = [&state]() { return handle_close_requested(&state) != 0U; };
   desc.enable_window = true;
   desc.window.title = title;
 
@@ -2986,6 +2985,10 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   }
   application = std::move(*created);
   state.application = application.get();
+  application->on_close_request([&state] {
+    if (handle_close_requested(&state) != 0U)
+      state.application->request_exit();
+  });
   application->on_start("editor.load_environment", [&state, &project]() -> gneiss::error {
     if (!project.environment.asset.empty()) {
       auto requested =

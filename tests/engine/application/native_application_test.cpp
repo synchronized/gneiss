@@ -25,74 +25,40 @@ void check(bool condition, std::source_location where = std::source_location::cu
     throw std::runtime_error("原生 Application 生命周期验收失败：" + std::to_string(where.line()));
   }
 }
-struct context {
-  std::uint64_t frames{}, shutdowns{}, initializations{};
-  bool fail{};
-};
 }
 
 namespace {
 void test_loop_callback_exceptions() {
   using namespace gneiss;
-  runtime::application_configuration config;
-  std::shared_ptr<runtime::application> app;
-  bool fail = true;
-  unsigned updates{};
-  config.callbacks.now_ns = [&]() -> std::uint64_t {
-    if (fail)
-      throw std::bad_alloc{};
-    return 12U;
-  };
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
-        gneiss::error::success);
-  app->add_system(gneiss::app::stage::update, "test.update", [&](const gneiss::frame_time& time) {
-    check(time.delta_ns == 0U);
-    ++updates;
-    return gneiss::error::success;
-  });
-  bool allocation_threw = false;
-  try {
-    (void)app->step();
-  } catch (const std::bad_alloc&) {
-    allocation_threw = true;
+  for (bool startup : {true, false}) {
+    bool acquired{};
+    unsigned released{};
+    auto created = runtime::application::create({});
+    check(bool(created));
+    auto app = std::move(*created);
+    app->on_start("acquire", [&] {
+      acquired = true;
+      if (startup)
+        throw std::runtime_error("启动失败");
+    });
+    app->add_system(app::stage::update, "throw", [] { throw std::runtime_error("更新失败"); });
+    app->on_stop("release", [&] {
+      check(acquired);
+      acquired = false;
+      ++released;
+    });
+    bool threw{};
+    try {
+      (void)app->step();
+    } catch (const std::runtime_error&) {
+      threw = true;
+    }
+    check(threw && acquired);
+    app->request_exit();
+    check(app->run().ok() && !acquired && released == 1);
+    app.reset();
+    check(released == 1);
   }
-  check(allocation_threw);
-  fail = false;
-  check(app->step().ok() && updates == 1U);
-  app.reset();
-  config.callbacks.now_ns = {};
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
-        gneiss::error::success);
-  app->add_system(
-      gneiss::app::stage::update, "test.throw",
-      [](const gneiss::frame_time&) -> gneiss::error { throw std::runtime_error("更新失败"); });
-  bool update_threw = false;
-  try {
-    (void)app->step();
-  } catch (const std::runtime_error&) {
-    update_threw = true;
-  }
-  check(update_threw);
-  app->request_exit();
-  check(app->run().ok());
-  app.reset();
-  config.callbacks.poll_events = [](bool& close) {
-    close = true;
-    return gneiss::error::success;
-  };
-  config.callbacks.close_requested = []() -> bool { throw std::bad_alloc{}; };
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
-        gneiss::error::success);
-  allocation_threw = false;
-  try {
-    (void)app->step();
-  } catch (const std::bad_alloc&) {
-    allocation_threw = true;
-  }
-  check(allocation_threw);
-  app->request_exit();
-  check(app->run().ok());
-  app.reset();
 }
 
 void test_asset_request_boundaries() {
@@ -124,6 +90,7 @@ void test_loading_request_lifetime() {
   auto created = runtime::application::create(config);
   check(bool(created));
   auto app = std::move(*created);
+  check(app->step().ok());
   const gneiss::render_resource_source source{"asset://missing.texture",
                                               gneiss::render_resource_kind::texture};
   auto submitted = app->assets().load_batch({&source, 1});
@@ -151,6 +118,7 @@ void test_loading_request_lifetime() {
   other_config.executor = &tasks;
   auto other_created = runtime::application::create(other_config);
   check(bool(other_created));
+  check((*other_created)->step().ok());
   auto independent = (*other_created)->assets().load_batch({});
   check(bool(independent) && independent->ready());
   submitted = app->assets().load_batch({&source, 1});
@@ -173,10 +141,12 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     config.asset_root = GNEISS_TEST_ASSET_ROOT;
     config.executor = &scheduler;
     unsigned closed{};
-    config.callbacks.shutdown = [&] { ++closed; };
     std::shared_ptr<gneiss::runtime::application> app;
     check(
         gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok());
+    app->on_stop("closed", [&] { ++closed; });
+    if (stage != 0)
+      check(app->step().ok());
     gneiss::asset_request<gneiss::scene> request;
     gneiss::asset_batch_request assets_request;
     if (stage == 1) {
@@ -198,7 +168,7 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     app->request_exit();
     auto stopping = app->step();
     check(stopping && *stopping == gneiss::app::lifecycle::stopping);
-    check(!app->accepts_requests() && closed == 0);
+    check(!app->accepts_requests() && closed == 1);
     app->request_exit();
     check(!assets_request);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -225,146 +195,60 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
   }
 }
 
-void test_platform_callbacks() {
-  std::shared_ptr<gneiss::runtime::application> app;
-  // 预期初始化失败使用错误码并执行配对关闭；意外异常向调用边界传播。
-  gneiss::runtime::application_configuration platform_config;
-  unsigned shutdowns{};
-  platform_config.callbacks.initialize = []() -> gneiss::error {
-    return gneiss::error::initialization_failed;
-  };
-  platform_config.callbacks.shutdown = [&] { ++shutdowns; };
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
-                                           app) == gneiss::error::initialization_failed);
-  check(!app && shutdowns == 1U);
-  platform_config.callbacks.initialize = [] { return gneiss::error::success; };
-  unsigned polls{};
-  platform_config.callbacks.poll_events = [&](bool& close) {
-    ++polls;
-    close = true;
-    return gneiss::error::success;
-  };
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
-                                           app) == gneiss::error::success);
-  check(app->run().ok() && polls == 1U);
+void test_startup_failure() {
+  using namespace gneiss;
+  unsigned initialized{}, closed{}, updates{};
+  auto created = runtime::application::create({});
+  check(bool(created));
+  auto app = std::move(*created);
+  check(!app->async_files() && !app->window());
+  app->on_start("fail", [&] {
+    ++initialized;
+    return error::initialization_failed;
+  });
+  app->add_system(app::stage::update, "never", [&] { ++updates; });
+  app->on_stop("release", [&] { ++closed; });
+  check(app->run().error() == error::initialization_failed);
+  check(initialized == 1 && closed == 1 && updates == 0);
+  check(app->step().error() == error::initialization_failed);
   app.reset();
-  check(shutdowns == 2U);
-  platform_config.callbacks.poll_events = [](bool&) -> gneiss::error { throw std::bad_alloc{}; };
-  platform_config.callbacks.shutdown = [&] { ++shutdowns; };
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
-                                           app) == gneiss::error::success);
-  bool poll_threw = false;
-  try {
-    (void)app->step();
-  } catch (const std::bad_alloc&) {
-    poll_threw = true;
-  }
-  check(poll_threw);
-  app->request_exit();
-  check(app->run().ok());
-  check(!app->accepts_requests());
-  app.reset();
-  check(shutdowns == 3U);
-  // 进入初始化回调后，即使异常传播也必须清理其已取得的部分资源。
-  bool acquired{};
-  platform_config.callbacks.initialize = [&]() -> gneiss::error {
-    acquired = true;
-    throw std::runtime_error("平台初始化异常");
-  };
-  platform_config.callbacks.shutdown = [&] {
-    check(acquired);
-    acquired = false;
-    ++shutdowns;
-  };
-  bool initialization_threw{};
-  try {
-    (void)gneiss::runtime::application::create(platform_config);
-  } catch (const std::runtime_error& failure) {
-    initialization_threw = std::string_view(failure.what()) == "平台初始化异常";
-  }
-  check(initialization_threw && !acquired && !app && shutdowns == 4U);
+  check(closed == 1);
 }
 } // namespace
 
 int main() try {
-  context state;
-  gneiss::runtime::application_configuration config;
-  config.callbacks.initialize = [&state] {
-    ++state.initializations;
-    return state.fail ? gneiss::error::initialization_failed : gneiss::error::success;
-  };
-  config.callbacks.shutdown = [&state] { ++state.shutdowns; };
-  std::atomic<unsigned> delivered{};
-  std::atomic<bool> valid_log{true};
-  gneiss::test_support::log_capture logs{[&](const gneiss::logging::record_view& event) {
-    if (event.message.category == "native-test") {
-      if (event.message.message != "原生日志" || event.sequence == 0U) {
-        valid_log.store(false);
-      }
-      ++delivered;
-      // 正常回调验证投递与关闭；异常终止由 application-log-fatal 子进程测试覆盖。
-    }
-  }};
-  // 不经 C API 和句柄注册表，真实对象仍使用同一创建、主循环及析构实现。
-  std::shared_ptr<gneiss::runtime::application> app;
-  auto created = gneiss::runtime::application::create(config);
-  check(created && *created);
-  app = std::move(*created);
-  check(!*created && app);
-  app->add_system(gneiss::app::stage::update, "test.update",
-                  [&state](const gneiss::frame_time&) -> gneiss::error {
-                    ++state.frames;
-                    return gneiss::error::success;
-                  });
-  for (unsigned index = 0; index < 2U; ++index) {
-    gneiss::logging::logger{"native-test"}.info("原生日志");
-  }
-  auto invalid = config;
+  using namespace gneiss;
+  unsigned starts{}, frames{}, stops{};
+  auto created = runtime::application::create({});
+  check(bool(created));
+  auto app = std::move(*created);
+  app->on_start("start", [&] { ++starts; });
+  app->add_system(app::stage::update, "update", [&] { ++frames; });
+  app->on_stop("stop", [&] { ++stops; });
+  runtime::application_configuration invalid;
   invalid.enable_window = true;
   invalid.window.width = 0;
-  auto retained = app;
-  auto rejected = gneiss::runtime::application::create(invalid);
-  check(!rejected && rejected.error() == gneiss::error::invalid_argument);
-  check(app == retained && state.initializations == 1U);
-  retained.reset();
+  check(runtime::application::create(invalid).error() == error::invalid_argument);
+  check(starts == 0 && !app->async_files());
   for (unsigned frame = 0; frame < 3; ++frame)
     check(app->step().ok());
-  check(state.frames == 3U);
-  gneiss::error other_thread{};
+  check(starts == 1 && frames == 3);
+  error other_thread;
   std::thread worker([&] { other_thread = app->step().error(); });
   worker.join();
-  check(other_thread == gneiss::error::invalid_state && state.frames == 3U);
-  check(state.shutdowns == 0U);
-  // 失败创建不替换原对象；失败初始化的部分资源必须恰好清理一次。
-  auto previous = app;
-  state.fail = true;
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app) ==
-        gneiss::error::initialization_failed);
-  check(app == previous && state.initializations == 2U && state.shutdowns == 1U);
-  previous.reset();
-  check(app->step().ok() && state.frames == 4U);
+  check(other_thread == error::invalid_state && frames == 3);
   app->request_exit();
   check(app->run().ok());
-  const auto stopped = app->step();
-  check(stopped && *stopped == gneiss::app::lifecycle::stopped);
+  check(*app->step() == app::lifecycle::stopped);
   app.reset();
-  check(state.shutdowns == 2U);
-  logs.service.flush();
-  check(delivered.load() == 2U && valid_log.load());
-  // 释放最后一个拥有者触发关闭，关闭回调恰好一次。
-  state.fail = false;
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app) ==
-        gneiss::error::success);
-  app.reset();
-  check(state.shutdowns == 3U);
+  check(stops == 1);
   test_asset_request_boundaries();
   test_loading_request_lifetime();
-  asynchronous_shutdown(gneiss::tasks::execution_mode::thread_pool);
-  asynchronous_shutdown(gneiss::tasks::execution_mode::cooperative);
-  test_platform_callbacks();
+  asynchronous_shutdown(tasks::execution_mode::thread_pool);
+  asynchronous_shutdown(tasks::execution_mode::cooperative);
+  test_startup_failure();
   test_loop_callback_exceptions();
   return 0;
-} catch (const std::exception& error) {
-  std::fprintf(stderr, "%s\n", error.what());
-  return 1;
+} catch (...) {
+  gneiss::fatal_current_exception();
 }

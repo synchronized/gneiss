@@ -86,6 +86,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
               gneiss::test_support::assign_value(gneiss::create_native(), world_owner).ok() &&
               (world = world_owner.get()) != nullptr,
           "基准应用创建失败");
+  require(app->step().ok(), "基准应用启动失败");
   require(authors.initialize(app->async_files()) == gneiss::error::success, "作者服务启动失败");
   const auto baseline_start = clock_type::now();
   while (authors.is_rescanning()) {

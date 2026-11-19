@@ -317,11 +317,14 @@ int main(int argc, char** argv) try {
   desc.window.title = title;
   desc.window.width = 320U;
   desc.window.height = 240U;
-  desc.callbacks.close_requested = [&]() { return close_requested(state); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)
           .failed()) {
     return 1;
   }
+  app->on_close_request([&] {
+    if (close_requested(state))
+      app->request_exit();
+  });
   app->add_system(gneiss::app::stage::update, "response.update",
                   [&](const auto&) { return native_update(*app, state); });
   auto world = gneiss::create_native();
@@ -342,6 +345,8 @@ int main(int argc, char** argv) try {
     world->reset();
   });
   gneiss::test_support::add_scene_render_systems(*app, **world, **binding);
+  if (!app->step())
+    return 1;
   if (!asset_root.empty() &&
       gneiss::test_support::take_value(
           app->assets().load<gneiss::scene>("asset://scenes/scene.scene.json"),

@@ -243,10 +243,6 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     std::shared_ptr<gneiss::runtime::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::runtime::application_configuration desc;
-    desc.callbacks.close_requested = [&state] {
-      state.closing = true;
-      return !state.pending;
-    };
     desc.enable_window = true;
     desc.window.title = title;
 
@@ -266,6 +262,11 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     }
     application = std::move(*created);
     state.application = application.get();
+    application->on_close_request([&state] {
+      state.closing = true;
+      if (!state.pending)
+        state.application->request_exit();
+    });
     application->init_state(project_phase::selecting);
     application->on_enter(project_phase::selecting, "project_manager.initialize_ui",
                           [&] { return state.ui.initialize(*application); });

@@ -500,3 +500,30 @@ scene_viewer 的 application_create_ms 只计 Application 创建；延迟的 Wor
 Windows Clang Debug 两个示例目标构建通过；minimal-example、scene-viewer、scene-viewer-dual
 三项测试通过，后两项实际运行 GPU 渲染，包含双视图独立相机与目标尺寸切换。
 基础服务延迟初始化、跨工程完整 UI 操作与静态验收仍待完成。
+
+### 基础服务启动与关闭入口收敛
+
+create 只校验配置、保存字符串并创建应用对象；首次 step/run 装配文件、窗口、Render 和资产执行器。
+首次运行前退出跳过服务启动，宿主停止回调仍执行。业务只能在启动步骤或后续运行阶段使用资产与窗口。
+删除 application_callbacks：事件泵送与单调时钟由内部负责，初始化/关闭业务使用 on_start/on_stop。
+唯一 on_close_request 处理器接管窗口关闭请求，宿主确认后调用 request_exit；未注册则默认退出，
+显式 request_exit 不重复触发确认。Editor 与项目管理器已迁移。
+
+生命周期测试删除仅用于注入平台回调的用例，改为覆盖启动失败、异常清理、未运行退出及终态不重放；
+暂停测试验证本帧时间累积，不依赖人为时钟数值。资产、文档和窗口夹具显式驱动服务启动后再使用。
+
+Windows Clang Debug 全量构建通过。213 项 CPU 回归中，prefab-preparation 的启动时序修复后
+单独重跑通过；20 项 GPU 回归中，窗口 smoke 的纹理创建迁入 on_start 后单独重跑通过。
+其余用例首轮通过。Editor、Runtime 和项目管理器 smoke 退出 0；空环境资产失败分别以
+Editor 4、Runtime 7 退出并完成关闭。静态矩阵及跨工程完整 UI 操作仍未验收。
+
+### 后续接口定稿（已确认，尚待实施）
+
+- Application 类型与配置统一到 gneiss::app：application、configuration；不保留旧名称别名。
+  系统适配辅助函数收进 detail，公共声明与私有实现声明分组整理。
+- 启动等待采用步骤完成协议，支持 start_progress::pending/complete；不增加生命周期边的任意 bool
+  判断函数表。pending 继续分发事件和完成，完成步骤不重放，失败/退出走统一停止。
+  宿主负责保存请求，等待步骤不得反复提交同一任务。
+- 业务状态仍用 request_state；编辑器保存确认属于业务状态，确认退出后才进入 stopping。
+
+以上启动等待能力尚未接入当前 on_start，不能把基础服务延迟初始化视作全部启动协议完成。

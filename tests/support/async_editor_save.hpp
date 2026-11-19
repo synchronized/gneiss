@@ -35,6 +35,8 @@ inline gneiss::error save_document(editor::scene_edit_session& document,
       gneiss::test_support::assign_value(runtime::application::create(config), application);
   if (status.failed())
     return status;
+  if (auto started = application->step(); !started)
+    return started.error();
   std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
   status = document.begin_save(*application->async_files(), uri.empty() ? document.uri() : uri,
                                uri.empty() ? gneiss::files::write_mode::replace

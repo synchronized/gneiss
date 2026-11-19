@@ -11,6 +11,21 @@ namespace gneiss::test_support {
 inline gneiss::error load_input_for_test(runtime::application& app,
                                          gneiss::tasks::scheduler& scheduler,
                                          std::string_view uri) {
+  const auto startup_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  if (!app.async_files()) {
+    for (;;) {
+      auto started = app.step();
+      if (!started)
+        return started.error();
+      if (*started == app::lifecycle::running)
+        break;
+      if (*started != app::lifecycle::starting)
+        return error::cancelled;
+      if (std::chrono::steady_clock::now() >= startup_deadline)
+        return error::internal;
+      (void)scheduler.run_ready();
+    }
+  }
   auto request = app.assets().reload<input::action_map>(uri);
   if (!request)
     return request.error();

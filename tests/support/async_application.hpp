@@ -89,6 +89,10 @@ prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_con
     return std::chrono::steady_clock::now() < deadline ? gneiss::error{gneiss::error::success}
                                                        : gneiss::error{gneiss::error::internal};
   };
+  if (!app.async_files()) {
+    if (const auto started = step(); started.failed())
+      return started;
+  }
   auto load = [&]() -> gneiss::error {
     auto request = app.assets().load<gneiss::scene>(uri, {.reload = reload});
     if (!request)

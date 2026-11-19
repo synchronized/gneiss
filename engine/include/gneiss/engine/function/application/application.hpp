@@ -89,7 +89,7 @@ public:
     static_assert(std::is_invocable_v<F&>);
     register_stop_system(std::move(name), app::make_stop_system(std::move(function)));
   }
-  /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
+  /** 创建应用配置与调度所有者；首次 step/run 初始化服务，失败进入统一停止。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
   create(const application_configuration& config);
@@ -116,13 +116,16 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::render::service& render() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::asset_manager& assets() noexcept;
-  /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
+  /** 共享宿主文件服务；启动前为空，由 Application 分发和关闭。 */
   [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<gneiss::files::service>
   async_files() const noexcept;
   /** 借用输入上下文；限所属线程、服务有效期内使用，不得自行推进平台帧。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::input::service& input() noexcept;
   /** 借用只读窗口服务；无窗口或关闭后为空，不允许宿主重复泵送平台事件。 */
   [[nodiscard]] GNEISS_ENGINE_API const gneiss::window::service* window() const noexcept;
+  /** 注册唯一窗口关闭请求处理器，首次运行前调用。未注册时直接退出。
+   * 已注册时由宿主确认并调用 request_exit；回调捕获须存活至关闭结束。 */
+  GNEISS_ENGINE_API void on_close_request(std::function<void()> handler);
   GNEISS_ENGINE_API void request_exit() noexcept;
 
 private:

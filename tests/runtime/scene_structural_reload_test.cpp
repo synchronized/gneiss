@@ -75,6 +75,8 @@ int main() try {
   if (!created)
     return 1;
   auto application = *created;
+  if (!application->step())
+    return 1;
   auto created_world = gneiss::create_native();
   if (!created_world)
     return 1;
@@ -108,6 +110,8 @@ int main() try {
     return 22;
   auto other = gneiss::runtime::application::create(config);
   if (!other)
+    return 23;
+  if (!(*other)->step())
     return 23;
   auto other_world = gneiss::create_native();
   if (!other_world)

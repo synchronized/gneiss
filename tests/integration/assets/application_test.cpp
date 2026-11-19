@@ -47,6 +47,8 @@ void close_pending_window(const char* assets) {
     ++updates;
     return gneiss::error::success;
   });
+  check(app->step().ok(), "start services");
+  const auto updates_before_close = updates;
   std::promise<void> release, entered;
   auto future = release.get_future().share();
   auto started = entered.get_future();
@@ -79,7 +81,7 @@ void close_pending_window(const char* assets) {
     check(!*environment, "host cancels environment before close");
     const auto window = FindWindowW(nullptr, L"Gneiss Asset pending close test");
     check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
-    check(app->step().ok() && updates == 0, "close handled before game update");
+    check(app->step().ok() && updates == updates_before_close, "close handled before game update");
     check(!app->accepts_requests(), "close rejects new input requests");
   }
   app->request_exit();
@@ -123,6 +125,7 @@ void run(const char* assets, bool cooperative) {
     ++frames;
     return gneiss::error::success;
   });
+  check(app->step().ok(), "start services");
 #if !GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
   // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器内存后端则验证完整加载流程。
   auto unsupported =
@@ -242,6 +245,7 @@ void run(const char* assets, bool cooperative) {
             gneiss::error::success,
         "recreate application");
 
+  check(app->step().ok(), "restart services");
   auto reopened = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
   check(reopened.ok(), "new owner begins input");
   wait(*reopened);

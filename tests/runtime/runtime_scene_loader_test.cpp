@@ -52,6 +52,7 @@ void run() {
   auto created = runtime::application::create(config);
   check(bool(created));
   auto app = *created;
+  check(app->step().ok());
 
   auto created_world = gneiss::create_native();
   check(bool(created_world));

@@ -5,9 +5,6 @@
 
 #include <gneiss/engine/platform/window/configuration.hpp>
 
-#include <functional>
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
 #include <string_view>
 
 namespace gneiss::tasks {
@@ -16,19 +13,8 @@ class executor;
 
 namespace gneiss::runtime {
 
-/** 原生平台回调由配置复制；捕获的借用对象须存活至关闭结束。
- * 宿主通过捕获绑定需要的状态，不传递 Application 句柄。 */
-struct application_callbacks final {
-  std::function<gneiss::error()> initialize;
-  std::function<gneiss::error(bool&)> poll_events;
-  std::function<std::uint64_t()> now_ns;
-  std::function<void()> shutdown;
-  std::function<bool()> close_requested;
-};
-
 /** 原生创建配置；字符串仅在 create 期间借用，Application 复制后用于异步启动。 */
 struct application_configuration final {
-  application_callbacks callbacks;
   /** 借用资产任务执行器，必须覆盖 Application 关闭。空表示不装配资产任务。 */
   tasks::executor* executor{};
   bool enable_window = false;

@@ -110,6 +110,7 @@ void run_asset_reload() {
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
 
   const auto reload = [&](std::span<const gneiss::render_resource_source> requests) {
     gneiss::asset_batch_request assets_request;
@@ -203,6 +204,7 @@ void run_pending_resources() {
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene)} ==
@@ -411,6 +413,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   if (async) {
@@ -539,6 +542,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene)} ==
@@ -677,6 +681,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene)} ==
@@ -770,6 +775,7 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
 
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -919,6 +925,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   auto render_binding = world_render_binding::create(**world, app->render());
   check(bool(render_binding));
   test_support::add_scene_render_systems(*app, **world, **render_binding);
+  check(app->step().ok());
 
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};

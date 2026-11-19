@@ -165,6 +165,7 @@ void run(std::size_t workers,
   require(
       gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok(),
       "测试文件宿主创建失败");
+  require(app->step().ok(), "测试文件宿主启动失败");
   auto io = app->async_files();
   author_asset_service service(scheduler);
   require(service.initialize(io) == gneiss::error::success, "启动失败");
