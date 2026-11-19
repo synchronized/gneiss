@@ -12,10 +12,6 @@
 
 namespace gneiss {
 
-namespace detail {
-struct string_name_entry;
-}
-
 /**
  * @brief 运行期字符串名。
  *
