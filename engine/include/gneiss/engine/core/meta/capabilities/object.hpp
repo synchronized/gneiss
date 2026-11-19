@@ -3,7 +3,7 @@
 #pragma once
 #include <gneiss/engine/core/meta/export.hpp>
 
-#include <gneiss/engine/core/meta/type.hpp>
+#include <gneiss/engine/core/meta/detail/type_definition.hpp>
 
 namespace gneiss::meta {
 template <bool> class basic_object_view;
@@ -36,4 +36,3 @@ public:
 };
 }
 }
-#include <gneiss/engine/core/meta/views/object_view.hpp>

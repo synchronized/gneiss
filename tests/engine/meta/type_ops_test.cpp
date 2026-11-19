@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <gneiss/engine/core/meta/type.hpp>
+
+// 在其他 Meta 头之前检查汇总入口，防止依赖间接 include 才能取得完整能力类型。
+static_assert(sizeof(gneiss::meta::cap::object) + sizeof(gneiss::meta::cap::enumeration) +
+              sizeof(gneiss::meta::cap::representation) + sizeof(gneiss::meta::cap::sequence) +
+              sizeof(gneiss::meta::cap::associative) + sizeof(gneiss::meta::cap::optional) +
+              sizeof(gneiss::meta::cap::reference) + sizeof(gneiss::meta::cap::variant) > 0);
+
 #include "../../support/throws.hpp"
 #include <cstdio>
-#include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>

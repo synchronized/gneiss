@@ -4,7 +4,7 @@
 #include <gneiss/engine/core/meta/export.hpp>
 
 #include <functional>
-#include <gneiss/engine/core/meta/type.hpp>
+#include <gneiss/engine/core/meta/detail/type_definition.hpp>
 
 namespace gneiss::meta::cap {
 /** 类型能力视图，持有类型上下文，不持有实例；转换回调只允许同步借用。 */

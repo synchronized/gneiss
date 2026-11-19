@@ -3,7 +3,7 @@
 #pragma once
 #include <gneiss/engine/core/meta/export.hpp>
 
-#include <gneiss/engine/core/meta/type.hpp>
+#include <gneiss/engine/core/meta/detail/type_definition.hpp>
 #include <utility>
 
 namespace gneiss::meta {

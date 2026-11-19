@@ -152,6 +152,7 @@ template <class T>
 void view(const registry_ref&, T&&) = delete;
 }
 #include <gneiss/engine/core/meta/views/associative_view.hpp>
+#include <gneiss/engine/core/meta/views/object_view.hpp>
 #include <gneiss/engine/core/meta/views/optional_view.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
 #include <gneiss/engine/core/meta/views/sequence_view.hpp>

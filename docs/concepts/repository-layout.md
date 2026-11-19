@@ -80,6 +80,10 @@ Base 的运行类型身份由 `type_id.hpp` 提供，编译器类型名提取属
 `core/base/detail/compiler_type_name.hpp`，身份表由 Base 实现唯一持有。
 编译器名称只用于相同工具链和 ABI 下的进程内去重，不是反射显示名称或持久化 GUID。
 
+Meta 的 `type.hpp` 是类型查询汇总入口，统一包含内置 capability；能力头依赖
+`detail/type_definition.hpp`，避免反向包含汇总入口产生循环。对象实例视图与其他实例视图
+统一由 `instance.hpp` 引入；仅查询类型能力不需要引入实例操作。
+
 ## 属性路径与值编辑
 
 `core/data/property_id.hpp`、`property_path.hpp` 在 `gneiss` 命名空间定义字段身份和路径数据，
