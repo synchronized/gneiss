@@ -9,6 +9,8 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/resource/environment.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 #ifdef GNEISS_TEST_NATIVE_WINDOW

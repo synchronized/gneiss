@@ -16,6 +16,7 @@
 #endif
 
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 
 #include <algorithm>
 #include <cmath>

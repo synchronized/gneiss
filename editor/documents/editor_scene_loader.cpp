@@ -6,6 +6,7 @@
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>

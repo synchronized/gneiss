@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 // Application 可提供 Input 原生契约，但不得引入旧 Scene 服务或渲染执行器。
 #if defined(GNEISS_SCENE_SCENE_INSTANCES_HPP_) || defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)

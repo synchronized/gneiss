@@ -9,6 +9,8 @@
 #include "../../support/async_application.hpp"
 #include "../../support/render_scene.hpp"
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 
 #define WIN32_LEAN_AND_MEAN

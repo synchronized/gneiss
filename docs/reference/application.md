@@ -12,6 +12,8 @@
 完整 Application C API 与公共创建描述已删除。动态游戏模块也已撤销。
 
 Application 拥有平台状态、资源服务及可选窗口；World 与渲染绑定由宿主拥有。
+Application 头文件不再间接提供 World、输入服务和资产管理器的定义；使用这些对象的调用方
+直接包含所属模块头文件，渲染帧与资源请求类型也由其所属模块提供。
 宿主停止系统先释放文档、场景与绑定，再释放 World，随后 Application 关闭服务。
 最后一个 Application 引用必须在创建线程释放，析构执行同步关闭保底；正常退出使用
 `request_exit()` 后持续 run()/step() 至终态。

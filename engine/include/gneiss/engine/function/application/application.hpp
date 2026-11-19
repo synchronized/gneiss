@@ -5,27 +5,13 @@
 #define GNEISS_RUNTIME_APPLICATION_HPP_
 
 #include <gneiss/engine/core/base/result.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/export.hpp>
-#include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/input/service.hpp>
-#include <gneiss/engine/function/scene/scene_types.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/platform/window/input.hpp>
 
-#include <gneiss/engine/core/logging/record.hpp>
 #include <gneiss/engine/function/application/configuration.hpp>
 #include <gneiss/engine/function/application/schedule.hpp>
-#include <gneiss/engine/function/asset/asset_batch_types.hpp>
-#include <gneiss/engine/function/render/camera.hpp>
-#include <gneiss/engine/function/render/debug_draw_list.hpp>
-#include <gneiss/engine/function/render/statistics.hpp>
-#include <gneiss/engine/function/render/ui_draw_list.hpp>
 
 #include <cstdint>
 #include <memory>
-#include <optional>
-#include <span>
 
 namespace gneiss {
 class asset_manager;
@@ -37,16 +23,11 @@ class service;
 }
 namespace render {
 class service;
-struct frame_image;
+}
+namespace input {
+class service;
 }
 }
-
-namespace gneiss {}
-namespace gneiss {
-class world;
-}
-
-namespace gneiss {}
 
 namespace gneiss::runtime {
 

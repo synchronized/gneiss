@@ -5,6 +5,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/platform/window/service.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
 

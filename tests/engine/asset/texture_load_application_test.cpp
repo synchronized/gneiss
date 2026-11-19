@@ -14,6 +14,7 @@
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
 
 #include <cstdio>
 #include <filesystem>

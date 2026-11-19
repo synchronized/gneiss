@@ -5,6 +5,7 @@
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>

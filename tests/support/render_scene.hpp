@@ -5,6 +5,7 @@
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/rendering/render_camera.hpp>
 #include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/platform/window/service.hpp>
 
 namespace gneiss::test_support {

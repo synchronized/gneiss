@@ -10,6 +10,7 @@
 #include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 

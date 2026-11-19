@@ -13,7 +13,9 @@
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <source_location>

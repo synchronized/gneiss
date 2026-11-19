@@ -14,6 +14,8 @@
 
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/rendering/render_camera.hpp>
 #include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>

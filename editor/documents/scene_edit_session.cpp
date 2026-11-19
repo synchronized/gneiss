@@ -9,6 +9,7 @@
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>

@@ -3,6 +3,7 @@
 
 #include "assets/author_asset_service.hpp"
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
 #include <algorithm>
 #include <deque>
@@ -291,8 +292,7 @@ author_asset_service::~author_asset_service() {
   request_stop();
   (void)impl_->scheduler.close_scope(impl_->scope);
 }
-gneiss::error
-author_asset_service::initialize(std::shared_ptr<gneiss::files::service> files) {
+gneiss::error author_asset_service::initialize(std::shared_ptr<gneiss::files::service> files) {
   if (!files || impl_->files || impl_->stopping) {
     return gneiss::error::invalid_argument;
   }
@@ -348,7 +348,7 @@ gneiss::error author_asset_service::acknowledge(std::string_view uri, std::strin
 }
 void author_asset_service::request_rescan() { impl_->rescan = true; }
 gneiss::error author_asset_service::poll_rescan(std::vector<std::filesystem::path>& output,
-                                                        std::size_t budget) {
+                                                std::size_t budget) {
   impl_->pump();
   while (budget-- != 0U && !impl_->ready.empty()) {
     auto change = std::move(impl_->ready.front());
