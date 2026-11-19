@@ -468,8 +468,8 @@ PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建�
 | 编号 | 范围 | 下一步与完成条件 |
 | --- | --- | --- |
 | A52-02 | PLAN-119 / PLAN-114 | 目录、构建目标、测试组织及本地 Windows 验收已收尾，见[验收记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)；后续随接口改动维护包含闭包和测试。PLAN-114 的重叠收尾由 PLAN-119 承接，不维护两份执行队列 |
-| A52-03 | 原生保留接口 | capture_frame 仍为输出参数；request_shutdown/advance_shutdown 与同步 shutdown 共存，析构调用同步路径；环境仍由 Application 专用读取。先评估真实调用与限制，不预设这些接口必须删除或资产化 |
-| A52-04 | PLAN-115 | asset-pixel 与 pbr-negative-scale 共享/静态均通过，见[像素复测](../records/2026-11-18-asset-pixel-async-fixture.md)。当前 Clang Debug GPU 全集 20/20 通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)。继续验证压力拒绝/重试恢复、关闭回收和设备失败路径；测量后确定预算。双视图及尺寸切换已有历史回读证据，但不代替当前基线或压力验收 |
+| A52-03 | 原生保留接口 | PLAN-126 已收敛：宿主使用 Render 的 request_capture；Application 的关闭推进为私有实现，统一由 run/step 驱动；环境由宿主资产请求加载。旧接口审计项退出，见 PLAN-126 |
+| A52-04 | PLAN-115 | asset-pixel 与 pbr-negative-scale 共享/静态均通过，见[像素复测](../records/2026-11-18-asset-pixel-async-fixture.md)。当前 Clang Debug GPU 全集 20/20 通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)。真实后端预算拒绝/重试、带帧关闭零存活计数及当前双视图回读已验证，见[压力验收](../records/2026-11-19-render-pressure-acceptance.md)。剩余设备失败路径、上传压力与代表性预算测量；小场景数据不作为通用预算依据 |
 | A52-05 | 构建与交付验收 | 共享/静态 Clang Debug 仓内完整构建与安装已通过；静态包独立消费者及共享/静态已安装 Runtime 也已通过；MSVC Release 完整构建、CPU 213/213 与 GPU 20/20 已通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)；Linux GCC/Clang、Web 和 MSVC Static 仍未验证 |
 | A52-06 | 文档与版本收尾 | 完成以上范围后同步版本交付说明与限制，检查当前 Guide/Reference 的过时路径和行为；当前不推送、创建 PR 或发布 |
 

@@ -20,6 +20,7 @@
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
 #include <gneiss/engine/resource/texture/texture_binary.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
@@ -1012,8 +1013,82 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   files.color(std::byte{20}, std::byte{240});
   load(4U, false);
 }
+// 使用真实后端验证预算拒绝不消费请求、重试回读，以及未显式排空时关闭目标。
+void run_queue_pressure() {
+  window::service window;
+  check(window
+            .initialize(
+                {.title = "Gneiss queue pressure", .width = 512, .height = 512, .visible = false})
+            .ok());
+  render::service renderer;
+  constexpr auto budget = 2 * sizeof(render::view);
+  check(renderer
+            .initialize(window.native(), window.surface(), {}, 1.F, 0.F,
+                        {.pending_frames = 1, .commands = 1, .frame_input_bytes = budget})
+            .ok());
+  auto first = renderer.create_target({128, 96});
+  auto second = renderer.create_target({96, 128});
+  check(bool(first) && bool(second));
+  render::frame_request frame;
+  frame.surface = window.surface();
+  frame.views = {{.target = *first}, {.target = *second}, {}};
+  auto image = std::make_shared<render::frame_image>();
+  auto oversized = renderer.request_capture(std::move(frame), image);
+  check(!oversized && oversized.error() == error::out_of_memory && frame.views.size() == 3);
+  frame.views.erase(frame.views.begin() + 1);
+
+  unsigned rejected{};
+  std::vector<std::shared_ptr<render::frame_image>> images;
+  std::vector<std::uint64_t> sequences;
+  for (unsigned n = 0; n < 32; ++n) {
+    frame.surface = window.surface();
+    frame.views = {{.target = *first}, {}};
+    image = std::make_shared<render::frame_image>();
+    auto accepted = renderer.request_capture(std::move(frame), image);
+    if (!accepted) {
+      check(accepted.error() == error::not_ready && frame.views.size() == 2);
+      ++rejected;
+      check(renderer.finish_frames().ok());
+      accepted = renderer.request_capture(std::move(frame), image);
+    }
+    check(bool(accepted));
+    sequences.push_back(*accepted);
+    images.push_back(std::move(image));
+  }
+  check(renderer.finish_frames().ok());
+  for (std::size_t n = 0; n < sequences.size(); ++n) {
+    auto completion = renderer.try_take_required_completion();
+    check(bool(completion) && completion->has_value());
+    check((*completion)->sequence == sequences[n] && (*completion)->status.ok() &&
+          !(*completion)->dropped);
+    check(images[n]->width == 512 && images[n]->height == 512 &&
+          images[n]->pixels.size() == 512 * 512 * 4);
+  }
+  const auto stats = renderer.query_performance_stats();
+  check(stats.frame_input_bytes == 0 && stats.frame_input_high_watermark <= budget);
+  // 最后一帧接受后立即关闭，不先调用 finish_frames 或逐个销毁目标。
+  frame.surface = window.surface();
+  frame.views = {{.target = *first}, {}};
+  image = std::make_shared<render::frame_image>();
+  check(bool(renderer.request_capture(std::move(frame), image)));
+  render::device_stats device;
+  check(renderer.shutdown(device).ok());
+  check(device.total_live_count == 0 && !renderer.is_target(*first) &&
+        !renderer.is_target(*second) && image->pixels.size() == 512 * 512 * 4);
+  check(renderer.shutdown(device).ok());
+  std::printf("queue pressure: captures=%zu rejected=%u input_peak=%zu budget=%zu "
+              "queue_wait_max_ms=%.3f live_after_close=%llu\n",
+              sequences.size(), rejected, stats.frame_input_high_watermark, budget,
+              static_cast<double>(stats.maximum_frame_queue_wait_ms),
+              static_cast<unsigned long long>(device.total_live_count));
+}
+
 }
 int main(int argc, char* argv[]) try {
+  if (argc == 2 && std::string_view{argv[1]} == "--probe-pressure") {
+    run_queue_pressure();
+    return 0;
+  }
   if (argc == 2 && std::string_view{argv[1]} == "--probe-mask") {
     const auto pixel = state_pixel({.mode = "MASK", .alpha = 0.25F});
     std::printf("mask probe: %u,%u,%u\n", pixel[0], pixel[1], pixel[2]);

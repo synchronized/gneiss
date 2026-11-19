@@ -426,6 +426,14 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
                      return configured;
                    return {};
                  });
+  gneiss::render::queue_stats measured_queue;
+  app->on_stop("measure_queue", [&]() -> gneiss::error {
+    if (!measure)
+      return gneiss::error::success;
+    const auto finished = app->render().finish_frames();
+    measured_queue = app->render().query_performance_stats();
+    return finished;
+  });
   app->on_stop("release_targets", release_targets);
   app->on_stop("release_scene", [&] {
     run_finished = clock::now();
@@ -468,6 +476,15 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
                 milliseconds(started, application_destroyed), *minimum,
                 percentile(state.frame_times_ms, state.frame_time_count, 0.5),
                 percentile(state.frame_times_ms, state.frame_time_count, 0.95), *maximum);
+    std::printf("{\"render_queue\":{\"pending_peak\":%zu,\"command_bytes_peak\":%zu,"
+                "\"frame_bytes_peak\":%zu,\"rejected_commands\":%llu,"
+                "\"replaced_frames\":%llu,\"queue_wait_max_ms\":%.3f}}\n",
+                measured_queue.pending_high_watermark,
+                measured_queue.command_payload_high_watermark,
+                measured_queue.frame_input_high_watermark,
+                static_cast<unsigned long long>(measured_queue.rejected_commands),
+                static_cast<unsigned long long>(measured_queue.replaced_frames),
+                static_cast<double>(measured_queue.maximum_frame_queue_wait_ms));
   }
   return 0;
 }
