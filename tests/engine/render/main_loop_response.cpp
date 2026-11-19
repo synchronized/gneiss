@@ -315,12 +315,13 @@ int main(int argc, char** argv) try {
   desc.window.title = title;
   desc.window.width = 320U;
   desc.window.height = 240U;
-  desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   desc.callbacks.close_requested = [&]() { return close_requested(state); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)
           .failed()) {
     return 1;
   }
+  app->add_system(gneiss::app::stage::update, "response.update",
+                  [&](const auto&) { return native_update(*app, state); });
   auto world = gneiss::create_native();
   if (!world)
     return 1;

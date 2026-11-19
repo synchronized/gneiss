@@ -134,14 +134,14 @@ int main() {
   config.window.width = 640U;
   config.window.height = 480U;
   config.window.title = "Gneiss 0.37 interaction probe";
-  config.callbacks.update = [&value](const gneiss::frame_time& time) {
-    return update(&time, &value);
-  };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
                                          application) != gneiss::error::success) {
     return 1;
   }
+  application->add_system(
+      gneiss::app::stage::update, "probe.update",
+      [&value](const gneiss::frame_time& time) { return update(&time, &value); });
   value.application = application.get();
   application->add_system(
       gneiss::app::stage::present, "probe.present", [&]() -> gneiss::result<void> {

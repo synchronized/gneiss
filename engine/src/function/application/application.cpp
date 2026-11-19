@@ -371,8 +371,6 @@ void application::register_system(app::stage phase, std::string name,
                                   app::system_function function) {
   GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
                 "系统仅允许所属线程在运行前注册");
-  GNEISS_ASSERT(phase != app::stage::update || !storage_->config_.callbacks.update,
-                "更新系统不能与旧更新回调混用");
   storage_->systems_.add(phase, std::move(name), std::move(function));
 }
 
@@ -407,8 +405,6 @@ void application::register_state_system(app::detail::state_event event, app::det
                                         std::string name, app::system_function function) {
   GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
                 "状态系统仅允许所属线程在运行前注册");
-  GNEISS_ASSERT(event != app::detail::state_event::update || !storage_->config_.callbacks.update,
-                "更新系统不能与旧更新回调混用");
   storage_->systems_.add_hook(event, key, std::move(name), std::move(function));
 }
 result<void> application::request_state_change(app::detail::state_key target) {
@@ -666,18 +662,10 @@ error application::advance_frame() try {
     auto system_status = run_systems(app::stage::input);
     if (system_status.failed())
       return system_status;
-    if (storage_->config_.callbacks.update != nullptr) {
-      const auto update_result = gneiss::measure(gneiss::loop_stage::update, [&] {
-        GNEISS_PROFILE_SCOPE("application.update");
-        return storage_->config_.callbacks.update(time);
-      });
-      if (update_result != gneiss::error::success) {
-        log_error("application", update_result, "application", "更新回调失败");
-        storage_->is_running_ = false;
-        return update_result;
-      }
-    }
-    system_status = run_systems(app::stage::update);
+    system_status = gneiss::measure(gneiss::loop_stage::update, [&] {
+      GNEISS_PROFILE_SCOPE("application.update");
+      return run_systems(app::stage::update);
+    });
     if (system_status.failed())
       return system_status;
     system_status = run_systems(app::stage::synchronize);

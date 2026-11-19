@@ -57,13 +57,14 @@ int main(int argc, char** argv) try {
   }
   context state;
   gneiss::runtime::application_configuration description;
-  description.callbacks.update = [&](const auto& time) { return update(time, state); };
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
                                          application)
           .failed()) {
     return 3;
   }
+  application->add_system(gneiss::app::stage::update, "profiling.update",
+                          [&](const auto& time) { return update(time, state); });
   for (unsigned frame = 0; frame < 128; ++frame)
     if (!application->step())
       return 3;

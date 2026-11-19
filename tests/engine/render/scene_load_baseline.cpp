@@ -144,9 +144,6 @@ int main(int argc, char** argv) try {
   std::function<gneiss::error(gneiss::runtime::application*)> update;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&](const auto&) {
-    return update ? update(app.get()) : gneiss::error::success;
-  };
   desc.enable_window = true;
   desc.asset_root = root;
   desc.executor = &scheduler;
@@ -162,6 +159,8 @@ int main(int argc, char** argv) try {
                                                        app)} != gneiss::error::success) {
     return 3;
   }
+  app->add_system(gneiss::app::stage::update, "baseline.update",
+                  [&](const auto&) { return update ? update(app.get()) : gneiss::error::success; });
   auto world = gneiss::create_native();
   if (!world)
     return 3;

@@ -54,8 +54,7 @@ namespace gneiss::runtime {
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class application final {
 public:
-  /** 创建后、首次 run 前注册；同阶段依注册顺序执行，捕获对象借用至关闭结束。
-   * update 系统与旧 callbacks.update 不得混用。 */
+  /** 创建后、首次 run 前注册；同阶段依注册顺序执行，捕获对象借用至关闭结束。 */
   template <class F> void add_system(app::stage phase, std::string name, F function) {
     register_system(phase, std::move(name), app::make_system(std::move(function)));
   }

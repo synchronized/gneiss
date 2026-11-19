@@ -90,11 +90,12 @@ int main() {
   draw_context context;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration config;
-  config.callbacks.update = [&](const gneiss::frame_time&) { return update(*app, context); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
           .failed()) {
     return 1;
   }
+  app->add_system(gneiss::app::stage::update, "draw.update",
+                  [&](const gneiss::frame_time&) { return update(*app, context); });
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
   const gneiss::texture_view texture{
       .width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};

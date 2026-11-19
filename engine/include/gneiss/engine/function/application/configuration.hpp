@@ -7,7 +7,6 @@
 
 #include <functional>
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <string_view>
 
@@ -23,7 +22,6 @@ struct application_callbacks final {
   std::function<gneiss::error()> initialize;
   std::function<gneiss::error(bool&)> poll_events;
   std::function<std::uint64_t()> now_ns;
-  std::function<gneiss::error(const gneiss::frame_time&)> update;
   std::function<void()> shutdown;
   std::function<bool()> close_requested;
 };

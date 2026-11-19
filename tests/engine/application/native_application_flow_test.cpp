@@ -32,13 +32,14 @@ void loop() {
     return allow;
   };
   config.callbacks.shutdown = [&] { ++shutdowns; };
-  config.callbacks.update = [&](const gneiss::frame_time& time) {
+  const auto update = [&](const gneiss::frame_time& time) {
     check(time.frame_index == updates && (updates == 0 || time.delta_ns == 10));
     if (++updates == 3)
       app->request_exit();
     return gneiss::error::success;
   };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  app->add_system(app::stage::update, "test.update", update);
   check(app->window() == nullptr);
   gneiss::input::event event;
   check(app->input().poll(event) == gneiss::error::not_ready &&
@@ -51,11 +52,13 @@ void loop() {
   close = allow = true;
   updates = closes = 0;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  app->add_system(app::stage::update, "test.update", update);
   check(app->run().ok() && updates == 0 && closes == 1);
   app.reset();
   allow = false;
   closes = 0;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  app->add_system(app::stage::update, "test.update", update);
   check(app->run().ok() && updates == 3 && closes == 3);
   app.reset();
   check(shutdowns == 3);

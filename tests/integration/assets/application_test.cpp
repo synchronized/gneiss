@@ -36,15 +36,15 @@ void close_pending_window(const char* assets) {
   config.window.visible = false;
   config.window.title = "Gneiss Asset pending close test";
   unsigned updates = 0;
-  config.callbacks.update = [&](const auto&) {
-    ++updates;
-    return gneiss::error::success;
-  };
   std::shared_ptr<runtime::application> app;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
             gneiss::error::success,
         "window create");
 
+  app->add_system(gneiss::app::stage::update, "test.update", [&](const auto&) {
+    ++updates;
+    return gneiss::error::success;
+  });
   std::promise<void> release, entered;
   auto future = release.get_future().share();
   auto started = entered.get_future();
@@ -113,14 +113,14 @@ void run(const char* assets, bool cooperative) {
   config.executor = &scheduler;
   std::shared_ptr<runtime::application> app;
   unsigned frames = 0;
-  config.callbacks.update = [&](const auto&) {
-    ++frames;
-    return gneiss::error::success;
-  };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
             gneiss::error::success,
         "create");
 
+  app->add_system(gneiss::app::stage::update, "test.update", [&](const auto&) {
+    ++frames;
+    return gneiss::error::success;
+  });
 #if !GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
   // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器内存后端则验证完整加载流程。
   auto unsupported =

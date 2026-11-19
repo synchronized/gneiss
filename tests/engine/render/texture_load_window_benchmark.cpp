@@ -180,11 +180,12 @@ int main(int argc, char** argv) try {
   desc.executor = &scheduler;
   desc.window.title = title;
   desc.window.high_dpi = false;
-  desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   if (gneiss::test_support::assign_value(runtime::application::create(desc), app) !=
       gneiss::error::success) {
     return 1;
   }
+  app->add_system(gneiss::app::stage::update, "benchmark.update",
+                  [&](const auto&) { return native_update(*app, state); });
   auto world = create_native();
   if (!world)
     return 1;

@@ -85,15 +85,15 @@ int main() {
   gneiss::runtime::application_configuration config;
   config.enable_window = true;
   config.window = {.title = title, .width = 320, .height = 240};
-  config.callbacks.update = [&](const native::frame_time&) {
-    return submit_ui(*application, context);
-  };
   const auto create_result =
       gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application);
   if (create_result.failed()) {
     std::fprintf(stderr, "Application 创建失败：%d\n", create_result.code());
     return 1;
   }
+  application->add_system(
+      gneiss::app::stage::update, "smoke.update",
+      [&](const native::frame_time&) { return submit_ui(*application, context); });
   auto owned_world = gneiss::create_native();
   if (!owned_world)
     return 1;
@@ -302,18 +302,18 @@ int main() {
   auto next_config = config;
   gneiss::window::id next_id{};
   std::shared_ptr<gneiss::runtime::application> next;
-  next_config.callbacks.update = [&](const native::frame_time&) {
+  auto created = gneiss::runtime::application::create(next_config);
+  if (!created)
+    return 18;
+  next = *created;
+  next->add_system(gneiss::app::stage::update, "smoke.input", [&](const native::frame_time&) {
     input::event event;
     while (next->input().poll(event) == error::success) {
       if (event.type == input::event_type::key)
         next_id = event.window_id;
     }
     return error::success;
-  };
-  auto created = gneiss::runtime::application::create(next_config);
-  if (!created)
-    return 18;
-  next = *created;
+  });
   const auto next_window = FindWindowA(nullptr, title.data());
   if (!next_window || !PostMessageW(next_window, WM_KEYDOWN, 'A', 0x001e0001) ||
       !PostMessageW(next_window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) ||

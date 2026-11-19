@@ -43,13 +43,13 @@ void test_loop_callback_exceptions() {
       throw std::bad_alloc{};
     return 12U;
   };
-  config.callbacks.update = [&](const gneiss::frame_time& time) {
+  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+        gneiss::error::success);
+  app->add_system(gneiss::app::stage::update, "test.update", [&](const gneiss::frame_time& time) {
     check(time.delta_ns == 0U);
     ++updates;
     return gneiss::error::success;
-  };
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
-        gneiss::error::success);
+  });
   bool allocation_threw = false;
   try {
     (void)app->step();
@@ -61,11 +61,11 @@ void test_loop_callback_exceptions() {
   check(app->step().ok() && updates == 1U);
   app.reset();
   config.callbacks.now_ns = {};
-  config.callbacks.update = [](const gneiss::frame_time&) -> gneiss::error {
-    throw std::runtime_error("更新失败");
-  };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::error::success);
+  app->add_system(
+      gneiss::app::stage::update, "test.throw",
+      [](const gneiss::frame_time&) -> gneiss::error { throw std::runtime_error("更新失败"); });
   bool update_threw = false;
   try {
     (void)app->step();
@@ -76,7 +76,6 @@ void test_loop_callback_exceptions() {
   app->request_exit();
   check(app->run().ok());
   app.reset();
-  config.callbacks.update = {};
   config.callbacks.poll_events = [](bool& close) {
     close = true;
     return gneiss::error::success;
@@ -277,10 +276,6 @@ int main() try {
     return state.fail ? gneiss::error::initialization_failed : gneiss::error::success;
   };
   config.callbacks.shutdown = [&state] { ++state.shutdowns; };
-  config.callbacks.update = [&state](const gneiss::frame_time&) -> gneiss::error {
-    ++state.frames;
-    return gneiss::error::success;
-  };
   std::atomic<unsigned> delivered{};
   std::atomic<bool> valid_log{true};
   gneiss::test_support::log_capture logs{[&](const gneiss::logging::record_view& event) {
@@ -298,6 +293,11 @@ int main() try {
   check(created && *created);
   app = std::move(*created);
   check(!*created && app);
+  app->add_system(gneiss::app::stage::update, "test.update",
+                  [&state](const gneiss::frame_time&) -> gneiss::error {
+                    ++state.frames;
+                    return gneiss::error::success;
+                  });
   for (unsigned index = 0; index < 2U; ++index) {
     gneiss::logging::logger{"native-test"}.info("原生日志");
   }
