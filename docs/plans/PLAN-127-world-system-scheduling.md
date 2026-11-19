@@ -3,15 +3,14 @@
 
 # PLAN-127：World 自有系统调度与宿主组合
 
-状态：2026-11-20，实施中；P0/P1a 已完成，world_state 内部所有权与访问路径通过本地验证。
-World system API、宿主迁移及多 World 调度验收尚未完成。
+状态：2026-11-20，本地范围完成。内部所有权、World 系统接口与场景查看器接入均已验证。
 决策见 [ADR-130](../decisions/ADR-130-world-system-scheduling.md)，应用基础调度沿用
 [PLAN-126](PLAN-126-application-scheduling.md)。纳入 0.52 本地架构整理，不包含远端发布授权。
 
 ## 当前事实与目标
 
 当前 World 的具体实现为 world_state final : world，直接拥有 ECS、层级、场景实例和对象变化通知，
-没有 add_system/update；内部实现位于 engine/src/function/scene/world_state.hpp/.cpp。
+已有 add_system/update；内部实现位于 engine/src/function/scene/world_state.hpp/.cpp。
 宿主通过 create_native() 获得 world_owner，在 Application 系统中捕获拥有者并执行逻辑。
 world_render_binding 借用 World 与 Render，宿主先 flush_changes，再 synchronize。
 
@@ -106,7 +105,7 @@ add_system 模板只负责头文件中必要的 callable 适配，再进入非�
 
 ## 目标接口
 
-以下为目标接口草案，未实现；错误细节见后文实施规则。
+以下接口已实现；错误细节见后文实施规则。
 
 ```cpp
 class world {
@@ -168,8 +167,9 @@ on_stop 必须允许 World 尚未创建。应用系统捕获稳定的拥有者�
 
 ## 系统状态、失败与结构修改
 
-以下是实施建议，编码前结合现有错误规范复核；偏离时更新本节，不默默更改契约：
+以下是已实现契约：
 
+- 当前沿用 C++20 std::function 存储，callable 必须可复制；注册保存副本，不增加共享控制块。
 - World 拥有注册 callable；有状态 callable 为每个 World 分别构造。外部引用仍是显式借用，
   API 不会自动隔离调用方主动共享的指针或引用。
 - 支持 void/error/result<void> 返回，适配为统一执行结果；不允许任意返回类型被忽略。
@@ -182,6 +182,8 @@ on_stop 必须允许 World 尚未创建。应用系统捕获稳定的拥有者�
   宿主在完整更新之外应用 World 替换/文档关闭请求；不为此新增引擎级通用切换队列。
 - 带异步工作的系统应显式取消并排空后再销毁其 World，析构不隐式运行用户停止回调。
 - 系统 callable 应在 ECS 数据销毁前释放；不允许析构重入 World 调度。
+- 暂不增加通用 update_context 或 Application 引用参数；长期依赖显式捕获，每轮时间直接传参，
+  宿主先采集输入再更新 World。存在多个通用每轮输入时再评估具体只读 context。
 - 不引入第二套 World 生命周期、状态机或自动固定步长。初期时间参数由宿主提供；
   不同模拟时钟/固定步长以后按实际用例单独设计。
 
@@ -191,15 +193,15 @@ on_stop 必须允许 World 尚未创建。应用系统捕获稳定的拥有者�
 - [x] P1a：将 implementation 迁移为 src/function/scene/world_state.hpp/.cpp 的内部派生实现，
   同步工厂、自定义删除器及三个接口的访问路径；删除旧 PImpl 存储与无职责转发，
   验证句柄身份和析构顺序不变。
-- [ ] P1b：在 world_state 内实现系统存储、注册、顺序执行和最小诊断；保持 ECS 与服务边界。
+- [x] P1b：在 world_state 内实现系统存储、注册、顺序执行和最小诊断；保持 ECS 与服务边界。
   删除仅由 world_state_test 使用的旧 detail/system_scheduler，顺序和失败短路验收改走 World 入口。
-- [ ] P2：选择一个现有宿主中确属 World 的更新逻辑迁移，服务完成分发与渲染提交保留应用层。
+- [x] P2：选择一个现有宿主中确属 World 的更新逻辑迁移，服务完成分发与渲染提交保留应用层。
   不为填充系统列表新增虚构脚本、物理或 AI 模块。
-- [ ] P3：验证两个 World 配置不同列表、独立有状态 callable、单独暂停/销毁及更新失败传播；
+- [x] P3：验证两个 World 配置不同列表、独立有状态 callable、单独暂停/销毁及更新失败传播；
   不需要建立完整预览 UI 才能验证这一契约。
-- [ ] P4：核对联合编辑用例：两个 SceneInstance 属于一个 World 时共用其调度，
+- [x] P4：核对联合编辑用例：两个 SceneInstance 属于一个 World 时共用其调度，
   卸载一个实例不清空 World 系统或影响另一个实例。不实施完整多文档编辑器。
-- [ ] P5：迁移真实调用方、更新 Reference/Concept，运行相关共享/静态构建和行为测试，
+- [x] P5：迁移真实调用方、更新 Reference/Concept，运行相关共享/静态构建和行为测试，
   删除迁移过程中产生的重复更新路径，并记录未覆盖范围。
 
 ## 当前验证
@@ -208,7 +210,15 @@ on_stop 必须允许 World 尚未创建。应用系统捕获稳定的拥有者�
 层级、内部状态、渲染绑定、组件适配及私有头可见性共 7 项测试通过；核心边界及负例、
 World 服务边界共 3 项检查通过。静态构建的对象/场景生命周期和组件适配 3 项测试通过，
 包含 World 销毁后的组件资源释放。git diff --check 通过。
-本轮未进行 GPU 运行、其他平台或全量回归；系统调度与宿主更新迁移尚未实施。
+后续 P1b—P5：共享/静态 Windows Clang Debug 的 World 系统、服务边界与契约测试通过，
+共享构建另通过内部状态和 core-boundary 检查。六种断言子进程覆盖错线程查询/广播/更新、
+重名、首次更新后注册、更新重入；不产生交互崩溃弹窗。
+world-system 使用原生接口覆盖独立 callable 状态、跳过某个 World 更新、同 World 场景卸载、
+失败短路、异常传播后解除执行标记、系统捕获先于对象销毁及另一个 World 继续更新。
+场景查看器将轨道相机角度移入 World 系统；输入采集、任务分发及渲染保留应用侧。
+两种构建均通过单视图和双视图 GPU smoke。删除旧 system_scheduler 与重复测试路径。
+本轮共享 7 项、静态 5 项检查全部通过；git diff --check 通过。
+未运行其他平台或全量回归；完整多文档 UI、任意 Context、并行调度仍在非目标范围。
 
 ## 验收与非目标
 

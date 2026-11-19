@@ -37,7 +37,7 @@ struct sample_state {
   gneiss::entity_id camera_node;
   gneiss::input::action_id orbit;
   gneiss::input::action_id quit;
-  double angle = 0.0;
+  float orbit_value{};
   bool measure = false;
   std::array<gneiss::rid, 2> targets{};
   bool captured_dual{};
@@ -54,7 +54,7 @@ void report_failure(std::string_view stage, gneiss::error result) {
 }
 
 gneiss::error update_sample(gneiss::app::application& application, const gneiss::frame_time& time,
-                            void* user_data) noexcept {
+                            void* user_data) {
   if (user_data == nullptr) {
     return gneiss::error::invalid_argument;
   }
@@ -86,23 +86,9 @@ gneiss::error update_sample(gneiss::app::application& application, const gneiss:
     return gneiss::error::success;
   }
 
-  constexpr double nanoseconds_per_second = 1'000'000'000.0;
-  constexpr double radius = 6.0;
-  constexpr double height = 2.3;
-  state->angle += static_cast<double>(time.delta_ns) / nanoseconds_per_second * orbit.value;
-  const auto yaw_half = state->angle * 0.5;
-  const auto pitch_half = std::atan2(-height, radius) * 0.5;
-
-  gneiss::math::transform transform;
-  transform.translation[0] = static_cast<float>(std::sin(state->angle) * radius);
-  transform.translation[1] = static_cast<float>(height);
-  transform.translation[2] = static_cast<float>(std::cos(state->angle) * radius);
-  transform.rotation[0] = static_cast<float>(std::cos(yaw_half) * std::sin(pitch_half));
-  transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
-  transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
-  transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  return state->world->find(gneiss::entity_id{(state->camera_node).get()})
-      .set_local_transform(transform);
+  state->orbit_value = orbit.value;
+  auto updated = state->world->update(time);
+  return updated ? gneiss::error::success : updated.error();
 }
 
 // 两个视图共享宿主 World，UI 引用宿主持有的离屏目标。
@@ -258,6 +244,27 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       return world.error();
     world_owner = std::move(*world);
     state.world = world_owner.get();
+    state.world->add_system(
+        "camera.orbit",
+        [&state, angle = 0.0](gneiss::world& target,
+                              const gneiss::frame_time& time) mutable -> gneiss::error {
+          constexpr double nanoseconds_per_second = 1'000'000'000.0;
+          constexpr double radius = 6.0;
+          constexpr double height = 2.3;
+          angle += static_cast<double>(time.delta_ns) / nanoseconds_per_second * state.orbit_value;
+          const auto yaw_half = angle * 0.5;
+          const auto pitch_half = std::atan2(-height, radius) * 0.5;
+
+          gneiss::math::transform transform;
+          transform.translation[0] = static_cast<float>(std::sin(angle) * radius);
+          transform.translation[1] = static_cast<float>(height);
+          transform.translation[2] = static_cast<float>(std::cos(angle) * radius);
+          transform.rotation[0] = static_cast<float>(std::cos(yaw_half) * std::sin(pitch_half));
+          transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
+          transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
+          transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
+          return target.find(state.camera_node).set_local_transform(transform);
+        });
     auto created_binding = gneiss::world_render_binding::create(*state.world, app->render());
     if (!created_binding)
       return created_binding.error();

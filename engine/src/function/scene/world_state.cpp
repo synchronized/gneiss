@@ -2,9 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "function/scene/world_state.hpp"
 #include <algorithm>
+#include <gneiss/engine/core/base/assert.hpp>
 namespace gneiss {
 world_state::~world_state() noexcept {
   try {
+    GNEISS_ASSERT(!updating_, "系统执行中不能销毁 World");
+    destroying_ = true;
+    systems_.clear(); // 先释放系统捕获，再销毁场景和 ECS 组件。
     scene_slots.for_each(resource_type::scene_instance,
                          [&](scene_instance_id id) { destroy_scene_members(id); });
   } catch (...) {

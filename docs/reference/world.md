@@ -16,6 +16,38 @@ World 及其实体只能在创建线程访问；跨线程操作返回 `error::in
 场景切换不改变 World 所有者；借用者必须在 World 销毁前清理，禁止解引用已销毁对象。
 反射组件入口也直接接收 world&，不再按句柄查回对象。
 
+## World 系统
+
+`world::add_system(name, callable)` 注册本 World 拥有的系统，`world::update(time)` 按注册顺序
+串行执行。签名固定为 `(world&, const frame_time&)`，返回 `void`、`error` 或 `result<void>`；
+`update` 返回 `result<void>`。callable 当前要求可复制，注册时保存自身副本，有状态实例分别属于各 World。
+引用捕获是显式借用，不会自动隔离调用方共享的数据。
+
+```cpp
+auto created = gneiss::create_native();
+if (!created)
+  return created.error();
+auto world = std::move(*created);
+world->add_system("simulation", [ticks = 0](gneiss::world& target,
+                                          const gneiss::frame_time& time) mutable {
+  ++ticks;
+  // 使用 target 的对象 API；time 是本轮宿主提供的时间。
+});
+gneiss::frame_time time{.delta_ns = 16'000'000};
+auto updated = world->update(time);
+```
+
+首次更新即冻结系统列表，空列表更新成功。名称在同一 World 内唯一；重复名称、空名称、
+冻结后注册、错误线程、更新重入及执行期间销毁 World 都属于断言契约违例。
+失败停止本轮剩余系统，保留之前的对象修改，记录失败系统名并返回原始错误；不自动回滚或重试。
+意外异常向宿主传播。系统捕获在场景与 ECS 数据之前释放，析构不得重入调度。
+
+宿主决定更新哪些 World、更新顺序与暂停；同 World 的多个 SceneInstance 共用系统列表，
+卸载场景不清空系统。Application 仍负责窗口、输入采集、资产完成分发与渲染提交；
+World 不保存 Application，也不提供通用服务 context。长期依赖通过 callable 构造或捕获显式注入，
+需要的输入由宿主采集后提供。依赖必须覆盖系统寿命，关闭时先释放渲染绑定和 World，再关闭共享服务。
+`update` 不隐式调用 `flush_changes` 或同步渲染。真实调用示例见 `examples/scene_viewer/main.cpp`。
+
 ## 场景所有权与借用
 
 `world::create_scene()` 创建实例槽位并返回借用句柄，不需要描述 UUID 或资产管理器。

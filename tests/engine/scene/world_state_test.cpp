@@ -2,51 +2,17 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
-#include "function/scene/detail/system_scheduler.hpp"
 #include "function/scene/world_state.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 
-#include <array>
 #include <cstddef>
-#include <new>
 
 namespace {
 
 struct position {
   int value;
 };
-
-struct system_context {
-  std::array<int, 4> events{};
-  std::size_t count = 0;
-  int delta = 0;
-};
-
-gneiss::error update_position(gneiss::world_state& world, void* user_data) noexcept {
-  auto& context = *static_cast<system_context*>(user_data);
-  context.events[context.count++] = 1;
-  try {
-    world.each<position>([&context](position& value) { value.value += context.delta; });
-    return gneiss::error::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::error::out_of_memory;
-  } catch (...) {
-    return gneiss::error::internal;
-  }
-}
-
-gneiss::error fail_system(gneiss::world_state& /*world*/, void* user_data) noexcept {
-  auto& context = *static_cast<system_context*>(user_data);
-  context.events[context.count++] = 2;
-  return gneiss::error::invalid_state;
-}
-
-gneiss::error skipped_system(gneiss::world_state& /*world*/, void* user_data) noexcept {
-  auto& context = *static_cast<system_context*>(user_data);
-  context.events[context.count++] = 3;
-  return gneiss::error::success;
-}
 
 } // namespace
 
@@ -59,20 +25,6 @@ int run_tests() {
     return 1;
   }
 
-  system_context context{.delta = 5};
-  gneiss::system_scheduler scheduler;
-  if (scheduler.add(1, update_position, &context) != gneiss::error::success ||
-      scheduler.add(2, fail_system, &context) != gneiss::error::success ||
-      scheduler.add(3, skipped_system, &context) != gneiss::error::success ||
-      scheduler.add(3, skipped_system, &context) != gneiss::error::invalid_argument ||
-      scheduler.run(first) != gneiss::error::invalid_state) {
-    return 2;
-  }
-  const auto* value = first.get<position>(entity);
-  if (value == nullptr || value->value != 15 || context.count != 2U || context.events[0] != 1 ||
-      context.events[1] != 2) {
-    return 3;
-  }
   if (!first.destroy_entity(entity) || first.is_alive(entity) ||
       first.get<position>(entity) != nullptr) {
     return 4;

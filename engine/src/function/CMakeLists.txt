@@ -53,8 +53,6 @@ target_sources(gneiss_engine PRIVATE
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/component_registration.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/scene_instance.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/instantiation.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/system_scheduler.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/system_scheduler.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/game_object.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/world.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/camera_selection.cpp"

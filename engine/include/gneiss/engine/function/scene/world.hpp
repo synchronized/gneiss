@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include <functional>
+#include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/events/signal.hpp>
@@ -13,6 +15,9 @@
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <memory>
 #include <span>
+#include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace gneiss {
@@ -23,6 +28,33 @@ namespace gneiss {
  * domain 由 World 创建工厂分配；私有实现不向宿主暴露 EnTT。 */
 class world {
 public:
+  /** 注册本 World 拥有的可复制 callable；按注册顺序执行，首次 update 冻结列表。
+   * 签名为 (world&, const frame_time&)，返回 void/error/result<void>。
+   * 引用捕获由调用方保证寿命；重名、错线程、冻结后注册属于契约违例。 */
+  template <class F> void add_system(std::string name, F&& function) {
+    using callable = std::decay_t<F>;
+    static_assert(std::is_copy_constructible_v<callable>, "World 系统 callable 必须可复制");
+    register_system(std::move(name),
+                    [function = callable(std::forward<F>(function))](
+                        world& target, const frame_time& time) mutable -> error {
+                      using R = std::invoke_result_t<callable&, world&, const frame_time&>;
+                      if constexpr (std::is_void_v<R>) {
+                        std::invoke(function, target, time);
+                        return error::success;
+                      } else if constexpr (std::is_same_v<R, error>) {
+                        return std::invoke(function, target, time);
+                      } else {
+                        static_assert(std::is_same_v<R, result<void>>,
+                                      "World 系统返回类型必须为 void/error/result<void>");
+                        auto status = std::invoke(function, target, time);
+                        return status ? error::success : status.error();
+                      }
+                    });
+  }
+  /** 所属线程顺序执行；失败短路并保留此前修改，意外异常传播。禁止重入及执行中销毁。
+   * 不推进共享服务、不广播变化或提交渲染；宿主决定哪些 World 更新。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<void> update(const frame_time& time);
+
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] GNEISS_ENGINE_API bool is_owner_thread() const noexcept;
@@ -50,6 +82,8 @@ private:
   friend struct world_state;
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
+  GNEISS_ENGINE_API void register_system(std::string name,
+                                         std::function<error(world&, const frame_time&)> function);
   world() = default;
   ~world() = default;
 };

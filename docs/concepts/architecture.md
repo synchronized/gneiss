@@ -86,7 +86,11 @@ Application 的资产管理器位于 engine/function/asset，统一管理 Scene�
 弱缓存和在途加载记录，不拥有 World。资产值类型位于 engine/resource，GPU 对象由渲染服务管理。
 详细加载与资源生命周期见[资产参考](../reference/assets.md)。
 
-Application 唯一拥有 World 与共享服务；Runtime/Editor 加载器维护自己的打开、重载和视觉批次。
+Application 拥有共享服务，宿主持有独立 world_owner 并决定各 World 的更新与暂停；
+Runtime/Editor 加载器维护自己的打开、重载和视觉批次。
+World 拥有本运行空间的系统 callable，按注册顺序执行，不反向持有 Application。
+长期依赖显式注入，每轮接收 frame_time；渲染同步仍属于宿主调度阶段。
+具体调用与失败契约见 [World 参考](../reference/world.md#world-系统)。
 资产管理器异步取得 Scene/Prefab 后，宿主在所属线程组合并同步实例化，成功后显式卸载旧实例。
 World 不持有资产管理器，普通切换不替换 World。结构加载失败保留旧实例。
 视觉资源先预留稳定引用，内容随后异步完成；失败记录诊断，可显式重试，不回滚场景。

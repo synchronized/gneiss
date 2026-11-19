@@ -2,9 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/scene/world_state.hpp"
+#include <algorithm>
 #include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 namespace gneiss {
@@ -17,6 +19,39 @@ const world_state& state_of(const world& owner) noexcept {
   const auto& state = static_cast<const world_state&>(owner);
   GNEISS_ASSERT(state.is_owner_thread(), "World 内部访问要求所属线程");
   return state;
+}
+
+void world::register_system(std::string name,
+                            std::function<error(world&, const frame_time&)> function) {
+  auto& state = state_of(*this);
+  GNEISS_ASSERT(!state.systems_frozen_ && !state.destroying_, "World 系统只能在首次更新前注册");
+  GNEISS_ASSERT(!name.empty() && function, "World 系统必须具有名称和实现");
+  GNEISS_ASSERT(std::none_of(state.systems_.begin(), state.systems_.end(),
+                             [&](const auto& entry) { return entry.name == name; }),
+                "World 系统名称不能重复", name);
+  state.systems_.push_back({std::move(name), std::move(function)});
+}
+result<void> world::update(const frame_time& time) {
+  auto& state = state_of(*this);
+  GNEISS_ASSERT(!state.updating_ && !state.destroying_, "World 更新不能重入或在析构时执行");
+  state.systems_frozen_ = true;
+  state.updating_ = true;
+  struct update_scope {
+    bool& updating;
+    ~update_scope() { updating = false; }
+  } scope{state.updating_};
+  for (auto& entry : state.systems_) {
+    auto status = entry.function(*this, time);
+    if (status.failed()) {
+      logging::logger{"world"}.write({.severity = logging::level::error,
+                                      .source = entry.name,
+                                      .category = "system",
+                                      .message = "World 系统更新失败",
+                                      .result = status});
+      return status;
+    }
+  }
+  return {};
 }
 
 events::sink<void(const object_changes&)> world::changes() const {

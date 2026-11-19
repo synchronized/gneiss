@@ -232,6 +232,14 @@ private:
     return static_cast<entt::entity>(encoded_native - 1U);
   }
 
+  struct system_entry {
+    std::string name;
+    std::function<error(world&, const frame_time&)> function;
+  };
+  std::vector<system_entry> systems_;
+  bool systems_frozen_{};
+  bool updating_{};
+  bool destroying_{};
   entt::registry registry_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;

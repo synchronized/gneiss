@@ -133,13 +133,32 @@ int main(int argc, char** argv) {
     if (!owner)
       return 1;
     const std::string_view mode{argv[1]};
-    if (mode != "count" && mode != "flush")
+    if (mode == "duplicate") {
+      (*owner)->add_system("same", [](gneiss::world&, const gneiss::frame_time&) {});
+      (*owner)->add_system("same", [](gneiss::world&, const gneiss::frame_time&) {});
+      return 3;
+    }
+    if (mode == "frozen") {
+      (void)(*owner)->update({});
+      (*owner)->add_system("late", [](gneiss::world&, const gneiss::frame_time&) {});
+      return 3;
+    }
+    if (mode == "reentry") {
+      (*owner)->add_system("recursive", [](gneiss::world& target, const gneiss::frame_time& time) {
+        return target.update(time);
+      });
+      (void)(*owner)->update({});
+      return 3;
+    }
+    if (mode != "count" && mode != "flush" && mode != "update")
       return 2;
     std::thread worker([&] {
       if (mode == "count")
         (void)(*owner)->entity_count();
-      else
+      else if (mode == "flush")
         (*owner)->flush_changes();
+      else
+        (void)(*owner)->update({});
     });
     worker.join();
     return 3;

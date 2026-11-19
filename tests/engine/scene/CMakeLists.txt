@@ -35,10 +35,9 @@ add_executable(
   gneiss_world_state_test
   world_state_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/world_state.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/system_scheduler.cpp"
 )
 target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_world_state_test PRIVATE gneiss::engine EnTT::EnTT)
+target_link_libraries(gneiss_world_state_test PRIVATE gneiss::engine EnTT::EnTT gneiss_libassert)
 target_compile_features(gneiss_world_state_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_world_state_test)
 gneiss_target_output_directories(gneiss_world_state_test)
@@ -202,3 +201,12 @@ add_test(NAME gneiss.component-adapter COMMAND gneiss_component_adapter_test)
 set_tests_properties(gneiss.component-adapter PROPERTIES LABELS "cpu;integration")
 
 set_tests_properties(gneiss.scene-load-preparation PROPERTIES LABELS "cpu;integration")
+
+add_executable(gneiss_world_system_test world_system_test.cpp)
+target_link_libraries(gneiss_world_system_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_world_system_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_world_system_test)
+gneiss_target_output_directories(gneiss_world_system_test)
+set_target_properties(gneiss_world_system_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.world-system COMMAND gneiss_world_system_test)
+set_tests_properties(gneiss.world-system PROPERTIES LABELS "cpu;integration")
