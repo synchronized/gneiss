@@ -209,15 +209,8 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     report_failure("创建 Application", created.error());
     return 1;
   }
-  auto world_result = gneiss::create_native();
-  if (!world_result)
-    return 1;
-  auto world_owner = std::move(*world_result);
-  state.world = world_owner.get();
-  auto binding_result = gneiss::world_render_binding::create(*state.world, (*created)->render());
-  if (!binding_result)
-    return 1;
-  auto binding = std::move(*binding_result);
+  gneiss::world_owner world_owner;
+  std::unique_ptr<gneiss::world_render_binding> binding;
   gneiss::ui_draw_list ui;
   const auto application_ready = clock::now();
   auto* native_application = created->get();
@@ -254,6 +247,18 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   // 清理函数及其捕获先于应用所有者建立，异常展开时仍可调用。
   auto* app = native_application;
   auto owner = std::move(*created);
+  app->on_start("create_world", [&]() -> gneiss::result<void> {
+    auto world = gneiss::create_native();
+    if (!world)
+      return world.error();
+    world_owner = std::move(*world);
+    state.world = world_owner.get();
+    auto created_binding = gneiss::world_render_binding::create(*state.world, app->render());
+    if (!created_binding)
+      return created_binding.error();
+    binding = std::move(*created_binding);
+    return {};
+  });
   app->add_system(gneiss::app::stage::completions, "tasks", [&] { (void)scheduler.run_ready(); });
   app->add_system(gneiss::app::stage::synchronize, "scene.synchronize", [&] {
     state.world->flush_changes();

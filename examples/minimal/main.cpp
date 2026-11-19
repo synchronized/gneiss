@@ -10,28 +10,32 @@ int main() try {
   auto created = gneiss::runtime::application::create({});
   if (!created)
     return 1;
-  auto created_world = gneiss::create_native();
-  if (!created_world)
-    return 2;
-  auto world = std::move(*created_world);
-  auto object_scene = world->create_scene();
-  if (!object_scene)
-    return 2;
-  auto object = object_scene->create_object({"example", {}});
-  if (!object)
-    return 2;
-  gneiss::math::transform initial;
-  initial.translation = {1, 2, 3};
-  if (object->set_local_transform(initial).failed())
-    return 3;
+  gneiss::world_owner world;
+  gneiss::game_object object;
   unsigned updates{};
   gneiss::math::transform final;
   auto* app = created->get();
   auto owner = std::move(*created);
+  app->on_start("create_world", [&]() -> gneiss::result<void> {
+    auto created_world = gneiss::create_native();
+    if (!created_world)
+      return created_world.error();
+    world = std::move(*created_world);
+    auto scene = world->create_scene();
+    if (!scene)
+      return scene.error();
+    auto created_object = scene->create_object({"example", {}});
+    if (!created_object)
+      return created_object.error();
+    object = *created_object;
+    gneiss::math::transform initial;
+    initial.translation = {1, 2, 3};
+    return object.set_local_transform(initial);
+  });
   app->add_system(gneiss::app::stage::update, "move", [&](const auto&) {
-    auto transform = object->local_transform();
+    auto transform = object.local_transform();
     transform.translation.x += 1;
-    auto status = object->set_local_transform(transform);
+    auto status = object.set_local_transform(transform);
     if (++updates == 3)
       app->request_exit();
     return status;
@@ -39,8 +43,9 @@ int main() try {
   app->add_system(gneiss::app::stage::synchronize, "world_changes",
                   [&] { world->flush_changes(); });
   app->on_stop("release_world", [&] {
-    final = object->local_transform();
-    object_scene->unload();
+    if (object.is_valid())
+      final = object.local_transform();
+    object = {};
     world.reset();
   });
   if (!owner->run())

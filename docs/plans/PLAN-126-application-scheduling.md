@@ -489,3 +489,14 @@ author-asset-service、startup-diagnostic 六项回归通过。Editor 线程池�
 smoke 退出 0；空环境资产的异步加载失败退出 4，日志确认渲染服务完成关闭。
 该失败发生在启动请求之后，不作为 UI 初始化失败或首次启动前 OS 关闭的交互验证。
 示例启动迁移、基础服务延迟初始化、跨工程完整 UI 操作与静态验收仍待完成。
+
+### 示例启动迁移
+
+minimal 在 on_start 创建 World、场景和对象，停止时仅在对象有效时读取最终值，再释放 World。
+scene_viewer 在 on_start 创建 World 与渲染绑定，保留 loading/viewing 状态负责场景和输入资源请求。
+两者都不再在运行循环前因 World 初始化失败提前返回，部分初始化通过同一停止路径清理。
+scene_viewer 的 application_create_ms 只计 Application 创建；延迟的 World 装配包含在 scene_load_ms。
+
+Windows Clang Debug 两个示例目标构建通过；minimal-example、scene-viewer、scene-viewer-dual
+三项测试通过，后两项实际运行 GPU 渲染，包含双视图独立相机与目标尺寸切换。
+基础服务延迟初始化、跨工程完整 UI 操作与静态验收仍待完成。
