@@ -9,6 +9,7 @@
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include "ui/viewport/editor_rotation_math.hpp"
 

@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <functional>
 #include <optional>

@@ -7,6 +7,7 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace gneiss::serialization::detail {
 using namespace meta;
 std::string field_path(std::string_view name) {

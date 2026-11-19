@@ -12,6 +12,7 @@
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_description.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #ifdef GNEISS_TEST_THREADS
 #include <atomic>
 #include <thread>

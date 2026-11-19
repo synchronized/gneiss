@@ -12,6 +12,7 @@
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 #include <map>
 #include <mutex>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include "function/scene/detail/camera_selection_state.hpp"
 #include "function/scene/detail/component_storage.hpp"

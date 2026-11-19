@@ -9,6 +9,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>

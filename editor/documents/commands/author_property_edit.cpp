@@ -12,6 +12,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/property_edit_policy.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>

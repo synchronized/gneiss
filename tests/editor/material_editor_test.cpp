@@ -11,6 +11,7 @@
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <imgui.h>
 #include <stdexcept>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 namespace ed = gneiss::editor;
 void check(bool good, const char* message) {

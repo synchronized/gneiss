@@ -4,22 +4,13 @@
 #pragma once
 #include <gneiss/engine/core/meta/export.hpp>
 
-#include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
-#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/core/base/result.hpp>
 
 #include <memory>
 
 namespace gneiss::meta {
-/** 查询冻结注册表；未发布或未找到返回空句柄，基础值不需重复登记。 */
-GNEISS_META_API meta::type resolve(const registry_ref&, gneiss::type_id);
-GNEISS_META_API meta::type resolve(const registry_ref&, gneiss::guid);
-/** 按 C++ 类型解析原生能力和已发布注册信息；不隐式注册或修改注册表。 */
-template <class T> meta::type resolve(const registry_ref& registry) {
-  return detail::resolve_type(registry, detail::ops_of<std::remove_cvref_t<T>>());
-}
 /** 创建独立注册表并返回共享所有者；分配异常传播到异常边界。 */
 [[nodiscard]] GNEISS_META_API registry_ref create_registry();
 /** 进程共享的默认注册表；仅创建，不自动注册或冻结，由引擎模块持有至退出。 */
@@ -74,9 +65,6 @@ public:
 };
 /** 按 GUID 字节顺序借用注册对象；未冻结返回 not_ready。 */
 [[nodiscard]] GNEISS_META_API result<type_range> registered_types(const registry_ref&);
-template <class T> meta::type resolve() { return resolve<T>(default_registry()); }
-inline meta::type resolve(gneiss::type_id id) { return resolve(default_registry(), id); }
-inline meta::type resolve(gneiss::guid id) { return resolve(default_registry(), id); }
 [[nodiscard]] inline error freeze() { return freeze(default_registry()); }
 [[nodiscard]] inline bool is_frozen() { return is_frozen(default_registry()); }
 [[nodiscard]] inline result<type_range> registered_types() {

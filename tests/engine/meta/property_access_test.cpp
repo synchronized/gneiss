@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 namespace {
 using gneiss::error;

@@ -13,6 +13,7 @@
 #include <new>
 #include <unordered_set>
 #include <yyjson.h>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 namespace gneiss::serialization::json {
 using namespace meta;

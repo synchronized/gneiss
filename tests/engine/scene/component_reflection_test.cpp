@@ -13,6 +13,7 @@
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <thread>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 int main() {
 

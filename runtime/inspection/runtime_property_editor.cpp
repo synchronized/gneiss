@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <algorithm>
 #include <limits>

@@ -13,6 +13,7 @@
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <unordered_set>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace gneiss::serialization {
 namespace {
 using namespace meta;

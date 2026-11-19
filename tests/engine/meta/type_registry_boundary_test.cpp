@@ -6,6 +6,7 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <array>
 #include <stdexcept>

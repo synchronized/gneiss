@@ -9,6 +9,7 @@
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
 #include <limits>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 namespace m = e::meta;
 #define CHECK(expression)                                                                          \

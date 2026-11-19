@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <gneiss/engine/core/meta/type.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 // 在其他 Meta 头之前检查汇总入口，防止依赖间接 include 才能取得完整能力类型。
 static_assert(sizeof(gneiss::meta::cap::object) + sizeof(gneiss::meta::cap::enumeration) +

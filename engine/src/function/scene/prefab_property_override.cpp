@@ -12,6 +12,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 #include <gneiss/engine/resource/property_edit_policy.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <algorithm>
 #include <cmath>

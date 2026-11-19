@@ -10,6 +10,7 @@
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 namespace m = e::meta;
 struct object_padding {

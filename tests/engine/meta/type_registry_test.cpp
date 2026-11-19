@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 struct reflected_object {};
 struct other_object {};

@@ -6,6 +6,7 @@
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/context.hpp>
 #include <optional>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 namespace gneiss::serialization::detail {
 /** 所有格式共用类型分派；静态表示可直接构造候选，其余对象使用注册工厂。 */

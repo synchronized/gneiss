@@ -9,6 +9,7 @@
 #include <gneiss/engine/core/base/string_name.hpp>
 #include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <algorithm>
 #include <array>

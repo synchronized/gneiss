@@ -9,6 +9,7 @@
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <gneiss/engine/platform/process/child_process.hpp>
 #include "documents/commands/author_file_save.hpp"

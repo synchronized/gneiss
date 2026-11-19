@@ -20,6 +20,7 @@
 #include <map>
 #include <optional>
 #include <stdexcept>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 std::span<const std::byte> bytes(std::string_view text) {
   return std::as_bytes(std::span{text.data(), text.size()});

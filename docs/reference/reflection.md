@@ -510,7 +510,7 @@ kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name �
 
 ### 不依赖实例的类型查询
 
-包含 `registry.hpp` 后统一使用 `meta::resolve`，返回可判空的 `meta::type`：
+包含 `resolve.hpp` 后统一使用 `meta::resolve`，返回可判空的 `meta::type`：
 
 ```cpp
 auto native = meta::resolve<T>();

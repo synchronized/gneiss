@@ -12,6 +12,7 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <memory>
 #include <vector>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 namespace gneiss {
 /** CPU 字节解码契约；只解析字节，不创建 GPU 或场景对象。

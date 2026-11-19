@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/type_definition.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 
 namespace gneiss::meta {
 cap::representation::representation(meta::type target)

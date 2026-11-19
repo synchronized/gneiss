@@ -11,6 +11,7 @@
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/core/base/string_name.hpp>
 #include <stdexcept>
+#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
