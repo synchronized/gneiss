@@ -252,3 +252,12 @@ World/视口归属和业务转发尚未迁移，A126-03 仍未完成。
 创建配置已支持借用 executor，Runtime/Editor 改为创建时完成资产服务装配。
 旧 attach 仍供未迁移测试使用，删除条件是这些创建夹具完成迁移；不作为新宿主 API。
 验证：Runtime、Editor、纹理加载回归目标构建通过，texture-load-application 回归通过。
+
+### 示例生命周期迁移
+
+minimal 使用独立拥有的 World，具名 update/synchronize 与 on_stop；scene_viewer 使用
+loading/viewing 状态提交、领取加载请求，双视图尺寸切换在运行系统中执行，停止系统释放目标与场景。
+两例不再使用旧 run(n)、callbacks.update 或手动 shutdown；场景查看器的 World/视口仍待迁移。
+
+验证：两例及两项 Application 目标构建通过，Application 两项回归和 minimal 通过；
+scene_viewer --smoke --dual-view 真实窗口运行退出 0，包含两组目标尺寸及双相机图像差异回读。

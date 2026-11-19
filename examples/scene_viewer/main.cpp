@@ -2,9 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/scene_activation.hpp"
-#include "../support/scope_exit.hpp"
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
@@ -192,164 +191,179 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   state.measure = measure;
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
-  bool can_update = false;
-  std::shared_ptr<gneiss::runtime::application> native_application;
+  enum class mode { loading, viewing };
+  gneiss::asset_request<gneiss::scene> scene_request;
+  gneiss::scene_instance scene{};
+  example::scene_activation completion;
+  auto scene_ready = started, setup_ready = started, run_finished = started,
+       scene_unloaded = started;
+  unsigned round{};
+  std::uint64_t rendered_updates{};
+  const auto frame_limit = measure ? measure_warmup_frames + measure_sample_frames
+                           : smoke ? 3U
+                                   : 0U;
   gneiss::runtime::application_configuration config;
   config.enable_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
-  config.callbacks.update = [&](const auto& time) {
-    (void)scheduler.run_ready();
-    if (!can_update)
-      return gneiss::error::success;
-    auto updated = update_sample(*native_application, time, &state);
-    if (updated.failed() || !state.targets[0])
-      return updated;
-    auto configured = configure_dual_view(*native_application, state.targets);
-    if (!configured)
-      return configured.error();
-    if (smoke && !state.captured_dual) {
-      gneiss::render::frame_image image;
-      auto captured = native_application->capture_frame(512, 256, image);
-      if (captured == gneiss::error::not_ready)
-        return gneiss::error{gneiss::error::success};
-      if (captured.failed())
-        return captured;
-      if (!has_distinct_views(image))
-        return gneiss::error{gneiss::error::internal};
-      state.captured_dual = true;
-    }
-    return gneiss::error{gneiss::error::success};
-  };
-  example::scope_exit close{[&] {
-    if (native_application && native_application->accepts_requests())
-      (void)native_application->shutdown();
-  }};
-  auto create_result = gneiss::runtime::application::create(config);
-  if (!create_result) {
-    report_failure("创建 Application", create_result.error());
+  config.executor = &scheduler;
+  auto created = gneiss::runtime::application::create(config);
+  if (!created) {
+    report_failure("创建 Application", created.error());
     return 1;
   }
   const auto application_ready = clock::now();
-  native_application = std::move(*create_result);
-  if (native_application->attach_task_executor(scheduler).failed() ||
-      native_application->begin_action_map(input_map_uri).failed())
-    return 2;
-  auto submitted = native_application->assets().load<gneiss::scene>(scene_uri);
-  if (!submitted)
-    return 2;
-  auto scene_request = std::move(*submitted);
-  gneiss::scene_instance scene{};
-  example::scene_activation completion;
-  // 启动阶段继续处理窗口事件和文件完成；不调用同步场景加载。
-  while (!scene.id() || native_application->action_map_status() == gneiss::error::not_ready ||
-         (completion.visuals && !completion.visuals.ready())) {
-    (void)scheduler.run_ready();
-    if (native_application->run(1).failed())
-      return 2;
-    if (!scene.id()) {
+  auto* native_application = created->get();
+  auto release_targets = [&]() -> gneiss::result<void> {
+    if (!state.targets[0] && !state.targets[1])
+      return {};
+    auto finished = native_application->render().finish_frames();
+    if (finished.failed())
+      return finished;
+    // 停止阶段不再提交帧；只有运行中切换目标需要先移除视图。
+    if (native_application->accepts_requests()) {
+      auto cleared = native_application->set_views({});
+      if (!cleared)
+        return cleared;
+    }
+    for (auto& target : state.targets) {
+      if (!target)
+        continue;
+      auto released = native_application->render().destroy_target(target);
+      if (!released)
+        return released;
+      target = {};
+    }
+    return {};
+  };
+  auto create_targets = [&]() -> gneiss::result<void> {
+    if (!dual_view)
+      return {};
+    for (std::size_t i = 0; i < state.targets.size(); ++i) {
+      auto target = native_application->render().create_target(
+          {.width = round == 0 ? 320U : 512U, .height = i == 0 ? 240U : 384U});
+      if (!target)
+        return target.error();
+      state.targets[i] = *target;
+    }
+    state.captured_dual = false;
+    return {};
+  };
+  // 清理函数及其捕获先于应用所有者建立，异常展开时仍可调用。
+  auto* app = native_application;
+  auto owner = std::move(*created);
+  app->add_system(gneiss::app::stage::completions, "tasks", [&] { (void)scheduler.run_ready(); });
+  app->init_state(mode::loading);
+  app->on_enter(mode::loading, "load_scene", [&]() -> gneiss::result<void> {
+    auto input = app->begin_action_map(input_map_uri);
+    if (input.failed())
+      return input;
+    auto submitted = app->assets().load<gneiss::scene>(scene_uri);
+    if (!submitted)
+      return submitted.error();
+    scene_request = std::move(*submitted);
+    return {};
+  });
+  app->on_update(mode::loading, "await_scene", [&]() -> gneiss::result<void> {
+    if (!scene.is_valid()) {
       const auto status = scene_request.status();
-      if (status.failed() && status != gneiss::error::not_ready)
-        return 2;
-      if (status.ok()) {
-        auto content = scene_request.snapshot();
-        auto loaded = scene_request.take();
-        if (!loaded || !content)
-          return 2;
-        auto activated = example::activate_scene(*native_application, *content);
-        if (!activated)
-          return 2;
-        completion = std::move(*activated);
-        scene = completion.instance.instance;
-      }
+      if (status == gneiss::error::not_ready)
+        return {};
+      if (status.failed())
+        return status;
+      auto content = scene_request.snapshot();
+      auto loaded = scene_request.take();
+      if (!loaded || !content)
+        return gneiss::error::invalid_state;
+      auto activated = example::activate_scene(*app, *content);
+      if (!activated)
+        return activated.error();
+      completion = std::move(*activated);
+      scene = completion.instance.instance;
     }
-  }
-  example::report_visuals(completion);
-  if (native_application->action_map_status().failed())
-    return 2;
-  example::scope_exit unload{[&] {
-    if (scene.is_valid()) {
+    const auto input = app->action_map_status();
+    if (input == gneiss::error::not_ready || (completion.visuals && !completion.visuals.ready()))
+      return {};
+    if (input.failed())
+      return input;
+    example::report_visuals(completion);
+    scene_ready = clock::now();
+    return app->request_state(mode::viewing);
+  });
+  app->on_enter(mode::viewing, "configure_view", [&]() -> gneiss::result<void> {
+    auto status = app->find_action("move_horizontal", state.orbit);
+    if (status.failed())
+      return status;
+    status = app->find_action("quit", state.quit);
+    if (status.failed())
+      return status;
+    status = gneiss::get_active_camera(*app->native_world(), state.camera_node);
+    if (status.failed())
+      return status;
+    auto targets = create_targets();
+    if (!targets)
+      return targets;
+    setup_ready = state.previous_update = clock::now();
+    return {};
+  });
+  app->on_update(mode::viewing, "view_scene",
+                 [&](const gneiss::frame_time& time) -> gneiss::result<void> {
+                   // 在下一帧开始切换目标，保证上一轮最后一帧已经提交。
+                   if (frame_limit && rendered_updates == frame_limit) {
+                     if (dual_view && smoke && !state.captured_dual)
+                       return gneiss::error::not_ready;
+                     if (dual_view && smoke && round == 0) {
+                       auto released = release_targets();
+                       if (!released)
+                         return released;
+                       ++round;
+                       rendered_updates = 0;
+                       auto targets = create_targets();
+                       if (!targets)
+                         return targets;
+                     } else {
+                       app->request_exit();
+                       return {};
+                     }
+                   }
+                   auto updated = update_sample(*app, time, &state);
+                   if (updated.failed())
+                     return updated;
+                   ++rendered_updates;
+                   if (!dual_view)
+                     return {};
+                   auto configured = configure_dual_view(*app, state.targets);
+                   if (!configured)
+                     return configured;
+                   if (smoke && !state.captured_dual) {
+                     gneiss::render::frame_image image;
+                     auto captured = app->capture_frame(512, 256, image);
+                     if (captured == gneiss::error::not_ready)
+                       return {};
+                     if (captured.failed())
+                       return captured;
+                     if (!has_distinct_views(image))
+                       return gneiss::error::internal;
+                     state.captured_dual = true;
+                   }
+                   return {};
+                 });
+  app->on_stop("release_targets", release_targets);
+  app->on_stop("release_scene", [&] {
+    run_finished = clock::now();
+    scene_request = {};
+    completion = {};
+    if (scene.is_valid())
       scene.unload();
-    }
-  }};
-  const auto scene_ready = clock::now();
-  auto result = native_application->action_map_status();
-  if (result != gneiss::error::success) {
-    report_failure("加载输入映射", result);
-    return 4;
+    scene = {};
+    scene_unloaded = clock::now();
+  });
+  auto result = app->run();
+  if (!result) {
+    report_failure("场景查看器生命周期", result.error());
+    return 7;
   }
-  result = native_application->find_action("move_horizontal", state.orbit);
-  if (result == gneiss::error::success) {
-    result = native_application->find_action("quit", state.quit);
-  }
-  if (result != gneiss::error::success) {
-    report_failure("查找输入动作", result);
-    return 5;
-  }
-  if (!scene.is_valid())
-    return 2;
-  if (gneiss::get_active_camera(*native_application->native_world(), state.camera_node).failed()) {
-    report_failure("场景需要一个主相机", gneiss::error::not_found);
-    return 6;
-  }
-  const auto setup_ready = clock::now();
-
-  can_update = true;
-  state.previous_update = clock::now();
-  std::uint64_t frame_count = smoke ? 3U : 0U;
-  if (measure) {
-    frame_count = measure_warmup_frames + measure_sample_frames;
-  }
-  // 冒烟模式更换一组不同宽高比目标，验证同一场景的双视图与目标释放。
-  const unsigned rounds = dual_view && smoke ? 2U : 1U;
-  for (unsigned round = 0; round < rounds; ++round) {
-    std::array<gneiss::rid, 2> targets{};
-    if (dual_view) {
-      for (std::size_t i = 0; i < targets.size(); ++i) {
-        auto target = native_application->render().create_target(
-            {.width = round == 0 ? 320U : 512U, .height = i == 0 ? 240U : 384U});
-        if (!target)
-          return 7;
-        targets[i] = *target;
-      }
-      state.targets = targets;
-      state.captured_dual = false;
-    }
-    result = native_application->run(frame_count);
-    if (result.failed()) {
-      report_failure("运行主循环", result);
-      return 7;
-    }
-    if (dual_view) {
-      if (smoke && !state.captured_dual) {
-        report_failure("双视图回读未完成", gneiss::error::not_ready);
-        return 7;
-      }
-      result = native_application->render().finish_frames();
-      if (result.failed())
-        return 7;
-      state.targets = {};
-      if (!native_application->set_views({}))
-        return 7;
-      for (auto target : targets) {
-        auto released = native_application->render().destroy_target(target);
-        if (!released) {
-          report_failure("释放双视图目标", released.error());
-          return 7;
-        }
-      }
-    }
-  }
-  const auto run_finished = clock::now();
-  scene.unload();
-  scene = {};
-  const auto scene_unloaded = clock::now();
-  result = native_application->shutdown();
-  if (result.failed()) {
-    report_failure("关闭 Application", result);
-    return 10;
-  }
-  native_application.reset();
+  owner.reset();
   const auto application_destroyed = clock::now();
   if (measure) {
     if (state.frame_time_count != measure_sample_frames) {
