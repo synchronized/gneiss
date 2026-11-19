@@ -93,7 +93,7 @@ state<T>() 查询当前枚举值；初始 Enter 前返回配置值。
 同目标待处理请求合并，不同目标返回 invalid_state 并保留首次请求；当前状态的无待处理同值
 请求不重复 Enter/Exit。请求退出后拒绝新转换（cancelled），停止后续具名系统。
 未注册的状态类型、跨线程访问、运行后注册属于程序契约错误。Enter/Exit 返回失败时报告
-系统名称；再次 run 返回同一失败，不重放已有副作用。此时宿主应执行关闭，不尝试继续业务。
+系统名称；完成受控关闭后返回错误终态，再次 run/step 返回同一失败，不重放已有副作用。
 
 无参数 run() 驱动 step() 至 stopped；可恢复失败先完成关闭，再返回最早的运行错误。
 step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，stopped 或错误为终态。
@@ -107,8 +107,8 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 ## 宿主停止清理
 
 首次运行前用 on_stop(name, callable) 注册具名、无参数的停止步骤。调用方可取消并排空自己的
-任务、释放 UI 或会话资源；首次 request_shutdown 或直接 shutdown 在停止资产、文件、渲染
-服务之前按注册顺序执行一次。析构保底使用相同入口，未运行就退出也会执行已注册清理。
+任务、释放 UI 或会话资源；request_exit 后的 step/run 在停止资产、文件、渲染服务之前
+按注册顺序执行清理。析构保底使用相同清理路径，未运行就退出也会执行已注册清理。
 初始化只完成一部分时，清理函数必须根据自身拥有的资源状态处理，不能假定 Enter 已成功。
 
 进入清理前 accepts_requests() 已为 false，不再允许运行循环、注册系统或发起业务状态转换。
@@ -116,8 +116,8 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 跳过析构。回调捕获必须覆盖 Application 的关闭与析构过程。
 
 清理返回 void、result<void> 或 error；失败记录系统名称，继续后续清理及服务关闭，最终返回
-首次宿主清理错误（优先于后续服务关闭错误）。request_shutdown 的成功只表示关闭请求已接收，
-清理失败通过 advance_shutdown 的终态结果返回。直接 shutdown 返回最终结果。
+首次宿主清理错误（优先于后续服务关闭错误）。request_exit 只请求退出，step 在收尾期间返回
+stopping，清理完成后返回 stopped 或错误。分步关闭方法属于私有实现；过渡期 shutdown 仍返回最终结果。
 异步步骤返回 app::stop_progress 或 result<app::stop_progress>；pending 保留当前步骤，
 下一轮继续检查既有任务完成，complete 或错误则移动至下一步骤。等待期间仍分发文件和资产完成，
 不会提前关闭服务。步骤自身必须避免重复提交工作；任务作用域可直接使用 try_close_scope。

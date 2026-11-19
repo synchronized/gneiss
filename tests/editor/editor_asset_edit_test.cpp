@@ -253,7 +253,9 @@ void run(gneiss::tasks::execution_mode mode) {
                          {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"})
             .ok());
   check(edit.active());
-  check(app->request_shutdown().ok());
+  app->request_exit();
+  auto stopping = app->step();
+  check(stopping && *stopping == gneiss::app::lifecycle::stopping);
   edit.advance(*app, session, history);
   check(!edit.active() && edit.operation() == gneiss::error::invalid_state);
   check(session.replace_mesh_binding({}, {}, {}) == gneiss::error::invalid_state);

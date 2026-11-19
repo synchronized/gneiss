@@ -70,9 +70,8 @@ void close_pending_window(const char* assets) {
     check(app->action_map_status() == gneiss::error::not_ready, "input remains pending");
     const auto window = FindWindowW(nullptr, L"Gneiss Asset pending close test");
     check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
-    check(app->run(1) == gneiss::error::success && updates == 0,
-          "close handled before game update");
-    check(app->action_map_status() == gneiss::error::not_ready, "close did not wait for input");
+    check(app->step().ok() && updates == 0, "close handled before game update");
+    check(!app->accepts_requests(), "close rejects new input requests");
   }
   check(app->shutdown() == gneiss::error::success, "close drains input");
   check(scheduler.close_scope(scope), "close test scope");
@@ -126,7 +125,7 @@ void run(const char* assets, bool cooperative) {
   check(app->begin_action_map("asset://input/default.input-map.json").ok(),
         "unsupported backend request");
   for (unsigned i = 0; i < 8 && app->action_map_status() == gneiss::error::not_ready; ++i)
-    check(app->run(1).ok(), "unsupported backend completion");
+    check(app->step().ok(), "unsupported backend completion");
   check(app->action_map_status() == gneiss::error::unsupported, "no synchronous async fallback");
   check(app->shutdown().ok(), "unsupported backend shutdown");
   return;
@@ -136,7 +135,7 @@ void run(const char* assets, bool cooperative) {
     do {
       if (cooperative)
         check(scheduler.run_ready().status == gneiss::tasks::drive_status::success, "drive");
-      check(app->run(1) == gneiss::error::success, "run");
+      check(app->step().ok(), "run");
       check(std::chrono::steady_clock::now() < deadline, "timeout");
 #if GNEISS_TEST_TASK_THREADS
       std::this_thread::sleep_for(1ms);
@@ -144,16 +143,15 @@ void run(const char* assets, bool cooperative) {
     } while (app->action_map_status() == gneiss::error::not_ready);
   };
   const auto close = [&] {
-    check(app->request_shutdown().ok(), "request staged shutdown");
+    app->request_exit();
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     for (;;) {
       if (cooperative)
         check(scheduler.run_ready().status == gneiss::tasks::drive_status::success, "close drive");
-      const auto status = app->advance_shutdown();
-      if (status != gneiss::error::not_ready) {
-        check(status.ok(), "staged shutdown complete");
+      const auto status = app->step();
+      check(status.ok(), "staged shutdown progress");
+      if (*status == gneiss::app::lifecycle::stopped)
         break;
-      }
       check(std::chrono::steady_clock::now() < deadline, "close timeout");
 #if GNEISS_TEST_TASK_THREADS
       std::this_thread::sleep_for(1ms);

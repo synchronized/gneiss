@@ -52,13 +52,13 @@ void test_loop_callback_exceptions() {
         gneiss::error::success);
   bool allocation_threw = false;
   try {
-    (void)app->run(1);
+    (void)app->step();
   } catch (const std::bad_alloc&) {
     allocation_threw = true;
   }
   check(allocation_threw);
   fail = false;
-  check(app->run(1) == gneiss::error::success && updates == 1U);
+  check(app->step().ok() && updates == 1U);
   app.reset();
   config.callbacks.now_ns = {};
   config.callbacks.update = [](const gneiss::frame_time&) -> gneiss::error {
@@ -68,7 +68,7 @@ void test_loop_callback_exceptions() {
         gneiss::error::success);
   bool update_threw = false;
   try {
-    (void)app->run(1);
+    (void)app->step();
   } catch (const std::runtime_error&) {
     update_threw = true;
   }
@@ -85,7 +85,7 @@ void test_loop_callback_exceptions() {
         gneiss::error::success);
   allocation_threw = false;
   try {
-    (void)app->run(1);
+    (void)app->step();
   } catch (const std::bad_alloc&) {
     allocation_threw = true;
   }
@@ -121,7 +121,7 @@ void test_asset_request_boundaries() {
   gneiss::asset_batch_request empty_assets;
   check(!empty_assets.progress() && empty_assets.cancel() == gneiss::error::invalid_state);
   const auto rejected = [&] {
-    check(app->run(1) == gneiss::error::invalid_state);
+    check(app->step().error() == gneiss::error::invalid_state);
     auto assets = app->load_assets({});
     return !assets && assets.error() == gneiss::error::invalid_state;
   };
@@ -200,34 +200,36 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     std::shared_ptr<gneiss::runtime::application> app;
     check(
         gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok());
-    check(app->advance_shutdown() == gneiss::error::invalid_state);
     gneiss::asset_request<gneiss::scene> request;
     gneiss::asset_batch_request assets_request;
     if (stage == 1) {
       check(gneiss::test_support::take_value(
                 app->assets().load<gneiss::scene>("asset://scenes/triangle.scene.json"), request)
                 .ok());
-      (void)app->run(1);
+      (void)app->step();
     } else if (stage == 2) {
       const std::array sources{gneiss::render_resource_source{"asset://models/triangle.mesh.json",
                                                               gneiss::render_resource_kind::mesh}};
       check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
       gneiss::asset_load_completion completion;
       bool ready{};
-      check(app->run(1).ok());
+      check(app->step().ok());
       check(gneiss::test_support::receive_request(assets_request, completion, ready).ok());
     }
-    check(app->request_shutdown().ok() && !app->accepts_requests() && closed == 0);
-    check(app->request_shutdown().ok());
+    app->request_exit();
+    auto stopping = app->step();
+    check(stopping && *stopping == gneiss::app::lifecycle::stopping);
+    check(!app->accepts_requests() && closed == 0);
+    app->request_exit();
     auto rejected = app->load_assets({});
     check(!rejected && rejected.error() == gneiss::error::invalid_state);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
-      const auto status = app->advance_shutdown();
-      if (status != gneiss::error::not_ready) {
-        check(status.ok());
+      const auto status = app->step();
+      check(status.ok());
+      if (*status == gneiss::app::lifecycle::stopped)
         break;
-      }
+      check(*status == gneiss::app::lifecycle::stopping);
       check(std::chrono::steady_clock::now() < deadline);
       if (mode == gneiss::tasks::execution_mode::cooperative)
         (void)scheduler.run_ready();
@@ -238,7 +240,8 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     if (request)
       check(request.status() != gneiss::error::not_ready);
     check(scheduler.stats().retained == 0 && scheduler.stats().running == 0);
-    check(app->advance_shutdown().ok() && closed == 1);
+    auto stopped = app->step();
+    check(stopped && *stopped == gneiss::app::lifecycle::stopped && closed == 1);
     app.reset();
     check(closed == 1);
   }
@@ -265,7 +268,7 @@ void test_platform_callbacks() {
   };
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
                                            app) == gneiss::error::success);
-  check(app->run(3U) == gneiss::error::success && polls == 1U);
+  check(app->run().ok() && polls == 1U);
   app.reset();
   check(shutdowns == 2U);
   platform_config.callbacks.poll_events = [](bool&) -> gneiss::error { throw std::bad_alloc{}; };
@@ -274,7 +277,7 @@ void test_platform_callbacks() {
                                            app) == gneiss::error::success);
   bool poll_threw = false;
   try {
-    (void)app->run(1U);
+    (void)app->step();
   } catch (const std::bad_alloc&) {
     poll_threw = true;
   }
@@ -330,9 +333,11 @@ int main() try {
   check(!rejected && rejected.error() == gneiss::error::invalid_argument);
   check(app == retained && state.initializations == 1U);
   retained.reset();
-  check(app->run(3U) == gneiss::error::success && state.frames == 3U);
+  for (unsigned frame = 0; frame < 3; ++frame)
+    check(app->step().ok());
+  check(state.frames == 3U);
   gneiss::error other_thread{};
-  std::thread worker([&] { other_thread = app->run(1U); });
+  std::thread worker([&] { other_thread = app->step().error(); });
   worker.join();
   check(other_thread == gneiss::error::invalid_state && state.frames == 3U);
   check(state.shutdowns == 0U);
@@ -343,9 +348,9 @@ int main() try {
         gneiss::error::initialization_failed);
   check(app == previous && state.initializations == 2U && state.shutdowns == 1U);
   previous.reset();
-  check(app->run(1U) == gneiss::error::success && state.frames == 4U);
+  check(app->step().ok() && state.frames == 4U);
   check(app->shutdown() == gneiss::error::success);
-  check(app->run(1U) == gneiss::error::invalid_state);
+  check(app->step().error() == gneiss::error::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);
   logs.service.flush();

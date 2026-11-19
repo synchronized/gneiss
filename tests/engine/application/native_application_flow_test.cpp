@@ -45,18 +45,18 @@ void loop() {
         event.type == gneiss::input::event_type::none);
   check(app->keyboard_state().modifiers == 0 && app->keyboard_state().pressed_keys[0] == 0);
   check(app->pointer_state().buttons == 0 && !app->pointer_state().is_inside);
-  check(app->run(8).ok() && updates == 3);
+  check(app->run().ok() && updates == 3);
   app.reset();
   check(shutdowns == 1);
   close = allow = true;
   updates = closes = 0;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  check(app->run(8).ok() && updates == 0 && closes == 1);
+  check(app->run().ok() && updates == 0 && closes == 1);
   app.reset();
   allow = false;
   closes = 0;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  check(app->run(8).ok() && updates == 3 && closes == 3);
+  check(app->run().ok() && updates == 3 && closes == 3);
   app.reset();
   check(shutdowns == 3);
 }
@@ -83,16 +83,18 @@ void scheduled_systems() {
     calls += 'b';
     return fail ? error::not_found : error::success;
   });
-  check(application->run(2).ok());
+  check(application->step().ok() && application->step().ok());
   check(calls == "abspabsp");
   fail = true;
   calls.clear();
-  check(application->run(1) == error::not_found);
+  check(application->run().error() == error::not_found);
   check(calls == "ab" && diagnostics == 1);
-  // 失败退出不能留下 running/updating 标记，下一次运行仍能正常完成。
+  // 失败进入终态，保留首次错误；不能重新执行系统或重复发送诊断。
   fail = false;
   calls.clear();
-  check(application->run(1).ok() && calls == "absp");
+  check(application->step().error() == error::not_found);
+  check(application->run().error() == error::not_found);
+  check(calls.empty() && diagnostics == 1);
 }
 enum class flow { loading, playing, paused };
 enum class overlay { hidden, visible };
@@ -121,13 +123,13 @@ void state_systems() {
   application->on_enter(flow::paused, "pause", [&] { calls += 'A'; });
   application->on_update(flow::paused, "paused", [&] { calls += 'a'; });
   application->on_enter(overlay::visible, "show", [&] { calls += 'V'; });
-  check(application->run(1).ok() && calls == "Ll");
-  check(application->run(1).ok() && calls == "LlxPp");
+  check(application->step().ok() && calls == "Ll");
+  check(application->step().ok() && calls == "LlxPp");
   // Enter 中请求其他状态类型也不会在同一边界递归执行。
   check(application->state<overlay>() == overlay::hidden);
-  check(application->run(1).ok() && calls == "LlxPpAVa");
+  check(application->step().ok() && calls == "LlxPpAVa");
   check(application->request_state(flow::paused).ok());
-  check(application->run(1).ok() && calls == "LlxPpAVaa");
+  check(application->step().ok() && calls == "LlxPpAVaa");
 
   auto failing = runtime::application::create({});
   check(failing.ok());
@@ -137,8 +139,8 @@ void state_systems() {
     ++enters;
     return error::io;
   });
-  check((*failing)->run(1) == error::io);
-  check((*failing)->run(1) == error::io && enters == 1);
+  check((*failing)->run().error() == error::io);
+  check((*failing)->run().error() == error::io && enters == 1);
 
   auto exiting = runtime::application::create({});
   check(exiting.ok());
@@ -148,7 +150,7 @@ void state_systems() {
     check((*exiting)->request_state(flow::playing).error() == error::cancelled);
   });
   (*exiting)->on_update(flow::loading, "must_not_run", [&] { check(false); });
-  check((*exiting)->run(1).ok());
+  check((*exiting)->run().ok());
 }
 void host_shutdown() {
   std::string order;
@@ -159,8 +161,7 @@ void host_shutdown() {
   auto application = std::move(*created);
   auto* borrowed = application.get();
   application->on_stop("release", [&] {
-    check(borrowed->run(1) == error::invalid_state);
-    check(borrowed->request_shutdown() == error::invalid_state);
+    check(borrowed->step().error() == error::invalid_state);
     order += 'a';
     return error::io;
   });
@@ -168,12 +169,12 @@ void host_shutdown() {
     order += 'b';
     return {};
   });
-  check(application->request_shutdown().ok());
-  check(order == "ab");
-  check(application->run(1) == error::invalid_state);
-  check(application->request_shutdown().ok() && order == "ab");
-  check(application->advance_shutdown() == error::io && order == "abs");
-  check(application->advance_shutdown() == error::io);
+  application->request_exit();
+  auto stopping = application->step();
+  check(stopping && *stopping == app::lifecycle::stopping && order == "ab");
+  application->request_exit();
+  check(application->run().error() == error::io && order == "abs");
+  check(application->step().error() == error::io && order == "abs");
   application.reset();
   check(order == "abs");
 
@@ -182,7 +183,8 @@ void host_shutdown() {
   check(created.ok());
   application = std::move(*created);
   application->on_stop("never_ran", [&] { order += 'c'; });
-  check(application->shutdown().ok());
+  application->request_exit();
+  check(application->run().ok());
   application.reset();
   check(order == "abscs");
   created = runtime::application::create(config);

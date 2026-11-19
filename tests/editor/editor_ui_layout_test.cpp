@@ -181,12 +181,11 @@ int main() try {
       late_save.save(visibility).failed())
     return 17;
   ImGui::DestroyContext();
-  if (app->request_shutdown().failed())
-    return 13;
-  error closed;
+  app->request_exit();
+  result<app::lifecycle> closed{app::lifecycle::stopping};
   if (!pump([&] {
-        closed = app->advance_shutdown();
-        return closed == error::not_ready;
+        closed = app->step();
+        return closed && *closed != app::lifecycle::stopped;
       }) ||
       closed.failed() || late_save.saving())
     return 14;

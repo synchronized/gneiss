@@ -133,11 +133,6 @@ public:
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
-  /** 所属线程、run 之外请求关闭；拒绝新操作，不等待文件和 CPU 任务。
-   * 继续调用 advance_shutdown，返回 not_ready 时让出执行权；终态后可销毁宿主执行器。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error request_shutdown();
-  /** 非阻塞推进文件/CPU 收尾；最终设备销毁仍使用 Render 的既有关闭流程。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error advance_shutdown();
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error shutdown();
   /** 驱动完整生命周期至停止；失败也先完成受控关闭。 */
   [[nodiscard]] GNEISS_ENGINE_API result<void> run();
@@ -189,6 +184,8 @@ private:
   GNEISS_ENGINE_API std::uint64_t current_state(type_id) const;
   GNEISS_ENGINE_API void register_stop_system(std::string, app::stop_function);
   bool stop_host();
+  error request_shutdown();
+  error advance_shutdown();
   error begin_service_shutdown();
   error advance_frame();
   error configure_executor(tasks::task_executor&);

@@ -16,9 +16,11 @@ inline gneiss::error load_input_for_test(runtime::application& app,
     if (std::chrono::steady_clock::now() >= deadline)
       return gneiss::error::internal;
     (void)scheduler.run_ready();
-    const auto frame = app.run(1);
-    if (frame.failed())
-      return frame;
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
   }
   return status;
 }
