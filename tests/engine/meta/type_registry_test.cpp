@@ -194,7 +194,7 @@ bool freeze_exception_contract() {
         return m::detail::ops_of<float>();
       },
       .size = [](const void*) -> std::size_t { return 0; },
-      .at = [](const void*, std::size_t) -> const void* { return nullptr; }};
+      .const_at = [](const void*, std::size_t) -> const void* { return nullptr; }};
   static const m::type_ops access{.id = e::runtime_type_of<std::vector<float>>(),
                                   .category = &sequence};
   const m::property_definition field{.id = gneiss::property_id{1}, .name = "values"};
@@ -203,7 +203,7 @@ bool freeze_exception_contract() {
                                       .name = "freeze_failure",
                                       .properties = {&field, 1}};
   const m::property_ops binding{.access = &access,
-                                .borrow = [](void*, const void* p) { return p; }};
+                                .const_borrow = [](void*, const void* p) { return p; }};
   if (m::register_type(registry, definition, {&binding, 1}).failed())
     return false;
   if (!gneiss::test_support::throws<std::runtime_error>([&] { (void)m::freeze(registry); }))

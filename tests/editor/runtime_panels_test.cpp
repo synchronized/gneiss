@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include "ui/panels/runtime_panels.hpp"
 
 #include <imgui.h>
@@ -18,6 +19,8 @@ struct observations final {
 
 int main() try {
   using namespace gneiss::editor;
+  if (gneiss::serialization::register_builtin_types().failed() || gneiss::meta::freeze().failed())
+    return 1;
   runtime_scene_mirror mirror;
   runtime_scene_change change;
   change.id = {.value = 7U, .generation = 2U};

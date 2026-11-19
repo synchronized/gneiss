@@ -3,13 +3,12 @@
 
 #include "ui/panels/runtime_panels.hpp"
 #include "ui/panels/reflected_property_editor.hpp"
-#include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/resource/property_edit_policy.hpp>
-#include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/function/scene/scene_types.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 
 #include "ui/viewport/editor_rotation_math.hpp"
 
@@ -132,6 +131,11 @@ void draw_runtime_inspector(const runtime_scene_node& node,
   }
   ImGui::Separator();
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+    const auto properties =
+        gneiss::meta::resolve<gneiss::math::transform>().capability<gneiss::meta::cap::object>();
+    const auto translation_property = properties.find_property("translation");
+    const auto rotation_property = properties.find_property("rotation");
+    const auto scale_property = properties.find_property("scale");
     auto translation = gneiss::math::component_array(node.local_transform.translation);
     auto scale = gneiss::math::component_array(node.local_transform.scale);
     gneiss::math::quaternion quaternion = gneiss::math::quaternion_xyzw(
@@ -163,56 +167,38 @@ void draw_runtime_inspector(const runtime_scene_node& node,
                                    {gneiss::math::vector3{observed[0], observed[1], observed[2]}});
     };
 
-    const auto translation_key =
-        runtime_transform_key(node, gneiss::meta::transform_translation_field.get());
-    const auto* translation_edit = actions.find_edit(actions.context, translation_key);
-    ImGui::BeginDisabled(!editable ||
-                         (translation_edit != nullptr &&
-                          translation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(gneiss::meta::transform_translation_field.get()));
-    (void)ImGui::DragFloat3("Translation", translation.data(), 0.05F);
-    const auto translation_committed = ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::PopID();
-    ImGui::EndDisabled();
-    if (translation_committed) {
-      const auto revision = translation_edit != nullptr && translation_edit->revision != 0U
-                                ? translation_edit->revision
-                                : 1U;
-      actions.report_result(
-          actions.context,
-          actions.write_property(
-              actions.context, translation_key, revision,
-              {gneiss::math::vector3{translation[0], translation[1], translation[2]}}));
-    }
-    draw_runtime_property_status(translation_edit, {node.local_transform.translation});
+    if (translation_property)
+      draw_vec3("Translation", translation_property.id().get(), translation, 0.05F);
 
-    const auto rotation_key =
-        runtime_transform_key(node, gneiss::meta::transform_rotation_field.get());
-    const auto* rotation_edit = actions.find_edit(actions.context, rotation_key);
-    ImGui::BeginDisabled(
-        !editable ||
-        (rotation_edit != nullptr && rotation_edit->state == runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(gneiss::meta::transform_rotation_field.get()));
-    (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
-    const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::PopID();
-    ImGui::EndDisabled();
-    if (rotation_committed) {
-      gneiss::math::quaternion edited{};
-      const auto converted = euler_degrees_to_quaternion(rotation, edited);
-      if (converted == gneiss::error::success) {
-        const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
-                                  ? rotation_edit->revision
-                                  : 1U;
-        actions.report_result(actions.context, actions.write_property(actions.context, rotation_key,
-                                                                      revision, {edited}));
-      } else {
-        actions.report_result(actions.context, converted);
+    if (rotation_property) {
+      const auto rotation_key = runtime_transform_key(node, rotation_property.id().get());
+      const auto* rotation_edit = actions.find_edit(actions.context, rotation_key);
+      ImGui::BeginDisabled(!editable ||
+                           (rotation_edit != nullptr &&
+                            rotation_edit->state == runtime_property_edit_state::pending));
+      ImGui::PushID(static_cast<int>(rotation_property.id().get()));
+      (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
+      const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::PopID();
+      ImGui::EndDisabled();
+      if (rotation_committed) {
+        gneiss::math::quaternion edited{};
+        const auto converted = euler_degrees_to_quaternion(rotation, edited);
+        if (converted == gneiss::error::success) {
+          const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
+                                    ? rotation_edit->revision
+                                    : 1U;
+          actions.report_result(
+              actions.context,
+              actions.write_property(actions.context, rotation_key, revision, {edited}));
+        } else {
+          actions.report_result(actions.context, converted);
+        }
       }
+      draw_runtime_property_status(rotation_edit, {quaternion});
     }
-    draw_runtime_property_status(rotation_edit, {quaternion});
-
-    draw_vec3("Scale", gneiss::meta::transform_scale_field.get(), scale, 0.05F);
+    if (scale_property)
+      draw_vec3("Scale", scale_property.id().get(), scale, 0.05F);
   }
   for (const auto& component : node.components) {
     auto view = component->view();

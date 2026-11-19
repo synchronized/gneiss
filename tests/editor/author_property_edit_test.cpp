@@ -4,12 +4,12 @@
 #include "../support/document_prefab.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
@@ -19,8 +19,8 @@
 #include <gneiss/engine/resource/scene.hpp>
 
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/meta/type.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -51,7 +51,8 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return camera->settings;
   };
 
-  if (read(session.find_node(ordinary_uuid)->entity).near_plane != 2.0F || history.undo().failed() ||
+  if (read(session.find_node(ordinary_uuid)->entity).near_plane != 2.0F ||
+      history.undo().failed() ||
       read(session.find_node(ordinary_uuid)->entity).near_plane != 0.1F || history.redo().failed())
     return 33;
   if (session.find_node(ordinary_uuid)->entity != stable_entity ||
@@ -91,8 +92,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   gneiss::entity_id active_before, active_after;
   if (gneiss::get_active_camera(world, active_before).failed() ||
       history.undo() != e::error::invalid_state ||
-      gneiss::get_active_camera(world, active_after).failed() ||
-      active_before != active_after)
+      gneiss::get_active_camera(world, active_after).failed() || active_before != active_after)
     return 51;
   auto source = std::make_shared<e::prefab_description>();
   if (ed::make_editor_uuid(source->uuid).failed() ||
@@ -167,7 +167,10 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   auto child_transform = root_transform;
   child_transform.source_uuid = child.uuid;
   ed::editor_command_history root_history, child_history;
-  ed::property_edit translation{.path = {e::meta::transform_translation_field},
+  ed::property_edit translation{.path = {gneiss::meta::resolve<gneiss::math::transform>()
+                                             .capability<gneiss::meta::cap::object>()
+                                             .find_property("translation")
+                                             .id()},
                                 .data = e::value{e::math::vector3{5, 0, 0}}};
   if (ed::edit_component_description(session, root_history, world, root_transform, translation, 10)
           .failed() ||
@@ -187,7 +190,10 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
       child_history.undo().failed() || overrides(snapshot()) != 1 ||
       child_history.redo().failed() || source->objects[1].transform.translation.x != 1)
     return 55;
-  ed::property_edit bad_scale{.path = {e::meta::transform_scale_field},
+  ed::property_edit bad_scale{.path = {gneiss::meta::resolve<gneiss::math::transform>()
+                                           .capability<gneiss::meta::cap::object>()
+                                           .find_property("scale")
+                                           .id()},
                               .data = e::value{e::math::vector3{0, 1, 1}}};
   if (ed::edit_component_description(session, child_history, world, child_transform, bad_scale,
                                      12) != e::error::invalid_argument ||
@@ -195,8 +201,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     return 56;
   ed::property_edit restore{.path = {},
                             .object_type = e::runtime_type_of<e::math::transform>(),
-                            .object =
-                                gneiss::make_ref<e::math::transform>(child.transform)};
+                            .object = gneiss::make_ref<e::math::transform>(child.transform)};
   if (ed::edit_component_description(session, child_history, world, child_transform, restore, 0)
           .failed() ||
       overrides(snapshot()) != 1 || child_history.undo().failed() || overrides(snapshot()) != 2)
@@ -232,8 +237,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
     }
   }
   loaded.unload();
-  if (loaded.is_valid() || !found_ordinary ||
-      !found_prefab || !found_child)
+  if (loaded.is_valid() || !found_ordinary || !found_prefab || !found_child)
     return 47;
   // 移除后不把旧历史应用到另一个节点。
   gneiss::editor::scene_subtree_snapshot removed_prefab;
@@ -276,7 +280,10 @@ int main() try {
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
     component_edit_target identity{.object_uuid = session.selected_node()->uuid,
                                    .component_type = gneiss::math::transform::type_guid};
-    property_edit edit{.path = {gneiss::meta::transform_translation_field},
+    property_edit edit{.path = {gneiss::meta::resolve<gneiss::math::transform>()
+                                    .capability<gneiss::meta::cap::object>()
+                                    .find_property("translation")
+                                    .id()},
                        .data = gneiss::value{gneiss::math::vector3{next, 0, 0}}};
     return edit_component_description(session, target, *world_handle, identity, edit, serial);
   };
@@ -306,7 +313,10 @@ int main() try {
   }
   component_edit_target identity{.object_uuid = session.selected_node()->uuid,
                                  .component_type = gneiss::math::transform::type_guid};
-  property_edit invalid{.path = {gneiss::meta::transform_scale_field},
+  property_edit invalid{.path = {gneiss::meta::resolve<gneiss::math::transform>()
+                                     .capability<gneiss::meta::cap::object>()
+                                     .find_property("scale")
+                                     .id()},
                         .data = gneiss::value{gneiss::math::vector3{0, 1, 1}}};
   if (edit_component_description(session, history, *world_handle, identity, invalid, 4) !=
           gneiss::error::invalid_argument ||

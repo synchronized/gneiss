@@ -4,13 +4,14 @@
 #include "../support/async_prefab_edit.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/runtime_author_apply.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
@@ -41,9 +42,8 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
-  if (gneiss::error{gneiss::test_support::assign_value(
-          gneiss::runtime::application::create(desc), application)} !=
-          gneiss::error::success ||
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                                       application)} != gneiss::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=
           gneiss::error::success ||
@@ -106,8 +106,7 @@ int main() try {
     if (!member || !content || !nodes || nodes->nodes.empty())
       return 101;
     const auto& foreign_object = nodes->nodes.front();
-    const gneiss::scene_object_binding wrong{
-        foreign_object.uuid, {}, foreign_object.entity};
+    const gneiss::scene_object_binding wrong{foreign_object.uuid, {}, foreign_object.entity};
     auto before = session.scene_handle();
     if (session.adopt(*application, *target, *content, {&wrong, 1}) !=
             gneiss::error::invalid_handle ||
@@ -164,8 +163,7 @@ int main() try {
   }
   const auto selected = session.selection();
   application->native_world()->find(selected).destroy();
-  if (session.validate_selection() != gneiss::error::success ||
-      session.selection().is_valid()) {
+  if (session.validate_selection() != gneiss::error::success || session.selection().is_valid()) {
     return 4;
   }
   session.close();
@@ -199,7 +197,10 @@ int main() try {
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[1] != 5.0F ||
       !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
-                                                    gneiss::meta::transform_translation_field)) {
+                                                    gneiss::meta::resolve<gneiss::math::transform>()
+                                                        .capability<gneiss::meta::cap::object>()
+                                                        .find_property("translation")
+                                                        .id())) {
     return 7;
   }
   gneiss::math::transform previous_source{};
@@ -211,17 +212,27 @@ int main() try {
     return 8;
   }
   if (session.restore_prefab_transform_field(session.selection(),
-                                             gneiss::meta::transform_translation_field.get(),
+                                             gneiss::meta::resolve<gneiss::math::transform>()
+                                                 .capability<gneiss::meta::cap::object>()
+                                                 .find_property("translation")
+                                                 .id()
+                                                 .get(),
                                              previous_source) != gneiss::error::success ||
       previous_source.translation[1] != 5.0F || session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[0] != 1.0F ||
       session.selected_prefab_node()->local_transform.translation[1] != 0.0F ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
       session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
-                                                   gneiss::meta::transform_translation_field) ||
+                                                   gneiss::meta::resolve<gneiss::math::transform>()
+                                                       .capability<gneiss::meta::cap::object>()
+                                                       .find_property("translation")
+                                                       .id()) ||
       session.set_local_transform(session.selection(), previous_source) != gneiss::error::success ||
       !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
-                                                    gneiss::meta::transform_translation_field) ||
+                                                    gneiss::meta::resolve<gneiss::math::transform>()
+                                                        .capability<gneiss::meta::cap::object>()
+                                                        .find_property("translation")
+                                                        .id()) ||
       session.restore_prefab_transform(session.selection(), previous_source) !=
           gneiss::error::success ||
       session.selected_prefab_node()->has_overrides(gneiss::math::transform::type_guid)) {
@@ -240,7 +251,10 @@ int main() try {
   if (apply_temporary_transform(session, history, runtime_source) != gneiss::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
       !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
-                                                    gneiss::meta::transform_scale_field) ||
+                                                    gneiss::meta::resolve<gneiss::math::transform>()
+                                                        .capability<gneiss::meta::cap::object>()
+                                                        .find_property("scale")
+                                                        .id()) ||
       history.undo() != gneiss::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 1.0F ||
       history.redo() != gneiss::error::success ||
@@ -293,10 +307,8 @@ int main() try {
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->display_name != "Restored Lamp" ||
       session.selected_prefab_node()->local_transform.translation[1] != 3.0F ||
-      gneiss::test_support::finish_history(history, history.undo()) !=
-          gneiss::error::success ||
-      gneiss::test_support::finish_history(history, history.redo()) !=
-          gneiss::error::success) {
+      gneiss::test_support::finish_history(history, history.undo()) != gneiss::error::success ||
+      gneiss::test_support::finish_history(history, history.redo()) != gneiss::error::success) {
     return 12;
   }
   return 0;

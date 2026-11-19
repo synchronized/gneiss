@@ -4,11 +4,11 @@
 #include "../../support/movement_component.hpp"
 #include "../../support/value_result.hpp"
 #include "documents/prefab_edit.hpp"
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/resolve_path.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 
@@ -29,11 +29,14 @@ namespace {
 const auto source_a = *gneiss::guid::parse("20000000-0000-4000-8000-000000000001");
 const auto source_b = *gneiss::guid::parse("20000000-0000-4000-8000-000000000002");
 
-[[nodiscard]] gneiss::prefab_property_override
-make_translation(gneiss::guid source_node, gneiss::math::vector3 value) {
+[[nodiscard]] gneiss::prefab_property_override make_translation(gneiss::guid source_node,
+                                                                gneiss::math::vector3 value) {
   return {.key = {.target = {.source_node_uuid = source_node,
                              .target_type_guid = gneiss::math::transform::type_guid},
-                  .path = {gneiss::meta::transform_translation_field}},
+                  .path = {gneiss::meta::resolve<gneiss::math::transform>()
+                               .capability<gneiss::meta::cap::object>()
+                               .find_property("translation")
+                               .id()}},
           .operation = gneiss::value{.payload = value}};
 }
 
@@ -342,26 +345,22 @@ int main() {
   auto second = make_translation(source_b, {2.0F, 0.0F, 0.0F});
   auto first = make_translation(source_a, {1.0F, 0.0F, 0.0F});
   if (gneiss::validate_prefab_property_override(first) != gneiss::error::success ||
-      gneiss::set_prefab_property_override(overrides, second, source) !=
-          gneiss::error::success ||
-      gneiss::set_prefab_property_override(overrides, first, source) !=
-          gneiss::error::success ||
+      gneiss::set_prefab_property_override(overrides, second, source) != gneiss::error::success ||
+      gneiss::set_prefab_property_override(overrides, first, source) != gneiss::error::success ||
       overrides.size() != 2U || overrides[0].key.target.source_node_uuid != source_b ||
       overrides[1].key.target.source_node_uuid != source_a) {
     return 2;
   }
 
   auto updated = make_translation(source_a, {3.0F, 0.0F, 0.0F});
-  if (gneiss::set_prefab_property_override(overrides, updated, source) !=
-          gneiss::error::success ||
+  if (gneiss::set_prefab_property_override(overrides, updated, source) != gneiss::error::success ||
       overrides.size() != 2U ||
       std::get<gneiss::math::vector3>(overrides[1].replacement().payload)[0] != 3.0F) {
     return 3;
   }
 
   auto restored = make_translation(source_a, {-0.0F, 0.0F, 0.0F});
-  if (gneiss::set_prefab_property_override(overrides, restored, source) !=
-          gneiss::error::success ||
+  if (gneiss::set_prefab_property_override(overrides, restored, source) != gneiss::error::success ||
       overrides.size() != 1U || overrides[0].key.target.source_node_uuid != source_b) {
     return 4;
   }
@@ -371,12 +370,10 @@ int main() {
   auto invalid_address = make_translation({}, {1.0F, 0.0F, 0.0F});
   auto non_finite =
       make_translation(source_a, {std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F});
-  if (gneiss::validate_prefab_property_override(wrong_type) !=
-          gneiss::error::invalid_argument ||
+  if (gneiss::validate_prefab_property_override(wrong_type) != gneiss::error::invalid_argument ||
       gneiss::validate_prefab_property_override(invalid_address) !=
           gneiss::error::invalid_argument ||
-      gneiss::validate_prefab_property_override(non_finite) !=
-          gneiss::error::invalid_argument) {
+      gneiss::validate_prefab_property_override(non_finite) != gneiss::error::invalid_argument) {
     return 5;
   }
 
@@ -385,15 +382,13 @@ int main() {
                          .target_type_guid = gneiss::camera_description::type_guid},
               .path = {gneiss::property_id{4}}},
       .operation = gneiss::value{.payload = true}};
-  if (gneiss::validate_prefab_property_override(read_only) !=
-      gneiss::error::invalid_argument) {
+  if (gneiss::validate_prefab_property_override(read_only) != gneiss::error::invalid_argument) {
     return 6;
   }
 
   auto missing = make_translation(source_a, {1.0F, 0.0F, 0.0F});
   missing.key.path.front() = gneiss::property_id{999};
-  if (gneiss::validate_prefab_property_override(missing) !=
-      gneiss::error::not_found) {
+  if (gneiss::validate_prefab_property_override(missing) != gneiss::error::not_found) {
     return 7;
   }
 

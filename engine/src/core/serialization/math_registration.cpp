@@ -3,7 +3,6 @@
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 namespace gneiss::serialization {
 using namespace meta;
@@ -23,27 +22,25 @@ error set_transform(math::transform& object, const Property& value) {
 namespace detail {
 // 仅由内置注册入口调用，不额外暴露数学注册的初始化步骤。
 error register_math_types(const registry_ref& registry) {
-  auto status =
-      registration::type<math::transform>(registry)
-          .property<&get_transform<&math::transform::translation>,
-                    &set_transform<&math::transform::translation, math::vector3>>(
-              meta::transform_translation_field, "translation")(field_policy{.required = true})
-          .property<&get_transform<&math::transform::rotation>,
-                    &set_transform<&math::transform::rotation, math::quaternion>>(
-              meta::transform_rotation_field, "rotation")(field_policy{.required = true})
-          .property<&get_transform<&math::transform::scale>,
-                    &set_transform<&math::transform::scale, math::vector3>>(
-              meta::transform_scale_field, "scale")(field_policy{.required = true})
-          .commit();
+  auto status = registration::type<math::transform>(registry)
+                    .property<&get_transform<&math::transform::translation>,
+                              &set_transform<&math::transform::translation, math::vector3>>(
+                        property_id{1}, "translation")(field_policy{.required = true})
+                    .property<&get_transform<&math::transform::rotation>,
+                              &set_transform<&math::transform::rotation, math::quaternion>>(
+                        property_id{2}, "rotation")(field_policy{.required = true})
+                    .property<&get_transform<&math::transform::scale>,
+                              &set_transform<&math::transform::scale, math::vector3>>(
+                        property_id{3}, "scale")(field_policy{.required = true})
+                    .commit();
   if (status.failed())
     return status;
   return registration::type<math::camera_settings>(registry)
-      .property<&math::camera_settings::fov>(
-          property_id{1}, "fov")(field_policy{.required = true})
-      .property<&math::camera_settings::near_plane>(
-          property_id{2}, "near")(field_policy{.required = true})
-      .property<&math::camera_settings::far_plane>(
-          property_id{3}, "far")(field_policy{.required = true})
+      .property<&math::camera_settings::fov>(property_id{1}, "fov")(field_policy{.required = true})
+      .property<&math::camera_settings::near_plane>(property_id{2},
+                                                    "near")(field_policy{.required = true})
+      .property<&math::camera_settings::far_plane>(property_id{3},
+                                                   "far")(field_policy{.required = true})
       .commit();
 }
 }

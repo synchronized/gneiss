@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
   proposed.payload = gneiss::math::vector3{2, 3, 4};
   if (gneiss::meta::view(candidate_transform)
               .capability<gneiss::meta::cap::object>()
-              ->member(gneiss::meta::transform_translation_field)
+              ->member("translation")
               ->assign(proposed) != gneiss::error::success ||
       candidate_transform.translation[0] != 2) {
     return 15;
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
   proposed.payload = gneiss::math::vector3{0, 1, 1};
   if (gneiss::meta::view(candidate_transform)
               .capability<gneiss::meta::cap::object>()
-              ->member(gneiss::meta::transform_scale_field)
+              ->member("scale")
               ->assign(proposed) != gneiss::error::invalid_argument ||
       candidate_transform.scale[0] != 1) {
     return 16;

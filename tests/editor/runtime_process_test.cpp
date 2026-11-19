@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/registration.hpp>
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/resource/scene/scene_description.hpp>
 #include "runtime/runtime_log_adapter.hpp"
 #include "runtime/runtime_process.hpp"
 #include "runtime/runtime_property_adapter.hpp"
 #include "runtime/runtime_scene_adapter.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/scene/scene_description.hpp>
+#include <gneiss/protocol/registration.hpp>
 
 #include <gneiss/engine/core/base/rid.hpp>
 
@@ -47,8 +48,7 @@ bool test_scene_adapter() {
     change.node.id = change.id;
     change.node.parent = {43U, 44U};
     change.node.uuid = *gneiss::guid::parse("966c5e1d-5c70-56c7-bdd2-20d127371719");
-    change.node.prefab_instance_uuid =
-        *gneiss::guid::parse("4a17145a-60eb-5fbd-874f-3b2656ced92f");
+    change.node.prefab_instance_uuid = *gneiss::guid::parse("4a17145a-60eb-5fbd-874f-3b2656ced92f");
     change.node.prefab_source_node_uuid =
         *gneiss::guid::parse("6e84ea5f-f59e-52d7-8b4f-f0488bb637c6");
     change.node.name = std::string(512U, 's');
@@ -60,8 +60,7 @@ bool test_scene_adapter() {
     input.changes.push_back(std::move(change));
     input.changes.push_back(
         {.type = gneiss::host::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
-    if (gneiss::host::to_runtime_scene_batch(std::move(input), output) !=
-        gneiss::error::success) {
+    if (gneiss::host::to_runtime_scene_batch(std::move(input), output) != gneiss::error::success) {
       return false;
     }
   }
@@ -113,8 +112,7 @@ bool test_property_adapter() {
     gneiss::editor::runtime_property_write request{.session_id = 11U,
                                                    .command_id = 12U,
                                                    .object = {13U, 14U},
-                                                   .type_id =
-                                                       gneiss::guid::from_bytes({15U}),
+                                                   .type_id = gneiss::guid::from_bytes({15U}),
                                                    .field_id = 16U,
                                                    .expected_revision = 17U,
                                                    .value = gneiss::value{payload}};
@@ -125,13 +123,13 @@ bool test_property_adapter() {
       return false;
     }
     // 临时协议响应在表达式结束时销毁，模型结果必须持有消息与规范值。
-    const auto result = gneiss::host::to_runtime_property_result(
-        {.session_id = 11U,
-         .command_id = 12U,
-         .code = gneiss::error::invalid_argument.code(),
-         .revision = 18U,
-         .message = std::string(256U, 'r'),
-         .canonical_value = {payload}});
+    const auto result =
+        gneiss::host::to_runtime_property_result({.session_id = 11U,
+                                                  .command_id = 12U,
+                                                  .code = gneiss::error::invalid_argument.code(),
+                                                  .revision = 18U,
+                                                  .message = std::string(256U, 'r'),
+                                                  .canonical_value = {payload}});
     if (result.session_id != 11U || result.command_id != 12U ||
         result.code != gneiss::error::invalid_argument.code() || result.revision != 18U ||
         result.message != std::string(256U, 'r') || result.canonical_value.payload != payload) {
@@ -187,8 +185,7 @@ int main() try {
     return 26;
   }
   const std::vector<std::string> over_texture_batch(17U, "asset://test.texture.json");
-  if (process.publish_asset_revision(over_texture_batch) !=
-      gneiss::error::invalid_argument) {
+  if (process.publish_asset_revision(over_texture_batch) != gneiss::error::invalid_argument) {
     return 27;
   }
   gneiss::editor::runtime_launch_request request{reload_project.root};
@@ -230,12 +227,12 @@ int main() try {
       process.output().find(R"("category":"startup_scene")") == std::string::npos ||
       process.output().find("missing.scene.json") == std::string::npos ||
       !std::filesystem::is_regular_file(failure_log)) {
-    std::fprintf(stderr, "runtime exit=%d output=%s\n", process.exit_code(), process.output().c_str());
+    std::fprintf(stderr, "runtime exit=%d output=%s\n", process.exit_code(),
+                 process.output().c_str());
     return 4;
   }
 
-  if (process.start(executable, request) != gneiss::error::success ||
-      !process.is_running() ||
+  if (process.start(executable, request) != gneiss::error::success || !process.is_running() ||
       process.start(executable, request) != gneiss::error::invalid_state) {
     return 5;
   }
@@ -396,15 +393,18 @@ int main() try {
       .object = {process.scene_mirror().nodes().front().id.value,
                  process.scene_mirror().nodes().front().id.generation},
       .type_id = {},
-      .field_id = gneiss::meta::transform_translation_field.get()};
+      .field_id = gneiss::meta::resolve<gneiss::math::transform>()
+                      .capability<gneiss::meta::cap::object>()
+                      .find_property("translation")
+                      .id()
+                      .get()};
   const auto transform_type = gneiss::math::transform::type_guid;
   std::ranges::copy(transform_type.bytes(), property_key.type_id.begin());
   if (!process.supports_property_editing() ||
       process.request_property_write(property_key, 1U,
                                      {gneiss::math::vector3{0.25F, 0.5F, 0.75F}}) !=
           gneiss::error::success ||
-      process.request_property_write(property_key, 1U, {true}) !=
-          gneiss::error::not_ready) {
+      process.request_property_write(property_key, 1U, {true}) != gneiss::error::not_ready) {
     return 7;
   }
   const auto property_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -443,9 +443,12 @@ int main() try {
     return 7;
   }
   auto paused_key = property_key;
-  paused_key.field_id = gneiss::meta::transform_scale_field.get();
-  if (process.request_property_write(paused_key, 1U,
-                                     {gneiss::math::vector3{1.1F, 1.2F, 1.3F}}) !=
+  paused_key.field_id = gneiss::meta::resolve<gneiss::math::transform>()
+                            .capability<gneiss::meta::cap::object>()
+                            .find_property("scale")
+                            .id()
+                            .get();
+  if (process.request_property_write(paused_key, 1U, {gneiss::math::vector3{1.1F, 1.2F, 1.3F}}) !=
       gneiss::error::success) {
     return 7;
   }

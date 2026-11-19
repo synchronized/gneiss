@@ -2,12 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
+#include "inspection/runtime_property_editor.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "inspection/runtime_property_editor.hpp"
 
 #include <gneiss/engine/core/base/rid.hpp>
 
@@ -68,7 +69,11 @@ bool test_write_and_revision() {
       .command_id = 1U,
       .object = snapshot.changes.front().id,
       .type_id = gneiss::math::transform::type_guid,
-      .field_id = gneiss::meta::transform_translation_field.get(),
+      .field_id = gneiss::meta::resolve<gneiss::math::transform>()
+                      .capability<gneiss::meta::cap::object>()
+                      .find_property("translation")
+                      .id()
+                      .get(),
       .expected_revision = 1U,
       .value = {gneiss::math::vector3{2.0F, 3.0F, 4.0F}}};
   gneiss::host::ipc_property_write_result response;
@@ -110,7 +115,11 @@ bool test_rejections() {
       .command_id = 1U,
       .object = {1U, 1U},
       .type_id = gneiss::math::transform::type_guid,
-      .field_id = gneiss::meta::transform_scale_field.get(),
+      .field_id = gneiss::meta::resolve<gneiss::math::transform>()
+                      .capability<gneiss::meta::cap::object>()
+                      .find_property("scale")
+                      .id()
+                      .get(),
       .expected_revision = 1U,
       .value = {gneiss::math::vector3{1.0F, 1.0F, 1.0F}}};
   gneiss::host::ipc_property_write_result response;
