@@ -12,8 +12,8 @@ struct type_ops;
 struct property_ops {
   const type_ops* access{};
   void* state{};
-  const void* (*borrow)(void*, const void*){};
-  void* (*borrow_mut)(void*, void*){};
+  const void* (*const_borrow)(void*, const void*){};
+  void* (*borrow)(void*, void*){};
   error (*read_construct)(void*, const void*, void*){};
   error (*write)(void*, void*, const void*){};
 };

@@ -240,11 +240,11 @@ public:
     using returned = std::invoke_result_t<decltype(Member), object_type&>;
     using property_type = std::remove_cvref_t<returned>;
     property_ops ops;
-    ops.borrow = [](void*, const void* owner) -> const void* {
+    ops.const_borrow = [](void*, const void* owner) -> const void* {
       return std::addressof(std::invoke(Member, *static_cast<const object_type*>(owner)));
     };
     if constexpr (!std::is_const_v<std::remove_reference_t<returned>>)
-      ops.borrow_mut = [](void*, void* owner) -> void* {
+      ops.borrow = [](void*, void* owner) -> void* {
         return std::addressof(std::invoke(Member, *static_cast<object_type*>(owner)));
       };
     return add<property_type>(id, name, access, ops);
@@ -331,7 +331,7 @@ private:
     using property_type = std::remove_cvref_t<returned>;
     property_ops ops;
     if constexpr (std::is_lvalue_reference_v<returned>)
-      ops.borrow = [](void*, const void* owner) -> const void* {
+      ops.const_borrow = [](void*, const void* owner) -> const void* {
         return std::addressof(std::invoke(Getter, *static_cast<const object_type*>(owner)));
       };
     if constexpr (std::is_constructible_v<property_type, returned>)
@@ -361,7 +361,7 @@ private:
     binding.access = &detail::ops_of<Property>();
     if (access == property_access::read_only) {
       binding.write = nullptr;
-      binding.borrow_mut = nullptr;
+      binding.borrow = nullptr;
     }
     entries_.push_back({id, std::string(name),
                         type_identity<detail::scalar_storage<Property>>::guid(), access, binding});

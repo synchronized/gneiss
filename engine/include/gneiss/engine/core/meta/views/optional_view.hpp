@@ -34,12 +34,12 @@ public:
     if (!ops()->has_value(v.data_))
       return error::not_found;
     if constexpr (Mutable) {
-      if (!ops()->get_mut)
+      if (!ops()->get)
         return error::unsupported;
       return instance::from_access(v.registry(), ops()->element(),
-                                   ops()->get_mut(target_.mutable_data()));
+                                   ops()->get(target_.mutable_data()));
     } else {
-      return const_instance::from_access(v.registry(), ops()->element(), ops()->get(v.data_));
+      return const_instance::from_access(v.registry(), ops()->element(), ops()->const_get(v.data_));
     }
   }
   [[nodiscard]] error reset() const

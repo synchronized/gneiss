@@ -43,14 +43,14 @@ public:
   [[nodiscard]] result<target_type> find(std::string_view key) const {
     auto v = readonly();
     if constexpr (Mutable) {
-      if (!ops()->find_mut)
+      if (!ops()->find)
         return error::unsupported;
-      auto* p = ops()->find_mut(target_.mutable_data(), key);
+      auto* p = ops()->find(target_.mutable_data(), key);
       if (!p)
         return error::not_found;
       return instance::from_access(v.registry(), ops()->element(), p);
     } else {
-      auto* p = ops()->find(v.data_, key);
+      auto* p = ops()->const_find(v.data_, key);
       if (!p)
         return error::not_found;
       return const_instance::from_access(v.registry(), ops()->element(), p);

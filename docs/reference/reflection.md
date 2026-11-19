@@ -163,7 +163,7 @@ resolve(id/guid)/find_property 返回可判空句柄，resolve<T> 提供未注�
 instance::read_value() 返回 result<value>；instance::assign(value) 先转换为属性原生类型，
 受约束属性再调用 setter。value 不承载任意 C++ 对象。
 
-property_ops 包含静态 type_ops 指针、借用上下文 state，以及 borrow、borrow_mut、
+property_ops 包含静态 type_ops 指针、借用上下文 state，以及 const_borrow、borrow、
 read_construct、write 四个可选回调。注册表复制访问表；上下文、类型表与模块代码须覆盖使用期。
 直接成员提供借用；getter 返回稳定左值时提供只读借用，返回值时在临时存储构造结果。
 read_construct 成功必须构造正确类型，失败或抛异常不得留下活对象；这是类型擦除适配器契约，
@@ -890,3 +890,11 @@ JSON 与 value 快照在私有协议内同步读取计算属性；完整解码�
 缺失字段遵循默认值规则，与保留其他字段的路径修改区别明确。
 
 复制遵循 C++ 语义，ref 仍共享目标，不是递归深拷贝；不承诺跨属性或任意回调副作用的事务。
+
+### 只读与可写访问命名
+
+借用类型采用 `const_instance/instance`、`const_xxx_view/xxx_view`。操作表的函数指针不能重载，
+采用 `const_at/at`、`const_find/find`、`const_get/get`、`const_borrow/borrow` 区分只读与可写槽位。
+可写槽位可以为空，不据只读能力推断可写能力。自定义 `sequence_traits` 和 `associative_traits`
+分别通过 `at(const T&, index)/at(T&, index)`、`find(const T&, key)/find(T&, key)` 重载提供能力；
+可写重载必须返回 `element*`，仅提供只读重载不会被识别为可写。

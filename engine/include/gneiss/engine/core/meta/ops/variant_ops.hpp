@@ -3,9 +3,9 @@
 #pragma once
 #include <gneiss/engine/core/data/value_edit.hpp>
 
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 
 #include <array>
 #include <memory>
@@ -30,8 +30,8 @@ struct variant_ops {
   std::span<const std::string_view> names;
   bool (*valueless)(const void*);
   std::size_t (*index)(const void*);
-  const void* (*get)(const void*);
-  void* (*get_mut)(void*);
+  const void* (*const_get)(const void*);
+  void* (*get)(void*);
   error (*select)(void*, std::size_t);
 };
 template <class T> struct variant_traits {

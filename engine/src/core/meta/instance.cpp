@@ -164,19 +164,19 @@ basic_object_view<Mutable>::bind_field(const property& field) const {
   output.parent_ = target_.data_;
   output.binding_ = field.binding();
   const auto* binding = output.binding_;
-  if (!binding || (!binding->borrow && !binding->read_construct && !binding->write))
+  if (!binding || (!binding->const_borrow && !binding->read_construct && !binding->write))
     return error::unsupported;
-  if (binding->borrow) {
-    output.data_ = binding->borrow(binding->state, target_.data_);
+  if (binding->const_borrow) {
+    output.data_ = binding->const_borrow(binding->state, target_.data_);
     GNEISS_ASSERT(output.data_, "借用访问器必须返回有效地址");
   }
   if constexpr (Mutable) {
     if (binding->write)
       output.writable_ = false;
     else {
-      if (!binding->borrow_mut)
+      if (!binding->borrow)
         return error::unsupported;
-      output.data_ = binding->borrow_mut(binding->state, target_.mutable_data());
+      output.data_ = binding->borrow(binding->state, target_.mutable_data());
       GNEISS_ASSERT(output.data_, "可写借用访问器必须返回有效地址");
     }
   }

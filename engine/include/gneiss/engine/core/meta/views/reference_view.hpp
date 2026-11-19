@@ -42,20 +42,20 @@ public:
   }
 
 public:
-  [[nodiscard]] bool has_value() const { return ops()->get(readonly().data_) != nullptr; }
+  [[nodiscard]] bool has_value() const { return ops()->const_get(readonly().data_) != nullptr; }
   /** ref<const T> 的可写视图仍不能修改目标，可经 as_const().get() 读取。 */
   [[nodiscard]] result<target_type> get() const {
     auto v = readonly();
     if constexpr (Mutable) {
-      if (!ops()->get_mut)
+      if (!ops()->get)
         return error::unsupported;
-      auto* p = ops()->get_mut(target_.mutable_data());
+      auto* p = ops()->get(target_.mutable_data());
       if (!p)
         return error::not_found;
       auto owned = owner();
       return instance::from_object(actual_type(), const_cast<void*>(owned.get()));
     } else {
-      auto* p = ops()->get(v.data_);
+      auto* p = ops()->const_get(v.data_);
       if (!p)
         return error::not_found;
       auto owned = owner();

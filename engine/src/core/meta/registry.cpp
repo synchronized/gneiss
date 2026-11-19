@@ -107,8 +107,8 @@ using detail::type_record;
 }
 
 bool valid_binding(const property_ops& ops) noexcept {
-  return ops.access && (ops.borrow || ops.read_construct || ops.write) &&
-         (!ops.borrow_mut || ops.borrow) && !(ops.borrow_mut && ops.write) &&
+  return ops.access && (ops.const_borrow || ops.read_construct || ops.write) &&
+         (!ops.borrow || ops.const_borrow) && !(ops.borrow && ops.write) &&
          (!ops.read_construct ||
           (ops.access->size && ops.access->alignment && ops.access->destroy));
 }
@@ -145,10 +145,10 @@ bool valid_binding(const property_ops& ops) noexcept {
 }
 [[nodiscard]] property_capabilities record_capabilities(const property_record& property) noexcept {
   const auto& ops = property.accessor;
-  return ((ops.borrow || ops.read_construct) ? property_capabilities::readable
-                                             : property_capabilities::none) |
-         ((ops.write || ops.borrow_mut) ? property_capabilities::writable
-                                        : property_capabilities::none);
+  return ((ops.const_borrow || ops.read_construct) ? property_capabilities::readable
+                                                   : property_capabilities::none) |
+         ((ops.write || ops.borrow) ? property_capabilities::writable
+                                    : property_capabilities::none);
 }
 [[nodiscard]] meta::type record_type(const registry_ref& registry,
                                      const property_record& property) {
@@ -226,7 +226,7 @@ public:
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
         if (!valid_binding(binding) || (desc.properties[i].access == property_access::read_only &&
-                                        (binding.write || binding.borrow_mut)))
+                                        (binding.write || binding.borrow)))
           return error::invalid_argument;
       }
     }

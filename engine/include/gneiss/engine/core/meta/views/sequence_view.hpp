@@ -40,12 +40,13 @@ public:
     if (index >= count)
       return error::not_found;
     if constexpr (Mutable) {
-      if (!ops()->at_mut)
+      if (!ops()->at)
         return error::unsupported;
       return instance::from_access(v.registry(), ops()->element(),
-                                   ops()->at_mut(target_.mutable_data(), index));
+                                   ops()->at(target_.mutable_data(), index));
     } else
-      return const_instance::from_access(v.registry(), ops()->element(), ops()->at(v.data_, index));
+      return const_instance::from_access(v.registry(), ops()->element(),
+                                         ops()->const_at(v.data_, index));
   }
   [[nodiscard]] result<guid> identity(std::size_t index) const {
     if (!ops()->identity)

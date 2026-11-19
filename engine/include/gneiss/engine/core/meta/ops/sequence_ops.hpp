@@ -16,8 +16,9 @@
 #include <vector>
 
 namespace gneiss::meta {
-/** 专门化以适配自定义序列；size/at 必需，at_mut/resize/max_size/replace 可选。元素地址仅借用。
- * replace(T&, const vector<element>&) 返回 error，负责整组校验，失败保持原集合。 */
+/** 专门化以适配自定义序列；size/只读 at 必需，可写 at 重载及 resize/max_size/replace
+ * 可选。元素地址仅借用。 replace(T&, const vector<element>&) 返回
+ * error，负责整组校验，失败保持原集合。 */
 template <class T> struct sequence_traits {
   static constexpr bool enabled = false;
 };
@@ -35,7 +36,7 @@ template <class T> struct indexed_sequence_traits {
     return v.max_size();
   }
   static const element* at(const T& v, std::size_t i) { return std::addressof(v[i]); }
-  static element* at_mut(T& v, std::size_t i) { return std::addressof(v[i]); }
+  static element* at(T& v, std::size_t i) { return std::addressof(v[i]); }
 };
 template <class E, class A>
 struct sequence_traits<std::vector<E, A>> : indexed_sequence_traits<std::vector<E, A>> {
@@ -53,8 +54,8 @@ struct sequence_traits<std::array<E, N>> : indexed_sequence_traits<std::array<E,
 struct sequence_ops {
   const type_ops& (*element)();
   std::size_t (*size)(const void*);
-  const void* (*at)(const void*, std::size_t);
-  void* (*at_mut)(void*, std::size_t){};
+  const void* (*const_at)(const void*, std::size_t);
+  void* (*at)(void*, std::size_t){};
   void (*resize)(void*, std::size_t){};
   std::size_t (*max_size)(const void*){};
   bool fixed_size = false;
@@ -73,11 +74,9 @@ template <class T> const sequence_ops& sequence_ops_of() {
                        return traits::at(*static_cast<const T*>(p), i);
                      }};
     if constexpr (requires(T& v) {
-                    { traits::at_mut(v, 0) } -> std::same_as<E*>;
+                    { traits::at(v, 0) } -> std::same_as<E*>;
                   })
-      ops.at_mut = [](void* p, std::size_t i) -> void* {
-        return traits::at_mut(*static_cast<T*>(p), i);
-      };
+      ops.at = [](void* p, std::size_t i) -> void* { return traits::at(*static_cast<T*>(p), i); };
     if constexpr (requires(T& v) { traits::resize(v, std::size_t{}); })
       ops.resize = [](void* p, std::size_t n) { traits::resize(*static_cast<T*>(p), n); };
     if constexpr (requires(const T& v) { traits::max_size(v); })

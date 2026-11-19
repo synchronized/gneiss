@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
-#include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/base/ref.hpp>
 #include <gneiss/engine/core/base/result.hpp>
+#include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
+#include <gneiss/engine/core/meta/type.hpp>
 
 #include <cstddef>
 #include <type_traits>
@@ -15,8 +15,8 @@ namespace gneiss::meta {
 /** 仅适配引擎 ref；get 借用地址，owner 返回保活强引用，不接管裸指针。 */
 struct reference_ops {
   const type_ops& (*element)();
-  const void* (*get)(const void*);
-  void* (*get_mut)(void*){};
+  const void* (*const_get)(const void*);
+  void* (*get)(void*){};
   ref<const void> (*owner)(const void*){};
   void (*set)(void*, const ref<void>&){};
   void (*reset)(void*){};
@@ -40,7 +40,7 @@ template <class T> const reference_ops& reference_ops_of() {
     reference_ops ops{&ops_of<std::remove_const_t<E>>,
                       [](const void* p) -> const void* { return static_cast<const T*>(p)->get(); }};
     if constexpr (!std::is_const_v<E>)
-      ops.get_mut = [](void* p) -> void* { return static_cast<T*>(p)->get(); };
+      ops.get = [](void* p) -> void* { return static_cast<T*>(p)->get(); };
     ops.owner = [](const void* p) -> ref<const void> {
       const auto& v = *static_cast<const T*>(p);
       if constexpr (std::derived_from<std::remove_const_t<E>, meta::object>)

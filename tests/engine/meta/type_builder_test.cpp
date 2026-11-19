@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
+#include <gneiss/engine/core/base/string_name.hpp>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/views/sequence_view.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/base/string_name.hpp>
 #include <stdexcept>
-#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 struct sample {
   inline static constexpr std::string_view type_name = "sample";
@@ -39,7 +39,7 @@ template <> struct sequence_traits<custom_sequence> {
   using element = float;
   static std::size_t size(const custom_sequence& value) { return value.values.size(); }
   static const float* at(const custom_sequence& value, std::size_t i) { return &value.values[i]; }
-  static float* at_mut(custom_sequence& value, std::size_t i) { return &value.values[i]; }
+  static float* at(custom_sequence& value, std::size_t i) { return &value.values[i]; }
   static void resize(custom_sequence& value, std::size_t n) { value.values.resize(n); }
 };
 }
@@ -283,8 +283,8 @@ int main() {
       e::type_identity<sample>::name() != "sample" ||
       e::type_identity<const float&>::guid() != e::type_identity<float>::guid())
     return 2;
-  if (gneiss::meta::register_type<sample>(
-          registry, {.schema_version = 1, .name = "conflict"}) != e::error::invalid_argument)
+  if (gneiss::meta::register_type<sample>(registry, {.schema_version = 1, .name = "conflict"}) !=
+      e::error::invalid_argument)
     return 3;
   if (gneiss::meta::registration::type<sample>(registry)
           .property<&sample::speed>(gneiss::property_id{1}, "speed")

@@ -41,10 +41,10 @@ public:
     auto view = readonly();
     if constexpr (Mutable)
       return instance::from_access(view.registry(), *ops()->alternatives[*i],
-                                   ops()->get_mut(target_.mutable_data()));
+                                   ops()->get(target_.mutable_data()));
     else
       return const_instance::from_access(view.registry(), *ops()->alternatives[*i],
-                                         ops()->get(view.data_));
+                                         ops()->const_get(view.data_));
   }
   error select(std::size_t i) const
     requires(Mutable)

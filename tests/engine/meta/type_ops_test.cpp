@@ -77,7 +77,7 @@ template <> struct sequence_traits<numbers> {
   using element = float;
   static std::size_t size(const numbers& v) { return v.values.size(); }
   static const float* at(const numbers& v, std::size_t i) { return &v.values[i]; }
-  static float* at_mut(numbers& v, std::size_t i) { return &v.values[i]; }
+  static float* at(numbers& v, std::size_t i) { return &v.values[i]; }
   static void resize(numbers& v, std::size_t n) {
     if (v.fail_resize)
       throw std::bad_alloc{};
@@ -101,7 +101,7 @@ template <bool Mutable> struct associative_traits<dictionary<Mutable>> {
     auto it = v.values.find(std::string(k));
     return it == v.values.end() ? nullptr : &it->second;
   }
-  static float* find_mut(dictionary<Mutable>& v, std::string_view k)
+  static float* find(dictionary<Mutable>& v, std::string_view k)
     requires Mutable
   {
     auto it = v.values.find(std::string(k));

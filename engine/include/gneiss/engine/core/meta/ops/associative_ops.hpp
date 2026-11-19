@@ -36,7 +36,7 @@ template <class T> struct string_map_traits {
     auto i = v.find(std::string(key));
     return i == v.end() ? nullptr : std::addressof(i->second);
   }
-  static element* find_mut(T& v, std::string_view key) {
+  static element* find(T& v, std::string_view key) {
     auto i = v.find(std::string(key));
     return i == v.end() ? nullptr : std::addressof(i->second);
   }
@@ -58,8 +58,8 @@ struct associative_ops {
   const type_ops& (*element)();
   std::size_t (*size)(const void*);
   std::vector<std::string> (*keys)(const void*);
-  const void* (*find)(const void*, std::string_view);
-  void* (*find_mut)(void*, std::string_view){};
+  const void* (*const_find)(const void*, std::string_view);
+  void* (*find)(void*, std::string_view){};
   void* (*insert)(void*, std::string_view){};
   bool (*erase)(void*, std::string_view){};
   void (*clear)(void*){};
@@ -82,10 +82,10 @@ template <class T> const associative_ops& associative_ops_of() {
                           return traits::find(*static_cast<const T*>(p), key);
                         }};
     if constexpr (requires(T& v) {
-                    { traits::find_mut(v, std::string_view{}) } -> std::same_as<E*>;
+                    { traits::find(v, std::string_view{}) } -> std::same_as<E*>;
                   })
-      ops.find_mut = [](void* p, std::string_view k) -> void* {
-        return traits::find_mut(*static_cast<T*>(p), k);
+      ops.find = [](void* p, std::string_view k) -> void* {
+        return traits::find(*static_cast<T*>(p), k);
       };
     if constexpr (requires(T& v) {
                     { traits::insert(v, std::string_view{}) } -> std::same_as<E*>;
