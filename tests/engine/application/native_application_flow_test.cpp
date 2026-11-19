@@ -100,6 +100,62 @@ void scheduled_systems() {
   calls.clear();
   check(application->run(1).ok() && calls == "absp");
 }
+enum class flow { loading, playing, paused };
+enum class overlay { hidden, visible };
+void state_systems() {
+  auto created = runtime::application::create({});
+  check(created.ok());
+  auto application = *created;
+  std::string calls;
+  application->init_state(flow::loading);
+  application->init_state(overlay::hidden);
+  application->on_enter(flow::loading, "begin", [&] { calls += 'L'; });
+  application->on_update(flow::loading, "load", [&] {
+    calls += 'l';
+    check(application->request_state(flow::playing).ok());
+    check(application->request_state(flow::playing).ok());
+    check(application->request_state(flow::paused).error() == error::invalid_state);
+    check(application->state<flow>() == flow::loading);
+  });
+  application->on_exit(flow::loading, "leave_loading", [&] { calls += 'x'; });
+  application->on_enter(flow::playing, "play", [&] {
+    calls += 'P';
+    check(application->request_state(flow::paused).ok());
+    check(application->request_state(overlay::visible).ok());
+  });
+  application->on_update(flow::playing, "playing", [&] { calls += 'p'; });
+  application->on_enter(flow::paused, "pause", [&] { calls += 'A'; });
+  application->on_update(flow::paused, "paused", [&] { calls += 'a'; });
+  application->on_enter(overlay::visible, "show", [&] { calls += 'V'; });
+  check(application->run(1).ok() && calls == "Ll");
+  check(application->run(1).ok() && calls == "LlxPp");
+  // Enter 中请求其他状态类型也不会在同一边界递归执行。
+  check(application->state<overlay>() == overlay::hidden);
+  check(application->run(1).ok() && calls == "LlxPpAVa");
+  check(application->request_state(flow::paused).ok());
+  check(application->run(1).ok() && calls == "LlxPpAVaa");
+
+  auto failing = runtime::application::create({});
+  check(failing.ok());
+  unsigned enters{};
+  (*failing)->init_state(flow::loading);
+  (*failing)->on_enter(flow::loading, "failure", [&] {
+    ++enters;
+    return error::io;
+  });
+  check((*failing)->run(1) == error::io);
+  check((*failing)->run(1) == error::io && enters == 1);
+
+  auto exiting = runtime::application::create({});
+  check(exiting.ok());
+  (*exiting)->init_state(flow::loading);
+  (*exiting)->on_enter(flow::loading, "exit", [&] {
+    (*exiting)->request_exit();
+    check((*exiting)->request_state(flow::playing).error() == error::cancelled);
+  });
+  (*exiting)->on_update(flow::loading, "must_not_run", [&] { check(false); });
+  check((*exiting)->run(1).ok());
+}
 void action_maps() {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
@@ -161,6 +217,7 @@ void creation_failures() {
 int main() try {
   loop();
   scheduled_systems();
+  state_systems();
   action_maps();
   creation_failures();
   return 0;

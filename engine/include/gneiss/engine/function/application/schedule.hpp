@@ -4,6 +4,7 @@
 #include <functional>
 #include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/result.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -12,6 +13,19 @@
 namespace gneiss::app {
 /** 当前接入业务阶段；平台事件与完成分发仍由 Application 固定驱动。 */
 enum class stage { update, synchronize, present };
+namespace detail {
+enum class state_event { enter, update, exit };
+struct state_key {
+  type_id type;
+  std::uint64_t value;
+  friend bool operator==(state_key, state_key) = default;
+};
+template <class T>
+  requires std::is_enum_v<T>
+state_key key(T state) {
+  return {runtime_type_of<T>(), static_cast<std::uint64_t>(state)};
+}
+}
 using system_function = std::function<error(const frame_time&)>;
 /** 同步适配，无参数或 frame_time 参数；保留意外异常的传播语义。 */
 template <class F> system_function make_system(F function) {

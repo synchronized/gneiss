@@ -5,7 +5,7 @@
 
 ## 原生入口与所有权
 
-仓内宿主使用 `src/application/application.hpp` 的 `gneiss::runtime::application`，
+仓内宿主使用 `engine/include/gneiss/engine/function/application/application.hpp` 的 `gneiss::runtime::application`，
 配置为 `application_configuration`。`application::create(config)` 返回
 `gneiss::result<std::shared_ptr<application>>`；成功值拥有已初始化对象，失败返回错误并清理部分初始化状态。
 调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。
@@ -51,6 +51,46 @@ update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回�
 返回 true 或未提供回调时正常退出。暂停仍轮询事件和调用 update，但 delta_ns 为零。
 回调返回失败时保留原生错误结果；意外异常向执行边界传播，自有宿主输出致命诊断后终止。
 正常退出仍执行资源清理；致命终止不承诺完整析构。
+
+## 具名系统与业务状态
+
+首次 run 前通过 add_system 注册 update、synchronize、present 系统。同阶段按注册顺序执行，
+名称在该 Application 内唯一；首轮运行冻结注册。update 后刷新 World 变化，再执行 synchronize、
+present，最后通过现有 Render 路径提交。旧 callbacks.update 与具名 update 系统不能混用。
+
+业务状态使用宿主自己的枚举，不要求反射注册。每种枚举类型有独立当前值：
+
+```cpp
+enum class mode { loading, ready };
+auto& app = *application;
+app.init_state(mode::loading);
+app.on_enter(mode::loading, "begin_loading", [&] { session.begin_loading(); });
+app.on_update(mode::loading, "loading", [&](const gneiss::frame_time& time) {
+  session.draw_loading(time);
+});
+app.on_exit(mode::loading, "leave_loading", [&] { session.clear_loading_ui(); });
+app.on_update(mode::ready, "game", [&](const gneiss::frame_time& time) {
+  session.update(time);
+});
+// 主线程完成回调：检查请求结果；不同目标冲突时保留首次请求。
+auto changed = app.request_state(mode::ready);
+```
+
+这些系统接受无参数或 frame_time 参数，返回 void、result<void> 或过渡期的 error。
+Application 保存 callable，借用捕获须存活至关闭结束；不得强捕获自身 Application。
+
+初始 Enter 在文件服务就绪后执行一次。完成分发后、业务更新前统一提交转换：
+Exit(old) → 修改当前值 → Enter(new)。update 或 Enter/Exit 中发起的新请求留到下一轮，
+包括发给其他枚举状态类型的请求。多种状态按初始注册顺序处理，不构成跨状态事务。
+state<T>() 查询当前枚举值；初始 Enter 前返回配置值。
+
+同目标待处理请求合并，不同目标返回 invalid_state 并保留首次请求；当前状态的无待处理同值
+请求不重复 Enter/Exit。请求退出后拒绝新转换（cancelled），停止后续具名系统。
+未注册的状态类型、跨线程访问、运行后注册属于程序契约错误。Enter/Exit 返回失败时报告
+系统名称；再次 run 返回同一失败，不重放已有副作用。此时宿主应执行关闭，不尝试继续业务。
+
+以上是当前运行期调度接口。run 仍保留旧的有界执行、GPU 帧收尾和宿主关闭协议，
+尚无共享生命周期 step；业务 OnExit 只用于状态切换，不能代替宿主释放 UI/任务的关闭过程。
 
 ## 平台与窗口
 

@@ -3,7 +3,7 @@
 
 # PLAN-126：Application 生命周期、调度与宿主状态组合
 
-状态：实施中，已接入具名业务阶段系统，完整生命周期迁移尚未完成。用户已确认目标方向；目标 API 为设计草案，不代表当前能力。
+状态：实施中，已接入具名业务阶段系统，已接入业务状态转换；完整生命周期迁移尚未完成。用户已确认目标方向；目标 API 为设计草案，不代表当前能力。
 架构取舍见 [ADR-129](../decisions/ADR-129-application-scheduling.md)。本计划属于
 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，不包含远端发布授权。
 
@@ -171,8 +171,24 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 - 项目选择界面已使用具名 update 系统，移除其旧 callbacks.update；单个 Application 禁止混用两者。
 
 这是 A126-02 的阶段成果，不代表该项完成。默认 World、服务初始化、事件分发、Render 提交、
-宿主手动关闭仍沿用原路径；状态转换、共享 run/step、无 World 宿主和 Session 所有权迁移尚待实现。
+宿主手动关闭仍沿用原路径；共享 run/step、无 World 宿主和 Session 所有权迁移尚待实现。
 注册 callable 的借用捕获必须覆盖运行及关闭过程；调度表只在 cpp 内实现，不传播断言库依赖。
 
 验证：Windows Clang Debug 的 gneiss_editor 与 gneiss_native_application_flow_test 构建通过；
 原生流程测试通过，覆盖跨阶段排序、同阶段顺序、失败中止和再次运行。未执行真实窗口交互与 GPU 验收。
+
+### 业务状态调度阶段
+
+已接入 init_state、request_state、state<T> 与 on_enter/on_update/on_exit。
+具体当前契约及用例见 [Application Reference](../reference/application.md#具名系统与业务状态)。
+注册采用直接传入“状态、名称、callable”，暂不为链式 add 创建代理对象；具名系统的状态条件
+与普通 update 共用同一个序列。当前支持宿主枚举，类型身份复用 Base type_id，无反射注册依赖。
+
+项目选择界面由初始 selecting 状态的 Enter 初始化 UI，按状态执行更新。
+UI 关闭仍由宿主在关闭服务前执行。状态转换失败会阻止重放，但统一受控关闭仍待生命周期迁移，
+因此 A126-02 保持未完成。下一步需先把宿主 UI/任务释放纳入停止协议，再统一 run/step；
+不能直接把现有 run(1) 改为每次关闭，也不能把 GPU finish_frames 搬到每次 step 中。
+
+验证：Windows Clang Debug 构建 gneiss_editor、gneiss_native_application_flow_test 通过；
+原生流程测试通过，包含多状态隔轮转换、冲突合并、同值无操作、失败不重放与退出优先。
+未执行真实项目选择界面交互、GPU 或其他平台验收。

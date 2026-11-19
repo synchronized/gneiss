@@ -224,6 +224,8 @@ gneiss::error update_project_manager(project_manager_state& state, const gneiss:
 
 } // namespace
 
+enum class project_phase { selecting };
+
 gneiss::error run_project_manager(bool smoke, editor_project& output) {
   {
     project_manager_state state;
@@ -260,16 +262,12 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     }
     application = std::move(*created);
     state.application = application.get();
-    application->add_system(
-        gneiss::app::stage::update, "project_manager.update",
+    application->init_state(project_phase::selecting);
+    application->on_enter(project_phase::selecting, "project_manager.initialize_ui",
+                          [&] { return state.ui.initialize(*application); });
+    application->on_update(
+        project_phase::selecting, "project_manager.update",
         [&state](const gneiss::frame_time& time) { return update_project_manager(state, time); });
-    operation = state.ui.initialize(*application);
-    if (operation != gneiss::error::success) {
-      const auto message = operation.message();
-      std::fprintf(stderr,
-                   "Gneiss Editor 启动失败：阶段=Project Manager UI 初始化，结果=%d，消息=%.*s\n",
-                   operation.code(), static_cast<int>(message.size()), message.data());
-    }
     if (operation == gneiss::error::success) {
       operation = application->run(smoke ? 3U : 0U);
       if (operation != gneiss::error::success) {

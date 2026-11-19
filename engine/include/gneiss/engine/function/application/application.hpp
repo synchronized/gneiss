@@ -67,6 +67,42 @@ public:
   template <class F> void add_system(app::stage phase, std::string name, F function) {
     register_system(phase, std::move(name), app::make_system(std::move(function)));
   }
+  /** 注册业务枚举的初始状态；首次运行前调用，每种类型只能注册一次。 */
+  template <class T>
+    requires std::is_enum_v<T>
+  void init_state(T initial) {
+    register_state(app::detail::key(initial));
+  }
+  /** 请求下一边界转换；同目标合并，不同目标返回 invalid_state 并保留首次请求。 */
+  template <class T>
+    requires std::is_enum_v<T>
+  result<void> request_state(T target) {
+    return request_state_change(app::detail::key(target));
+  }
+  /** 所属线程查询已注册状态；首次 Enter 前返回配置的初始值。 */
+  template <class T>
+    requires std::is_enum_v<T>
+  T state() const {
+    return static_cast<T>(current_state(runtime_type_of<T>()));
+  }
+  template <class T, class F>
+    requires std::is_enum_v<T>
+  void on_enter(T state, std::string name, F function) {
+    register_state_system(app::detail::state_event::enter, app::detail::key(state), std::move(name),
+                          app::make_system(std::move(function)));
+  }
+  template <class T, class F>
+    requires std::is_enum_v<T>
+  void on_update(T state, std::string name, F function) {
+    register_state_system(app::detail::state_event::update, app::detail::key(state),
+                          std::move(name), app::make_system(std::move(function)));
+  }
+  template <class T, class F>
+    requires std::is_enum_v<T>
+  void on_exit(T state, std::string name, F function) {
+    register_state_system(app::detail::state_event::exit, app::detail::key(state), std::move(name),
+                          app::make_system(std::move(function)));
+  }
   /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
@@ -158,6 +194,11 @@ private:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error render_frame();
 
   GNEISS_ENGINE_API void register_system(app::stage, std::string, app::system_function);
+  GNEISS_ENGINE_API void register_state(app::detail::state_key);
+  GNEISS_ENGINE_API void register_state_system(app::detail::state_event, app::detail::state_key,
+                                               std::string, app::system_function);
+  GNEISS_ENGINE_API result<void> request_state_change(app::detail::state_key);
+  GNEISS_ENGINE_API std::uint64_t current_state(type_id) const;
   struct storage;
   std::unique_ptr<storage> storage_;
 };

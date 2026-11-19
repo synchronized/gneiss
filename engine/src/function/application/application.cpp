@@ -58,17 +58,76 @@ struct system_failure {
 /** 所属线程使用；首次运行前冻结。捕获的借用对象须覆盖全部运行及关闭过程。 */
 class schedule {
 public:
-  void add(stage phase, std::string name, system_function function) {
-    GNEISS_ASSERT(!frozen_ && function && !name.empty(), "系统须在运行前具名注册");
-    for (const auto& item : entries_)
-      GNEISS_ASSERT(item.name != name, "系统名称不能重复");
-    entries_.push_back({phase, std::move(name), std::move(function)});
+  void add(stage phase, std::string name, system_function function,
+           std::optional<detail::state_key> condition = {}) {
+    check_registration(name, function);
+    entries_.push_back({phase, std::move(name), std::move(function), condition});
   }
+  void init(detail::state_key initial) {
+    GNEISS_ASSERT(!frozen_, "状态须在运行前注册");
+    for (const auto& state : states_)
+      GNEISS_ASSERT(state.current.type != initial.type, "状态类型只能注册一次");
+    states_.push_back({initial, {}, false});
+  }
+  void add_hook(detail::state_event event, detail::state_key key, std::string name,
+                system_function function) {
+    (void)find(key.type);
+    if (event == detail::state_event::update) {
+      add(stage::update, std::move(name), std::move(function), key);
+      return;
+    }
+    check_registration(name, function);
+    hooks_.push_back({event, key, std::move(name), std::move(function)});
+  }
+  result<void> request(detail::state_key key) {
+    auto& state = find(key.type);
+    if (state.pending && *state.pending != key.value)
+      return error::invalid_state;
+    state.pending = key.value;
+    return {};
+  }
+  std::uint64_t current(type_id type) const { return find(type).current.value; }
   void freeze() noexcept { frozen_ = true; }
-  result<void, system_failure> run(stage phase, const frame_time& time) const {
+  result<void, system_failure> transition(const frame_time& time, const bool& stopping) {
+    GNEISS_ASSERT(frozen_, "运行前必须冻结调度表");
+    if (transition_failure_)
+      return *transition_failure_;
+    // 一次性取走全部待处理请求：钩子对其他状态类型的新请求也留至下一轮。
+    std::vector<std::optional<std::uint64_t>> requests;
+    requests.reserve(states_.size());
+    for (auto& state : states_)
+      requests.push_back(std::exchange(state.pending, {}));
+    for (std::size_t i = 0; i < states_.size() && !stopping; ++i) {
+      auto& state = states_[i];
+      if (!state.entered) {
+        state.entered = true;
+        auto entered = invoke(detail::state_event::enter, state.current, time, stopping);
+        if (!entered)
+          return entered;
+        // 初始 Enter 不被首次转换省略；预先请求的目标仍在本轮继续转换。
+      }
+      if (stopping || !requests[i] || *requests[i] == state.current.value)
+        continue;
+      auto exited = invoke(detail::state_event::exit, state.current, time, stopping);
+      if (!exited)
+        return exited;
+      if (stopping)
+        break;
+      state.current.value = *requests[i];
+      auto entered = invoke(detail::state_event::enter, state.current, time, stopping);
+      if (!entered)
+        return entered;
+    }
+    return {};
+  }
+  result<void, system_failure> run(stage phase, const frame_time& time,
+                                   const bool& stopping) const {
     GNEISS_ASSERT(frozen_, "运行前必须冻结调度表");
     for (const auto& item : entries_) {
-      if (item.phase != phase)
+      if (stopping)
+        break;
+      if (item.phase != phase ||
+          (item.condition && find(item.condition->type).current != *item.condition))
         continue;
       auto status = item.function(time);
       if (status.failed())
@@ -82,8 +141,55 @@ private:
     stage phase;
     std::string name;
     system_function function;
+    std::optional<detail::state_key> condition;
   };
+  struct hook {
+    detail::state_event event;
+    detail::state_key key;
+    std::string name;
+    system_function function;
+  };
+  struct state_slot {
+    detail::state_key current;
+    std::optional<std::uint64_t> pending;
+    bool entered;
+  };
+  const state_slot& find(type_id type) const {
+    for (const auto& state : states_)
+      if (state.current.type == type)
+        return state;
+    GNEISS_PANIC("业务状态类型尚未注册");
+  }
+  state_slot& find(type_id type) {
+    return const_cast<state_slot&>(std::as_const(*this).find(type));
+  }
+  void check_registration(const std::string& name, const system_function& function) const {
+    GNEISS_ASSERT(!frozen_ && function && !name.empty(), "系统须在运行前具名注册");
+    for (const auto& item : entries_)
+      GNEISS_ASSERT(item.name != name, "系统名称不能重复");
+    for (const auto& item : hooks_)
+      GNEISS_ASSERT(item.name != name, "系统名称不能重复");
+  }
+  result<void, system_failure> invoke(detail::state_event event, detail::state_key key,
+                                      const frame_time& time, const bool& stopping) {
+    for (const auto& item : hooks_) {
+      if (stopping)
+        break;
+      if (item.event != event || item.key != key)
+        continue;
+      auto status = item.function(time);
+      if (status.failed()) {
+        // 转换不是事务；失败后不能在再次 run 时重放已产生副作用的 Enter/Exit。
+        transition_failure_ = system_failure{status, item.name};
+        return *transition_failure_;
+      }
+    }
+    return {};
+  }
   std::vector<entry> entries_;
+  std::vector<hook> hooks_;
+  std::vector<state_slot> states_;
+  std::optional<system_failure> transition_failure_;
   bool frozen_{};
 };
 
@@ -291,6 +397,30 @@ void application::register_system(app::stage phase, std::string name,
   GNEISS_ASSERT(phase != app::stage::update || !storage_->config_.callbacks.update,
                 "更新系统不能与旧更新回调混用");
   storage_->systems_.add(phase, std::move(name), std::move(function));
+}
+
+void application::register_state(app::detail::state_key initial) {
+  GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
+                "状态仅允许所属线程在运行前注册");
+  storage_->systems_.init(initial);
+}
+void application::register_state_system(app::detail::state_event event, app::detail::state_key key,
+                                        std::string name, app::system_function function) {
+  GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
+                "状态系统仅允许所属线程在运行前注册");
+  GNEISS_ASSERT(event != app::detail::state_event::update || !storage_->config_.callbacks.update,
+                "更新系统不能与旧更新回调混用");
+  storage_->systems_.add_hook(event, key, std::move(name), std::move(function));
+}
+result<void> application::request_state_change(app::detail::state_key target) {
+  GNEISS_ASSERT(is_owner_thread(), "状态转换仅允许所属线程请求");
+  if (!accepts_requests() || storage_->should_exit_)
+    return error::cancelled;
+  return storage_->systems_.request(target);
+}
+std::uint64_t application::current_state(type_id type) const {
+  GNEISS_ASSERT(is_owner_thread(), "状态查询仅允许所属线程");
+  return storage_->systems_.current(type);
 }
 
 gneiss::error application::attach_task_executor(gneiss::tasks::task_executor& executor) {
@@ -786,6 +916,17 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
         .elapsed_ns = storage_->elapsed_ns_,
         .is_paused = storage_->is_paused_,
     };
+    if (storage_->should_exit_)
+      break;
+    const auto transitioned = storage_->systems_.transition(time, storage_->should_exit_);
+    if (!transitioned) {
+      report(severity::error, category::application, transitioned.error().code,
+             transitioned.error().name, "业务状态转换失败");
+      storage_->is_running_ = false;
+      return transitioned.error().code;
+    }
+    if (storage_->should_exit_)
+      break;
     gneiss::measure(gneiss::loop_stage::draw_clear, [&] {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
@@ -807,7 +948,7 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
       }
     }
     const auto run_systems = [&](app::stage phase) {
-      auto result = storage_->systems_.run(phase, time);
+      auto result = storage_->systems_.run(phase, time, storage_->should_exit_);
       if (!result) {
         report(gneiss::severity::error, gneiss::category::application, result.error().code,
                result.error().name, "应用系统执行失败");
