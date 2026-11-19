@@ -70,6 +70,14 @@ World 拥有 ECS、层级与场景成员；game_object 和 scene_instance 为借
 Prefab 覆盖、文档历史属于编辑领域，不能从运行 World 自动还原创作意图。
 具体运行语义见[场景参考](../reference/scene-instance.md)。
 
+## 属性路径与值编辑
+
+`core/data/property_id.hpp`、`property_path.hpp` 在 `gneiss` 命名空间定义字段身份和路径数据，
+`value_edit.hpp` 提供值树差异、整组应用和容错重放；它们不依赖反射注册表。
+`core/meta/resolve_path.hpp` 提供 `meta::resolve_path()`，通过反射能力定位实际对象成员。
+保存路径的资源或编辑器数据头只依赖 Data；实际解析反射对象的实现文件显式包含 Meta 解析头。
+Prefab 与文档编辑复用这些能力，目标定位、撤销和业务冲突处理仍由各自领域承担。
+
 ## 构建与验证
 
 基础消费者直接链接所需模块，例如 gneiss::meta、gneiss::serialization_json；不为了 JSON

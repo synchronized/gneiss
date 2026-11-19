@@ -180,26 +180,26 @@ int main() {
   auto registry = m::create_registry();
   CHECK(registry);
   CHECK(m::registration::type<document>(registry)
-            .property<&document::sequence>(m::property_id{1}, "sequence")
-            .property<&document::mapping>(m::property_id{2}, "mapping")
+            .property<&document::sequence>(gneiss::property_id{1}, "sequence")
+            .property<&document::mapping>(gneiss::property_id{2}, "mapping")
             .commit()
             .ok());
   CHECK(m::registration::type<non_default>(registry)
-            .property<&non_default::number>(m::property_id{1}, "number")
+            .property<&non_default::number>(gneiss::property_id{1}, "number")
             .commit()
             .ok());
   CHECK(m::registration::type<variant_document>(registry)
-            .property<&variant_document::entries>(m::property_id{1}, "entries")
-            .property<&variant_document::selected>(m::property_id{2}, "selected")
+            .property<&variant_document::entries>(gneiss::property_id{1}, "entries")
+            .property<&variant_document::selected>(gneiss::property_id{2}, "selected")
             .commit()
             .ok());
   CHECK(m::registration::type<throwing_value>(registry).commit().ok());
   CHECK(m::registration::type<mapped_value>(registry)
-            .property<&mapped_value::number>(m::property_id{1}, "number")
+            .property<&mapped_value::number>(gneiss::property_id{1}, "number")
             .commit()
             .ok());
   CHECK((m::registration::type<mapped_owner>(registry)
-             .property<&mapped_owner::get, &mapped_owner::set>(m::property_id{1}, "item")
+             .property<&mapped_owner::get, &mapped_owner::set>(gneiss::property_id{1}, "item")
              .commit()
              .ok()));
   CHECK(m::freeze(registry).ok());

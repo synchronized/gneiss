@@ -35,11 +35,11 @@ bool native_values() {
   auto registry = gneiss::meta::create_registry();
   const gneiss::guid id{gneiss::guid::from_bytes({7})};
   const gneiss::guid native_id{gneiss::guid::from_bytes({7})};
-  const std::array fields{gneiss::meta::property_definition{
-      .id = gneiss::meta::property_id{1},
-      .type_guid = gneiss::type_identity<std::string>::guid(),
-      .access = gneiss::meta::property_access::read_write,
-      .name = "text"}};
+  const std::array fields{
+      gneiss::meta::property_definition{.id = gneiss::property_id{1},
+                                        .type_guid = gneiss::type_identity<std::string>::guid(),
+                                        .access = gneiss::meta::property_access::read_write,
+                                        .name = "text"}};
   std::string text = "初始文本";
   const gneiss::meta::property_binding binding{
       .kind = gneiss::value_kind::string,
@@ -64,7 +64,7 @@ bool native_values() {
   gneiss::meta::property field;
   if ((field = gneiss::meta::find_type(registry, native_id)
                    .capability<gneiss::meta::cap::object>()
-                   .find_property(gneiss::meta::property_id{1})) ||
+                   .find_property(gneiss::property_id{1})) ||
       !field.name().empty()) {
     return false;
   }
@@ -80,18 +80,18 @@ bool native_values() {
     return false;
   if (!(field = gneiss::meta::find_type(registry, native_id)
                     .capability<gneiss::meta::cap::object>()
-                    .find_property(gneiss::meta::property_id{1})) ||
-      field.name() != "text" || field.id() != gneiss::meta::property_id{1} ||
+                    .find_property(gneiss::property_id{1})) ||
+      field.name() != "text" || field.id() != gneiss::property_id{1} ||
       field.type().scalar_kind() != gneiss::value_kind::string ||
       !gneiss::meta::has_flags(field.capabilities(),
                                gneiss::meta::property_capabilities::writable) ||
       (field = gneiss::meta::find_type(registry, native_id)
                    .capability<gneiss::meta::cap::object>()
-                   .find_property(gneiss::meta::property_id{99})) ||
+                   .find_property(gneiss::property_id{99})) ||
       !field.name().empty() ||
       (field = gneiss::meta::find_type({}, native_id)
                    .capability<gneiss::meta::cap::object>()
-                   .find_property(gneiss::meta::property_id{1})) ||
+                   .find_property(gneiss::property_id{1})) ||
       !field.name().empty()) {
     return false;
   }
@@ -100,7 +100,7 @@ bool native_values() {
     gneiss::meta::property borrowed;
     foreign = ((borrowed = gneiss::meta::find_type(registry, native_id)
                                .capability<gneiss::meta::cap::object>()
-                               .find_property(gneiss::meta::property_id{1}))
+                               .find_property(gneiss::property_id{1}))
                    ? gneiss::error::success
                    : gneiss::error::not_found);
   });
@@ -169,16 +169,15 @@ int main() try {
   std::string name = "sample";
   const std::array fields{
       gneiss::meta::property_definition{
-          .id = gneiss::meta::property_id{1U},
+          .id = gneiss::property_id{1U},
           .type_guid = type_id,
           .access = gneiss::meta::property_access::read_write,
           .name = "value",
       },
-      gneiss::meta::property_definition{
-          .id = gneiss::meta::property_id{2U},
-          .type_guid = type_id,
-          .access = gneiss::meta::property_access::read_write,
-          .name = "candidate"},
+      gneiss::meta::property_definition{.id = gneiss::property_id{2U},
+                                        .type_guid = type_id,
+                                        .access = gneiss::meta::property_access::read_write,
+                                        .name = "candidate"},
   };
   const gneiss::meta::type_definition definition{
       .guid = type_id,

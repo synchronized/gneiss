@@ -531,7 +531,7 @@ describe_prefab_overrides(const gneiss::prefab_reference_description& reference,
             (property ? std::string(property.name()) : std::to_string(key.first_property().get()));
     auto current = property ? property.type() : meta::type{};
     for (const auto& step : std::span{key.path}.subspan(1)) {
-      if (auto* id = std::get_if<meta::property_id>(&step)) {
+      if (auto* id = std::get_if<gneiss::property_id>(&step)) {
         auto fields = current.template capability<gneiss::meta::cap::object>().properties();
         if (!fields.empty()) {
           auto found = std::ranges::find(fields, *id, &meta::property::id);
@@ -544,7 +544,7 @@ describe_prefab_overrides(const gneiss::prefab_reference_description& reference,
         text += "." + std::to_string(id->get());
         current = {};
       } else {
-        text += "[" + meta::property_step_text(step) + "]";
+        text += "[" + gneiss::property_step_text(step) + "]";
         meta::type element;
         if (std::holds_alternative<std::string>(step)) {
           auto capability = current.capability<meta::cap::associative>();

@@ -6,7 +6,7 @@
 namespace gneiss {
 namespace {
 using transform = std::function<result<value>(const value&)>;
-result<value> replace_path(const value& root, std::span<const meta::property_step> path,
+result<value> replace_path(const value& root, std::span<const gneiss::property_step> path,
                            const transform& edit, std::size_t depth = 0) {
   if (depth > 64)
     return error::invalid_argument;
@@ -14,7 +14,7 @@ result<value> replace_path(const value& root, std::span<const meta::property_ste
     return edit(root);
   const auto& step = path.front();
   if (auto record = std::get_if<record_value>(&root.payload)) {
-    const auto* id = std::get_if<meta::property_id>(&step);
+    const auto* id = std::get_if<gneiss::property_id>(&step);
     if (!id)
       return error::invalid_argument;
     auto data = record->get();
@@ -130,7 +130,7 @@ result<value> apply(const value& target, const value_operation& operation) {
       },
       operation);
 }
-error diff(const value& before, const value& after, meta::property_path path,
+error diff(const value& before, const value& after, gneiss::property_path path,
            std::vector<value_edit>& edits, std::size_t depth) {
   if (depth > 64)
     return error::invalid_argument;
@@ -148,7 +148,7 @@ error diff(const value& before, const value& after, meta::property_path path,
         for (const auto& field : left->get().properties) {
           auto found = std::ranges::find(right->get().properties, field.id, &value_property::id);
           auto next = path;
-          next.emplace_back(meta::property_id{field.id});
+          next.emplace_back(gneiss::property_id{field.id});
           auto status = diff(field.content, found->content, std::move(next), edits, depth + 1);
           if (status.failed())
             return status;

@@ -40,7 +40,7 @@ int main() try {
     ImGui::Begin("Inspector");
     if (draw_reflected_properties(transform_view, "Transform", serial, error))
       ++writes;
-    const std::array readonly{gneiss::meta::property_id{4}};
+    const std::array readonly{gneiss::property_id{4}};
     if (draw_reflected_properties(camera_view, "Camera", serial, error, readonly))
       ++writes;
     if (draw_reflected_properties(mesh_view, "Mesh Renderer", serial, error))
@@ -51,7 +51,7 @@ int main() try {
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
   // 单独绘制目标属性，避免把组件末尾的只读身份字段误当成恢复按钮。
-  const auto restore = [&](auto current, auto source, gneiss::meta::property_id property,
+  const auto restore = [&](auto current, auto source, gneiss::property_id property,
                            gneiss::value expected) {
     auto current_view = gneiss::meta::view(std::as_const(current));
     auto source_view = gneiss::meta::view(std::as_const(source));
@@ -95,16 +95,16 @@ int main() try {
   namespace e = gneiss;
   auto changed_transform = transform;
   changed_transform.scale = {2, 2, 2};
-  if (!restore(changed_transform, transform, e::meta::property_id{3}, e::value{transform.scale}))
+  if (!restore(changed_transform, transform, e::property_id{3}, e::value{transform.scale}))
     return 10;
   auto changed_camera = camera.settings;
   changed_camera.far_plane = 200;
-  if (!restore(changed_camera, camera.settings, e::meta::property_id{3},
+  if (!restore(changed_camera, camera.settings, e::property_id{3},
                e::value{camera.settings.far_plane}))
     return 11;
   auto changed_mesh = mesh;
   changed_mesh.material_uri = "asset://changed.json";
-  if (!restore(changed_mesh, mesh, e::meta::property_id{2}, e::value{mesh.material_uri}))
+  if (!restore(changed_mesh, mesh, e::property_id{2}, e::value{mesh.material_uri}))
     return 12;
   ImGui::NewFrame();
   ImGui::Begin("Vector2");

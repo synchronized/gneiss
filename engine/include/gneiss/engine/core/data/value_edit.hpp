@@ -55,7 +55,7 @@ using value_operation =
 struct value_edit {
   static constexpr std::string_view type_name = "value_edit";
   static constexpr guid type_guid = guid::literal("0e42bd59-a518-4513-a728-85300fcf25cb");
-  meta::property_path path;
+  property_path path;
   value_operation operation;
   bool operator==(const value_edit&) const = default;
 };
@@ -71,7 +71,7 @@ struct value_edit_replay {
   value root;
   std::vector<value_edit_error> conflicts;
 };
-/** Prefab 重放：保留失败操作的索引，其他独立操作继续执行。 */
+/** 容错重放：保留失败操作的索引，其他独立操作继续执行。 */
 GNEISS_DATA_API result<value_edit_replay> replay_value_edits(const value&,
                                                              std::span<const value_edit>);
 /** 普通列表整体替换，有稳定身份的列表按身份增删移动；引用只比较身份。 */

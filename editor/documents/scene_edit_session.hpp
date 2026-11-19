@@ -69,8 +69,7 @@ struct prefab_node_record final {
   gneiss::math::transform source_local_transform = {};
   /** 当前源节点覆盖键的 UI 快照；以 Scene 覆盖列表为准。 */
   std::vector<gneiss::prefab_property_override_key> overrides{};
-  [[nodiscard]] bool has_override(gneiss::guid type,
-                                  gneiss::meta::property_id property) const noexcept {
+  [[nodiscard]] bool has_override(gneiss::guid type, gneiss::property_id property) const noexcept {
     for (const auto& key : overrides)
       if (key.target.target_type_guid == type && key.first_property() == property)
         return true;

@@ -17,7 +17,7 @@ struct linked_description
 e::error register_links() {
   return e::meta::registration::type<linked_description>()
       .base<e::component_description_base>()
-      .property<&linked_description::links>(e::meta::property_id{1}, "links")
+      .property<&linked_description::links>(e::property_id{1}, "links")
       .commit();
 }
 int main() {
@@ -88,7 +88,7 @@ int main() {
     document->objects[0].prefab->overrides.push_back(
         {{.target = {root.uuid, e::camera_description::type_guid,
                      root.components.identity(e::camera_description::type_guid)},
-          .path = {e::meta::property_id{99}}},
+          .path = {e::property_id{99}}},
          e::value{1.0F}});
     auto record = e::capture_scene_record(*document);
     if (!record)
@@ -245,7 +245,7 @@ int main() {
     data.objects[0].prefab->overrides.push_back(
         {{.target = {root.uuid, e::camera_description::type_guid,
                      root.components.identity(e::camera_description::type_guid)},
-          .path = {e::meta::property_id{99}}},
+          .path = {e::property_id{99}}},
          e::value{1.0F}});
     changed.content = e::scene_record{data};
     auto patch = ed::make_document_patch(*frozen, changed);
@@ -377,7 +377,7 @@ int main() {
   e::prefab_property_override invalid_override;
   invalid_override.key.target.source_node_uuid = source->root_uuid;
   invalid_override.key.target.target_type_guid = e::camera_description::type_guid;
-  invalid_override.key.path = {e::meta::property_id{1}};
+  invalid_override.key.path = {e::property_id{1}};
   invalid_override.operation =
       e::set_value_operation{e::value{e::make_ref<e::camera_description>()}};
   auto unsafe = *restored->description;
@@ -471,7 +471,7 @@ int main() {
   child.prefab->uri = "asset://camera.prefab.json";
   child.prefab->overrides.push_back(
       {{.target = {source->root_uuid, e::camera_description::type_guid},
-        .path = {e::meta::property_id{1}}},
+        .path = {e::property_id{1}}},
        e::set_value_operation{internal}});
   tree.objects.push_back(child);
   const auto copied_child = e::guid::literal("68656d91-8dfd-4c01-a36f-02706e98510a");

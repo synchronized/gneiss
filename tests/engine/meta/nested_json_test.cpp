@@ -33,13 +33,13 @@ gneiss::serialization::diagnostic check(const child& value) {
 }
 e::error register_parent(const m::registry_ref& registry) {
   return m::registration::type<parent>(registry)
-      .property<&parent::item>(m::property_id{1}, "a/b")
+      .property<&parent::item>(gneiss::property_id{1}, "a/b")
       .commit();
 }
 e::error register_child(const m::registry_ref& registry) {
   return m::registration::type<child>(registry)
-      .property<&child::value>(m::property_id{1}, "value")(
-          gneiss::serialization::field_policy{.required = true})
+      .property<&child::value>(gneiss::property_id{1},
+                               "value")(gneiss::serialization::field_policy{.required = true})
       .extend(gneiss::serialization::validation<&check>)
       .commit();
 }
@@ -96,14 +96,14 @@ template <> struct chain<0> {
 template <unsigned Depth> e::error register_chain(const m::registry_ref& registry) {
   if constexpr (Depth == 0)
     return m::registration::type<chain<0>>(registry)
-        .property<&chain<0>::value>(m::property_id{1}, "value")
+        .property<&chain<0>::value>(gneiss::property_id{1}, "value")
         .commit();
   else {
     auto status = register_chain<Depth - 1>(registry);
     if (status.failed())
       return status;
     return m::registration::type<chain<Depth>>(registry)
-        .template property<&chain<Depth>::nested>(m::property_id{1}, "nested")(
+        .template property<&chain<Depth>::nested>(gneiss::property_id{1}, "nested")(
             gneiss::serialization::field_policy{.required = true})
         .commit();
   }
@@ -118,7 +118,7 @@ bool nested_json_contract() {
   auto defaults_registry = m::create_registry();
   if (!defaults_registry || register_child(defaults_registry).failed() ||
       m::registration::type<invalid_parent>(defaults_registry)
-          .property<&invalid_parent::item>(m::property_id{1}, "item")
+          .property<&invalid_parent::item>(gneiss::property_id{1}, "item")
           .commit()
           .failed() ||
       m::freeze(defaults_registry).failed())
@@ -144,7 +144,7 @@ bool nested_json_contract() {
     if (gneiss::meta::instance::from_object(gneiss::meta::find_type(registry, parent::type_guid),
                                             &original)
             ->capability<gneiss::meta::cap::object>()
-            ->member(m::property_id{1})
+            ->member(gneiss::property_id{1})
             ->read_value()
             .error() != e::error::unsupported)
       return false;
@@ -217,7 +217,7 @@ bool nested_json_contract() {
   auto node_registry = m::create_registry();
   if (!node_registry || register_parent(node_registry).failed() ||
       m::registration::type<child>(node_registry)
-          .property<&child::value>(m::property_id{1}, "isolated")(
+          .property<&child::value>(gneiss::property_id{1}, "isolated")(
               gneiss::serialization::field_policy{.required = true})
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .extend(gneiss::serialization::validation<&check>)

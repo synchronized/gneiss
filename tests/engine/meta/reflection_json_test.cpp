@@ -45,18 +45,18 @@ std::span<const std::byte> bytes(std::string_view text) {
 }
 e::error register_sample(const m::registry_ref& registry, std::string_view name = "name") {
   return m::registration::type<sample>(registry)
-      .property<&sample::enabled>(m::property_id{1}, "enabled")(
-          gneiss::serialization::field_policy{.required = true})
-      .property<&sample::signed_number>(m::property_id{2}, "signed")
-      .property<&sample::unsigned_number>(m::property_id{3}, "unsigned")
-      .property<&sample::speed>(m::property_id{4}, "speed")
-      .property<&sample::precise>(m::property_id{5}, "precise")
-      .property<&sample::name>(m::property_id{6}, name)
-      .property<&sample::identity>(m::property_id{7}, "identity")
-      .property<&sample::position>(m::property_id{8}, "position")
-      .property<&sample::rotation>(m::property_id{9}, "rotation")
-      .property<&sample::uv>(m::property_id{11}, "uv")
-      .readonly<&sample::computed>(m::property_id{10}, "computed")
+      .property<&sample::enabled>(gneiss::property_id{1},
+                                  "enabled")(gneiss::serialization::field_policy{.required = true})
+      .property<&sample::signed_number>(gneiss::property_id{2}, "signed")
+      .property<&sample::unsigned_number>(gneiss::property_id{3}, "unsigned")
+      .property<&sample::speed>(gneiss::property_id{4}, "speed")
+      .property<&sample::precise>(gneiss::property_id{5}, "precise")
+      .property<&sample::name>(gneiss::property_id{6}, name)
+      .property<&sample::identity>(gneiss::property_id{7}, "identity")
+      .property<&sample::position>(gneiss::property_id{8}, "position")
+      .property<&sample::rotation>(gneiss::property_id{9}, "rotation")
+      .property<&sample::uv>(gneiss::property_id{11}, "uv")
+      .readonly<&sample::computed>(gneiss::property_id{10}, "computed")
       .extend(gneiss::serialization::validation<&validate_sample>)
       .commit();
 }
@@ -100,8 +100,8 @@ bool enum_getter_failure_contract() {
   m::metadata policy;
   if (policy.insert(e::serialization::field_policy{.enum_name = true}).failed())
     return false;
-  const m::property_definition field{m::property_id{1}, enum_guid, m::property_access::read_write,
-                                     "named", std::move(policy)};
+  const m::property_definition field{gneiss::property_id{1}, enum_guid,
+                                     m::property_access::read_write, "named", std::move(policy)};
   const m::property_binding binding{
       .kind = e::value_kind::int64,
       .getter = [](void*, const void*, e::value&) { return e::error::not_ready; },
@@ -121,7 +121,8 @@ bool enum_getter_failure_contract() {
   auto root = m::const_instance::from_object(registry, e::runtime_type_of<enum_sample>(), &object);
   if (!root)
     return false;
-  auto member = root->template capability<gneiss::meta::cap::object>()->member(m::property_id{1});
+  auto member =
+      root->template capability<gneiss::meta::cap::object>()->member(gneiss::property_id{1});
   if (!member || member->read_value().error() != e::error::not_ready)
     return false;
   auto encoded = e::serialization::json::encode_instance(*root);
@@ -137,9 +138,9 @@ bool enum_json_contract() {
           .commit()
           .failed() ||
       m::registration::type<enum_sample>(registry)
-          .property<&enum_sample::named>(m::property_id{1}, "named")(
+          .property<&enum_sample::named>(gneiss::property_id{1}, "named")(
               gneiss::serialization::field_policy{.required = true, .enum_name = true})
-          .property<&enum_sample::numeric>(m::property_id{2}, "numeric")
+          .property<&enum_sample::numeric>(gneiss::property_id{2}, "numeric")
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||
@@ -183,16 +184,16 @@ bool field_reference_contract() {
       return false;
     const auto registry = created;
     if (m::registration::type<sample>(registry)
-            .property<&sample::enabled>(m::property_id{1}, "enabled")
+            .property<&sample::enabled>(gneiss::property_id{1}, "enabled")
             .metadata(ser::reference_policy{.polymorphic = type_polymorphic})
             .commit()
             .failed() ||
         m::registration::type<reference_fields>(registry)
-            .property<&reference_fields::default_reference>(m::property_id{1}, "default")
-            .property<&reference_fields::overridden_reference>(m::property_id{2},
+            .property<&reference_fields::default_reference>(gneiss::property_id{1}, "default")
+            .property<&reference_fields::overridden_reference>(gneiss::property_id{2},
                                                                "override")(ser::field_policy{
                 .reference = ser::reference_policy{.polymorphic = !type_polymorphic}})
-            .property<&reference_fields::transient>(m::property_id{3},
+            .property<&reference_fields::transient>(gneiss::property_id{3},
                                                     "transient")(ser::field_policy{.save = false})
             .commit()
             .failed() ||
@@ -256,7 +257,7 @@ bool asymmetric_reference_snapshot_contract() {
         return out.string("asset://sample");
       };
     if (m::registration::type<sample>(registry)
-            .property<&sample::enabled>(m::property_id{1}, "enabled")
+            .property<&sample::enabled>(gneiss::property_id{1}, "enabled")
             .metadata(policy)
             .commit()
             .failed() ||
@@ -291,13 +292,13 @@ bool external_field_contract() {
     auto registry = m::create_registry();
     if (!registry ||
         m::registration::type<sample>(registry)
-            .property<&sample::enabled>(m::property_id{1}, "enabled")
+            .property<&sample::enabled>(gneiss::property_id{1}, "enabled")
             .metadata(external_default ? external : ser::reference_policy{})
             .commit()
             .failed() ||
         m::registration::type<reference_fields>(registry)
-            .property<&reference_fields::default_reference>(m::property_id{1}, "default")
-            .property<&reference_fields::overridden_reference>(m::property_id{2},
+            .property<&reference_fields::default_reference>(gneiss::property_id{1}, "default")
+            .property<&reference_fields::overridden_reference>(gneiss::property_id{2},
                                                                "override")(ser::field_policy{
                 .reference = external_default ? ser::reference_policy{} : external})
             .commit()
@@ -404,7 +405,7 @@ int main() try {
           .error != e::error::not_ready)
     return 3;
   if (m::registration::type<tracked>(registry)
-          .property<&tracked::value>(m::property_id{1}, "value")
+          .property<&tracked::value>(gneiss::property_id{1}, "value")
           .extend(gneiss::serialization::validation<&reject>)
           .commit()
           .failed() ||
@@ -476,7 +477,7 @@ int main() try {
       !fails(R"({"enabled":true,"uv":[1,"bad"]})", "/uv/1"))
     return 31;
   auto view = m::view(registry, original);
-  auto uv = view.template capability<gneiss::meta::cap::object>()->member(m::property_id{11});
+  auto uv = view.template capability<gneiss::meta::cap::object>()->member(gneiss::property_id{11});
   if (!uv || uv->read_value()->kind() != e::value_kind::vec2 ||
       uv->assign(e::value{e::math::vector2{2, 3}}).failed() || original.uv.x != 2 ||
       uv->assign(e::value{e::math::vector3{2, 3, 4}}).ok())
@@ -567,7 +568,7 @@ int main() try {
   auto fallback = m::create_registry();
   if (!fallback ||
       m::registration::type<sample>(fallback)
-          .property<&sample::enabled>(m::property_id{1}, "enabled")
+          .property<&sample::enabled>(gneiss::property_id{1}, "enabled")
           .extend(gneiss::serialization::codec<&custom_encode, nullptr>)
           .commit()
           .failed() ||
@@ -590,7 +591,7 @@ int main() try {
     auto invalid_registry = m::create_registry();
     if (!invalid_registry ||
         m::registration::type<sample>(invalid_registry)
-            .property<&sample::enabled>(m::property_id{1}, "enabled",
+            .property<&sample::enabled>(gneiss::property_id{1}, "enabled",
                                         invalid_case != 0 ? m::property_access::read_write
                                                           : m::property_access::read_only)(policy)
             .commit()

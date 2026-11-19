@@ -14,7 +14,7 @@ template <class T> struct document_field_change {
   T before, after;
 };
 struct document_value_change {
-  gneiss::meta::property_path path;
+  gneiss::property_path path;
   gneiss::value before, after;
 };
 struct document_component_update {

@@ -53,13 +53,13 @@ bool object_values() {
   auto registry = m::create_registry();
   if (!registry || gneiss::serialization::register_builtin_types(registry).failed() ||
       m::registration::type<shared_probe>(registry)
-          .property<&shared_probe::number>(m::property_id{1}, "number")
-          .property<&shared_probe::nested>(m::property_id{2}, "nested")
+          .property<&shared_probe::number>(gneiss::property_id{1}, "number")
+          .property<&shared_probe::nested>(gneiss::property_id{2}, "nested")
           .commit()
           .failed() ||
       m::registration::type<shared_holder>(registry)
-          .property<&shared_holder::item>(m::property_id{1}, "item")
-          .property<&shared_holder::another>(m::property_id{2}, "another")
+          .property<&shared_holder::item>(gneiss::property_id{1}, "item")
+          .property<&shared_holder::another>(gneiss::property_id{2}, "another")
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -186,8 +186,8 @@ bool enum_registration() {
       !unknown_view.type().capability<m::cap::enumeration>().entries().empty())
     return false;
   if (m::registration::type<enum_object>(registry)
-          .property<&enum_object::left>(m::property_id{1}, "left")
-          .property<&enum_object::right>(m::property_id{2}, "right")
+          .property<&enum_object::left>(gneiss::property_id{1}, "left")
+          .property<&enum_object::right>(gneiss::property_id{2}, "right")
           .commit()
           .failed())
     return false;
@@ -359,8 +359,8 @@ bool type_queries() {
     return false;
   if (m::registration::enumeration<mode>(registry).value("first", mode::first).commit().failed() ||
       m::registration::type<query_model>(registry)
-          .property<&query_model::modes>(m::property_id{1}, "modes")
-          .property<&query_model::count>(m::property_id{2}, "count")
+          .property<&query_model::modes>(gneiss::property_id{1}, "modes")
+          .property<&query_model::count>(gneiss::property_id{2}, "count")
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -377,11 +377,11 @@ bool type_queries() {
   if (!typed || !by_id || !by_guid || typed != by_id || typed != by_guid)
     return false;
   auto named = typed.template capability<m::cap::object>().find_property("count");
-  auto numbered = typed.template capability<m::cap::object>().find_property(m::property_id{2});
+  auto numbered = typed.template capability<m::cap::object>().find_property(gneiss::property_id{2});
   if (typed.name() != query_model::type_name || !named || !numbered ||
       named.id() != numbered.id() || named.type().id() != e::runtime_type_of<std::int8_t>() ||
       typed.template capability<m::cap::object>().find_property("missing") ||
-      typed.template capability<m::cap::object>().find_property(m::property_id{}) ||
+      typed.template capability<m::cap::object>().find_property(gneiss::property_id{}) ||
       m::type{}.template capability<m::cap::object>().find_property("count") ||
       default_float.template capability<m::cap::object>().find_property("count") ||
       !m::type{}.name().empty() ||
@@ -524,13 +524,13 @@ bool reference_properties() {
     return false;
   auto registry = made;
   if (m::registration::type<reference_target>(registry)
-          .property<&reference_target::number>(m::property_id{1}, "number")
-          .property<&reference_target::next>(m::property_id{2}, "next")
+          .property<&reference_target::number>(gneiss::property_id{1}, "number")
+          .property<&reference_target::next>(gneiss::property_id{2}, "next")
           .commit()
           .failed() ||
       m::registration::type<reference_owner>(registry)
-          .property<&reference_owner::target>(m::property_id{1}, "target")
-          .property<&reference_owner::readonly>(m::property_id{2}, "readonly")
+          .property<&reference_owner::target>(gneiss::property_id{1}, "target")
+          .property<&reference_owner::readonly>(gneiss::property_id{2}, "readonly")
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -655,11 +655,11 @@ bool polymorphic_references() {
           .failed() ||
       m::registration::type<polymorphic_child>(registry)
           .base<polymorphic_base>()
-          .property<&polymorphic_child::number>(m::property_id{1}, "number")
+          .property<&polymorphic_child::number>(gneiss::property_id{1}, "number")
           .commit()
           .failed() ||
       m::registration::type<reference_target>(registry)
-          .property<&reference_target::number>(m::property_id{1}, "number")
+          .property<&reference_target::number>(gneiss::property_id{1}, "number")
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -803,14 +803,14 @@ bool bound_property_contract() {
   auto registry = m::create_registry();
   if (!registry ||
       m::registration::type<checked_value>(registry)
-          .property<&checked_value::number>(m::property_id{1}, "number")
+          .property<&checked_value::number>(gneiss::property_id{1}, "number")
           .commit()
           .failed() ||
       m::registration::type<bound_properties>(registry)
-          .property<&bound_properties::get_values, &bound_properties::set_values>(m::property_id{1},
-                                                                                  "values")
-          .property<&bound_properties::get_child, &bound_properties::set_child>(m::property_id{2},
-                                                                                "child")
+          .property<&bound_properties::get_values, &bound_properties::set_values>(
+              gneiss::property_id{1}, "values")
+          .property<&bound_properties::get_child, &bound_properties::set_child>(
+              gneiss::property_id{2}, "child")
           .commit()
           .failed() ||
       m::freeze(registry).failed())
@@ -880,11 +880,11 @@ struct property_child : offset_base, m::object_type<property_child, shared_probe
 bool property_handles() {
   auto register_probe = [](const m::registry_ref& registry) {
     return m::registration::type<shared_probe>(registry)
-               .property<&shared_probe::number>(m::property_id{1}, "number")
+               .property<&shared_probe::number>(gneiss::property_id{1}, "number")
                .commit()
                .ok() &&
            m::registration::type<shared_holder>(registry)
-               .property<&shared_holder::item>(m::property_id{1}, "item")
+               .property<&shared_holder::item>(gneiss::property_id{1}, "item")
                .commit()
                .ok() &&
            m::registration::type<property_child>(registry).base<shared_probe>().commit().ok() &&
@@ -993,14 +993,14 @@ int main() try {
   if (!m::view(registry, std::as_const(source)).type())
     return 2;
   if (m::registration::type<settings>(registry)
-          .property<&settings::get_speed, &settings::set_speed>(m::property_id{1}, "speed")
+          .property<&settings::get_speed, &settings::set_speed>(gneiss::property_id{1}, "speed")
           .commit()
           .failed() ||
       m::registration::type<object>(registry)
-          .property<&object::config>(m::property_id{1}, "config")
-          .property<&object::get_label, &object::set_label>(m::property_id{2}, "label")
-          .readonly<&object::readonly>(m::property_id{3}, "computed")
-          .property<&object::config>(m::property_id{4}, "readonly_config",
+          .property<&object::config>(gneiss::property_id{1}, "config")
+          .property<&object::get_label, &object::set_label>(gneiss::property_id{2}, "label")
+          .readonly<&object::readonly>(gneiss::property_id{3}, "computed")
+          .property<&object::config>(gneiss::property_id{4}, "readonly_config",
                                      m::property_access::read_only)
           .commit()
           .failed() ||
@@ -1021,7 +1021,7 @@ int main() try {
   auto config = root.template capability<m::cap::object>()->member("config");
   if (!config || config->guid() != settings::type_guid || config->kind() != m::type_kind::object)
     return 6;
-  auto speed = config->template capability<m::cap::object>()->member(m::property_id{1});
+  auto speed = config->template capability<m::cap::object>()->member(gneiss::property_id{1});
   if (!speed || speed->kind() != m::type_kind::scalar ||
       speed->scalar_kind() != e::value_kind::float32 ||
       std::get<float>(speed->read_value()->payload) != 1)

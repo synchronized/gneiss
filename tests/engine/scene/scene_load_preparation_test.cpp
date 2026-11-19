@@ -317,7 +317,7 @@ void run() {
                                 inputs.prefabs.at("asset://p.prefab")
                                     .description->objects.front()
                                     .components.identity(mesh_component_description::type_guid)},
-                 .path = {meta::property_id{2}}},
+                 .path = {gneiss::property_id{2}}},
          .operation = value{std::string("asset://override.material")}});
   }
   auto overridden_inputs = inputs;

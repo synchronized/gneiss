@@ -131,7 +131,7 @@ bool math_registration() {
   auto status = gneiss::meta::instance::from_object(
                     gneiss::meta::find_type(registry, e::math::transform::type_guid), &value)
                     ->capability<gneiss::meta::cap::object>()
-                    ->member(m::property_id{3})
+                    ->member(gneiss::property_id{3})
                     ->assign(e::value{e::math::vector3{0, 1, 1}});
   // 通用解码只恢复字段；相机采用边界显式检查透视范围。
   return unchecked && !unchecked->valid() && status == e::error::invalid_argument &&
@@ -152,14 +152,14 @@ bool frozen_lookup() {
   for (std::uint32_t i = 0; i < 128; ++i) {
     names.push_back("field_" + std::to_string(i));
     fields.push_back(
-        {m::property_id{(127 - i) * 3 + 1}, id, m::property_access::read_write, names.back()});
+        {gneiss::property_id{(127 - i) * 3 + 1}, id, m::property_access::read_write, names.back()});
   }
   if (m::register_type(registry,
                        {.guid = id, .schema_version = 1, .name = "indexed", .properties = fields})
           .failed() ||
       gneiss::meta::find_type(registry, id)
           .capability<gneiss::meta::cap::object>()
-          .find_property(m::property_id{1}) ||
+          .find_property(gneiss::property_id{1}) ||
       m::freeze(registry).failed() || m::freeze(registry).failed())
     return false;
   auto type = m::find_type(registry, id);
@@ -171,9 +171,10 @@ bool frozen_lookup() {
     if (!by_id || !by_name || by_id.name() != field.name || by_name.id() != field.id)
       return false;
   }
-  return !type.template capability<gneiss::meta::cap::object>().find_property(m::property_id{2}) &&
+  return !type.template capability<gneiss::meta::cap::object>().find_property(
+             gneiss::property_id{2}) &&
          !type.template capability<gneiss::meta::cap::object>().find_property(
-             m::property_id{999}) &&
+             gneiss::property_id{999}) &&
          !type.template capability<gneiss::meta::cap::object>().find_property("") &&
          !type.template capability<gneiss::meta::cap::object>().find_property("field_128");
 }
@@ -195,7 +196,7 @@ bool freeze_exception_contract() {
       .at = [](const void*, std::size_t) -> const void* { return nullptr; }};
   static const m::type_ops access{.id = e::runtime_type_of<std::vector<float>>(),
                                   .category = &sequence};
-  const m::property_definition field{.id = m::property_id{1}, .name = "values"};
+  const m::property_definition field{.id = gneiss::property_id{1}, .name = "values"};
   const m::type_definition definition{.guid = e::guid::from_bytes({0x79}),
                                       .schema_version = 1,
                                       .name = "freeze_failure",
@@ -258,7 +259,7 @@ int main() {
   using gneiss::error;
   constexpr gneiss::guid object_type{gneiss::guid::from_bytes({0x20})};
   constexpr gneiss::guid scalar_type{gneiss::guid::from_bytes({0x10})};
-  const gneiss::meta::property_definition field{gneiss::meta::property_id{1}, scalar_type,
+  const gneiss::meta::property_definition field{gneiss::property_id{1}, scalar_type,
                                                 gneiss::meta::property_access::read_write, "value"};
   const std::array duplicate_fields{field, field};
   gneiss::meta::type_definition object{object_type, {}, 1, "Object", {&field, 1}};
@@ -315,11 +316,11 @@ int main() {
       info.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
       !(metadata = gneiss::meta::find_type(registry, object_type)
                        .capability<gneiss::meta::cap::object>()
-                       .find_property(gneiss::meta::property_id{1})) ||
+                       .find_property(gneiss::property_id{1})) ||
       metadata.name() != "value" ||
       gneiss::meta::find_type(registry, object_type)
           .capability<gneiss::meta::cap::object>()
-          .find_property(gneiss::meta::property_id{2}))
+          .find_property(gneiss::property_id{2}))
     return 7;
   {
     auto root = gneiss::meta::instance::from_object(info, &stored);

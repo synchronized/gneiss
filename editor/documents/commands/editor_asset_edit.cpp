@@ -6,7 +6,7 @@
 #include "documents/scene_document_edit.hpp"
 #include <algorithm>
 #include <gneiss/engine/core/meta/instance.hpp>
-#include <gneiss/engine/core/meta/property_path.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
@@ -153,7 +153,7 @@ gneiss::error editor_asset_edit::request_property(runtime::application& app,
   if (active_ || history.is_pending())
     return error::not_ready;
   if (target.component_type != mesh_component_description::type_guid || edit.object ||
-      edit.path.size() != 1 || !std::holds_alternative<meta::property_id>(edit.path.front()))
+      edit.path.size() != 1 || !std::holds_alternative<gneiss::property_id>(edit.path.front()))
     return error::invalid_argument;
   auto captured = document.capture_mesh_binding(locate(document, target));
   if (!captured)

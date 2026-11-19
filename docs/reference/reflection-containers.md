@@ -150,7 +150,7 @@ JSON 保存 `{"$kind":"text","$content":"hello"}`，不保存分支下标或编�
 monostate 使用 empty 类型类别，内容保存为 null。
 Variant 本身不支持 read_value，须先 value() 取得当前分支。此能力不自动增加编辑器切换控件。
 
-`meta::property_step` 显式使用 property/index/key/element 标签；property_id 作为范围受限的 uint32 数值编解码。
+`gneiss::property_step` 显式使用 property/index/key/element 标签；property_id 作为范围受限的 uint32 数值编解码。
 `gneiss::value` 使用同一 variant 包装，variant_traits 将访问转交给 payload。
 自定义包装类型可提供 storage_type 与可变/只读 storage()；分支名仍通过 variant_case_traits 配置。
 

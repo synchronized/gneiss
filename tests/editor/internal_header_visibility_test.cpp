@@ -66,8 +66,8 @@ static_assert(!exposes_entity_lifecycle<gneiss::world>);
 
 static_assert(
     std::is_same_v<decltype(gneiss::prefab_property_target::target_type_guid), gneiss::guid>);
-static_assert(std::is_same_v<decltype(gneiss::prefab_property_override_key::path),
-                             gneiss::meta::property_path>);
+static_assert(
+    std::is_same_v<decltype(gneiss::prefab_property_override_key::path), gneiss::property_path>);
 template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };
 template <typename T>

@@ -47,42 +47,40 @@ int main() {
       !(info = gneiss::meta::type_of<gneiss::camera_description>()) || info.guid() != camera_type)
     return 2;
   gneiss::value value;
-  if (gneiss::test_support::assign_value(
-          gneiss::read_component_property(*first, entity.get(), transform_type,
-                                          gneiss::meta::property_id{1}),
-          value)
+  if (gneiss::test_support::assign_value(gneiss::read_component_property(*first, entity.get(),
+                                                                         transform_type,
+                                                                         gneiss::property_id{1}),
+                                         value)
           .failed() ||
       value.kind() != gneiss::value_kind::vec3 ||
       std::abs(std::get<gneiss::math::vector3>(value.payload).x) > 0.0001F)
     return 3;
   value.payload = gneiss::math::vector3{2, 3, 4};
-  if (gneiss::write_component_property(*first, entity.get(), transform_type,
-                                       gneiss::meta::property_id{1}, value)
+  if (gneiss::write_component_property(*first, entity.get(), transform_type, gneiss::property_id{1},
+                                       value)
           .failed())
     return 4;
   if (std::abs(object.local_transform().translation[0] - 2) > 0.0001F ||
       gneiss::test_support::assign_value(
-          gneiss::read_component_property(*first, 0, transform_type,
-                                          gneiss::meta::property_id{1}),
+          gneiss::read_component_property(*first, 0, transform_type, gneiss::property_id{1}),
           value) != error::invalid_handle ||
-      gneiss::test_support::assign_value(
-          gneiss::read_component_property(*second, entity.get(), transform_type,
-                                          gneiss::meta::property_id{1}),
-          value) != error::invalid_handle)
+      gneiss::test_support::assign_value(gneiss::read_component_property(*second, entity.get(),
+                                                                         transform_type,
+                                                                         gneiss::property_id{1}),
+                                         value) != error::invalid_handle)
     return 5;
   value.payload = gneiss::math::vector3{0, 1, 1};
-  if (gneiss::write_component_property(*first, entity.get(), transform_type,
-                                       gneiss::meta::property_id{3},
+  if (gneiss::write_component_property(*first, entity.get(), transform_type, gneiss::property_id{3},
                                        value) != error::invalid_argument ||
       std::abs(object.local_transform().scale[0] - 1) > 0.0001F)
     return 6;
   gneiss::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   if (object.add_component<gneiss::camera_component>(camera, true).failed() ||
       gneiss::set_active_camera(*first, entity).failed() ||
-      gneiss::test_support::assign_value(
-          gneiss::read_component_property(*first, entity.get(), camera_type,
-                                          gneiss::meta::property_id{4}),
-          value)
+      gneiss::test_support::assign_value(gneiss::read_component_property(*first, entity.get(),
+                                                                         camera_type,
+                                                                         gneiss::property_id{4}),
+                                         value)
           .failed() ||
       value.kind() != gneiss::value_kind::boolean || !std::get<bool>(value.payload))
     return 7;
@@ -93,12 +91,12 @@ int main() {
       return captured.error();
     auto changed = gneiss::modify_component(
         *captured->find(camera_type), [&](gneiss::meta::instance root) -> error {
-          auto settings = root.template capability<gneiss::meta::cap::object>()->member(
-              gneiss::meta::property_id{1});
+          auto settings =
+              root.template capability<gneiss::meta::cap::object>()->member(gneiss::property_id{1});
           if (!settings)
             return settings.error();
           auto field = settings->template capability<gneiss::meta::cap::object>()->member(
-              gneiss::meta::property_id{2});
+              gneiss::property_id{2});
           return field ? field->assign(gneiss::value{near}) : field.error();
         });
     if (!changed)
@@ -123,26 +121,25 @@ int main() {
     gneiss::value isolated;
     foreign_read = gneiss::test_support::assign_value(
         gneiss::read_component_property(*first, entity.get(), transform_type,
-                                        gneiss::meta::property_id{1}),
+                                        gneiss::property_id{1}),
         isolated);
     isolated.payload = gneiss::math::vector3{9, 9, 9};
-    foreign_write = gneiss::write_component_property(
-        *first, entity.get(), transform_type, gneiss::meta::property_id{1}, isolated);
+    foreign_write = gneiss::write_component_property(*first, entity.get(), transform_type,
+                                                     gneiss::property_id{1}, isolated);
   });
   worker.join();
   if (foreign_read != error::invalid_state || foreign_write != error::invalid_state ||
       object.local_transform().translation.x != 2)
     return 11;
   value.payload = false;
-  if (gneiss::write_component_property(*first, entity.get(), camera_type,
-                                       gneiss::meta::property_id{4},
+  if (gneiss::write_component_property(*first, entity.get(), camera_type, gneiss::property_id{4},
                                        value) != error::unsupported)
     return 12;
   object.destroy();
-  if (gneiss::test_support::assign_value(
-          gneiss::read_component_property(*first, entity.get(), camera_type,
-                                          gneiss::meta::property_id{2}),
-          value) != error::invalid_handle)
+  if (gneiss::test_support::assign_value(gneiss::read_component_property(*first, entity.get(),
+                                                                         camera_type,
+                                                                         gneiss::property_id{2}),
+                                         value) != error::invalid_handle)
     return 10;
   return 0;
 }

@@ -23,9 +23,9 @@ struct component_context {
 struct component_property_adapter {
   /** 可选属性身份；未指定时使用组件描述类型。 */
   guid property_type;
-  std::function<result<value>(const component_description&, guid, meta::property_id)> read;
-  std::function<result<component_description>(const component_description&, guid, meta::property_id,
-                                              const value&)>
+  std::function<result<value>(const component_description&, guid, gneiss::property_id)> read;
+  std::function<result<component_description>(const component_description&, guid,
+                                              gneiss::property_id, const value&)>
       edit;
   std::function<result<component_description>(const component_description&,
                                               const std::function<error(meta::instance)>&)>
@@ -57,8 +57,8 @@ GNEISS_API error update_component(component_context, const component_description
 /** 类型化属性扩展；仅显式提供时生成反射属性操作。 */
 template <class T> struct component_property_operations {
   guid property_type = type_identity<T>::guid();
-  result<value> (*read)(const T&, guid, meta::property_id){};
-  error (*edit)(T&, guid, meta::property_id, const value&){};
+  result<value> (*read)(const T&, guid, gneiss::property_id){};
+  error (*edit)(T&, guid, gneiss::property_id, const value&){};
 };
 template <class T> struct component_operations {
   error (*validate)(const T&){};
@@ -125,7 +125,7 @@ template <class T> component_adapter make_component_adapter(component_operations
   registration.properties = {
       .property_type = ops.properties->property_type,
       .read = [ops](const component_description& source, guid type,
-                    meta::property_id property) -> result<value> {
+                    gneiss::property_id property) -> result<value> {
         const auto* typed = source ? source->get<T>() : nullptr;
         if (!typed)
           return error::invalid_argument;
@@ -138,7 +138,7 @@ template <class T> component_adapter make_component_adapter(component_operations
         auto field = object->member(property);
         return field ? field->read_value() : result<value>{field.error()};
       },
-      .edit = [ops](const component_description& source, guid type, meta::property_id property,
+      .edit = [ops](const component_description& source, guid type, gneiss::property_id property,
                     const value& input) -> result<component_description> {
         if (!source || !source->get<T>())
           return error::invalid_argument;
@@ -196,14 +196,14 @@ GNEISS_API error replace_components(component_context, const component_descripti
 GNEISS_API bool equal_components(const component_descriptions&, const component_descriptions&);
 GNEISS_API result<std::vector<render_resource_source>>
 component_dependencies(const component_descriptions&);
-GNEISS_API error edit_component(component_descriptions&, guid, meta::property_id, const value&);
-GNEISS_API result<value> read_runtime_component(world&, entity_id, guid, meta::property_id);
-GNEISS_API error edit_runtime_component(component_context, guid, meta::property_id, const value&);
+GNEISS_API error edit_component(component_descriptions&, guid, gneiss::property_id, const value&);
+GNEISS_API result<value> read_runtime_component(world&, entity_id, guid, gneiss::property_id);
+GNEISS_API error edit_runtime_component(component_context, guid, gneiss::property_id, const value&);
 /** 在 World 所属线程定位节点组件；读出副本后访问，写入成功才提交。不会保留对象指针。
  * 失败保持既有组件；普通组件使用已注册适配器；未知组件类型返回
  * unsupported。值及字符串由调用方持有。 */
 [[nodiscard]] GNEISS_API result<value> read_component_property(world& world, std::uint64_t entity,
-                                                               guid, meta::property_id);
+                                                               guid, gneiss::property_id);
 [[nodiscard]] GNEISS_API error write_component_property(world& world, std::uint64_t entity, guid,
-                                                        meta::property_id, const value&);
+                                                        gneiss::property_id, const value&);
 }

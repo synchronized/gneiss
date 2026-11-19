@@ -27,7 +27,8 @@ struct wire_object : m::object_type<wire_object> {
 bool test_object_value() {
   if (gneiss::initialize_meta([] {
         auto status = m::registration::type<wire_object>()
-            .property<&wire_object::count>(m::property_id{1}, "count").commit();
+                          .property<&wire_object::count>(gneiss::property_id{1}, "count")
+                          .commit();
         return status.failed() ? status : gneiss::protocol::register_types();
       }).failed())
     return false;

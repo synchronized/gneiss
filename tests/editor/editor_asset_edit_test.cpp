@@ -82,7 +82,7 @@ void run(gneiss::tasks::execution_mode mode) {
     return edit.request_property(
         *app, session, history,
         {.object_uuid = uuid, .component_type = gneiss::mesh_component_description::type_guid},
-        {.path = {gneiss::meta::property_id{2}}, .data = gneiss::value{std::string(material)}});
+        {.path = {gneiss::property_id{2}}, .data = gneiss::value{std::string(material)}});
   };
   const auto binding = [&] {
     gneiss::editor::scene_mesh_binding value;
@@ -353,7 +353,7 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   };
   const auto request = [&](const auto& target, std::string uri) {
     return edit.request_property(*app, document, history, target,
-                                 {.path = {e::meta::property_id{2}}, .data = e::value{uri}});
+                                 {.path = {e::property_id{2}}, .data = e::value{uri}});
   };
   const auto capture = [&] {
     auto bytes = document.serialize();
@@ -442,9 +442,9 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   check(history.redo().ok() && binding(root).material == changed.material);
   // 网格 URI 与材质 URI 走同一属性请求，加载完成前继续使用原网格。
   std::filesystem::copy_file(files.root / "mesh.json", files.root / "mesh2.json");
-  check(edit.request_property(*app, document, history, child,
-                              {.path = {e::meta::property_id{1}},
-                               .data = e::value{std::string("asset://mesh2.json")}})
+  check(edit.request_property(
+                *app, document, history, child,
+                {.path = {e::property_id{1}}, .data = e::value{std::string("asset://mesh2.json")}})
             .ok());
   check(edit.active() && binding(child).mesh == before.mesh);
   drive();

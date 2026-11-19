@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/data/property_id.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/data/property_id.hpp>
 #include <span>
 #include <string>
 #include <variant>
 #include <vector>
 
-namespace gneiss::meta {
+namespace gneiss {
 /** 字段 ID、位置下标、映射字符串键、序列稳定身份。 */
 using property_step = std::variant<property_id, std::size_t, std::string, guid>;
 using property_path = std::vector<property_step>;

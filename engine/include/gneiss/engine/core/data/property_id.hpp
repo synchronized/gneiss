@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace gneiss::meta {
+namespace gneiss {
 /** 类型内部的字段身份，零无效。 */
 class property_id final {
 public:

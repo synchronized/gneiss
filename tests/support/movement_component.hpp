@@ -94,24 +94,24 @@ inline e::error register_movement_meta() {
   if (status.failed())
     return status;
   status = e::meta::registration::type<movement_settings>()
-               .property<&movement_settings::acceleration>(e::meta::property_id{1}, "acceleration")
-               .property<&movement_settings::maximum>(e::meta::property_id{2}, "maximum")
+               .property<&movement_settings::acceleration>(e::property_id{1}, "acceleration")
+               .property<&movement_settings::maximum>(e::property_id{2}, "maximum")
                .commit();
   if (status.failed())
     return status;
   status = e::meta::registration::type<waypoint>()
-               .property<&waypoint::uuid>(e::meta::property_id{1}, "uuid")
-               .property<&waypoint::distance>(e::meta::property_id{2}, "distance")
+               .property<&waypoint::uuid>(e::property_id{1}, "uuid")
+               .property<&waypoint::distance>(e::property_id{2}, "distance")
                .commit();
   if (status.failed())
     return status;
   return e::meta::registration::type<movement_description>()
       .base<e::component_description_base>()
-      .property<&movement_description::speed>(e::meta::property_id{1}, "speed")
-      .property<&movement_description::mode>(e::meta::property_id{2}, "mode")
-      .property<&movement_description::settings>(e::meta::property_id{3}, "settings")
-      .property<&movement_description::samples>(e::meta::property_id{4}, "samples")
-      .property<&movement_description::waypoints>(e::meta::property_id{5}, "waypoints")
+      .property<&movement_description::speed>(e::property_id{1}, "speed")
+      .property<&movement_description::mode>(e::property_id{2}, "mode")
+      .property<&movement_description::settings>(e::property_id{3}, "settings")
+      .property<&movement_description::samples>(e::property_id{4}, "samples")
+      .property<&movement_description::waypoints>(e::property_id{5}, "waypoints")
       .commit();
 }
 }

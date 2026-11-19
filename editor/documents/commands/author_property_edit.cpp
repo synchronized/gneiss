@@ -4,13 +4,14 @@
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/components/component_registration.hpp"
 #include "documents/scene_document_edit.hpp"
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/resource/property_edit_policy.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
@@ -43,7 +44,7 @@ gneiss::error edit_description(scene_edit_session& document, editor_command_hist
   error status = error::success;
   auto candidate = before;
   auto root = meta::view(candidate);
-  std::string key = meta::property_path_text(edit.path);
+  std::string key = gneiss::property_path_text(edit.path);
   auto target = meta::resolve_path(root, edit.path);
   if (!target)
     return target.error();
@@ -208,7 +209,7 @@ gneiss::error edit_component_description(scene_edit_session& document,
     if (!type)
       return gneiss::error{gneiss::error::not_found};
     for (const auto& step : edit.path) {
-      if (const auto* id = std::get_if<meta::property_id>(&step)) {
+      if (const auto* id = std::get_if<gneiss::property_id>(&step)) {
         auto fields = type.template capability<gneiss::meta::cap::object>().properties();
         if (!type.registered())
           return error::not_found;
@@ -278,7 +279,7 @@ gneiss::error edit_component_description(scene_edit_session& document,
       return prepared.error();
     std::string key = identity.component_type.string() + identity.object_uuid.string() +
                       identity.instance_uuid.string() + identity.source_uuid.string();
-    key += meta::property_path_text(edit.path);
+    key += gneiss::property_path_text(edit.path);
     return execute_scene_edit(
         history, document, "修改组件属性",
         [&] { return document.set_component_description(location->first, *prepared); },

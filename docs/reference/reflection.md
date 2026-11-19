@@ -119,7 +119,7 @@ static constexpr guid type_guid =
 ```cpp
 return gneiss::meta::registration::type<math::transform>()
     .schema_version(1)
-    .property<&math::transform::translation>(meta::property_id{1}, "translation")
+    .property<&math::transform::translation>(gneiss::property_id{1}, "translation")
     .commit();
 ```
 
@@ -238,10 +238,10 @@ codec 文件只提供编解码入口。首次失败立即返回，不回滚已�
 // math::camera_settings 已独立注册 fov / near / far 和参数校验。
 meta::registration::type<camera_description>()
     .property<&camera_description::settings>(
-        meta::property_id{1}, "settings")
+        gneiss::property_id{1}, "settings")
     (serialization::field_policy{.required = true})
     .property<&camera_description::is_primary>(
-        meta::property_id{4}, "is_primary")
+        gneiss::property_id{4}, "is_primary")
     (serialization::field_policy{.required = true})
     .commit();
 ```

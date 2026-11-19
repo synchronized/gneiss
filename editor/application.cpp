@@ -671,7 +671,7 @@ void draw_prefab_conflict(editor_state& state) {
                            entry.key.target.source_node_uuid.string() + "/components/" +
                            entry.key.target.target_type_guid.string();
         if (!entry.component) {
-          path += meta::property_path_text(entry.key.path);
+          path += gneiss::property_path_text(entry.key.path);
         }
         if (path == diagnostic.path) {
           ImGui::TextWrapped("%s", entry.label.c_str());
@@ -1343,7 +1343,7 @@ void execute_asset_browser_request(editor_state& state,
     if ((target.object_uuid || target.instance_uuid) && entry != state.assets.entries().end() &&
         (is_mesh_asset(*entry) || is_material_asset(*entry))) {
       gneiss::editor::property_edit edit;
-      edit.path.emplace_back(gneiss::meta::property_id{is_mesh_asset(*entry) ? 1U : 2U});
+      edit.path.emplace_back(gneiss::property_id{is_mesh_asset(*entry) ? 1U : 2U});
       edit.data = gneiss::value{entry->asset_uri};
       state.asset_scene_result = state.editing.assets().request_property(
           *state.application, state.editing.document(), state.editing.history(), target, edit);

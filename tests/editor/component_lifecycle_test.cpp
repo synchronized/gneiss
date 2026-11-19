@@ -85,9 +85,9 @@ int main() try {
   check(add() == e::error::invalid_state && history.size() == 1);
   check(ed::remove_component_description(document, disabled, uuid, type).failed() && current());
   std::weak_ptr<int> retained_runtime = current()->lifetime;
-  check(ed::edit_component_description(
-            document, history, world, {.object_uuid = uuid, .component_type = type},
-            {.path = {e::meta::property_id{1}}, .data = e::value{4.0F}}, 0)
+  check(ed::edit_component_description(document, history, world,
+                                       {.object_uuid = uuid, .component_type = type},
+                                       {.path = {e::property_id{1}}, .data = e::value{4.0F}}, 0)
             .ok());
   check(retained_runtime.lock() == current()->lifetime);
   check(history.undo().ok() && current()->data.speed == 1 &&

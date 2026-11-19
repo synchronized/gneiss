@@ -62,7 +62,7 @@ int main(int argc, char**) {
   }
   const auto unchanged = [&] { return before == saved; };
   const std::array<value_edit, 1> edits{
-      value_edit{{meta::property_id{1}}, set_value_operation{value{true}}}};
+      value_edit{{gneiss::property_id{1}}, set_value_operation{value{true}}}};
   const value_operation op = set_value_operation{before};
   if (!check_allocations([&] { return validate_persistent_value(before).ok(); }, unchanged))
     return 1;

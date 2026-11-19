@@ -36,8 +36,8 @@ bool merge_field(std::optional<document_field_change<T>>& field,
   return true;
 }
 // 记录字段递归到叶值；没有稳定身份的容器作为一个属性整体替换。
-void diff_properties(const gneiss::value& a, const gneiss::value& b,
-                     gneiss::meta::property_path path, std::vector<document_value_change>& out) {
+void diff_properties(const gneiss::value& a, const gneiss::value& b, gneiss::property_path path,
+                     std::vector<document_value_change>& out) {
   if (a == b)
     return;
   const auto* left = std::get_if<gneiss::record_value>(&a.payload);
@@ -52,17 +52,16 @@ void diff_properties(const gneiss::value& a, const gneiss::value& b,
       auto target =
           std::ranges::find(right->get().properties, field.id, &gneiss::value_property::id);
       auto child = path;
-      child.emplace_back(gneiss::meta::property_id{field.id});
+      child.emplace_back(gneiss::property_id{field.id});
       diff_properties(field.content, target->content, std::move(child), out);
     }
   } else
     out.push_back({std::move(path), a, b});
 }
-const gneiss::value* property_value(const gneiss::value& root,
-                                    const gneiss::meta::property_path& path) {
+const gneiss::value* property_value(const gneiss::value& root, const gneiss::property_path& path) {
   const auto* value = &root;
   for (const auto& step : path) {
-    const auto* id = std::get_if<gneiss::meta::property_id>(&step);
+    const auto* id = std::get_if<gneiss::property_id>(&step);
     const auto* record = std::get_if<gneiss::record_value>(&value->payload);
     if (!id || !record)
       return nullptr;

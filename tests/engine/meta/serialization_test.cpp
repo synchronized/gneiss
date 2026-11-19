@@ -104,30 +104,30 @@ bool inherited_properties() {
     return false;
   auto registry = created;
   if (registration::type<captured_data>(registry)
-          .property<&captured_data::values>(property_id{1}, "values")
-          .property<&captured_data::groups>(property_id{2}, "groups")
+          .property<&captured_data::values>(e::property_id{1}, "values")
+          .property<&captured_data::groups>(e::property_id{2}, "groups")
           .commit()
           .failed())
     return false;
   // 先注册派生类；冻结缺少基类时失败，补齐后可以重试。
   if (registration::type<inherited_leaf>(registry)
           .base<inherited_middle>()
-          .property<&inherited_leaf::leaf>(property_id{4}, "leaf")
+          .property<&inherited_leaf::leaf>(e::property_id{4}, "leaf")
           .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
           .commit()
           .failed() ||
       freeze(registry) != e::error::not_found ||
       registration::type<inherited_middle>(registry)
           .base<inherited_base>()
-          .property<&inherited_middle::middle>(property_id{3}, "middle")
+          .property<&inherited_middle::middle>(e::property_id{3}, "middle")
           .commit()
           .failed() ||
       registration::type<inherited_base>(registry)
           .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
-          .property<&inherited_base::number>(property_id{1}, "number")(
+          .property<&inherited_base::number>(e::property_id{1}, "number")(
               gneiss::serialization::field_policy{.required = true})
-          .property<&inherited_base::values>(property_id{2}, "values")
-          .property<&inherited_base::get_nested, &inherited_base::set_nested>(property_id{5},
+          .property<&inherited_base::values>(e::property_id{2}, "values")
+          .property<&inherited_base::get_nested, &inherited_base::set_nested>(e::property_id{5},
                                                                               "nested")
           .commit()
           .failed() ||
@@ -196,12 +196,12 @@ bool inherited_properties() {
     auto invalid = create_registry();
     if (!invalid ||
         registration::type<inherited_base>(invalid)
-            .property<&inherited_base::number>(property_id{1}, "number")
+            .property<&inherited_base::number>(e::property_id{1}, "number")
             .commit()
             .failed() ||
         registration::type<inherited_middle>(invalid)
             .base<inherited_base>()
-            .property<&inherited_middle::middle>(property_id{same_id ? 1U : 2U},
+            .property<&inherited_middle::middle>(e::property_id{same_id ? 1U : 2U},
                                                  same_id ? "middle" : "number")
             .commit()
             .failed() ||
@@ -220,12 +220,12 @@ int main() {
       gneiss::serialization::register_builtin_types(core) != e::error::invalid_argument ||
       e::meta::registration::type<cyclic_data>(core)
           .base<e::meta::object>()
-          .property<&cyclic_data::next>(e::meta::property_id{1}, "next")
+          .property<&cyclic_data::next>(e::property_id{1}, "next")
           .commit()
           .failed() ||
       e::meta::registration::type<captured_data>(core)
-          .property<&captured_data::values>(e::meta::property_id{1}, "values")
-          .property<&captured_data::groups>(e::meta::property_id{2}, "groups")
+          .property<&captured_data::values>(e::property_id{1}, "values")
+          .property<&captured_data::groups>(e::property_id{2}, "groups")
           .commit()
           .failed() ||
       e::meta::freeze(core).failed())
@@ -282,8 +282,7 @@ int main() {
     return 71;
   const std::vector<e::value_edit> edits{
       {{}, e::set_value_operation{e::value{std::int64_t{7}}}},
-      {{e::meta::property_id{3}},
-       e::insert_value_operation{cyclic_data::type_guid, {}, e::value{true}}},
+      {{e::property_id{3}}, e::insert_value_operation{cyclic_data::type_guid, {}, e::value{true}}},
       {{}, e::erase_value_operation{cyclic_data::type_guid}},
       {{}, e::move_value_operation{cyclic_data::type_guid, captured_data::type_guid}},
       {{}, e::put_value_operation{e::value{std::string{"x"}}, *captured}},
@@ -545,7 +544,7 @@ int main() {
     return 16;
   auto no_codec = gneiss::meta::create_registry();
   if (gneiss::meta::registration::type<probe>(no_codec)
-          .property<&probe::number>(e::meta::property_id{1}, "number")
+          .property<&probe::number>(e::property_id{1}, "number")
           .commit()
           .failed() ||
       gneiss::meta::freeze(no_codec).failed())

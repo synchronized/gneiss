@@ -116,8 +116,8 @@ int main() try {
     return 3;
   gneiss::value value{.payload = gneiss::math::vector3{2, 1, 4}};
   if (gneiss::write_component_property(*app->native_world(), target.get(),
-                                               gneiss::math::transform::type_guid,
-                                               gneiss::meta::property_id{1}, value)
+                                       gneiss::math::transform::type_guid, gneiss::property_id{1},
+                                       value)
           .failed())
     return 3;
   auto node = app->native_world()->object(target);
@@ -131,12 +131,12 @@ int main() try {
     return 3;
   auto changed =
       gneiss::modify_component(*camera, [](gneiss::meta::instance root) -> gneiss::error {
-        auto settings = root.template capability<gneiss::meta::cap::object>()->member(
-            gneiss::meta::property_id{1});
+        auto settings =
+            root.template capability<gneiss::meta::cap::object>()->member(gneiss::property_id{1});
         if (!settings)
           return settings.error();
         auto near = settings->template capability<gneiss::meta::cap::object>()->member(
-            gneiss::meta::property_id{2});
+            gneiss::property_id{2});
         return near ? near->assign(gneiss::value{0.25F}) : near.error();
       });
   if (!changed)
@@ -179,9 +179,9 @@ int main() try {
   if (!open_scene(scheduler, output_root.generic_string(), app, scene, bindings) ||
       !target_for(*app, bindings, target))
     return 6;
-  auto translation = gneiss::read_component_property(
-      *app->native_world(), target.get(), gneiss::math::transform::type_guid,
-      gneiss::meta::property_id{1});
+  auto translation =
+      gneiss::read_component_property(*app->native_world(), target.get(),
+                                      gneiss::math::transform::type_guid, gneiss::property_id{1});
   if (!translation || translation->kind() != gneiss::value_kind::vec3 ||
       std::abs(std::get<gneiss::math::vector3>(translation->payload).x - 2) > 0.0001F)
     return 6;

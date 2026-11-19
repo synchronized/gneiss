@@ -31,7 +31,7 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
                  gneiss::entity_id ordinary) {
   namespace e = gneiss;
   namespace ed = gneiss::editor;
-  using p = e::meta::property_id;
+  using p = e::property_id;
   auto& world = *app.native_world();
   const auto ordinary_uuid = session.selected_node()->uuid;
   if (session.set_camera(ordinary, {{1.0F, 0.1F, 100.0F}}).failed())

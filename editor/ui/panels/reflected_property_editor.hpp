@@ -14,6 +14,6 @@ bool draw_property_value(const char* name, gneiss::value&, const gneiss::meta::t
 std::optional<property_edit>
 draw_reflected_properties(const gneiss::meta::const_instance&, const char* name,
                           std::uint64_t& serial, gneiss::error&,
-                          std::span<const gneiss::meta::property_id> readonly = {},
+                          std::span<const gneiss::property_id> readonly = {},
                           const gneiss::meta::const_instance* source = nullptr);
 }

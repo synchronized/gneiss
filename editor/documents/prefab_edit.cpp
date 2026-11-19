@@ -258,7 +258,7 @@ prepare_mesh_component_overrides(guid source_node, guid component_uuid,
         {.key = {.target = {.source_node_uuid = source_node,
                             .target_type_guid = mesh_component_description::type_guid,
                             .component_uuid = component_uuid},
-                 .path = {meta::property_id{static_cast<std::uint32_t>(i + 1)}}},
+                 .path = {gneiss::property_id{static_cast<std::uint32_t>(i + 1)}}},
          .operation = gneiss::value{replacements[i]}},
         gneiss::value{originals[i]});
     if (status.failed())

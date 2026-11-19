@@ -83,7 +83,7 @@ gneiss::error runtime_property_editor::execute(const ipc_property_write& command
   }
 
   const gneiss::guid property_type{gneiss::guid::from_bytes(key.type_id)};
-  const gneiss::meta::property_id property_field{command.field_id};
+  const gneiss::property_id property_field{command.field_id};
   auto description = gneiss::meta::find_type(property_type);
   if (!description) {
     response.code = gneiss::error{gneiss::error::not_found}.code();

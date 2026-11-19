@@ -107,7 +107,7 @@ int main() try {
       {.key = {.target = {.source_node_uuid = child_id,
                           .target_type_guid = type,
                           .component_uuid = child.components.identity(type)},
-               .path = {e::meta::property_id{1}}},
+               .path = {e::property_id{1}}},
        .operation = e::value{6.0F}});
   check(e::prepare_prefab_reference(*source, reference, effective) == e::error::invalid_argument);
   reference.component_overrides.clear();
@@ -120,10 +120,10 @@ int main() try {
   deleted.objects[1].components.erase(type);
   check(e::prepare_prefab_reference(deleted, reference, effective, &diagnostic) ==
         e::error::not_found);
-  reference.overrides[0].key.path.front() = e::meta::property_id{99};
+  reference.overrides[0].key.path.front() = e::property_id{99};
   check(e::prepare_prefab_reference(*source, reference, effective, &diagnostic).failed());
   check(diagnostic.path.find("99") != std::string::npos);
-  reference.overrides[0].key.path.front() = e::meta::property_id{1};
+  reference.overrides[0].key.path.front() = e::property_id{1};
   reference.overrides[0].operation = e::value{std::string("wrong")};
   check(e::prepare_prefab_reference(*source, reference, effective).failed());
   reference.overrides.clear();
@@ -204,8 +204,7 @@ int main() try {
   check(action(ed::prefab_component_action::add).ok());
   check(action(ed::prefab_component_action::add) == e::error::invalid_state);
   check(ed::edit_component_description(document, history, world, target,
-                                       {.path = {e::meta::property_id{1}}, .data = e::value{5.0F}},
-                                       0)
+                                       {.path = {e::property_id{1}}, .data = e::value{5.0F}}, 0)
             .ok());
   auto state = document.capture_component_override(
       document.find_prefab_source(instance.uuid, root_id)->node, type);
@@ -227,8 +226,7 @@ int main() try {
   check(history.clear().ok());
   target.source_uuid = child_id;
   check(ed::edit_component_description(document, history, world, target,
-                                       {.path = {e::meta::property_id{1}}, .data = e::value{7.0F}},
-                                       0)
+                                       {.path = {e::property_id{1}}, .data = e::value{7.0F}}, 0)
             .ok());
   check(action(ed::prefab_component_action::remove).ok());
   state = document.capture_component_override(
@@ -265,7 +263,7 @@ int main() try {
                           .target_type_guid = type,
                           .component_uuid =
                               saved.objects[0].prefab->component_overrides.front().component_uuid},
-               .path = {e::meta::property_id{1}}},
+               .path = {e::property_id{1}}},
        .operation = e::value{2.0F}});
   check(!gneiss::asset_file::serialize_bytes(contradictory));
   e::scene_content prepared;

@@ -36,7 +36,7 @@ serialization::diagnostic validate_property_override_key(const prefab_property_o
       return {.path = "/path", .error = error::invalid_argument};
     if (const auto* id = std::get_if<guid>(&step); id && !*id)
       return {.path = "/path", .error = error::invalid_argument};
-    if (const auto* property = std::get_if<meta::property_id>(&step);
+    if (const auto* property = std::get_if<gneiss::property_id>(&step);
         property && !property->is_valid())
       return {.path = "/path", .error = error::invalid_argument};
   }

@@ -2,15 +2,16 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/scene/detail/component_validation.hpp"
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
-#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -107,7 +108,7 @@ error validate_prefab_property_override(const prefab_property_override& value) {
     return error::invalid_argument;
   auto type = field.type();
   for (const auto& step : std::span{value.key.path}.subspan(1)) {
-    if (const auto* property = std::get_if<meta::property_id>(&step)) {
+    if (const auto* property = std::get_if<gneiss::property_id>(&step)) {
       auto properties = type.template capability<gneiss::meta::cap::object>().properties();
       if (!type.registered())
         return error::not_found;
@@ -298,7 +299,7 @@ error prepare_prefab_reference(const prefab_description& source,
   // 提前定位每条属性覆盖；成组应用仍在下一步统一校验跨字段约束。
   for (const auto& entry : reference.overrides) {
     const auto& key = entry.key;
-    std::string path = meta::property_path_text(key.path);
+    std::string path = gneiss::property_path_text(key.path);
     auto object = std::ranges::find(candidate.objects, key.target.source_node_uuid,
                                     &game_object_description::uuid);
     auto status = validate_prefab_property_override(entry);

@@ -212,16 +212,16 @@ int main() {
             .ok());
   CHECK(m::registration::type<derived>(r)
             .base<base>()
-            .property<&derived::number>(m::property_id{1}, "number")
-            .property<&derived::next>(m::property_id{2}, "next")
+            .property<&derived::number>(gneiss::property_id{1}, "number")
+            .property<&derived::next>(gneiss::property_id{2}, "next")
             .commit()
             .ok());
   CHECK(m::registration::type<record>(r)
-            .property<&record::numbers>(m::property_id{1}, "numbers")
-            .property<&record::names>(m::property_id{2}, "names")
-            .property<&record::label>(m::property_id{3}, "label")
-            .property<&record::object>(m::property_id{4}, "object")
-            .property<&record::required>(m::property_id{5}, "required")(
+            .property<&record::numbers>(gneiss::property_id{1}, "numbers")
+            .property<&record::names>(gneiss::property_id{2}, "names")
+            .property<&record::label>(gneiss::property_id{3}, "label")
+            .property<&record::object>(gneiss::property_id{4}, "object")
+            .property<&record::required>(gneiss::property_id{5}, "required")(
                 gneiss::serialization::field_policy{.required = true})
             .metadata(gneiss::serialization::object_policy{.reject_unknown_fields = true})
             .commit()
@@ -229,7 +229,7 @@ int main() {
   CHECK(gneiss::serialization::register_builtin_types(r).ok());
   CHECK(m::registration::type<represented_derived>(r).base<base>().commit().ok());
   CHECK((m::registration::type<external_holder>(r)
-             .property<&external_holder::get, &external_holder::set>(m::property_id{1}, "id")
+             .property<&external_holder::get, &external_holder::set>(gneiss::property_id{1}, "id")
              .commit()
              .ok()));
   CHECK(m::freeze(r).ok());

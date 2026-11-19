@@ -139,7 +139,7 @@ int main() try {
         unknown_description::type_guid);
   const auto primary = gneiss::meta::find_type(e::camera_description::type_guid)
                            .capability<gneiss::meta::cap::object>()
-                           .find_property(e::meta::property_id{4});
+                           .find_property(e::property_id{4});
   check(primary && gneiss::is_edit_read_only(primary));
   check(gneiss::meta::has_flags(primary.capabilities(),
                                         gneiss::meta::property_capabilities::writable));
@@ -240,13 +240,13 @@ int main() try {
   component->data.speed = 4;
   const std::weak_ptr<int> retained_lifetime = component->lifetime;
   check(e::edit_runtime_component({*world.object(gneiss::entity_id{node.get()})},
-                                  movement_description::type_guid, e::meta::property_id{1},
+                                  movement_description::type_guid, e::property_id{1},
                                   e::value{5.0F})
             .ok());
   check(state(world).get<movement_component>(id)->data.speed == 5);
   check(state(world).get<movement_component>(id)->lifetime == retained_lifetime.lock());
   check(e::edit_runtime_component({*world.object(gneiss::entity_id{node.get()})},
-                                  movement_description::type_guid, e::meta::property_id{1},
+                                  movement_description::type_guid, e::property_id{1},
                                   e::value{-1.0F}) == e::error::invalid_argument);
   check(state(world).get<movement_component>(id)->data.speed == 5);
   check(state(world).get<movement_component>(id)->lifetime == retained_lifetime.lock());
@@ -375,18 +375,17 @@ int main() try {
   check(e::component_dependencies({runtime_description})->empty());
   check(e::add_component({*runtime_object}, runtime_description).ok());
   check(e::read_runtime_component(world, gneiss::entity_id{runtime_node->entity().get()},
-                                  runtime_only_description::type_guid, e::meta::property_id{1})
+                                  runtime_only_description::type_guid, e::property_id{1})
             .error() == e::error::unsupported);
   check(e::edit_runtime_component({*runtime_object}, runtime_only_description::type_guid,
-                                  e::meta::property_id{1},
-                                  e::value{1.0F}) == e::error::unsupported);
+                                  e::property_id{1}, e::value{1.0F}) == e::error::unsupported);
   check(e::modify_component(runtime_description, [](e::meta::instance) {
           return e::error::success;
         }).error() == e::error::unsupported);
   e::component_descriptions runtime_values;
   runtime_values.set(runtime_description);
-  check(e::edit_component(runtime_values, runtime_only_description::type_guid,
-                          e::meta::property_id{1}, e::value{1.0F}) == e::error::unsupported);
+  check(e::edit_component(runtime_values, runtime_only_description::type_guid, e::property_id{1},
+                          e::value{1.0F}) == e::error::unsupported);
   check(e::remove_component({*runtime_object}, runtime_only_description::type_guid).ok());
   check(e::remove_component({*runtime_object}, runtime_only_description::type_guid) ==
         e::error::not_found);
@@ -504,7 +503,7 @@ int main() try {
                           .target_type_guid = movement_description::type_guid,
                           .component_uuid =
                               first.components.identity(movement_description::type_guid)},
-               .path = {e::meta::property_id{1}}},
+               .path = {e::property_id{1}}},
        .operation = e::value{9.0F}});
   source.objects = {reference};
   e::prefab_asset_ref prefab_ref{prefab};

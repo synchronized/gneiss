@@ -3,10 +3,8 @@
 
 #pragma once
 #include <cstdint>
-#include <gneiss/engine/core/data/value_edit.hpp>
-#include <gneiss/engine/core/meta/property_path.hpp>
-#include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/data/value_edit.hpp>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -29,10 +27,10 @@ struct prefab_property_override_key final {
   static constexpr std::string_view type_name = "prefab_property_override_key";
   static constexpr guid type_guid = guid::literal("9c2683a8-3bfb-48b4-92af-6bce11ab215e");
   prefab_property_target target;
-  meta::property_path path;
-  [[nodiscard]] meta::property_id first_property() const noexcept {
+  gneiss::property_path path;
+  [[nodiscard]] gneiss::property_id first_property() const noexcept {
     if (!path.empty())
-      if (const auto* id = std::get_if<meta::property_id>(&path.front()))
+      if (const auto* id = std::get_if<gneiss::property_id>(&path.front()))
         return *id;
     return {};
   }

@@ -88,13 +88,13 @@ struct tree {
 };
 e::error register_tree(const m::registry_ref& r) {
   return m::registration::type<tree>(r)
-      .property<&tree::items>(m::property_id{1}, "items")
-      .property<&tree::groups>(m::property_id{2}, "groups")
-      .property<&tree::labels>(m::property_id{3}, "labels")
-      .property<&tree::maybe>(m::property_id{4}, "maybe")
-      .property<&tree::readonly>(m::property_id{5}, "readonly", m::property_access::read_only)
-      .property<&tree::children>(m::property_id{6}, "children")
-      .property<&tree::custom_items>(m::property_id{7}, "custom_items")
+      .property<&tree::items>(gneiss::property_id{1}, "items")
+      .property<&tree::groups>(gneiss::property_id{2}, "groups")
+      .property<&tree::labels>(gneiss::property_id{3}, "labels")
+      .property<&tree::maybe>(gneiss::property_id{4}, "maybe")
+      .property<&tree::readonly>(gneiss::property_id{5}, "readonly", m::property_access::read_only)
+      .property<&tree::children>(gneiss::property_id{6}, "children")
+      .property<&tree::custom_items>(gneiss::property_id{7}, "custom_items")
       .commit();
 }
 std::span<const std::byte> bytes(std::string_view s) {
@@ -109,7 +109,7 @@ int main() try {
   CHECK(register_tree(r).ok());
   CHECK(m::freeze(r) == e::error::not_found);
   CHECK(m::registration::type<child>(r)
-            .property<&child::speed>(m::property_id{1}, "speed")
+            .property<&child::speed>(gneiss::property_id{1}, "speed")
             .extend(gneiss::serialization::validation<&child::validate>)
             .commit()
             .ok());
@@ -118,11 +118,11 @@ int main() try {
              .commit()
              .ok()));
   CHECK((m::registration::type<optional_description>(r)
-             .property<&optional_description::item>(m::property_id{1}, "item")
+             .property<&optional_description::item>(gneiss::property_id{1}, "item")
              .property<&optional_description::get_number, &optional_description::set_number>(
-                 m::property_id{2}, "number")
-             .property<&optional_description::values>(m::property_id{3}, "values")
-             .property<&optional_description::identifier>(m::property_id{4}, "identifier")
+                 gneiss::property_id{2}, "number")
+             .property<&optional_description::values>(gneiss::property_id{3}, "values")
+             .property<&optional_description::identifier>(gneiss::property_id{4}, "identifier")
              .commit()
              .ok()));
   CHECK(m::freeze(r).ok());
@@ -186,7 +186,7 @@ int main() try {
   auto root = m::view(r, source);
   auto info = gneiss::meta::find_type(r, tree::type_guid)
                   .capability<gneiss::meta::cap::object>()
-                  .find_property(m::property_id{1});
+                  .find_property(gneiss::property_id{1});
   CHECK(info && info.type().kind() == m::type_kind::sequence && !info.type().guid());
   auto items = root.template capability<gneiss::meta::cap::object>()->member("items");
   CHECK(items);

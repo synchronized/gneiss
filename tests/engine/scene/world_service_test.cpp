@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
   proposed.payload = 30.0F;
   if (gneiss::meta::view(candidate_camera.settings)
           .capability<gneiss::meta::cap::object>()
-          ->member(gneiss::meta::property_id{2})
+          ->member(gneiss::property_id{2})
           ->assign(proposed) != gneiss::error::success) {
     return 17;
   }

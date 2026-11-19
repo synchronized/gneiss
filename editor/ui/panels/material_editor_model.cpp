@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "ui/panels/material_editor_model.hpp"
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
@@ -48,7 +49,7 @@ error material_editor_model::apply(const property_path& path, const value* input
     return error::invalid_argument;
   auto candidate = current_->description;
   auto root = meta::view(candidate);
-  std::string key = meta::property_path_text(path);
+  std::string key = gneiss::property_path_text(path);
   auto target = meta::resolve_path(root, path);
   if (!target)
     return target.error();

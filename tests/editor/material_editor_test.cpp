@@ -73,7 +73,7 @@ int main() try {
   write(original);
   ed::material_editor_model model;
   check(model.open(uri, original).ok() && !model.is_dirty(), "open material");
-  using p = e::meta::property_id;
+  using p = e::property_id;
   const ed::material_property_path rough{p{1}, p{3}};
   {
     auto parameters = model.description().parameters;

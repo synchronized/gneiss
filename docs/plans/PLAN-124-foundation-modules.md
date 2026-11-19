@@ -115,3 +115,11 @@ Render 服务和 PNG 解码依赖 Granit；未放宽原有职责限制。
 
 未验证项：本次未执行 Web、Linux、macOS 构建，也未执行完整 MSVC 测试矩阵；不据 Windows
 本地结果宣称这些平台通过。未推送分支、触发远端 CI 或发布版本。
+
+### 属性路径归属收尾
+
+2026-11-19：property_id/property_step/property_path 及路径辅助函数统一迁入 gneiss 命名空间，
+Meta 的路径解析头改为 resolve_path.hpp。资源覆盖数据和编辑器路径数据头只引用 Data 契约，
+实际使用 resolve_path 的实现显式包含 Meta 头；全部代码消费者迁移，不保留旧别名或转发头。
+值编辑操作、路径标签、字段编号及持久化格式不变，容错重放注释改为通用语义。
+Clang Debug 完整构建和 214/214 CPU 测试通过，git diff --check 通过；本次收尾未重跑其他平台矩阵。

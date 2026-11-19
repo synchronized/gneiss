@@ -63,7 +63,7 @@ e::error register_project() {
   if (m::registered_types().error() != e::error::not_ready)
     return e::error::internal;
   return m::registration::type<sample>()
-      .property<&sample::speed>(m::property_id{1}, "speed")
+      .property<&sample::speed>(gneiss::property_id{1}, "speed")
       .commit();
 }
 e::error fail_registration() { return e::error::unsupported; }

@@ -4,9 +4,10 @@
 #include "../../support/movement_component.hpp"
 #include "../../support/value_result.hpp"
 #include "documents/prefab_edit.hpp"
-#include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
+#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
@@ -67,7 +68,7 @@ int main() {
     try {
       (void)modify_component(original, [](meta::instance candidate) -> error {
         auto speed = candidate.template capability<gneiss::meta::cap::object>()->member(
-            meta::property_id{1});
+            gneiss::property_id{1});
         if (!speed || speed->assign(value{99.0F}).failed())
           return error::invalid_argument;
         throw std::runtime_error("测试编辑回调异常");
@@ -94,7 +95,7 @@ int main() {
     b.name = "b";
     c.uuid = guid::literal("212e2248-11bb-4565-a0c7-1e15b965a3ad");
     scene.objects = {a, b};
-    const meta::property_path path{meta::property_id{2}, source_b, meta::property_id{2}};
+    const gneiss::property_path path{gneiss::property_id{2}, source_b, gneiss::property_id{2}};
     const auto read = [&]() -> result<value> {
       auto root = meta::view(std::as_const(scene));
       auto leaf = meta::resolve_path(root, path, true);
@@ -121,14 +122,14 @@ int main() {
     if (read().error() != error::invalid_argument)
       return 45;
     auto root = meta::view(std::as_const(scene));
-    const meta::property_path index{meta::property_id{2}, std::size_t{0}};
+    const gneiss::property_path index{gneiss::property_id{2}, std::size_t{0}};
     if (meta::resolve_path(root, index, true).error() != error::unsupported)
       return 46;
     if (!meta::resolve_path(root, index))
       return 47;
     std::map<std::string, float> mapping{{"a/b", 3.0F}};
     auto map = meta::view(mapping);
-    const meta::property_path map_path{std::string("a/b")};
+    const gneiss::property_path map_path{std::string("a/b")};
     auto leaf = meta::resolve_path(map, map_path, true);
     if (!leaf || leaf->assign(value{4.0F}).failed() || mapping["a/b"] != 4)
       return 48;
@@ -179,8 +180,8 @@ int main() {
     // 后一条编辑允许定位前一条 insert 刚创建的元素。
     decoded->overrides.push_back(
         {.key = {.target = {source_b, movement_description::type_guid, component_id},
-                 .path = {meta::property_id{5}, changed.waypoints.back().uuid,
-                          meta::property_id{2}}},
+                 .path = {gneiss::property_id{5}, changed.waypoints.back().uuid,
+                          gneiss::property_id{2}}},
          .operation = value{42.0F}});
     if (prepare_prefab_reference(source, *decoded, output).failed() ||
         output.objects[1].components.get<movement_description>()->waypoints.back().distance != 42)
@@ -206,11 +207,11 @@ int main() {
     const prefab_property_target target{source_b, movement_description::type_guid,
                                         child.components.identity(movement_description::type_guid)};
     reference.overrides = {
-        {{target, {meta::property_id{5}}}, move_value_operation{element, missing}},
-        {{target, {meta::property_id{5}, element, meta::property_id{2}}}, value{7.0F}},
-        {{target, {meta::property_id{5}}}, erase_value_operation{missing}},
-        {{{missing, movement_description::type_guid}, {meta::property_id{1}}}, value{8.0F}},
-        {{target, {meta::property_id{1}}}, value{4.0F}}};
+        {{target, {gneiss::property_id{5}}}, move_value_operation{element, missing}},
+        {{target, {gneiss::property_id{5}, element, gneiss::property_id{2}}}, value{7.0F}},
+        {{target, {gneiss::property_id{5}}}, erase_value_operation{missing}},
+        {{{missing, movement_description::type_guid}, {gneiss::property_id{1}}}, value{8.0F}},
+        {{target, {gneiss::property_id{1}}}, value{4.0F}}};
     auto replayed = replay_prefab_reference(source, reference);
     if (!replayed || replayed->conflicts.size() != 2 || replayed->conflicts[0].index != 0 ||
         replayed->conflicts[1].index != 3 || replayed->conflicts[0].diagnostic.path.empty() ||
@@ -221,8 +222,9 @@ int main() {
         source.objects[1].components.get<movement_description>()->speed != 1)
       return 77;
     // 同一组件跨字段约束失败，只保留来源组件；另一对象的修改仍然生效。
-    reference.overrides = {{{target, {meta::property_id{3}, meta::property_id{1}}}, value{1000.0F}},
-                           make_translation(source_b, {8, 0, 0})};
+    reference.overrides = {
+        {{target, {gneiss::property_id{3}, gneiss::property_id{1}}}, value{1000.0F}},
+        make_translation(source_b, {8, 0, 0})};
     replayed = replay_prefab_reference(source, reference);
     if (!replayed || replayed->conflicts.size() != 1 || replayed->conflicts[0].index != 0 ||
         replayed->description.objects[1].transform.translation.x != 8 ||
@@ -238,14 +240,14 @@ int main() {
     movement_description movement;
     auto view = meta::view(std::as_const(movement));
     auto samples =
-        view.template capability<gneiss::meta::cap::object>()->member(meta::property_id{4});
+        view.template capability<gneiss::meta::cap::object>()->member(gneiss::property_id{4});
     auto before = serialization::capture_value(*samples);
     movement.samples = {8, 9, 10};
     auto after = serialization::capture_value(*samples);
     if (!before || !after)
       return 50;
     prefab_property_override change{.key = {.target = {source_b, movement_description::type_guid},
-                                            .path = {meta::property_id{4}}},
+                                            .path = {gneiss::property_id{4}}},
                                     .operation = *after};
     movement.samples.clear();
     prefab_description source;
@@ -290,7 +292,7 @@ int main() {
   {
     using namespace gneiss;
     auto original = make_translation(source_a, {1, 2, 3});
-    original.key.path = {meta::property_id{2}, std::size_t{3}, std::string("a/b"), source_b};
+    original.key.path = {gneiss::property_id{2}, std::size_t{3}, std::string("a/b"), source_b};
     auto bytes = gneiss::serialization::json::encode_bytes(original);
     if (!bytes)
       return 30;
@@ -381,7 +383,7 @@ int main() {
   gneiss::prefab_property_override read_only{
       .key = {.target = {.source_node_uuid = source_a,
                          .target_type_guid = gneiss::camera_description::type_guid},
-              .path = {gneiss::meta::property_id{4}}},
+              .path = {gneiss::property_id{4}}},
       .operation = gneiss::value{.payload = true}};
   if (gneiss::validate_prefab_property_override(read_only) !=
       gneiss::error::invalid_argument) {
@@ -389,7 +391,7 @@ int main() {
   }
 
   auto missing = make_translation(source_a, {1.0F, 0.0F, 0.0F});
-  missing.key.path.front() = gneiss::meta::property_id{999};
+  missing.key.path.front() = gneiss::property_id{999};
   if (gneiss::validate_prefab_property_override(missing) !=
       gneiss::error::not_found) {
     return 7;

@@ -5,8 +5,9 @@
 #include <cstring>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/resource/property_edit_policy.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <imgui.h>
 namespace gneiss::editor {
 using namespace gneiss;
@@ -50,7 +51,7 @@ int resize_text(ImGuiInputTextCallbackData* data) {
 }
 void draw_value(const meta::const_instance& view, const std::string& name, property_path& path,
                 std::optional<property_edit>& pending, std::uint64_t& serial, error& status,
-                std::span<const meta::property_id> readonly = {},
+                std::span<const gneiss::property_id> readonly = {},
                 const meta::const_instance* source = nullptr, std::size_t depth = 0) {
   if (depth > 64) {
     status = error::invalid_argument;
@@ -352,11 +353,10 @@ bool draw_property_value(const char* name, value& data, const meta::type& type,
   return changed && operation.ok();
 }
 
-std::optional<property_edit> draw_reflected_properties(const meta::const_instance& view,
-                                                       const char* name, std::uint64_t& serial,
-                                                       error& status,
-                                                       std::span<const meta::property_id> readonly,
-                                                       const meta::const_instance* source) {
+std::optional<property_edit>
+draw_reflected_properties(const meta::const_instance& view, const char* name, std::uint64_t& serial,
+                          error& status, std::span<const gneiss::property_id> readonly,
+                          const meta::const_instance* source) {
   if (source && source->type().id() != view.type().id()) {
     status = error::invalid_argument;
     return {};

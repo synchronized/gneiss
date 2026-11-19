@@ -14,7 +14,7 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
   if (left.target.component_uuid != right.target.component_uuid)
     return left.target.component_uuid < right.target.component_uuid;
   return std::lexicographical_compare(left.path.begin(), left.path.end(), right.path.begin(),
-                                      right.path.end(), meta::property_step_less);
+                                      right.path.end(), gneiss::property_step_less);
 }
 
 } // namespace gneiss

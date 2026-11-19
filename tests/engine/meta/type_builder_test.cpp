@@ -56,7 +56,7 @@ bool explicit_registration() {
   {
     std::string name = "external_model";
     builder.name(name).guid(id).schema_version(3).property<&external_model::items>(
-        m::property_id{1}, "items");
+        gneiss::property_id{1}, "items");
   }
   if (e::string_name::find("external_model"))
     return false;
@@ -113,19 +113,19 @@ bool runtime_only_registration() {
   auto registry = m::create_registry();
   if (!registry ||
       m::registration::type<runtime_child>(registry)
-          .property<&runtime_child::number>(m::property_id{1}, "number")
+          .property<&runtime_child::number>(gneiss::property_id{1}, "number")
           .commit()
           .failed() ||
       m::registration::type<runtime_parent>(registry)
-          .property<&runtime_parent::child>(m::property_id{1}, "child")
+          .property<&runtime_parent::child>(gneiss::property_id{1}, "child")
           .commit()
           .failed() ||
       m::registration::type<runtime_other>(registry)
-          .property<&runtime_other::number>(m::property_id{1}, "number")
+          .property<&runtime_other::number>(gneiss::property_id{1}, "number")
           .commit()
           .failed() ||
       m::registration::type<runtime_poly>(registry)
-          .property<&runtime_poly::number>(m::property_id{1}, "number")
+          .property<&runtime_poly::number>(gneiss::property_id{1}, "number")
           .metadata(gneiss::serialization::reference_policy{.polymorphic = true})
           .commit()
           .failed() ||
@@ -144,7 +144,7 @@ bool runtime_only_registration() {
     return false;
   auto number = child->template capability<gneiss::meta::cap::object>()->member("number");
   auto field = child->type().template capability<gneiss::meta::cap::object>().find_property(
-      m::property_id{1});
+      gneiss::property_id{1});
   if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
       field.get(foreign).error() != e::error::invalid_argument)
     return false;
@@ -174,17 +174,17 @@ bool extension_registration() {
               .metadata(display_metadata{"duplicate"})
               .commit() != e::error::invalid_argument ||
       m::registration::type<sample>(registry)
-              .property<&sample::speed>(m::property_id{1}, "speed")(display_metadata{"first"},
-                                                                    display_metadata{"duplicate"})
+              .property<&sample::speed>(gneiss::property_id{1}, "speed")(
+                  display_metadata{"first"}, display_metadata{"duplicate"})
               .commit() != e::error::invalid_argument)
     return false;
   display_metadata label{"original"};
   auto builder = m::registration::type<sample>(registry);
   builder.metadata(label);
-  auto speed = builder.property<&sample::speed>(m::property_id{1}, "speed");
+  auto speed = builder.property<&sample::speed>(gneiss::property_id{1}, "speed");
   // 后续字段使存储扩容，早先代理仍须写入原字段。
   for (std::uint32_t id = 2; id != 40; ++id)
-    builder.property<&sample::speed>(m::property_id{id}, "speed_" + std::to_string(id));
+    builder.property<&sample::speed>(gneiss::property_id{id}, "speed_" + std::to_string(id));
   speed(display_metadata{"Speed"});
   label.label = "changed";
   if (builder.commit().failed() || m::freeze(registry).failed())
@@ -193,7 +193,7 @@ bool extension_registration() {
   if (!type)
     return false;
   auto field =
-      type.template capability<gneiss::meta::cap::object>().find_property(m::property_id{1});
+      type.template capability<gneiss::meta::cap::object>().find_property(gneiss::property_id{1});
   const auto* type_data = type.extension<display_metadata>();
   const auto* field_data = field ? field.extension<display_metadata>() : nullptr;
   if (!type_data || type_data->label != "original" || !field_data || field_data->label != "Speed" ||
@@ -285,19 +285,18 @@ int main() {
           registry, {.schema_version = 1, .name = "conflict"}) != e::error::invalid_argument)
     return 3;
   if (gneiss::meta::registration::type<sample>(registry)
-          .property<&sample::speed>(gneiss::meta::property_id{1}, "speed")
-          .readonly<&sample::active>(gneiss::meta::property_id{1}, "active")
+          .property<&sample::speed>(gneiss::property_id{1}, "speed")
+          .readonly<&sample::active>(gneiss::property_id{1}, "active")
           .commit() != e::error::invalid_argument)
     return 4;
   // 前一次失败不得留下类型；名称由 builder 拥有。
   auto builder = gneiss::meta::registration::type<const sample&>(registry);
   {
     std::string name = "speed";
-    builder.property<&sample::get_speed, &sample::set_speed>(gneiss::meta::property_id{1},
-                                                             name);
+    builder.property<&sample::get_speed, &sample::set_speed>(gneiss::property_id{1}, name);
   }
-  builder.readonly<&sample::active>(gneiss::meta::property_id{2}, "active")
-      .property<&sample::speed>(gneiss::meta::property_id{3}, "raw_speed");
+  builder.readonly<&sample::active>(gneiss::property_id{2}, "active")
+      .property<&sample::speed>(gneiss::property_id{3}, "raw_speed");
   if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
       gneiss::meta::freeze(registry).failed())
     return 5;

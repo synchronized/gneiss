@@ -415,7 +415,7 @@ component_dependencies(const component_descriptions& values) {
   }
   return result;
 }
-error edit_component(component_descriptions& values, guid type, meta::property_id property,
+error edit_component(component_descriptions& values, guid type, gneiss::property_id property,
                      const value& input) {
   const auto* adapter = find(type, true);
   if (!adapter)
@@ -435,7 +435,7 @@ error edit_component(component_descriptions& values, guid type, meta::property_i
   return error::success;
 }
 result<value> read_runtime_component(world& owner, entity_id node, guid type,
-                                     meta::property_id property) {
+                                     gneiss::property_id property) {
   auto target = owner.object(entity_id{node.get()});
   if (!target)
     return target.error();
@@ -451,7 +451,7 @@ result<value> read_runtime_component(world& owner, entity_id node, guid type,
     return error::not_found;
   return adapter->properties.read(**captured, type, property);
 }
-error edit_runtime_component(component_context context, guid type, meta::property_id property,
+error edit_runtime_component(component_context context, guid type, gneiss::property_id property,
                              const value& input) {
   auto status = valid_target(context);
   if (status.failed())
@@ -482,12 +482,11 @@ error edit_runtime_component(component_context context, guid type, meta::propert
   auto edited = adapter->properties.edit(*candidate, type, property, input);
   return edited ? update_component(context, *edited) : edited.error();
 }
-
 }
 
 namespace gneiss {
 result<value> read_component_property(world& world, std::uint64_t entity, guid type,
-                                      meta::property_id field) {
+                                      gneiss::property_id field) {
   if (type != math::transform::type_guid)
     return read_runtime_component(world, entity_id{entity}, type, field);
   auto target = world.object(entity_id{entity});
@@ -502,7 +501,7 @@ result<value> read_component_property(world& world, std::uint64_t entity, guid t
   return member ? member->read_value() : result<value>{member.error()};
 }
 error write_component_property(world& world, std::uint64_t entity, guid type,
-                               meta::property_id field, const gneiss::value& value) {
+                               gneiss::property_id field, const gneiss::value& value) {
   auto target = world.object(entity_id{entity});
   if (!target)
     return target.error();
@@ -517,7 +516,6 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
   auto status = member ? member->assign(value) : member.error();
   return status.failed() ? status : target->set_local_transform(transform);
 }
-
 }
 
 namespace gneiss {

@@ -79,7 +79,7 @@ int main() try {
   if (e::initialize_meta([]() {
         auto status = e::meta::registration::type<reflected_description>()
                           .base<e::component_description_base>()
-                          .property<&reflected_description::speed>(e::meta::property_id{1}, "speed")
+                          .property<&reflected_description::speed>(e::property_id{1}, "speed")
                           .commit();
         if (status.failed())
           return status;

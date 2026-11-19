@@ -12,6 +12,7 @@
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
@@ -28,7 +29,7 @@
 namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
-using p = e::meta::property_id;
+using p = e::property_id;
 struct reference_settings : e::meta::object_type<reference_settings> {
   static constexpr std::string_view type_name = "reference_settings";
   static constexpr e::guid type_guid = e::guid::from_bytes({84, 20});

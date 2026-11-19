@@ -84,7 +84,7 @@ replay_prefab_reference(const prefab_description& source,
     if (status.failed()) {
       if (diagnostic.path.empty())
         diagnostic = location(status, target.source_node_uuid, target.target_type_guid,
-                              meta::property_path_text(entry.key.path), "覆盖目标不存在或不兼容");
+                              gneiss::property_path_text(entry.key.path), "覆盖目标不存在或不兼容");
       output.conflicts.push_back({prefab_override_section::property, i, std::move(diagnostic)});
     }
   }
@@ -109,10 +109,11 @@ replay_prefab_reference(const prefab_description& source,
     std::vector<bool> rejected(indices.size());
     for (const auto& conflict : replayed->conflicts) {
       rejected[conflict.operation] = true;
-      output.conflicts.push_back({prefab_override_section::property, indices[conflict.operation],
-                                  location(conflict.error, key.first, key.second,
-                                           meta::property_path_text(edits[conflict.operation].path),
-                                           "覆盖路径、元素或锚点已失效")});
+      output.conflicts.push_back(
+          {prefab_override_section::property, indices[conflict.operation],
+           location(conflict.error, key.first, key.second,
+                    gneiss::property_path_text(edits[conflict.operation].path),
+                    "覆盖路径、元素或锚点已失效")});
     }
     auto changed = modify_component(component, [&](meta::instance candidate) {
       return serialization::apply_value(candidate, replayed->root).error;
@@ -126,7 +127,7 @@ replay_prefab_reference(const prefab_description& source,
         if (!rejected[i])
           output.conflicts.push_back({prefab_override_section::property, indices[i],
                                       location(changed.error(), key.first, key.second,
-                                               meta::property_path_text(edits[i].path),
+                                               gneiss::property_path_text(edits[i].path),
                                                "覆盖后的组件不满足类型或领域约束")});
     }
   }

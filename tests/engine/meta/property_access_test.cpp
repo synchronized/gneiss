@@ -87,15 +87,12 @@ int main(int argc, char** argv) try {
   namespace reflection = gneiss;
   camera_fixture fixture;
   const std::array fields{
-      gneiss::meta::property_definition{gneiss::meta::property_id{1}, float_type,
-                                                gneiss::meta::property_access::read_write,
-                                                "field_of_view"},
-      gneiss::meta::property_definition{gneiss::meta::property_id{2}, string_type,
-                                                gneiss::meta::property_access::read_only,
-                                                "label"},
-      gneiss::meta::property_definition{gneiss::meta::property_id{4}, float_type,
-                                                gneiss::meta::property_access::read_write,
-                                                "malformed"}};
+      gneiss::meta::property_definition{gneiss::property_id{1}, float_type,
+                                        gneiss::meta::property_access::read_write, "field_of_view"},
+      gneiss::meta::property_definition{gneiss::property_id{2}, string_type,
+                                        gneiss::meta::property_access::read_only, "label"},
+      gneiss::meta::property_definition{gneiss::property_id{4}, float_type,
+                                        gneiss::meta::property_access::read_write, "malformed"}};
   auto registry = gneiss::meta::create_registry();
   const gneiss::meta::property_binding field_of_view{
       .kind = gneiss::value_kind::float32,
