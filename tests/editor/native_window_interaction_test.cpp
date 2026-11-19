@@ -174,10 +174,17 @@ int main() {
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
   const auto run = [&] {
-    const auto status = application->run(3U);
-    if (status.failed())
-      std::fprintf(stderr, "窗口交互失败：frame=%u error=%d\n", value.frames, status.code());
-    return status == gneiss::error::success;
+    for (unsigned frame = 0; frame < 3; ++frame) {
+      const auto status = application->step();
+      if (!status) {
+        std::fprintf(stderr, "窗口交互失败：frame=%u error=%d\n", value.frames,
+                     status.error().code());
+        return false;
+      }
+      if (*status == gneiss::app::lifecycle::stopping || *status == gneiss::app::lifecycle::stopped)
+        return false;
+    }
+    return application->render().finish_frames().ok();
   };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {

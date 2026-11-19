@@ -101,8 +101,7 @@ int main() {
   if (gneiss::test_support::take_value(app->assets().create(texture), context.texture).failed()) {
     return 2;
   }
-  const auto status = app->run(2);
-  if (status.failed() || context.failure != 0) {
+  if (!app->step() || !app->step() || context.failure != 0) {
     return 10 + static_cast<int>(context.failure);
   }
   if (context.updates != 2) {

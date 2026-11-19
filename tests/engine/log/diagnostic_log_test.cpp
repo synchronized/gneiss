@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/application/application.hpp>
 #include "../../support/logging.hpp"
 #include "../../support/value_result.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include <memory>
 
 #include <chrono>
@@ -48,7 +48,7 @@ int main() {
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed() ||
-      application->run(1U) != gneiss::error::internal || state.diagnostic_count != 1U) {
+      application->run().error() != gneiss::error::internal || state.diagnostic_count != 1U) {
     return 1;
   }
   {

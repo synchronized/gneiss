@@ -22,10 +22,12 @@ inline gneiss::error activate_scene_for_test(runtime::application& app, gneiss::
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (loader.busy() || loader.visual_loading()) {
     (void)tasks.run_ready();
-    auto stepped = app.run(1);
-    if (stepped.failed())
-      return stepped;
-    stepped = loader.advance();
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
+    auto stepped = loader.advance();
     if (stepped.failed())
       return stepped;
     if (std::chrono::steady_clock::now() >= deadline)
@@ -45,8 +47,11 @@ reload_scene_for_test(runtime::application& app, gneiss::tasks::task_scheduler& 
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
-    if (const auto frame = app.run(1); frame.failed())
-      return frame;
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
     auto stepped = loader.advance();
     if (stepped.failed())
       return stepped;
@@ -58,8 +63,11 @@ reload_scene_for_test(runtime::application& app, gneiss::tasks::task_scheduler& 
         if (std::chrono::steady_clock::now() >= deadline)
           return gneiss::error::internal;
         (void)tasks.run_ready();
-        if (const auto frame = app.run(1); frame.failed())
-          return frame;
+        const auto frame = app.step();
+        if (!frame)
+          return frame.error();
+        if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+          return error::cancelled;
         if (const auto advanced = loader.advance(); advanced.failed())
           return advanced;
         std::this_thread::yield();

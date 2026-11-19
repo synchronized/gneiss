@@ -168,7 +168,7 @@ int main() {
   }
 #endif
   // 先验证没有相机和场景物体的 UI 帧，再验证常规场景及资源更新。
-  if (application->run(2) != native::error::success) {
+  if (!application->step() || !application->step()) {
     std::fprintf(stderr, "纯 UI 帧运行失败\n");
     return 10;
   }
@@ -232,9 +232,11 @@ int main() {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
-  auto run_result = application->run(2);
-  if (run_result != native::error::success) {
-    std::fprintf(stderr, "Application 运行失败：%d\n", run_result.code());
+  auto run_result = application->step();
+  if (run_result)
+    run_result = application->step();
+  if (!run_result) {
+    std::fprintf(stderr, "Application 运行失败：%d\n", run_result.error().code());
     return 4;
   }
   // 捕获尺寸独立于窗口；连续调整窗口后仍能正常呈现，最小化不阻止离屏捕获。
@@ -249,16 +251,18 @@ int main() {
   for (int width : {400, 480, 360}) {
     if (!SetWindowPos(window, nullptr, 0, 0, width, 300,
                       SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) ||
-        application->run(2).failed() || resources.finish_frames().failed())
+        application->step().failed() || application->step().failed() ||
+        resources.finish_frames().failed())
       return 15;
   }
   ShowWindow(window, SW_MINIMIZE);
-  if (application->run(1).failed() || application->window()->surface().width != 0 ||
+  if (application->step().failed() || application->window()->surface().width != 0 ||
       application->window()->surface().height != 0 || capture(80, 60, captured).failed() ||
       captured.width != 80 || captured.height != 60)
     return 16;
   ShowWindow(window, SW_SHOWNOACTIVATE);
-  if (application->run(2).failed() || resources.finish_frames().failed())
+  if (application->step().failed() || application->step().failed() ||
+      resources.finish_frames().failed())
     return 17;
 #endif
   native::rid replacement_mesh{};
@@ -274,9 +278,9 @@ int main() {
   if (world.find(mesh_entity).notify_component_modified<gneiss::mesh_component>().failed() ||
       world.find(plain_mesh_entity).notify_component_modified<gneiss::mesh_component>().failed())
     return 7;
-  run_result = application->run(1);
+  run_result = application->step();
   if (run_result.failed()) {
-    std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", run_result.code());
+    std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", run_result.error().code());
     return 7;
   }
   if (resources.destroy_mesh(replacement_mesh).failed() ||

@@ -63,7 +63,7 @@ void run() {
   };
   const auto tick = [&] {
     (void)scheduler.run_ready();
-    check(app->run(1).ok());
+    check(app->step().ok());
     check(loader.advance().ok());
   };
   const auto drain = [&] {

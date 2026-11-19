@@ -45,7 +45,7 @@ bool open_scene(gneiss::tasks::task_scheduler& scheduler, std::string_view root,
   // 命令行示例由宿主循环处理文件完成，不使用同步加载包装。
   while (request.status() == gneiss::error::not_ready) {
     (void)scheduler.run_ready();
-    if (app->run(1).failed())
+    if (app->step().failed())
       return false;
   }
   auto content = request.snapshot();
@@ -59,7 +59,7 @@ bool open_scene(gneiss::tasks::task_scheduler& scheduler, std::string_view root,
   bindings = std::move(activated->instance.objects);
   while (activated->visuals && !activated->visuals.ready()) {
     (void)scheduler.run_ready();
-    if (app->run(1).failed())
+    if (app->step().failed())
       return false;
   }
   example::report_visuals(*activated);

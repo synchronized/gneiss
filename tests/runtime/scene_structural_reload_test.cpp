@@ -173,7 +173,7 @@ int main() try {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   for (;;) {
     (void)scheduler.run_ready();
-    (void)application->run(1);
+    (void)application->step();
     (void)reloader.advance();
     auto completed = reloader.take_reload();
     if (!completed && completed.error() != gneiss::error::not_ready)
@@ -190,10 +190,10 @@ int main() try {
     if (std::chrono::steady_clock::now() >= deadline)
       return 28;
     (void)scheduler.run_ready();
-    (void)application->run(1);
+    (void)application->step();
     (void)reloader.advance();
   }
-  (void)application->run(1);
+  (void)application->step();
   if (!received_failures(3))
     return 29;
   // 描述本身损坏仍失败，不能把解析失败解释为缺失视觉内容。
