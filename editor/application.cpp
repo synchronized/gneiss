@@ -181,6 +181,7 @@ struct editor_state {
   gneiss::editor::editor_panel_visibility panel_visibility;
   gneiss::editor::editor_layout layout;
   bool closing{};
+  bool return_to_project_manager{};
   bool layout_save_started{};
   gneiss::error layout_status{gneiss::error::success};
   gizmo_operation gizmo_mode = gizmo_operation::translate;
@@ -966,6 +967,11 @@ gneiss::error perform_document_action(editor_state& state, gneiss::editor::docum
     }
     break;
   }
+  case gneiss::editor::document_action::close_project:
+    begin_editor_exit(state);
+    if (state.closing)
+      state.return_to_project_manager = true;
+    break;
   case gneiss::editor::document_action::exit_editor:
     begin_editor_exit(state);
     break;
@@ -2036,6 +2042,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         ImGui::EndDisabled();
         ImGui::Separator();
 #endif
+        const auto close_project_requested = ImGui::MenuItem("Close Project");
         const auto exit_requested = ImGui::MenuItem("Exit");
         if (save_requested) {
           state.save_result = save_document(state);
@@ -2061,6 +2068,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           requested = gneiss::editor::document_action::new_scene;
         } else if (open_requested) {
           requested = gneiss::editor::document_action::open_scene;
+        } else if (close_project_requested) {
+          requested = gneiss::editor::document_action::close_project;
         } else if (exit_requested) {
           requested = gneiss::editor::document_action::exit_editor;
         }
@@ -2898,7 +2907,7 @@ uint8_t handle_close_requested(void* user_data) noexcept try {
   gneiss::fatal_current_exception();
 }
 
-int run_editor(int argc, char** argv) {
+int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   gneiss::host::console_log_buffer local_logs;
   gneiss::logging::service logs;
   logs.attach(gneiss::logging::create_console_sink());
@@ -2910,6 +2919,8 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("命令行解析", gneiss::error::invalid_argument);
     return 64;
   }
+  if (select_project)
+    options.project.clear();
   gneiss::host::editor_project project;
   if (options.project.empty()) {
     const auto operation = gneiss::host::run_project_manager(options.smoke, project);
@@ -3181,6 +3192,7 @@ int run_editor(int argc, char** argv) {
   log.info("Editor 已退出，结果={}", run_result.code());
   logs.flush();
   local_logs.drain(state.console);
+  reopen = run_result == gneiss::error::success && state.return_to_project_manager;
   return run_result == gneiss::error::success ? 0 : 4;
 }
 
@@ -3190,7 +3202,15 @@ namespace gneiss::host {
 
 int run_editor_application(int argc, char** argv) noexcept {
   try {
-    return run_editor(argc, argv);
+    bool select_project = false;
+    for (;;) {
+      bool reopen = false;
+      const auto result = run_editor(argc, argv, select_project, reopen);
+      if (result != 0 || !reopen)
+        return result;
+      // 上一个会话与服务已全部析构，再创建项目选择窗口。
+      select_project = true;
+    }
   } catch (...) {
     gneiss::fatal_current_exception();
   }

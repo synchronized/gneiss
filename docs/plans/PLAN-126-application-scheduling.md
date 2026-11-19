@@ -441,3 +441,15 @@ Runtime、Editor 的环境请求已从 create 后的提前加载迁入真实 on_
 Windows Clang Debug Runtime、Editor 与流程测试构建通过。回归验证启动顺序、初始 Enter、
 多帧不重放、启动失败清理与提前退出；Runtime 协作 smoke、Editor 30 帧环境回退均退出 0，
 日志确认环境强度 0.6、旋转 0.524 rad 保持。静态与完整验证矩阵尚未执行。
+
+### 编辑器关闭工程入口
+
+新增 File → Close Project，复用文档保存确认与现有关闭收尾；只有确认执行且材质编辑未阻止关闭时，
+才记录返回项目选择。最外层宿主循环等待当前会话和服务全部析构，再重新运行 Project Manager；
+普通退出及运行错误不会重新进入项目选择，也不会重用命令行指定的旧工程。
+
+Windows Clang Debug Editor 与文档动作目标构建通过；document-actions、scene-loader 两项回归通过，
+覆盖关闭工程的取消、保存失败后重试与丢弃。Editor 30 帧环境回退 smoke 退出 0。
+首次 smoke 错把项目文件作为 --project 参数返回 65，改为项目目录后通过；这不是代码缺陷。
+实际菜单关闭后选择另一工程的完整交互仍待验收，不能以普通 smoke 或文档重开测试代替。
+最终服务装配协议及静态/完整验证矩阵仍未完成。

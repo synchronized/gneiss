@@ -5,7 +5,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 
 namespace gneiss::editor {
-enum class document_action { none, new_scene, open_scene, exit_editor };
+enum class document_action { none, new_scene, open_scene, close_project, exit_editor };
 /** 单文档的未保存确认状态；只在 Editor 线程使用，不拥有文档或宿主。
  * 取代宿主 pending 枚举，不存储脏状态副本，也不执行 I/O。 */
 class document_actions final {
