@@ -420,6 +420,11 @@ application::create(const application_configuration& config) {
     if (result != gneiss::error::success) {
       return result;
     }
+    if (config.executor) {
+      const auto configured = instance->configure_executor(*config.executor);
+      if (configured.failed())
+        return configured;
+    }
     instance->storage_->accepts_requests_.store(true, std::memory_order_release);
     return instance;
   }
@@ -496,9 +501,12 @@ std::uint64_t application::current_state(type_id type) const {
 gneiss::error application::attach_task_executor(gneiss::tasks::task_executor& executor) {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::error::invalid_state;
-  if (storage_->asset_loading_.get()) {
-    return gneiss::error::invalid_state;
-  }
+  return configure_executor(executor);
+}
+
+error application::configure_executor(tasks::task_executor& executor) {
+  if (storage_->asset_loading_.get())
+    return error::invalid_state;
   {
     gneiss::texture_prepare_profile profile;
     if (storage_->window_service_)

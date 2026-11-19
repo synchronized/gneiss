@@ -246,3 +246,9 @@ Runtime 已使用 completions/update 系统与完整 run()，删除手动服务�
 验证：Runtime 普通及 cooperative-tasks 的 editor_demo smoke 均退出 0，分别执行 5、4 个 GPU 帧，
 任务统计 submitted=completed=3、retained=0，无资源关闭错误；scene-loader 回归通过。
 World/视口归属和业务转发尚未迁移，A126-03 仍未完成。
+
+### 创建时配置任务执行器
+
+创建配置已支持借用 executor，Runtime/Editor 改为创建时完成资产服务装配。
+旧 attach 仍供未迁移测试使用，删除条件是这些创建夹具完成迁移；不作为新宿主 API。
+验证：Runtime、Editor、纹理加载回归目标构建通过，texture-load-application 回归通过。

@@ -516,6 +516,7 @@ private:
       {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
                                          : gneiss::tasks::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
+  desc.executor = &task_scheduler;
   gneiss::runtime::application* application{};
   auto created = gneiss::runtime::application::create(desc);
   auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
@@ -539,9 +540,6 @@ private:
              .category = "application_create",
              .message = "Application 创建完成",
              .result = gneiss::error::success});
-  if (application->attach_task_executor(task_scheduler) != gneiss::error::success) {
-    return 3;
-  }
 
   if (!project.input_map.empty()) {
     auto input_result = application->begin_action_map(project.input_map);

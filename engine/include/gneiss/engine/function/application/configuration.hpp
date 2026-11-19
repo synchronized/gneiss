@@ -7,11 +7,15 @@
 #include <gneiss/engine/platform/window/configuration.hpp>
 
 #include <functional>
-#include <gneiss/engine/function/diagnostics/diagnostic.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/diagnostics/diagnostic.hpp>
 #include <string_view>
+
+namespace gneiss::tasks {
+class task_executor;
+}
 
 namespace gneiss::runtime {
 
@@ -30,6 +34,8 @@ struct application_callbacks final {
 /** 原生创建配置；字符串仅在 create 期间借用，Application 复制后用于异步启动。 */
 struct application_configuration final {
   application_callbacks callbacks;
+  /** 借用资产任务执行器，必须覆盖 Application 关闭。空表示不装配资产任务。 */
+  tasks::task_executor* executor{};
   bool enable_window = false;
   gneiss::window::configuration window;
   std::string_view asset_root;

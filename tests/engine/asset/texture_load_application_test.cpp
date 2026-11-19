@@ -62,11 +62,12 @@ void run(gneiss::tasks::execution_mode mode) {
   const auto root = files.root.string();
   runtime::application_configuration desc;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
         gneiss::error::success);
   gneiss::asset_batch_request empty;
   check(empty.cancel() == gneiss::error::invalid_state);
-  check(app->attach_task_executor(scheduler).ok());
+  check(app->can_load_assets());
   check(app->attach_task_executor(scheduler) == gneiss::error::invalid_state);
   const std::array uris{gneiss::render_resource_source{
       .uri = "asset://a.texture.json", .type = gneiss::render_resource_kind::texture}};
@@ -91,8 +92,7 @@ void run(gneiss::tasks::execution_mode mode) {
   }
   check(completion.result == gneiss::error::success && completion.request != 0 &&
         completion.assets.size() == 1U &&
-        gneiss::resource_kind(completion.assets.front()) ==
-            gneiss::render_resource_kind::texture);
+        gneiss::resource_kind(completion.assets.front()) == gneiss::render_resource_kind::texture);
   const auto wait = [&] {
     bool completed = false;
     const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -120,8 +120,8 @@ void run(gneiss::tasks::execution_mode mode) {
       << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"156c772a-1a1d-4eae-83df-5de0465c4534"}}]},{"uuid":"00000000-0000-4000-8000-000000000003","parent":{"object":null,"source":null},"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://m.mesh","material":"asset://m.material","uuid":"15e8daeb-ec91-4d5f-98b9-095db06f7148"}}]}]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(
-            *app, scene_uri, &scene, &scheduler)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, scene_uri, &scene, &scheduler)} ==
+        gneiss::error::success);
   const auto objects = scene.objects();
   check(objects.size() == 2U);
   const auto capture = [&](std::size_t index) {
@@ -152,10 +152,10 @@ void run(gneiss::tasks::execution_mode mode) {
           cached_value->assets.front() == selected_before);
     std::ofstream(files.root / "extra.material")
         << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,1,1,1]},"texture_uris":["","","","",""]})";
-    const std::array mixed_sources{gneiss::render_resource_source{
-                                       .uri = "asset://extra.material",
+    const std::array mixed_sources{
+        gneiss::render_resource_source{.uri = "asset://extra.material",
                                        .type = gneiss::render_resource_kind::material},
-                                   material_source};
+        material_source};
     auto mixed = app->load_assets(mixed_sources);
     check(mixed && !mixed->ready());
     auto blocked = app->load_assets(mixed_sources);
@@ -187,12 +187,11 @@ void run(gneiss::tasks::execution_mode mode) {
   check(completion.result == gneiss::error::success);
   // 只改变纹理负载不替换材质身份；两个使用者继续持有同一资源。
   check(gneiss::test_support::take_codec(
-            gneiss::encode_texture_ktx2(
-                {.transfer = gneiss::texture_transfer::srgb,
-                 .levels = {{.width = 1U,
-                             .height = 1U,
-                             .pixels = {std::byte{0}, std::byte{255}, std::byte{0},
-                                        std::byte{255}}}}}),
+            gneiss::encode_texture_ktx2({.transfer = gneiss::texture_transfer::srgb,
+                                         .levels = {{.width = 1U,
+                                                     .height = 1U,
+                                                     .pixels = {std::byte{0}, std::byte{255},
+                                                                std::byte{0}, std::byte{255}}}}}),
             bytes, diagnostic) == std::nullopt);
   {
     std::ofstream stream(files.root / "image.ktx2", std::ios::binary | std::ios::trunc);
@@ -216,8 +215,7 @@ void run(gneiss::tasks::execution_mode mode) {
         gneiss::error::success);
   check(assets_request.cancel().ok());
   wait();
-  check(completion.state == gneiss::asset_load_state::cancelled &&
-        completion.assets.empty());
+  check(completion.state == gneiss::asset_load_state::cancelled && completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
         gneiss::error::success);
@@ -228,21 +226,19 @@ void run(gneiss::tasks::execution_mode mode) {
   view.vertices = vertices;
   check(gneiss::test_support::take_value(app->assets().create(view), external.mesh).ok());
   check(gneiss::test_support::take_value(app->assets().create({}, {}), external.material).ok());
-  auto* external_target =
-      objects.front().try_component<gneiss::mesh_component>();
+  auto* external_target = objects.front().try_component<gneiss::mesh_component>();
   check(external_target != nullptr);
   *external_target = external;
   wait();
   check(completion.result == gneiss::error::success &&
-        completion.state == gneiss::asset_load_state::completed &&
-        completion.assets.size() == 1U);
+        completion.state == gneiss::asset_load_state::completed && completion.assets.size() == 1U);
   auto unchanged = objects.front().try_component<gneiss::mesh_component>();
   check(unchanged && unchanged->mesh == external.mesh && unchanged->material == external.material);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   scene.unload();
   check(!scene.is_valid() && !objects.front().is_valid());
-  check(gneiss::error{gneiss::test_support::load_scene(
-            *app, scene_uri, &scene, &scheduler)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, scene_uri, &scene, &scheduler)} ==
+        gneiss::error::success);
   check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
         gneiss::error::success);
   wait();

@@ -215,6 +215,7 @@ private:
   bool stop_host();
   error begin_service_shutdown();
   error advance_frame();
+  error configure_executor(tasks::task_executor&);
   error dispatch_completion_systems();
   struct storage;
   std::unique_ptr<storage> storage_;

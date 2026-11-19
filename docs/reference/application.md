@@ -16,8 +16,12 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 最后一个 Application 引用必须在创建线程释放，析构执行关闭；也可显式调用 `shutdown`。
 初始化失败会回收部分状态，已经进入初始化的平台回调与 shutdown 配对。
 
-原生配置中的字符串在创建期间借用，回调由 Application 保存；回调捕获的借用对象必须
+原生配置中的字符串在创建期间复制，回调由 Application 保存；回调捕获的借用对象必须
 存活至关闭结束。不要让回调强捕获自身 Application，避免引用环。
+
+创建配置的 `executor` 借用宿主任务执行器，必须覆盖 Application 关闭。提供执行器时在创建过程中
+完成资产服务装配；省略时不启用资产任务。协作执行器由宿主的 completions 系统执行 run_ready。
+旧 attach_task_executor 仅供尚未迁移的测试使用，不用于新的宿主装配。
 
 ## 加载请求
 

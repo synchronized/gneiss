@@ -2952,6 +2952,7 @@ int run_editor(int argc, char** argv) {
   }
   gneiss::runtime::application_configuration desc;
   desc.user_root = user_root_text;
+  desc.executor = &state.task_scheduler;
   desc.callbacks.close_requested = [&state]() { return handle_close_requested(&state) != 0U; };
   desc.enable_window = true;
   desc.window.title = title;
@@ -2981,10 +2982,6 @@ int run_editor(int argc, char** argv) {
   application->add_system(
       gneiss::app::stage::update, "editor.update",
       [&state](const gneiss::frame_time& time) { return update_editor(&time, &state); });
-  operation = application->attach_task_executor(state.task_scheduler);
-  if (operation != gneiss::error::success) {
-    return 2;
-  }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   const auto author_monitor_result = state.author_assets.initialize(application->async_files());
   if (author_monitor_result != gneiss::error::success) {
