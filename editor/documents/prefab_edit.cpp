@@ -14,9 +14,9 @@ error collect_component_overrides(meta::const_instance source, meta::const_insta
                                   prefab_property_override_key key,
                                   std::vector<prefab_property_override>& output,
                                   unsigned depth = 0) {
-  if (depth > 64 || source.type_id() != candidate.type_id())
+  if (depth > 64 || source.type().id() != candidate.type().id())
     return error::invalid_argument;
-  if (source.kind() == meta::type_kind::object) {
+  if (source.type().kind() == meta::type_kind::object) {
     auto properties = source.type().template capability<gneiss::meta::cap::object>().properties();
     if (!source.type().registered())
       return error::not_found;

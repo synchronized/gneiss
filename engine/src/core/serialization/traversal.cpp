@@ -70,7 +70,7 @@ diagnostic decode_representation(const read_context& ctx, const instance& target
           if (diagnostic.error.failed())
             return diagnostic.error;
         }
-        if (candidate.kind() == type_kind::scalar) {
+        if (candidate.type().kind() == type_kind::scalar) {
           auto value = candidate.read_value();
           return value ? target.assign(*value) : value.error();
         }
@@ -147,7 +147,7 @@ result<writer::node, serialization::diagnostic> encode_nested(const write_contex
   }
   auto type = resolve(registry, id);
   if (type.capability<gneiss::meta::cap::representation>()) {
-    auto view = const_instance::from_object(registry, id, object);
+    auto view = const_instance::from_object(type, object);
     if (!view)
       return failure(view.error());
     return encode_representation(ctx, *view, *doc);
@@ -175,7 +175,7 @@ encode_view(const write_context& ctx, const registry_ref& registry, const const_
       return failure(error::invalid_argument);
     return encode_representation(ctx, view, *doc);
   }
-  if (view.kind() == type_kind::object) {
+  if (view.type().kind() == type_kind::object) {
     auto p = view.object_data();
     if (!p)
       return failure(p.error());
@@ -208,7 +208,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     if (target.kind() != type_kind::object)
       return failure(error::unsupported, "", "内嵌引用目标必须是注册对象");
     auto declared = reference_policy_for(value_type, override);
-    auto actual = reference_slot->actual_type();
+    auto actual = reference_slot->actual_type().id();
     if (!declared)
       return failure(error::invalid_argument);
     if (declared->encode) {
@@ -238,7 +238,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
         return failure(error::invalid_argument, "", "非空内嵌引用不能编码为 null");
       return content;
     }
-    auto actual_type = resolve(registry, actual);
+    auto actual_type = reference_slot->actual_type();
     if (!actual_type)
       return failure(error::not_found);
     if (!actual_type.guid())
@@ -378,7 +378,7 @@ result<writer::node, serialization::diagnostic> encode_members(const write_conte
   depth_scope scope{ctx, depth};
   if (depth > ctx.maximum_depth())
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
-  auto view = const_instance::from_object(registry, id, object);
+  auto view = const_instance::from_object(gneiss::meta::resolve(registry, id), object);
   if (!view)
     return failure(view.error());
   auto properties = view->type().template capability<gneiss::meta::cap::object>().properties();
@@ -524,7 +524,7 @@ serialization::diagnostic validate_defaults(const read_context& ctx, const regis
     if (status.error.failed())
       return status;
   }
-  auto view = const_instance::from_object(registry, id, object);
+  auto view = const_instance::from_object(gneiss::meta::resolve(registry, id), object);
   if (!view)
     return failure(view.error());
   auto properties = view->type().template capability<gneiss::meta::cap::object>().properties();
@@ -581,7 +581,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
       return failure(created.error());
     object = std::move(*created);
     if (resolve(registry, actual).capability<gneiss::meta::cap::representation>()) {
-      auto view = instance::from_object(registry, actual, object.get());
+      auto view = instance::from_object(gneiss::meta::resolve(registry, actual), object.get());
       if (!view)
         return failure(view.error());
       status = decode_representation(ctx, *view, content);
@@ -648,7 +648,7 @@ serialization::diagnostic decode_view(const read_context& ctx, const registry_re
       return failure(error::invalid_argument);
     return decode_representation(ctx, view, input);
   }
-  if (view.kind() == type_kind::object && !view.requires_replacement())
+  if (view.type().kind() == type_kind::object && !view.requires_replacement())
     return decode_nested(ctx, registry, view, input, depth);
   return decode_nonobject(ctx, registry, view, input, depth, override);
 }
@@ -856,7 +856,7 @@ serialization::diagnostic decode_members(const read_context& ctx, const registry
   depth_scope scope{ctx, depth};
   if (depth > ctx.maximum_depth())
     return failure(error::invalid_argument, "", "嵌套对象超过深度限制");
-  auto view = instance::from_object(registry, id, object);
+  auto view = instance::from_object(gneiss::meta::resolve(registry, id), object);
   if (!view)
     return failure(view.error());
   auto properties =

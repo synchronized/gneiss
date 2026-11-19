@@ -23,7 +23,7 @@ bool supports_field_snapshot(const meta::type& type) {
   if (!policy.content.encode && !policy.content.decode)
     return true;
   for (const auto& field : type.template capability<gneiss::meta::cap::object>().properties())
-    if (field.declaring_type_id() == type.id())
+    if (field.declaring_type() == type)
       return true;
   return false;
 }
@@ -42,15 +42,15 @@ struct capture_state {
                                   const reference_policy* override) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
-    switch (source.kind()) {
+    switch (source.type().kind()) {
     case type_kind::empty:
       return gneiss::value{};
     case type_kind::scalar:
       return source.read_value();
     case type_kind::object: {
-      if (!source.guid())
+      if (!source.type().guid())
         return error::unsupported;
-      record_value_data record{source.guid(), {}};
+      record_value_data record{source.type().guid(), {}};
       auto fields = source.type().template capability<gneiss::meta::cap::object>().properties();
       if (!source.type().registered())
         return error::not_found;
@@ -174,7 +174,7 @@ struct capture_state {
         return binding.error();
       auto owner = reference_slot->owner();
       if (binding->capture) {
-        auto address = detail::cast_base(source.registry(), reference_slot->actual_type(),
+        auto address = detail::cast_base(source.registry(), reference_slot->actual_type().id(),
                                          target_type.id(), const_cast<void*>(owner.get()));
         if (!address)
           return address.error().error;
@@ -185,7 +185,7 @@ struct capture_state {
       // 自定义外部引用不能静默按内嵌对象复制。
       if (binding->encode || binding->decode)
         return error::unsupported;
-      if (!binding->polymorphic && reference_slot->actual_type() != target_type.id())
+      if (!binding->polymorphic && reference_slot->actual_type().id() != target_type.id())
         return error::invalid_argument;
       if (!active.insert(owner.get()).second)
         return error::invalid_argument;
@@ -219,7 +219,7 @@ struct restore_state {
     if (target.requires_replacement())
       return target.replace(
           [&](const instance& temp) { return write(temp, data, depth, false, override); });
-    switch (target.kind()) {
+    switch (target.type().kind()) {
     case type_kind::empty:
       return data.kind() == value_kind::invalid ? error::success : error::invalid_argument;
     case type_kind::scalar:
@@ -429,7 +429,7 @@ struct restore_state {
       if (!created)
         return created.error();
       auto owner = std::move(*created);
-      auto child = instance::from_object(registry, type.id(), owner.get());
+      auto child = instance::from_object(type, owner.get());
       if (!child)
         return child.error();
       auto status = write(*child, data, depth + 1);

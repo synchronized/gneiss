@@ -385,7 +385,7 @@ int main() {
     return 45;
   e::value edited{true};
   auto value_view = e::meta::view(core, edited);
-  if (value_view.kind() != e::meta::type_kind::variant)
+  if (value_view.type().kind() != e::meta::type_kind::variant)
     return 46;
   auto variant = value_view.as_variant();
   if (!variant || variant->alternative_count() != cases.size() || variant->select(12).failed())

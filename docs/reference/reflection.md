@@ -315,7 +315,7 @@ getter 显式失败或数值/文本内容非法时返回错误；成功却返回
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
 普通调用使用无 registry 的查询、注册、序列化及视图入口。
-`const_instance::from_object(type_id, address)` 和可写版本使用默认表，错误按 result 返回。
+`const_instance::from_object(type, address)` 和可写版本接收已解析的 `meta::type`，错误按 result 返回。
 `serialization::json::encode_instance(view)`、`serialization::json::read_into(view, bytes)` 使用
 视图自身绑定的注册表，不重新获取默认表，因此独立表的字段与 codec 语义保持不变。
 Meta 内部递归与 codec 回调仍保留显式上下文；注册表机制测试允许直接验证默认表。
@@ -397,7 +397,7 @@ for (auto property : fields) {
 可写对象直接返回 `instance`，const 对象直接返回 `const_instance`；需要主动只读时传 `std::as_const(object)`。仅接受实际对象的左值，
 不接受临时对象。模板 view 可访问未注册类型的原生能力；属性访问需要已发布的注册数据。
 静态借用不返回错误包装；类型能力查询或分配异常仍向外传播，不承诺 noexcept。
-`from_object(registry, type_id, address)` 要求冻结表并查找已注册对象类型，仍通过 result 表达失败。
+类型 ID 先经 `resolve(registry, id)` 解析；`from_object` 不再负责注册表查询。
 `from_object(type, address)` 使用调用方已解析的对象类型，也支持无 C++ ID 的动态字段描述；
 它检查类型类别及非空地址，不额外要求注册。两种入口都要求地址与类型匹配、目标仍存活。
 
@@ -441,7 +441,7 @@ replace 在独立候选中初始化，初始化失败直接返回其错误且不
 
 视图持有 Registry 以维持元数据寿命，但不持有根对象。父对象销毁、移动或内部地址失效后，
 相关视图不可再使用。子视图不依赖根视图变量自身的寿命。共享视图不意味着目标对象线程安全，
-修改与读取仍需调用方同步。from_object 是内部类型擦除入口，调用方必须保证实际对象匹配类型 ID。
+修改与读取仍需调用方同步。from_object 是内部类型擦除入口，调用方必须保证实际对象匹配传入的类型。
 
 现有反射 JSON 的属性枚举、基础值读写、嵌套遍历和子 codec 赋值均通过实例视图完成。
 字段实例在定位时绑定冻结访问器与宿主地址，由实例中的注册表引用保活访问器；
@@ -587,7 +587,7 @@ const_reference_view.get() 返回实际类型视图；ref<const T> 只允许读�
 base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
 基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
-property::declaring_type() 提供声明类型的可选 GUID，declaring_type_id() 提供运行期身份；
+property::declaring_type() 返回属性所属注册表中的声明类型 `meta::type`；
 原生实例用运行期身份定位父对象及继承字段，对象视图定位字段时
 自动按注册的 upcast 链调整基类地址，支持基类在完整 C++ 对象中具有非零偏移。
 字段实例保存调整后的声明类型地址，普通调用方无需处理 upcast 或访问器。继承字段同样参与 JSON、value 捕获/恢复，遵守 required、
@@ -726,7 +726,7 @@ Meta 不解释扩展内容；其用途及策略优先级由消费模块定义。
 它们用于从动态类型逐步取得借用，与要求有效借用的 read_value/assign/replace 区分。
 
 内部适配器在索引、存在性及能力检查通过后必须返回有效存储；返回空地址属于契约违例，
-由实例构造入口断言。外部类型擦除入口 from_object 仍验证空地址、注册状态和对象类型。
+由实例构造入口断言。外部类型擦除入口 from_object 仍验证空地址及对象类型；空类型返回 not_found，不再区分解析时的未冻结与未找到。
 借用失效不一定能被检测，调用方仍须遵守容器修改、引用替换及对象销毁后的有效期约定。
 
 ## 整体值转换与结构类别
@@ -845,3 +845,10 @@ if (object) {
 能力绑定检查实例类型及注册表上下文、存储和可写性。对象视图不拥有宿主；普通结构体无需
 继承 meta::object。只读成员和受约束 setter 的原有规则保持不变。
 所有能力统一位于 meta::cap；枚举命名为 enumeration，避免 C++ enum 关键字。
+
+### 实例与类型信息
+
+实例通过 `type()` 暴露类型信息，身份与分类统一从 `type().id()`、`type().guid()`、
+`type().kind()` 和 `type().scalar_kind()` 查询。`instance.capability<C>()` 保留，
+因为它将类型能力绑定到实际借用对象。引用视图的 `actual_type()` 直接返回 `meta::type`。
+属性的 `type()` 表示字段类型，`declaring_type()` 表示最初声明该字段的类型，继承不会改变声明归属。

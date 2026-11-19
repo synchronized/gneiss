@@ -97,12 +97,12 @@ int main(int argc, char** argv) {
       !m::resolve<e::material_description>().registered())
     return 4;
   sample object;
-  auto view = m::const_instance::from_object(e::runtime_type_of<sample>(), &object);
-  auto mutable_view = m::instance::from_object(e::runtime_type_of<sample>(), &object);
+  auto view = m::const_instance::from_object(m::resolve<sample>(), &object);
+  auto mutable_view = m::instance::from_object(m::resolve<sample>(), &object);
   if (!view || !mutable_view ||
       !view->template capability<gneiss::meta::cap::object>()->member("speed") ||
       !mutable_view->template capability<gneiss::meta::cap::object>()->member("speed") ||
-      m::const_instance::from_object(e::runtime_type_of<sample>(), nullptr).error() !=
+      m::const_instance::from_object(m::resolve<sample>(), nullptr).error() !=
           e::error::invalid_argument)
     return 12;
   if (mutable_view->capability<m::cap::object>()->member("speed")->assign(e::value{2.0F}).failed())

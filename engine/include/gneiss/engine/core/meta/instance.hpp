@@ -36,17 +36,9 @@ public:
   basic_instance() = default;
   [[nodiscard]] const registry_ref& registry() const noexcept { return type_.registry_; }
   [[nodiscard]] meta::type type() const noexcept { return type_; }
-  [[nodiscard]] type_kind kind() const noexcept { return type_.kind(); }
-  [[nodiscard]] value_kind scalar_kind() const noexcept { return type_.scalar_kind(); }
-  [[nodiscard]] gneiss::guid guid() const noexcept { return type_.guid(); }
-  [[nodiscard]] gneiss::type_id type_id() const noexcept { return type_.id(); }
-  /** 类型擦除入口，调用方保证类型与地址匹配且目标仍然存活。 */
-  static GNEISS_META_API result<basic_instance> from_object(registry_ref, gneiss::type_id, pointer);
-  /** 从已解析类型借用对象；支持无 C++ ID 的动态描述，调用方保证地址与描述匹配。 */
+  /** 从已解析类型借用对象；支持无 C++ ID 的动态描述，调用方保证地址与描述匹配。
+   * 空地址返回 invalid_argument；空类型或非对象类型返回 not_found，不隐式解析类型。 */
   static GNEISS_META_API result<basic_instance> from_object(meta::type, pointer);
-  static result<basic_instance> from_object(gneiss::type_id id, pointer object) {
-    return from_object(default_registry(), id, object);
-  }
   [[nodiscard]] const_instance as_const() const noexcept;
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
@@ -65,7 +57,7 @@ public:
   [[nodiscard]] bool requires_replacement() const noexcept
     requires(Mutable)
   {
-    return parent_ && !writable_ && kind() != type_kind::scalar;
+    return parent_ && !writable_ && type().kind() != type_kind::scalar;
   }
   /** 在独立候选上初始化，成功后交给 setter；初始化失败不调用 setter。要求有效实例。 */
   [[nodiscard]] GNEISS_META_API error replace(const std::function<error(const instance&)>&) const

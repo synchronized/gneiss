@@ -28,7 +28,7 @@ public:
                                                        : nullptr;
   }
   result<meta::const_instance> view() const {
-    return meta::const_instance::from_object(dynamic_type().id(), dynamic_address());
+    return meta::const_instance::from_object(dynamic_type(), dynamic_address());
   }
 };
 using component_description = ref<const component_description_base>;

@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/serialization.hpp>
@@ -118,7 +119,8 @@ bool enum_getter_failure_contract() {
       m::freeze(registry).failed())
     return false;
   const enum_sample object;
-  auto root = m::const_instance::from_object(registry, e::runtime_type_of<enum_sample>(), &object);
+  auto root = m::const_instance::from_object(
+      gneiss::meta::resolve(registry, e::runtime_type_of<enum_sample>()), &object);
   if (!root)
     return false;
   auto member =

@@ -303,7 +303,7 @@ encode_object(const write_context& ctx, type_id id, const void* object) {
   auto registry = ctx.registry();
   if (!registry)
     return failure(registry.error());
-  auto view = const_instance::from_object(*registry, id, object);
+  auto view = const_instance::from_object(gneiss::meta::resolve(*registry, id), object);
   if (!view)
     return failure(view.error());
   return encode_instance(ctx, *view);

@@ -25,8 +25,8 @@ template <bool Mutable> class basic_reference_view {
 
 public:
   /** 当前目标的运行类型；空引用仍遵循引用适配器的声明类型约定。 */
-  gneiss::type_id actual_type() const {
-    return ops()->dynamic_type(readonly().registry(), readonly().data_).id();
+  meta::type actual_type() const {
+    return ops()->dynamic_type(readonly().registry(), readonly().data_);
   }
   /** 显式共享控制块，返回的只读强引用保活目标。 */
   ref<const void> owner() const { return ops()->owner(readonly().data_); }
@@ -52,13 +52,13 @@ public:
       if (!p)
         return error::not_found;
       auto owned = owner();
-      return instance::from_object(v.registry(), actual_type(), const_cast<void*>(owned.get()));
+      return instance::from_object(actual_type(), const_cast<void*>(owned.get()));
     } else {
       auto* p = ops()->get(v.data_);
       if (!p)
         return error::not_found;
       auto owned = owner();
-      return const_instance::from_object(v.registry(), actual_type(), owned.get());
+      return const_instance::from_object(actual_type(), owned.get());
     }
   }
   [[nodiscard]] const_reference_view as_const() const noexcept {

@@ -146,7 +146,8 @@ bool runtime_only_registration() {
   auto number = child->template capability<gneiss::meta::cap::object>()->member("number");
   auto field = child->type().template capability<gneiss::meta::cap::object>().find_property(
       gneiss::property_id{1});
-  if (!number || !field || number->assign(7.0F).failed() || object.child.number != 7 ||
+  if (!number || !field || field.declaring_type() != m::resolve<runtime_child>(registry) ||
+      number->assign(7.0F).failed() || object.child.number != 7 ||
       field.get(foreign).error() != e::error::invalid_argument)
     return false;
   e::serialization::write_context context{registry};

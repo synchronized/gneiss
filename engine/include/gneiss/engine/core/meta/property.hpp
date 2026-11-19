@@ -74,8 +74,8 @@ public:
   [[nodiscard]] GNEISS_META_API const void* extension(gneiss::type_id) const noexcept;
   [[nodiscard]] GNEISS_META_API property_id id() const noexcept;
   [[nodiscard]] GNEISS_META_API std::string_view name() const noexcept;
-  [[nodiscard]] GNEISS_META_API gneiss::guid declaring_type() const noexcept;
-  [[nodiscard]] GNEISS_META_API gneiss::type_id declaring_type_id() const noexcept;
+  /** 最初声明该属性的类型，保留所属注册表；空属性返回空类型。 */
+  [[nodiscard]] GNEISS_META_API meta::type declaring_type() const noexcept;
   [[nodiscard]] GNEISS_META_API meta::type type() const;
   [[nodiscard]] GNEISS_META_API property_capabilities capabilities() const noexcept;
   [[nodiscard]] GNEISS_META_API result<const_instance> get(const const_instance&) const;

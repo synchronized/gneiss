@@ -5,6 +5,7 @@
 #include <cstring>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/resource/property_edit_policy.hpp>
@@ -23,7 +24,7 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
   auto owner = std::get<ref<meta::object>>(copy->payload);
   if (!owner)
     return error::not_found;
-  auto root = meta::instance::from_object(owner->dynamic_type().id(),
+  auto root = meta::instance::from_object(owner->dynamic_type(),
                                           const_cast<void*>(owner->dynamic_address()));
   if (!root)
     return root.error();
@@ -33,7 +34,8 @@ result<value> edit_reference_snapshot(const value& source, const property_edit& 
   auto status = [&]() -> error {
     if (!edit.object)
       return target->assign(edit.data);
-    auto replacement = meta::const_instance::from_object(edit.object_type, edit.object.get());
+    auto replacement = meta::const_instance::from_object(gneiss::meta::resolve(edit.object_type),
+                                                         edit.object.get());
     return replacement ? target->assign(*replacement) : replacement.error();
   }();
   if (status.failed())
@@ -70,8 +72,7 @@ void draw_value(const meta::const_instance& view, const std::string& name, prope
     } else if (editable) {
       const auto& owner = std::get<ref<meta::object>>(held->payload);
       if (owner)
-        target =
-            meta::const_instance::from_object(owner->dynamic_type().id(), owner->dynamic_address());
+        target = meta::const_instance::from_object(owner->dynamic_type(), owner->dynamic_address());
     }
     const bool expanded = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
     if (ImGui::BeginPopupContextItem()) {

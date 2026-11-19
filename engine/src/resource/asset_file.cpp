@@ -3,6 +3,7 @@
 #include "core/serialization/detail/json_adapter.hpp"
 #include <array>
 #include <cstdlib>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
@@ -159,7 +160,8 @@ result<ref<void>, diagnostic> deserialize_object(const serialization::read_conte
   if (!registry)
     return diagnostic{.error = registry.error()};
   if (format.validate) {
-    auto view = meta::const_instance::from_object(*registry, id, decoded->get());
+    auto view =
+        meta::const_instance::from_object(gneiss::meta::resolve(*registry, id), decoded->get());
     if (!view)
       return diagnostic{.error = view.error()};
     auto validation = format.validate(*view);

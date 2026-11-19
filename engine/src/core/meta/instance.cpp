@@ -67,17 +67,6 @@ template GNEISS_META_API meta::type
 cap::container<type_kind::reference, basic_reference_view>::element_type_impl() const;
 
 template <bool Mutable>
-result<basic_instance<Mutable>>
-basic_instance<Mutable>::from_object(registry_ref registry, gneiss::type_id id, pointer object) {
-  if (!object)
-    return error::invalid_argument;
-  if (!registry)
-    return error::invalid_handle;
-  if (!is_frozen(registry))
-    return error::not_ready;
-  return from_object(resolve(registry, id), object);
-}
-template <bool Mutable>
 result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(meta::type description,
                                                                      pointer object) {
   if (!object)
@@ -112,9 +101,9 @@ result<basic_instance<Mutable>> basic_object_view<Mutable>::cast(meta::type type
 }
 template <bool Mutable>
 result<basic_instance<Mutable>> basic_object_view<Mutable>::member(std::string_view name) const {
-  if (target_.kind() == type_kind::invalid)
+  if (target_.type().kind() == type_kind::invalid)
     return error::invalid_state;
-  if (target_.kind() != type_kind::object)
+  if (target_.type().kind() != type_kind::object)
     return error::unsupported;
   const auto field =
       target_.type_.template capability<gneiss::meta::cap::object>().find_property(name);
@@ -122,9 +111,9 @@ result<basic_instance<Mutable>> basic_object_view<Mutable>::member(std::string_v
 }
 template <bool Mutable>
 result<basic_instance<Mutable>> basic_object_view<Mutable>::member(property_id id) const {
-  if (target_.kind() == type_kind::invalid)
+  if (target_.type().kind() == type_kind::invalid)
     return error::invalid_state;
-  if (target_.kind() != type_kind::object || !target_.data_)
+  if (target_.type().kind() != type_kind::object || !target_.data_)
     return error::unsupported;
   if constexpr (Mutable)
     if (!target_.writable_)
@@ -138,7 +127,7 @@ result<basic_instance<Mutable>> basic_object_view<Mutable>::member(property_id i
 template <bool Mutable>
 result<basic_instance<Mutable>>
 basic_object_view<Mutable>::bind_field(const property& field) const {
-  if (field.declaring_type_id() != target_.type_id()) {
+  if (field.declaring_type() != target_.type()) {
     auto base_type = target_.type_.template capability<cap::object>().base_type();
     auto base = cast(base_type);
     if (!base)
@@ -153,8 +142,8 @@ basic_object_view<Mutable>::bind_field(const property& field) const {
   output.type_ = field.type();
   output.parent_ = target_.data_;
   output.binding_ = field.binding();
-  if (output.kind() == type_kind::scalar) {
-    if (output.scalar_kind() == value_kind::invalid)
+  if (output.type().kind() == type_kind::scalar) {
+    if (output.type().scalar_kind() == value_kind::invalid)
       return error::unsupported;
     return output;
   }
@@ -177,9 +166,9 @@ basic_object_view<Mutable>::bind_field(const property& field) const {
 template <bool Mutable>
 result<typename basic_instance<Mutable>::pointer>
 basic_instance<Mutable>::object_data() const noexcept {
-  if (kind() == type_kind::invalid)
+  if (type().kind() == type_kind::invalid)
     return error::invalid_state;
-  if (kind() != type_kind::object)
+  if (type().kind() != type_kind::object)
     return error::unsupported;
   if constexpr (Mutable) {
     if (!mutable_data())
@@ -189,10 +178,10 @@ basic_instance<Mutable>::object_data() const noexcept {
     return data_;
 }
 template <bool Mutable> result<value> basic_instance<Mutable>::read_value() const {
-  GNEISS_ASSERT(kind() != type_kind::invalid, "读取值要求有效的借用实例");
-  if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && data_)
+  GNEISS_ASSERT(type().kind() != type_kind::invalid, "读取值要求有效的借用实例");
+  if (type().kind() == type_kind::variant && type().id() == runtime_type_of<value>() && data_)
     return *static_cast<const value*>(data_);
-  if (kind() == type_kind::reference && access()) {
+  if (type().kind() == type_kind::reference && access()) {
     const auto* ops = access()->template get<reference_ops>();
     return ops && ops->read_object ? result<value>{value{ops->read_object(data_)}}
                                    : result<value>{error::unsupported};
@@ -200,21 +189,21 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
   if (data_ && access()) {
     if (const auto* ops = access()->template get<value_ops>()) {
       auto output = ops->read(data_);
-      if (kind() == type_kind::scalar) {
-        GNEISS_ASSERT(output.kind() == scalar_kind(), "标量读取必须遵守登记的值类型");
+      if (type().kind() == type_kind::scalar) {
+        GNEISS_ASSERT(output.kind() == type().scalar_kind(), "标量读取必须遵守登记的值类型");
         if (!valid_scalar(output))
           return error::invalid_argument;
       }
       return output;
     }
   }
-  if (kind() != type_kind::scalar || !binding_ || !binding_->getter)
+  if (type().kind() != type_kind::scalar || !binding_ || !binding_->getter)
     return error::unsupported;
   value output;
   auto status = binding_->getter(binding_->user_data, parent_, output);
   if (status.failed())
     return status;
-  GNEISS_ASSERT(output.kind() == scalar_kind(), "getter 成功时必须返回登记的值类型");
+  GNEISS_ASSERT(output.kind() == type().scalar_kind(), "getter 成功时必须返回登记的值类型");
   if (!valid_scalar(output))
     return error::invalid_argument;
   return output;
@@ -223,12 +212,13 @@ template <bool Mutable>
 error basic_instance<Mutable>::assign(const value& input) const
   requires(Mutable)
 {
-  GNEISS_ASSERT(kind() != type_kind::invalid, "写入要求有效的目标实例");
-  if (kind() == type_kind::variant && type_id() == runtime_type_of<value>() && mutable_data()) {
+  GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
+  if (type().kind() == type_kind::variant && type().id() == runtime_type_of<value>() &&
+      mutable_data()) {
     *static_cast<value*>(mutable_data()) = input;
     return error::success;
   }
-  if (kind() == type_kind::reference && access()) {
+  if (type().kind() == type_kind::reference && access()) {
     const auto* ops = access()->template get<reference_ops>();
     if (!mutable_data() || !ops || !ops->write_object)
       return error::unsupported;
@@ -237,7 +227,8 @@ error basic_instance<Mutable>::assign(const value& input) const
   }
   if (access()) {
     if (const auto* ops = access()->template get<value_ops>()) {
-      if (kind() == type_kind::scalar && (input.kind() != scalar_kind() || !valid_scalar(input)))
+      if (type().kind() == type_kind::scalar &&
+          (input.kind() != type().scalar_kind() || !valid_scalar(input)))
         return error::invalid_argument;
       if (requires_replacement())
         return replace([input_ptr = &input](const instance& candidate) {
@@ -247,9 +238,9 @@ error basic_instance<Mutable>::assign(const value& input) const
         return ops->write(mutable_data(), input);
     }
   }
-  if (kind() != type_kind::scalar || !binding_ || !binding_->setter || !writable_)
+  if (type().kind() != type_kind::scalar || !binding_ || !binding_->setter || !writable_)
     return error::unsupported;
-  if (input.kind() != scalar_kind() || !valid_scalar(input))
+  if (input.kind() != type().scalar_kind() || !valid_scalar(input))
     return error::invalid_argument;
   return binding_->setter(binding_->user_data, mutable_parent(), input);
 }
@@ -257,17 +248,18 @@ template <bool Mutable>
 error basic_instance<Mutable>::assign(const const_instance& source) const
   requires(Mutable)
 {
-  GNEISS_ASSERT(kind() != type_kind::invalid, "写入要求有效的目标实例");
-  GNEISS_ASSERT(source.kind() != type_kind::invalid, "复制要求有效的来源实例");
+  GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
+  GNEISS_ASSERT(source.type().kind() != type_kind::invalid, "复制要求有效的来源实例");
   if (requires_replacement()) {
-    if (type_id() != source.type_id())
+    if (type().id() != source.type().id())
       return error::invalid_argument;
     const auto* binding = binding_;
     return binding->object_setter(mutable_parent(), source.data_);
   }
-  if ((kind() != type_kind::object && kind() != type_kind::reference) || source.kind() != kind())
+  if ((type().kind() != type_kind::object && type().kind() != type_kind::reference) ||
+      source.type().kind() != type().kind())
     return error::unsupported;
-  if (type_id() != source.type_id())
+  if (type().id() != source.type().id())
     return error::invalid_argument;
   if (!access() || !access()->copy_assign)
     return error::unsupported;
@@ -279,16 +271,16 @@ template <bool Mutable>
 error basic_instance<Mutable>::assign_object(gneiss::type_id id, void* source) const
   requires(Mutable)
 {
-  GNEISS_ASSERT(kind() != type_kind::invalid, "写入要求有效的目标实例");
+  GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
   if (requires_replacement()) {
-    if (!source || id != type_id())
+    if (!source || id != type().id())
       return error::invalid_argument;
     const auto* binding = binding_;
     return binding->object_setter(mutable_parent(), source);
   }
-  if (kind() != type_kind::object)
+  if (type().kind() != type_kind::object)
     return error::unsupported;
-  if (!source || id != type_id())
+  if (!source || id != type().id())
     return error::invalid_argument;
   if (source == mutable_data())
     return error::success;
@@ -312,7 +304,7 @@ error basic_instance<Mutable>::replace(
     const std::function<error(const instance&)>& initialize) const
   requires(Mutable)
 {
-  GNEISS_ASSERT(kind() != type_kind::invalid, "替换要求有效的目标实例");
+  GNEISS_ASSERT(type().kind() != type_kind::invalid, "替换要求有效的目标实例");
   const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
@@ -327,7 +319,7 @@ template <type_kind Kind, template <bool> class View>
 template <bool Mutable>
 result<View<Mutable>>
 cap::container<Kind, View>::bind(const basic_instance<Mutable>& source) const {
-  if (source.kind() == type_kind::invalid)
+  if (source.type().kind() == type_kind::invalid)
     return error::invalid_state;
   if (!*this)
     return error::unsupported;
@@ -389,7 +381,7 @@ template <bool Mutable> property_range basic_object_view<Mutable>::properties() 
 }
 template <bool Mutable>
 result<basic_object_view<Mutable>> cap::object::bind(const basic_instance<Mutable>& source) const {
-  if (source.kind() == type_kind::invalid)
+  if (source.type().kind() == type_kind::invalid)
     return error::invalid_state;
   if (!*this)
     return error::unsupported;
@@ -419,7 +411,7 @@ result<const_instance> property::get(const const_instance& object) const {
   auto info = object.type().template capability<gneiss::meta::cap::object>().find_property(id());
   if (!info)
     return error::not_found;
-  if (info.declaring_type_id() != declaring_type_id() || info.declaring_type() != declaring_type())
+  if (info.declaring_type() != declaring_type())
     return error::invalid_argument;
   auto bound = object.capability<cap::object>();
   return bound ? bound->bind_field(info) : result<const_instance>{bound.error()};
@@ -433,7 +425,7 @@ result<instance> property::get(const instance& object) const {
   auto info = view.type().template capability<gneiss::meta::cap::object>().find_property(id());
   if (!info)
     return error::not_found;
-  if (info.declaring_type_id() != declaring_type_id() || info.declaring_type() != declaring_type())
+  if (info.declaring_type() != declaring_type())
     return error::invalid_argument;
   auto bound = object.capability<cap::object>();
   return bound ? bound->bind_field(info) : result<instance>{bound.error()};

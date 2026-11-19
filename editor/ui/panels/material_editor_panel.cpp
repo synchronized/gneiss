@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "ui/panels/material_editor_panel.hpp"
 #include "ui/panels/reflected_property_editor.hpp"
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <imgui.h>
 #include <optional>
 namespace gneiss::editor {
@@ -69,8 +70,8 @@ void draw_material_editor(material_editor_model& model, gneiss::files::service& 
       // 遍历结束后修改，避免更换快照使借用视图失效。
       if (pending) {
         if (pending->object) {
-          auto source = gneiss::meta::const_instance::from_object(pending->object_type,
-                                                                  pending->object.get());
+          auto source = gneiss::meta::const_instance::from_object(
+              gneiss::meta::resolve(pending->object_type), pending->object.get());
           status = source ? model.replace_object(pending->path, *source) : source.error();
         } else
           status = model.set_value(pending->path, pending->data, serial);

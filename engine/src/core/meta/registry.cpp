@@ -652,11 +652,11 @@ property_id property::id() const noexcept {
 std::string_view property::name() const noexcept {
   return record_ ? record_->name.view() : std::string_view{};
 }
-gneiss::type_id property::declaring_type_id() const noexcept {
-  return record_ ? record_->declaring_id : gneiss::type_id{};
-}
-gneiss::guid property::declaring_type() const noexcept {
-  return record_ ? record_->declaring_type : gneiss::guid{};
+meta::type property::declaring_type() const noexcept {
+  if (!record_)
+    return {};
+  return record_->declaring_id ? resolve(registry_, record_->declaring_id)
+                               : resolve(registry_, record_->declaring_type);
 }
 meta::type property::type() const {
   return record_ ? record_type(registry_, *record_) : meta::type{};

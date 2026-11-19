@@ -68,12 +68,12 @@ bool object_values() {
   shared_holder holder{e::make_ref<shared_probe>()};
   auto view = m::view(registry, holder);
   auto field = view.template capability<m::cap::object>()->member("item");
-  if (!field || field->kind() != m::type_kind::reference)
+  if (!field || field->type().kind() != m::type_kind::reference)
     return false;
   // 显式保活独立于槽位；错误类型赋值不得改变原引用。
   auto slot = field->as_reference();
   if (!slot || view.registry() != registry ||
-      slot->actual_type() != e::runtime_type_of<shared_probe>())
+      slot->actual_type().id() != e::runtime_type_of<shared_probe>())
     return false;
   auto retained = slot->owner();
   auto original = holder.item;
@@ -539,7 +539,7 @@ bool reference_properties() {
   reference_owner owner;
   auto root = m::view(registry, owner);
   auto field = root.template capability<m::cap::object>()->member("target");
-  if (!field || field->kind() != m::type_kind::reference ||
+  if (!field || field->type().kind() != m::type_kind::reference ||
       field->as_reference()->get().error() != e::error::not_found ||
       field->read_value().error() != e::error::unsupported)
     return false;
@@ -906,6 +906,9 @@ bool property_handles() {
   if (fields.empty() || fields.size() != 1)
     return false;
   auto field = fields[0];
+  if (field.declaring_type() != type ||
+      field.declaring_type() == m::resolve<shared_probe>(second) || m::property{}.declaring_type())
+    return false;
   auto member = field.get(view);
   if (!member || member->assign(23).failed() || probe.number != 23)
     return false;
@@ -921,7 +924,7 @@ bool property_handles() {
       return false;
     auto inherited_fields =
         derived.as_const().type().template capability<m::cap::object>().properties();
-    if (inherited_fields.empty() || inherited_fields[0].declaring_type() != shared_probe::type_guid)
+    if (inherited_fields.empty() || inherited_fields[0].declaring_type() != type)
       return false;
   }
   // 范围、迭代器和独立句柄均保活表，但没有持有 probe。
@@ -1008,8 +1011,8 @@ int main() try {
       m::freeze(registry).failed())
     return 3;
   auto root = m::view(registry, std::as_const(source));
-  if (root.kind() != m::type_kind::object || root.guid() != object::type_guid ||
-      root.type_id() != e::runtime_type_of<object>())
+  if (root.type().kind() != m::type_kind::object || root.type().guid() != object::type_guid ||
+      root.type().id() != e::runtime_type_of<object>())
     return 4;
   auto entries = root.type().template capability<m::cap::object>().properties();
   if (entries.empty() || entries.size() != 4)
@@ -1020,11 +1023,12 @@ int main() try {
       return 44;
   }
   auto config = root.template capability<m::cap::object>()->member("config");
-  if (!config || config->guid() != settings::type_guid || config->kind() != m::type_kind::object)
+  if (!config || config->type().guid() != settings::type_guid ||
+      config->type().kind() != m::type_kind::object)
     return 6;
   auto speed = config->template capability<m::cap::object>()->member(gneiss::property_id{1});
-  if (!speed || speed->kind() != m::type_kind::scalar ||
-      speed->scalar_kind() != e::value_kind::float32 ||
+  if (!speed || speed->type().kind() != m::type_kind::scalar ||
+      speed->type().scalar_kind() != e::value_kind::float32 ||
       std::get<float>(speed->read_value()->payload) != 1)
     return 7;
   if (speed->capability<m::cap::object>().error() != e::error::unsupported ||

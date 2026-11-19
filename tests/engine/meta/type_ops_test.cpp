@@ -222,7 +222,7 @@ int main() {
   // 整体转换不改变结构类别，也不改变默认 JSON 的对象格式。
   mapped_value mapped;
   auto mapped_view = m::view(registry, mapped);
-  CHECK(mapped_view.kind() == m::type_kind::object);
+  CHECK(mapped_view.type().kind() == m::type_kind::object);
   CHECK(mapped_view.read_value() && *mapped_view.read_value() == e::value{std::int64_t{7}});
   CHECK(mapped_view.assign(e::value{std::int64_t{9}}).ok());
   CHECK(mapped.number == 9);
@@ -359,7 +359,7 @@ int main() {
   CHECK(lazy.as_variant()->value()->read_value()->kind() == e::value_kind::int64);
   cannot_construct.emplace<1>(1.0F);
   auto unknown_object = lazy.as_variant()->value();
-  CHECK(unknown_object && unknown_object->kind() == m::type_kind::object);
+  CHECK(unknown_object && unknown_object->type().kind() == m::type_kind::object);
   CHECK(unknown_object->as_const()
             .type()
             .template capability<gneiss::meta::cap::object>()

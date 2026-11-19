@@ -50,7 +50,8 @@ gneiss::error edit_description(scene_edit_session& document, editor_command_hist
   if (!target)
     return target.error();
   if (edit.object) {
-    auto source = meta::const_instance::from_object(edit.object_type, edit.object.get());
+    auto source = meta::const_instance::from_object(gneiss::meta::resolve(edit.object_type),
+                                                    edit.object.get());
     if (!source)
       return source.error();
     status = target->assign(*source);
@@ -251,7 +252,8 @@ gneiss::error edit_component_description(scene_edit_session& document,
         auto owned = serialization::restore_value<value>(*captured);
         return owned ? target->assign(*owned) : owned.error().error;
       }
-      auto source = meta::const_instance::from_object(edit.object_type, edit.object.get());
+      auto source = meta::const_instance::from_object(gneiss::meta::resolve(edit.object_type),
+                                                      edit.object.get());
       return source ? target->assign(*source) : source.error();
     });
     if (!changed)
