@@ -27,11 +27,11 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   const std::string assets = GNEISS_EDITOR_TEST_ASSET_ROOT;
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.asset_root = assets;
   gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   desc.executor = &scheduler;
-  std::shared_ptr<gneiss::runtime::application> app;
+  std::shared_ptr<gneiss::app::application> app;
   gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   document_editing editing;
@@ -39,8 +39,7 @@ int main() try {
   auto& history = editing.history();
   editor_camera camera;
   editor_scene_loader loader;
-  if (gneiss::error{
-          gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc), app)}
           .failed() ||
       gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
       (world = world_owner.get()) == nullptr || camera.initialize().failed() || !app->step() ||

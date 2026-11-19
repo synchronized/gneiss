@@ -19,11 +19,11 @@ void check(bool value, std::source_location where = std::source_location::curren
 }
 int main() try {
   check(e::initialize_meta().ok());
-  gneiss::runtime::application_configuration configuration;
+  gneiss::app::configuration configuration;
   configuration.executor = &gneiss::test_support::application_tasks();
   configuration.asset_root = GNEISS_TEST_ASSET_ROOT;
-  std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create(configuration), app)
+  std::shared_ptr<gneiss::app::application> app;
+  check(gneiss::test_support::assign_value(gneiss::app::application::create(configuration), app)
             .ok());
   auto world = gneiss::create_native();
   check(bool(world));

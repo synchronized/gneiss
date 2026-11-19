@@ -59,11 +59,11 @@ int main() try {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root);
   const auto root_text = root.generic_string();
-  runtime::application_configuration config;
+  app::configuration config;
   config.user_root = root_text;
   config.asset_root = root_text;
-  std::shared_ptr<runtime::application> app;
-  if (gneiss::test_support::assign_value(runtime::application::create(config), app).failed())
+  std::shared_ptr<app::application> app;
+  if (gneiss::test_support::assign_value(app::application::create(config), app).failed())
     return 1;
   if (!app->step())
     return 1;

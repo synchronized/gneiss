@@ -60,7 +60,7 @@ struct context {
   gneiss::render::queue_stats stats;
   std::vector<sample> samples;
 };
-gneiss::error native_update(runtime::application& app, context& state) {
+gneiss::error native_update(app::application& app, context& state) {
   const auto now = std::chrono::steady_clock::now();
   const auto elapsed = std::chrono::duration<double>(now - state.start).count();
   const auto interval = std::chrono::duration<double, std::milli>(now - state.previous).count();
@@ -173,15 +173,15 @@ int main(int argc, char** argv) try {
     }
   }
   state.close_during_load = mode == "close";
-  std::shared_ptr<runtime::application> app;
-  runtime::application_configuration desc;
+  std::shared_ptr<app::application> app;
+  app::configuration desc;
   const auto root = state.root.string();
   desc.enable_window = true;
   desc.asset_root = root;
   desc.executor = &scheduler;
   desc.window.title = title;
   desc.window.high_dpi = false;
-  if (gneiss::test_support::assign_value(runtime::application::create(desc), app) !=
+  if (gneiss::test_support::assign_value(app::application::create(desc), app) !=
       gneiss::error::success) {
     return 1;
   }

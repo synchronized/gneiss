@@ -13,7 +13,7 @@
 
 namespace gneiss::editor {
 
-gneiss::error editor_scene_loader::request(runtime::application& application,
+gneiss::error editor_scene_loader::request(app::application& application,
                                            const document_editing& editing, std::string_view uri) {
   if (active() || editing.active()) {
     return gneiss::error::not_ready;
@@ -29,7 +29,7 @@ gneiss::error editor_scene_loader::request(runtime::application& application,
   return gneiss::error::success;
 }
 
-gneiss::error editor_scene_loader::cancel(runtime::application& application) {
+gneiss::error editor_scene_loader::cancel(app::application& application) {
   if (!active()) {
     return gneiss::error::not_ready;
   }
@@ -43,9 +43,9 @@ gneiss::error editor_scene_loader::cancel(runtime::application& application) {
   return gneiss::error::success;
 }
 
-gneiss::error editor_scene_loader::advance(runtime::application& application,
-                                           document_editing& editing, gneiss::world& world,
-                                           editor_camera& camera, bool& changed) {
+gneiss::error editor_scene_loader::advance(app::application& application, document_editing& editing,
+                                           gneiss::world& world, editor_camera& camera,
+                                           bool& changed) {
   changed = false;
   if (visuals_ && visuals_.ready()) {
     auto completed = visuals_.take();

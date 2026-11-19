@@ -22,13 +22,13 @@
 #include <string_view>
 
 namespace {
-std::shared_ptr<gneiss::runtime::application> create_application(std::string_view asset_root) {
-  gneiss::runtime::application_configuration desc;
+std::shared_ptr<gneiss::app::application> create_application(std::string_view asset_root) {
+  gneiss::app::configuration desc;
   desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = asset_root;
-  std::shared_ptr<gneiss::runtime::application> application;
-  return (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
-                                             application) == gneiss::error::success)
+  std::shared_ptr<gneiss::app::application> application;
+  return (gneiss::test_support::assign_value(gneiss::app::application::create(desc), application) ==
+          gneiss::error::success)
              ? application
              : nullptr;
 }

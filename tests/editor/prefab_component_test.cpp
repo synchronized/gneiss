@@ -127,8 +127,8 @@ int main() try {
   reference.overrides[0].operation = e::value{std::string("wrong")};
   check(e::prepare_prefab_reference(*source, reference, effective).failed());
   reference.overrides.clear();
-  std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
+  std::shared_ptr<gneiss::app::application> app;
+  check(gneiss::test_support::assign_value(gneiss::app::application::create({}), app).ok());
   auto world_result = gneiss::create_native();
   check(bool(world_result));
   auto world_owner = std::move(*world_result);

@@ -68,7 +68,7 @@ struct runtime_context final {
   gneiss::logging::logger* log = nullptr;
   std::filesystem::path stop_file;
   std::uint64_t next_stop_check_ns = 0U;
-  gneiss::runtime::application* application{};
+  gneiss::app::application* application{};
   bool has_logged_first_frame = false;
   gneiss::asset_request<gneiss::input::action_map> input_request{};
   std::string input_uri{};
@@ -511,7 +511,7 @@ private:
     std::error_code error;
     std::filesystem::remove(context.stop_file, error);
   }
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.enable_window = true;
   desc.window.title = project.name;
   desc.window.visible =
@@ -524,8 +524,8 @@ private:
                                                   : gneiss::tasks::execution_mode::thread_pool});
   context.tasks = &scheduler;
   desc.executor = &scheduler;
-  gneiss::runtime::application* application{};
-  auto created = gneiss::runtime::application::create(desc);
+  gneiss::app::application* application{};
+  auto created = gneiss::app::application::create(desc);
   auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
   if (operation != gneiss::error::success) {
     log.write({.severity = gneiss::logging::level::error,

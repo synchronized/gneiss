@@ -17,7 +17,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace gneiss::runtime {
+namespace gneiss::app {
 class application;
 }
 
@@ -31,9 +31,9 @@ public:
   imgui_adapter(const imgui_adapter&) = delete;
   imgui_adapter& operator=(const imgui_adapter&) = delete;
 
-  [[nodiscard]] gneiss::error initialize(runtime::application& application);
-  void shutdown(runtime::application& application) noexcept;
-  [[nodiscard]] gneiss::error begin_frame(runtime::application& application,
+  [[nodiscard]] gneiss::error initialize(app::application& application);
+  void shutdown(app::application& application) noexcept;
+  [[nodiscard]] gneiss::error begin_frame(app::application& application,
                                           const gneiss::frame_time& time);
   /** 结束 UI 帧并借用绘制数据；有效期至下次 render 或 shutdown，宿主复制进自己的帧。 */
   [[nodiscard]] gneiss::result<gneiss::ui_draw_view> render();

@@ -183,8 +183,7 @@ scene_edit_session& scene_edit_session::operator=(scene_edit_session&& other) no
   return *this;
 }
 
-gneiss::error scene_edit_session::adopt(runtime::application& application,
-                                        gneiss::scene_instance scene,
+gneiss::error scene_edit_session::adopt(app::application& application, gneiss::scene_instance scene,
                                         const scene_document_snapshot& initial,
                                         std::span<const gneiss::scene_object_binding> objects) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
@@ -225,8 +224,8 @@ gneiss::error scene_edit_session::adopt(runtime::application& application,
   }
 }
 
-gneiss::error scene_edit_session::create_empty(runtime::application& application,
-                                               gneiss::world* world, gneiss::guid scene_uuid) {
+gneiss::error scene_edit_session::create_empty(app::application& application, gneiss::world* world,
+                                               gneiss::guid scene_uuid) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::error::invalid_state;
   if (!world || !world->is_owner_thread() || scene_uuid.is_nil())
@@ -269,7 +268,7 @@ gneiss::error scene_edit_session::create_empty(runtime::application& application
   return gneiss::error::success;
 }
 
-gneiss::error scene_edit_session::create_empty(runtime::application& application,
+gneiss::error scene_edit_session::create_empty(app::application& application,
                                                gneiss::world* world) {
   {
     return create_empty(application, world, make_uuid_value());

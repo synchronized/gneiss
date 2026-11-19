@@ -12,7 +12,7 @@
 
 using namespace std::chrono_literals;
 int main() try {
-  auto signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  auto signal = std::make_shared<gneiss::app::main_loop_wakeup>();
   const auto initial = signal->snapshot();
   if (signal->wait(initial, 1ms)) {
     return 1;
@@ -73,7 +73,7 @@ int main() try {
       !signal->wait(before, 0ms)) {
     return 5;
   }
-  auto other_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  auto other_signal = std::make_shared<gneiss::app::main_loop_wakeup>();
   const auto other_scope = scheduler.make_scope(other_signal);
   gneiss::tasks::handle other_task;
   const auto own_generation = signal->snapshot();
@@ -103,7 +103,7 @@ int main() try {
     return 7;
   }
   gneiss::tasks::scheduler workers({.workers = 1U});
-  auto worker_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  auto worker_signal = std::make_shared<gneiss::app::main_loop_wakeup>();
   const auto worker_scope = workers.make_scope(worker_signal);
   gneiss::tasks::handle worker_task;
   if (workers.submit(
@@ -125,7 +125,7 @@ int main() try {
     return 10;
   }
   // 任务已运行时撤销宿主引用；关闭等待迟到完成，信号不得引用宿主内存。
-  auto late_signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  auto late_signal = std::make_shared<gneiss::app::main_loop_wakeup>();
   std::weak_ptr<wakeup_signal> late_weak = late_signal;
   const auto late_scope = workers.make_scope(late_signal);
   std::barrier late_barrier(2);

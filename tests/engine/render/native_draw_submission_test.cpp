@@ -19,7 +19,7 @@ struct draw_context {
   unsigned failure = 0;
 };
 
-gneiss::error update(gneiss::runtime::application& app, draw_context& context) noexcept {
+gneiss::error update(gneiss::app::application& app, draw_context& context) noexcept {
   ++context.updates;
   const auto submit_ui = [&](const gneiss::ui_draw_view& value) {
     return context.ui.replace(value, app.render());
@@ -88,10 +88,9 @@ gneiss::error update(gneiss::runtime::application& app, draw_context& context) n
 
 int main() {
   draw_context context;
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration config;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
-          .failed()) {
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration config;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(config), app).failed()) {
     return 1;
   }
   app->add_system(gneiss::app::stage::update, "draw.update",

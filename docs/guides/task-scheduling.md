@@ -24,9 +24,9 @@ Editor 和 Runtime 各自在宿主中创建一个 `scheduler`。默认使用三�
 ```cpp
 gneiss::tasks::scheduler scheduler({
     .mode = gneiss::tasks::execution_mode::cooperative});
-gneiss::runtime::application_configuration config;
+gneiss::app::configuration config;
 config.executor = &scheduler;
-auto created = gneiss::runtime::application::create(config);
+auto created = gneiss::app::application::create(config);
 if (!created)
   return created.error();
 auto application = std::move(*created); // 必须先于 scheduler 关闭、销毁。

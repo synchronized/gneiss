@@ -519,7 +519,7 @@ Editor 4、Runtime 7 退出并完成关闭。静态矩阵及跨工程完整 UI �
 
 ### 接口定稿与接入进度（已确认）
 
-- 待实施：Application 类型与配置统一到 gneiss::app：application、configuration；不保留旧名称别名。
+- 已实现：Application 类型与配置统一到 gneiss::app：application、configuration；不保留旧名称别名。
   系统适配辅助函数收进 detail，公共声明与私有实现声明分组整理。
 - 调度协议已实现，宿主接入待完成：启动等待采用步骤完成协议，支持 start_progress::pending/complete；不增加生命周期边的任意 bool
   判断函数表。pending 继续分发事件和完成，完成步骤不重放，失败/退出走统一停止。
@@ -530,8 +530,20 @@ Editor 4、Runtime 7 退出并完成关闭。静态矩阵及跨工程完整 UI �
 等待全部步骤完成。生命周期测试覆盖等待成功、失败及等待中主动退出，验证已完成步骤不重放。
 目前是调度协议阶段成果；真实宿主异步等待还需连同 IPC/停止请求的响应职责一起接入，
 不能直接将 Runtime update 中的输入等待搬入启动步骤而停止其 IPC 与停止文件处理。
-命名统一、完整宿主接入及最终矩阵仍待完成。
+完整宿主接入及最终矩阵仍待完成。
 
 启动等待协议的 Windows Clang Debug 引擎及两项 Application 测试目标构建通过，
 native-application 与 native-application-flow 均通过，git diff --check 通过。
 此增量尚未重跑完整 GPU 与静态构建矩阵。
+
+### Application 命名统一
+
+引擎 application/configuration、内部主循环唤醒及前置声明统一到 gneiss::app；Runtime 宿主自身
+仍使用原有 gneiss::host 边界。Editor、Runtime、示例、夹具及当前参考文档同步迁移，删除旧名称。
+make_system/make_start_system/make_stop_system 放入 app::detail；Application 私有声明统一置于底部。
+文件仍为 application.hpp、configuration.hpp 和 schedule.hpp，不增加转发头或兼容别名。
+
+Windows Clang Debug 全量构建通过，20 项定向回归全部通过（11 CPU、9 GPU）：
+覆盖 Application 生命周期与唤醒、引擎/内部头文件边界、Runtime 场景加载/异步输入/停止协议、
+Editor 与项目管理器 smoke、会话及启动诊断、minimal、scene_viewer 双视图和原生窗口。
+当前源代码与 Reference/Guide 无旧 Application 类型名称残留；历史记录保留原名称。

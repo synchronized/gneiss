@@ -11,10 +11,10 @@ namespace gneiss::tasks {
 class executor;
 }
 
-namespace gneiss::runtime {
+namespace gneiss::app {
 
 /** 原生创建配置；字符串仅在 create 期间借用，Application 复制后用于异步启动。 */
-struct application_configuration final {
+struct configuration final {
   /** 借用资产任务执行器，必须覆盖 Application 关闭。空表示不装配资产任务。 */
   tasks::executor* executor{};
   bool enable_window = false;
@@ -26,4 +26,4 @@ struct application_configuration final {
   std::string_view user_root;
 };
 
-} // namespace gneiss::runtime
+} // namespace gneiss::app

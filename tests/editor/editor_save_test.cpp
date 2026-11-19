@@ -44,14 +44,13 @@ constexpr std::string_view material_uri = "asset://materials/triangle.material.j
   return static_cast<bool>(stream);
 }
 
-[[nodiscard]] gneiss::error
-create_application(const std::filesystem::path& root,
-                   std::shared_ptr<gneiss::runtime::application>& output) {
+[[nodiscard]] gneiss::error create_application(const std::filesystem::path& root,
+                                               std::shared_ptr<gneiss::app::application>& output) {
   const auto root_text = root.generic_string();
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = root_text;
-  return gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output);
+  return gneiss::test_support::assign_value(gneiss::app::application::create(desc), output);
 }
 
 } // namespace
@@ -74,7 +73,7 @@ int main() try {
     return 2;
   }
 
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
@@ -203,7 +202,7 @@ int main() try {
   session.close();
   application.reset();
 
-  std::shared_ptr<gneiss::runtime::application> reloaded_application;
+  std::shared_ptr<gneiss::app::application> reloaded_application;
   gneiss::world_owner reloaded_world;
   std::vector<gneiss::scene_object_binding> reloaded_objects;
   gneiss::scene_instance reloaded_scene{};

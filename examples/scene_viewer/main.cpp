@@ -53,8 +53,8 @@ void report_failure(std::string_view stage, gneiss::error result) {
                static_cast<int>(result.message().size()), result.message().data());
 }
 
-gneiss::error update_sample(gneiss::runtime::application& application,
-                            const gneiss::frame_time& time, void* user_data) noexcept {
+gneiss::error update_sample(gneiss::app::application& application, const gneiss::frame_time& time,
+                            void* user_data) noexcept {
   if (user_data == nullptr) {
     return gneiss::error::invalid_argument;
   }
@@ -106,7 +106,7 @@ gneiss::error update_sample(gneiss::runtime::application& application,
 }
 
 // 两个视图共享宿主 World，UI 引用宿主持有的离屏目标。
-gneiss::result<void> configure_dual_view(gneiss::runtime::application& application,
+gneiss::result<void> configure_dual_view(gneiss::app::application& application,
                                          const std::array<gneiss::rid, 2>& targets,
                                          gneiss::ui_draw_list& ui) {
   using namespace gneiss;
@@ -199,12 +199,12 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   const auto frame_limit = measure ? measure_warmup_frames + measure_sample_frames
                            : smoke ? 3U
                                    : 0U;
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   config.enable_window = true;
   config.window.title = title;
   config.asset_root = asset_root;
   config.executor = &scheduler;
-  auto created = gneiss::runtime::application::create(config);
+  auto created = gneiss::app::application::create(config);
   if (!created) {
     report_failure("创建 Application", created.error());
     return 1;

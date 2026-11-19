@@ -179,12 +179,12 @@ bool test_prefab_composite_identity() {
 bool test_capture_prefab_scene() {
   constexpr std::string_view asset_root = GNEISS_RUNTIME_TEST_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = asset_root;
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   gneiss::scene_instance scene = {};
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), application)
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(desc), application)
           .failed())
     return false;
   gneiss::scene_content prepared;

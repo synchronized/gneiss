@@ -59,12 +59,12 @@ void run(gneiss::tasks::execution_mode mode) {
                  static_cast<std::streamsize>(bytes.size()));
   }
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
+  check(gneiss::test_support::assign_value(app::application::create(desc), app) ==
         gneiss::error::success);
   check(app->step().ok());
   gneiss::asset_batch_request empty;

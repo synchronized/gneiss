@@ -17,7 +17,7 @@
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-namespace gneiss::runtime {
+namespace gneiss::app {
 class application;
 }
 
@@ -113,12 +113,12 @@ public:
   scene_edit_session(scene_edit_session&& other) noexcept;
   scene_edit_session& operator=(scene_edit_session&& other) noexcept;
   /** 接收场景与本次加载的固定文档快照；成功后拥有句柄，不从 World 反推描述。所属线程调用。 */
-  [[nodiscard]] gneiss::error adopt(runtime::application& application, gneiss::scene_instance scene,
+  [[nodiscard]] gneiss::error adopt(app::application& application, gneiss::scene_instance scene,
                                     const scene_document_snapshot& initial,
                                     std::span<const gneiss::scene_object_binding> objects);
-  [[nodiscard]] gneiss::error create_empty(runtime::application& application, gneiss::world* world,
+  [[nodiscard]] gneiss::error create_empty(app::application& application, gneiss::world* world,
                                            gneiss::guid scene_uuid);
-  [[nodiscard]] gneiss::error create_empty(runtime::application& application, gneiss::world* world);
+  [[nodiscard]] gneiss::error create_empty(app::application& application, gneiss::world* world);
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept;
@@ -251,7 +251,7 @@ private:
   gneiss::world* world_ = nullptr;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
   gneiss::error report_projection(const version&, gneiss::error) noexcept;
-  runtime::application* application_{};
+  app::application* application_{};
   gneiss::scene_instance scene_{};
   entity_id selection_;
   std::string uri_;

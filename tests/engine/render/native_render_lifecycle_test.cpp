@@ -10,11 +10,10 @@
 
 int main() try {
   namespace native = gneiss;
-  std::shared_ptr<gneiss::runtime::application> first;
-  std::shared_ptr<gneiss::runtime::application> second;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create({}), first)
-          .failed() ||
-      gneiss::test_support::assign_value(gneiss::runtime::application::create({}), second).failed())
+  std::shared_ptr<gneiss::app::application> first;
+  std::shared_ptr<gneiss::app::application> second;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create({}), first).failed() ||
+      gneiss::test_support::assign_value(gneiss::app::application::create({}), second).failed())
     return 1;
   auto& resources = first->render();
   auto& other = second->render();

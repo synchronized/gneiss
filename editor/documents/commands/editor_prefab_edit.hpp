@@ -14,14 +14,14 @@ class editor_prefab_edit final {
 public:
   editor_prefab_edit();
   ~editor_prefab_edit();
-  gneiss::error request(runtime::application& application, gneiss::tasks::executor& executor,
+  gneiss::error request(app::application& application, gneiss::tasks::executor& executor,
                         scene_edit_session& session, editor_command_history& history,
                         std::string_view name, std::string_view uri, entity_id parent);
-  gneiss::error request_remove(runtime::application& application, scene_edit_session& session,
+  gneiss::error request_remove(app::application& application, scene_edit_session& session,
                                editor_command_history& history, entity_id root);
-  gneiss::error request_refresh(runtime::application& application,
-                                gneiss::tasks::executor& executor, scene_edit_session& session,
-                                editor_command_history& history, entity_id root);
+  gneiss::error request_refresh(app::application& application, gneiss::tasks::executor& executor,
+                                scene_edit_session& session, editor_command_history& history,
+                                entity_id root);
   void advance();
   void cancel();
   bool active() const noexcept;

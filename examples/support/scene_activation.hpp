@@ -14,7 +14,7 @@ struct scene_activation {
   gneiss::asset_batch_request visuals;
 };
 /** 内容已完成异步加载后调用；只做内存组合、实例化及提交视觉请求，不等待 I/O。 */
-inline gneiss::result<scene_activation> activate_scene(gneiss::runtime::application& app,
+inline gneiss::result<scene_activation> activate_scene(gneiss::app::application& app,
                                                        gneiss::world& world,
                                                        const gneiss::scene_content& content) {
   using namespace gneiss;

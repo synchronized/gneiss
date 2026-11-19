@@ -4,7 +4,7 @@
 #include "async_document.hpp"
 #include "documents/commands/editor_prefab_edit.hpp"
 namespace gneiss::test_support {
-inline gneiss::error drive_prefab_edit(runtime::application& app, editor::editor_prefab_edit& edit,
+inline gneiss::error drive_prefab_edit(app::application& app, editor::editor_prefab_edit& edit,
                                        gneiss::tasks::scheduler& tasks) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (edit.active()) {
@@ -31,9 +31,9 @@ inline gneiss::error finish_history(editor::editor_command_history& history, gne
   }
   return status;
 }
-inline gneiss::error create_prefab_document(runtime::application& app,
-                                            editor::scene_edit_session& doc, std::string_view name,
-                                            std::string_view uri, entity_id parent, entity_id& root,
+inline gneiss::error create_prefab_document(app::application& app, editor::scene_edit_session& doc,
+                                            std::string_view name, std::string_view uri,
+                                            entity_id parent, entity_id& root,
                                             gneiss::tasks::scheduler* tasks = nullptr) {
   root = {};
   if (!tasks)
@@ -48,8 +48,7 @@ inline gneiss::error create_prefab_document(runtime::application& app,
     root = doc.selected_prefab_node()->node;
   return status;
 }
-inline gneiss::error refresh_prefab_document(runtime::application& app,
-                                             editor::scene_edit_session& doc,
+inline gneiss::error refresh_prefab_document(app::application& app, editor::scene_edit_session& doc,
                                              editor::editor_command_history& history,
                                              entity_id root) {
   editor::editor_prefab_edit edit;

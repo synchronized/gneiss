@@ -122,7 +122,7 @@ int map_mouse_button(std::uint32_t button) noexcept {
   }
 }
 
-gneiss::error synchronize_input_state(runtime::application& application) noexcept {
+gneiss::error synchronize_input_state(app::application& application) noexcept {
   auto& io = ImGui::GetIO();
   const auto& keyboard = application.input().keyboard();
   update_modifiers(io, keyboard.modifiers);
@@ -161,7 +161,7 @@ imgui_adapter::~imgui_adapter() noexcept {
   }
 }
 
-gneiss::error imgui_adapter::initialize(runtime::application& application) {
+gneiss::error imgui_adapter::initialize(app::application& application) {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return gneiss::error::invalid_state;
   }
@@ -246,7 +246,7 @@ gneiss::error imgui_adapter::initialize(runtime::application& application) {
   return gneiss::error::success;
 }
 
-void imgui_adapter::shutdown(runtime::application& application) noexcept {
+void imgui_adapter::shutdown(app::application& application) noexcept {
   // 停止阶段已拒绝新请求，但仍必须释放现有 UI 和资源引用。
   if (!application.is_owner_thread()) {
     return;
@@ -259,7 +259,7 @@ void imgui_adapter::shutdown(runtime::application& application) noexcept {
   }
 }
 
-gneiss::error imgui_adapter::begin_frame(runtime::application& application,
+gneiss::error imgui_adapter::begin_frame(app::application& application,
                                          const gneiss::frame_time& time) {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return gneiss::error::invalid_state;

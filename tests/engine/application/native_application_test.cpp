@@ -33,7 +33,7 @@ void test_loop_callback_exceptions() {
   for (bool startup : {true, false}) {
     bool acquired{};
     unsigned released{};
-    auto created = runtime::application::create({});
+    auto created = app::application::create({});
     check(bool(created));
     auto app = std::move(*created);
     app->on_start("acquire", [&] {
@@ -63,9 +63,9 @@ void test_loop_callback_exceptions() {
 
 void test_asset_request_boundaries() {
   using namespace gneiss;
-  runtime::application_configuration config;
-  std::shared_ptr<runtime::application> app;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+  app::configuration config;
+  std::shared_ptr<app::application> app;
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
         gneiss::error::success);
   gneiss::asset_batch_request empty_assets;
   check(!empty_assets.progress() && empty_assets.cancel() == gneiss::error::invalid_state);
@@ -84,10 +84,10 @@ void test_loading_request_lifetime() {
   using namespace gneiss;
   gneiss::tasks::scheduler tasks(
       {.workers = 1, .mode = gneiss::tasks::execution_mode::cooperative});
-  runtime::application_configuration config;
+  app::configuration config;
   config.asset_root = ".";
   config.executor = &tasks;
-  auto created = runtime::application::create(config);
+  auto created = app::application::create(config);
   check(bool(created));
   auto app = std::move(*created);
   check(app->step().ok());
@@ -114,9 +114,9 @@ void test_loading_request_lifetime() {
   auto cancelled = request.take();
   check(bool(cancelled) && cancelled->state == gneiss::asset_load_state::cancelled && !request);
   // 每个 Application 的批次独立；关闭一个不会使另一个的请求失效。
-  runtime::application_configuration other_config;
+  app::configuration other_config;
   other_config.executor = &tasks;
-  auto other_created = runtime::application::create(other_config);
+  auto other_created = app::application::create(other_config);
   check(bool(other_created));
   check((*other_created)->step().ok());
   auto independent = (*other_created)->assets().load_batch({});
@@ -137,13 +137,12 @@ void test_loading_request_lifetime() {
 void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
   for (int stage = 0; stage < 3; ++stage) {
     gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-    gneiss::runtime::application_configuration config;
+    gneiss::app::configuration config;
     config.asset_root = GNEISS_TEST_ASSET_ROOT;
     config.executor = &scheduler;
     unsigned closed{};
-    std::shared_ptr<gneiss::runtime::application> app;
-    check(
-        gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok());
+    std::shared_ptr<gneiss::app::application> app;
+    check(gneiss::test_support::assign_value(gneiss::app::application::create(config), app).ok());
     app->on_stop("closed", [&] { ++closed; });
     if (stage != 0)
       check(app->step().ok());
@@ -198,7 +197,7 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
 void test_startup_failure() {
   using namespace gneiss;
   unsigned initialized{}, closed{}, updates{};
-  auto created = runtime::application::create({});
+  auto created = app::application::create({});
   check(bool(created));
   auto app = std::move(*created);
   check(!app->async_files() && !app->window());
@@ -219,16 +218,16 @@ void test_startup_failure() {
 int main() try {
   using namespace gneiss;
   unsigned starts{}, frames{}, stops{};
-  auto created = runtime::application::create({});
+  auto created = app::application::create({});
   check(bool(created));
   auto app = std::move(*created);
   app->on_start("start", [&] { ++starts; });
   app->add_system(app::stage::update, "update", [&] { ++frames; });
   app->on_stop("stop", [&] { ++stops; });
-  runtime::application_configuration invalid;
+  app::configuration invalid;
   invalid.enable_window = true;
   invalid.window.width = 0;
-  check(runtime::application::create(invalid).error() == error::invalid_argument);
+  check(app::application::create(invalid).error() == error::invalid_argument);
   check(starts == 0 && !app->async_files());
   for (unsigned frame = 0; frame < 3; ++frame)
     check(app->step().ok());

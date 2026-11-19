@@ -115,16 +115,16 @@ int main() { // NOLINT(bugprone-exception-escape)
       return 37;
   }
   const auto asset_root = first.generic_string();
-  gneiss::runtime::application_configuration description;
+  gneiss::app::configuration description;
   description.executor = &gneiss::test_support::application_tasks();
   description.asset_root = asset_root;
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   auto world = gneiss::create_native();
   if (!world)
     return 8;
   gneiss::scene_instance scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(description),
                                          application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*application, **world, scene_uri, &scene) !=
           gneiss::error::success ||
@@ -149,7 +149,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   description.asset_root = multi_asset_root;
   application.reset();
   scene = gneiss::scene_instance{};
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(description),
                                          application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*application, **world, scene_uri, &scene) !=
           gneiss::error::success ||

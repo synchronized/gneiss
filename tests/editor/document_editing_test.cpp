@@ -28,7 +28,7 @@ struct save_directory {
     std::filesystem::remove(path, error);
   }
 };
-bool save_codec_contract(gneiss::runtime::application& application) {
+bool save_codec_contract(gneiss::app::application& application) {
   namespace e = gneiss;
   gneiss::guid uuid;
   if (gneiss::editor::make_editor_uuid(uuid).failed())
@@ -129,8 +129,8 @@ private:
 int main() try {
   if (gneiss::initialize_meta().failed())
     return 99;
-  std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create({}), application) !=
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create({}), application) !=
       gneiss::error::success)
     return 1;
   if (!save_codec_contract(*application))

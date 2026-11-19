@@ -50,7 +50,7 @@ int main() try {
   const auto scene_path = root / "scenes" / "triangle.scene.json";
   const auto root_text = root.generic_string();
 
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   config.asset_root = root_text;
   std::mutex log_mutex;
   std::condition_variable log_received;
@@ -71,7 +71,7 @@ int main() try {
   };
   gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   config.executor = &scheduler;
-  auto created = gneiss::runtime::application::create(config);
+  auto created = gneiss::app::application::create(config);
   if (!created)
     return 1;
   auto application = *created;
@@ -108,7 +108,7 @@ int main() try {
   gneiss::host::runtime_scene_loader reloader(*application, world);
   if (reloader.reload({}, uri, false) != gneiss::error::invalid_state)
     return 22;
-  auto other = gneiss::runtime::application::create(config);
+  auto other = gneiss::app::application::create(config);
   if (!other)
     return 23;
   if (!(*other)->step())

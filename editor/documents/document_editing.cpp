@@ -9,20 +9,19 @@ namespace gneiss::editor {
 bool document_editing::active() const noexcept {
   return assets_.active() || prefabs_.active() || history_.is_pending();
 }
-void document_editing::cancel(runtime::application& application) {
+void document_editing::cancel(app::application& application) {
   prefabs_.cancel();
   history_.cancel_pending();
   assets_.cancel(application);
 }
-void document_editing::advance_cleanup(runtime::application& application) {
+void document_editing::advance_cleanup(app::application& application) {
   prefabs_.advance();
   if (history_.is_pending()) {
     (void)history_.advance_pending();
   }
   assets_.advance(application, document_, history_);
 }
-gneiss::error document_editing::create_empty(runtime::application& application,
-                                                     gneiss::world* world) {
+gneiss::error document_editing::create_empty(app::application& application, gneiss::world* world) {
   if (active())
     return gneiss::error::not_ready;
   scene_edit_session candidate;

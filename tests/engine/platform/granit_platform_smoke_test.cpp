@@ -35,7 +35,7 @@ struct smoke_context final {
   gneiss::window::id window_id{};
 };
 
-native::error submit_ui(gneiss::runtime::application& application, smoke_context& context) {
+native::error submit_ui(gneiss::app::application& application, smoke_context& context) {
   gneiss::input::event event;
   while (application.input().poll(event) == native::error::success) {
     // USB HID 物理键编号：A 为 4。
@@ -82,12 +82,12 @@ native::error submit_ui(gneiss::runtime::application& application, smoke_context
 int main() {
   constexpr std::string_view title = "Gneiss Granit Platform Smoke Test";
   smoke_context context;
-  std::shared_ptr<gneiss::runtime::application> application;
-  gneiss::runtime::application_configuration config;
+  std::shared_ptr<gneiss::app::application> application;
+  gneiss::app::configuration config;
   config.enable_window = true;
   config.window = {.title = title, .width = 320, .height = 240};
   const auto create_result =
-      gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application);
+      gneiss::test_support::assign_value(gneiss::app::application::create(config), application);
   if (create_result.failed()) {
     std::fprintf(stderr, "Application 创建失败：%d\n", create_result.code());
     return 1;
@@ -307,8 +307,8 @@ int main() {
   auto next_config = config;
   gneiss::window::id next_id{};
   unsigned close_requests{};
-  std::shared_ptr<gneiss::runtime::application> next;
-  auto created = gneiss::runtime::application::create(next_config);
+  std::shared_ptr<gneiss::app::application> next;
+  auto created = gneiss::app::application::create(next_config);
   if (!created)
     return 18;
   next = *created;

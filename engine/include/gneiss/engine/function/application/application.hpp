@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RUNTIME_APPLICATION_HPP_
-#define GNEISS_RUNTIME_APPLICATION_HPP_
+#ifndef GNEISS_APP_APPLICATION_HPP_
+#define GNEISS_APP_APPLICATION_HPP_
 
 #include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/export.hpp>
@@ -29,7 +29,7 @@ class service;
 }
 }
 
-namespace gneiss::runtime {
+namespace gneiss::app {
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
@@ -37,7 +37,7 @@ class application final {
 public:
   /** 创建后、首次 run 前注册；同阶段依注册顺序执行，捕获对象借用至关闭结束。 */
   template <class F> void add_system(app::stage phase, std::string name, F function) {
-    register_system(phase, std::move(name), app::make_system(std::move(function)));
+    register_system(phase, std::move(name), app::detail::make_system(std::move(function)));
   }
   /** 注册业务枚举的初始状态；首次运行前调用，每种类型只能注册一次。 */
   template <class T>
@@ -61,19 +61,19 @@ public:
     requires std::is_enum_v<T>
   void on_enter(T state, std::string name, F function) {
     register_state_system(app::detail::state_event::enter, app::detail::key(state), std::move(name),
-                          app::make_system(std::move(function)));
+                          app::detail::make_system(std::move(function)));
   }
   template <class T, class F>
     requires std::is_enum_v<T>
   void on_update(T state, std::string name, F function) {
     register_state_system(app::detail::state_event::update, app::detail::key(state),
-                          std::move(name), app::make_system(std::move(function)));
+                          std::move(name), app::detail::make_system(std::move(function)));
   }
   template <class T, class F>
     requires std::is_enum_v<T>
   void on_exit(T state, std::string name, F function) {
     register_state_system(app::detail::state_event::exit, app::detail::key(state), std::move(name),
-                          app::make_system(std::move(function)));
+                          app::detail::make_system(std::move(function)));
   }
   /** 注册宿主启动步骤；服务就绪后、初始状态 Enter 前按注册顺序执行。
    * 无参数；同步返回 void/result<void>/error，等待返回 start_progress 或其 result。
@@ -81,26 +81,19 @@ public:
    * 失败进入停止；on_stop 必须能够清理未启动或部分启动的会话。 */
   template <class F> void on_start(std::string name, F function) {
     static_assert(std::is_invocable_v<F&>);
-    register_start_system(std::move(name), app::make_start_system(std::move(function)));
+    register_start_system(std::move(name), app::detail::make_start_system(std::move(function)));
   }
   /** 首次运行前注册宿主清理；停止时按注册顺序执行，服务仍可借用。
    * 无参数；同步返回 void/result<void>/error，异步返回 stop_progress 或其 result。
    * pending 保留当前步骤供下轮重试；完成或失败不重放，失败不跳过后续清理。 */
   template <class F> void on_stop(std::string name, F function) {
     static_assert(std::is_invocable_v<F&>);
-    register_stop_system(std::move(name), app::make_stop_system(std::move(function)));
+    register_stop_system(std::move(name), app::detail::make_stop_system(std::move(function)));
   }
   /** 创建应用配置与调度所有者；首次 step/run 初始化服务，失败进入统一停止。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
-  create(const application_configuration& config);
-
-private:
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error advance_resource_io();
-  explicit GNEISS_ENGINE_API application(const runtime::application_configuration& config);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error initialize(std::weak_ptr<application> self);
-
-public:
+  create(const configuration& config);
   GNEISS_ENGINE_API ~application() noexcept;
 
   application(const application&) = delete;
@@ -130,6 +123,9 @@ public:
   GNEISS_ENGINE_API void request_exit() noexcept;
 
 private:
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error advance_resource_io();
+  explicit GNEISS_ENGINE_API application(const app::configuration& config);
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error initialize(std::weak_ptr<application> self);
   [[nodiscard]] GNEISS_ENGINE_API std::uint64_t now_ns() const;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error poll_events(bool& out_should_close);
 
@@ -153,6 +149,6 @@ private:
   std::unique_ptr<storage> storage_;
 };
 
-} // namespace gneiss::runtime
+} // namespace gneiss::app
 
 #endif

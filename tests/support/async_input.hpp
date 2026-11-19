@@ -8,8 +8,7 @@
 #include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 namespace gneiss::test_support {
-inline gneiss::error load_input_for_test(runtime::application& app,
-                                         gneiss::tasks::scheduler& scheduler,
+inline gneiss::error load_input_for_test(app::application& app, gneiss::tasks::scheduler& scheduler,
                                          std::string_view uri) {
   const auto startup_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   if (!app.async_files()) {

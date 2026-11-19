@@ -29,13 +29,13 @@ namespace {
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 const auto camera_uuid = *gneiss::guid::parse("37cff772-2e8d-4bc7-9ed2-f94435926d4e");
 bool open_scene(gneiss::tasks::scheduler& scheduler, std::string_view root,
-                std::shared_ptr<gneiss::runtime::application>& app, gneiss::world& world,
+                std::shared_ptr<gneiss::app::application>& app, gneiss::world& world,
                 gneiss::scene_instance& scene, std::vector<gneiss::scene_object_binding>& bindings,
                 gneiss::scene_description* description = nullptr) {
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   config.asset_root = root;
   config.executor = &scheduler;
-  auto created = gneiss::runtime::application::create(config);
+  auto created = gneiss::app::application::create(config);
   if (!created)
     return false;
   app = std::move(*created);
@@ -97,7 +97,7 @@ int main() try {
   }
   gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
-  std::shared_ptr<gneiss::runtime::application> app;
+  std::shared_ptr<gneiss::app::application> app;
   auto world = gneiss::create_native();
   if (!world)
     return 2;

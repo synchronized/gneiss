@@ -30,7 +30,7 @@
 namespace {
 
 struct state final {
-  gneiss::runtime::application* application{};
+  gneiss::app::application* application{};
   gneiss::editor::imgui_adapter ui;
   gneiss::render::frame_request frame;
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
@@ -130,14 +130,14 @@ int main() {
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   value.assets = &worker;
 #endif
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   config.enable_window = true;
   config.window.width = 640U;
   config.window.height = 480U;
   config.window.title = "Gneiss 0.37 interaction probe";
-  std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config),
-                                         application) != gneiss::error::success) {
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(config), application) !=
+      gneiss::error::success) {
     return 1;
   }
   application->add_system(

@@ -57,7 +57,7 @@
 #endif
 #include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <type_traits>
-static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().input()),
+static_assert(std::is_same_v<decltype(std::declval<gneiss::app::application&>().input()),
                              gneiss::input::service&>);
 static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::entity_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::entity_id>);
@@ -74,18 +74,18 @@ template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };
 template <typename T>
 concept exposes_asset_loader = requires(T& value) { value.asset_loader(); };
-static_assert(!exposes_texture_service<gneiss::runtime::application>);
-static_assert(!exposes_asset_loader<gneiss::runtime::application>);
+static_assert(!exposes_texture_service<gneiss::app::application>);
+static_assert(!exposes_asset_loader<gneiss::app::application>);
 template <typename T>
 concept exposes_resource_factory = requires(T& value) { value.resource_factory(); };
-static_assert(!exposes_resource_factory<gneiss::runtime::application>);
-static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().assets()),
+static_assert(!exposes_resource_factory<gneiss::app::application>);
+static_assert(std::is_same_v<decltype(std::declval<gneiss::app::application&>().assets()),
                              gneiss::asset_manager&>);
 // Render 服务是允许的 RID 边界，具体资源表和引用关联仍不可见。
 #include <gneiss/engine/function/render/service.hpp>
 template <typename T>
 concept exposes_resource_table = requires(T& value) { value.assets(); };
-static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().assets()),
+static_assert(std::is_same_v<decltype(std::declval<gneiss::app::application&>().assets()),
                              gneiss::asset_manager&>);
 static_assert(!exposes_resource_table<gneiss::render::service>);
 template <typename T>

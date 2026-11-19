@@ -20,11 +20,11 @@ enum class scene_open_state { idle, loading, opened, failed, cancelled };
 /** 编辑器所属线程的场景加载协调；执行器与 Application 由宿主拥有。 */
 class editor_scene_loader final {
 public:
-  gneiss::error request(runtime::application& application, const document_editing& editing,
+  gneiss::error request(app::application& application, const document_editing& editing,
                         std::string_view uri);
-  gneiss::error advance(runtime::application& application, document_editing& editing,
+  gneiss::error advance(app::application& application, document_editing& editing,
                         gneiss::world& world, editor_camera& camera, bool& changed);
-  gneiss::error cancel(runtime::application& application);
+  gneiss::error cancel(app::application& application);
   void dismiss() noexcept {
     if (!active()) {
       visible_ = false;

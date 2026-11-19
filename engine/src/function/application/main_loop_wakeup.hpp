@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <gneiss/engine/function/diagnostics/loop_timing.hpp>
 #include <gneiss/engine/core/diagnostics/profiling.hpp>
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
+#include <gneiss/engine/function/diagnostics/loop_timing.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <mutex>
 
-namespace gneiss::runtime {
+namespace gneiss::app {
 
 /** 原生宿主的有限等待；代次在处理队列前读取，避免检查与入睡之间丢通知。
  * 不在 Web/无线程宿主实例化；超时是请求期限，不是系统调度的实时保证。 */
@@ -47,4 +47,4 @@ private:
   std::condition_variable ready_;
 };
 
-} // namespace gneiss::runtime
+} // namespace gneiss::app

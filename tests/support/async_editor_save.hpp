@@ -25,14 +25,13 @@ inline gneiss::error await_file(gneiss::files::service& files,
 inline gneiss::error save_document(editor::scene_edit_session& document,
                                    const std::filesystem::path& root, std::string* saved = nullptr,
                                    std::string_view uri = {}) {
-  runtime::application_configuration config;
+  app::configuration config;
   config.executor = &gneiss::test_support::application_tasks();
   config.writable_assets = true;
   const auto root_text = root.generic_string();
   config.asset_root = root_text;
-  std::shared_ptr<runtime::application> application;
-  auto status =
-      gneiss::test_support::assign_value(runtime::application::create(config), application);
+  std::shared_ptr<app::application> application;
+  auto status = gneiss::test_support::assign_value(app::application::create(config), application);
   if (status.failed())
     return status;
   if (auto started = application->step(); !started)
@@ -51,18 +50,17 @@ inline gneiss::error save_document(editor::scene_edit_session& document,
   return status;
 }
 struct author_scene {
-  std::shared_ptr<runtime::application> application;
+  std::shared_ptr<app::application> application;
   gneiss::world_owner world;
   editor::scene_edit_session document;
   editor::scene_document_snapshot before, after;
   bool open(const std::filesystem::path& root, std::string_view uri) {
-    runtime::application_configuration config;
+    app::configuration config;
     config.executor = &gneiss::test_support::application_tasks();
     config.writable_assets = true;
     const auto text = root.generic_string();
     config.asset_root = text;
-    auto status =
-        gneiss::test_support::assign_value(runtime::application::create(config), application);
+    auto status = gneiss::test_support::assign_value(app::application::create(config), application);
     if (status.ok())
       status = assign_value(gneiss::create_native(), world);
     if (status.ok())

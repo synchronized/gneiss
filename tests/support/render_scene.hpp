@@ -35,7 +35,7 @@ inline result<render::frame_request> scene_frame(world& world, world_render_bind
 }
 
 // 借用参数必须活到最后一次 step/run；此函数不持有资源、不参与关闭。
-inline void add_scene_render_systems(runtime::application& app, world& world,
+inline void add_scene_render_systems(app::application& app, world& world,
                                      world_render_binding& binding) {
   app.add_system(app::stage::synchronize, "test.scene_sync", [&] {
     world.flush_changes();
@@ -73,7 +73,7 @@ inline error capture_frame(render::service& renderer, render::frame_request&& fr
   return error::success;
 }
 // 只供像素验收等待 GPU 回读；生产宿主直接消费异步完成回执。
-inline error capture_scene(runtime::application& app, world& world, world_render_binding& binding,
+inline error capture_scene(app::application& app, world& world, world_render_binding& binding,
                            std::uint32_t width, std::uint32_t height, render::frame_image& output) {
   world.flush_changes();
   auto synced = binding.synchronize();

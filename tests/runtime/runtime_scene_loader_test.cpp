@@ -45,11 +45,11 @@ template <class T> void save(const std::filesystem::path& path, const T& descrip
 void run() {
   fixture files;
   gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
-  runtime::application_configuration config;
+  app::configuration config;
   const auto root = files.root.generic_string();
   config.asset_root = root;
   config.executor = &scheduler;
-  auto created = runtime::application::create(config);
+  auto created = app::application::create(config);
   check(bool(created));
   auto app = *created;
   check(app->step().ok());

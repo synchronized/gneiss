@@ -27,8 +27,8 @@ gneiss::error capture_document_prefab(scene_edit_session& document, gneiss::guid
 
 }
 struct editor_prefab_edit::state {
-  explicit state(runtime::application& host) : application(host) {}
-  runtime::application& application;
+  explicit state(app::application& host) : application(host) {}
+  app::application& application;
   gneiss::scene_instance scene{};
   scene_edit_session* session{};
   editor_command_history* history{};
@@ -220,7 +220,7 @@ void editor_prefab_edit::dismiss() noexcept {
     state_.reset();
   }
 }
-gneiss::error editor_prefab_edit::request(runtime::application& application,
+gneiss::error editor_prefab_edit::request(app::application& application,
                                           gneiss::tasks::executor& executor,
                                           scene_edit_session& session,
                                           editor_command_history& history, std::string_view name,
@@ -268,7 +268,7 @@ gneiss::error editor_prefab_edit::request(runtime::application& application,
   state_ = std::move(next);
   return gneiss::error::success;
 }
-gneiss::error editor_prefab_edit::request_remove(runtime::application& application,
+gneiss::error editor_prefab_edit::request_remove(app::application& application,
                                                  scene_edit_session& session,
                                                  editor_command_history& history, entity_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
@@ -294,7 +294,7 @@ gneiss::error editor_prefab_edit::request_remove(runtime::application& applicati
   return gneiss::error::success;
 }
 
-gneiss::error editor_prefab_edit::request_refresh(runtime::application& application,
+gneiss::error editor_prefab_edit::request_refresh(app::application& application,
                                                   gneiss::tasks::executor& executor,
                                                   scene_edit_session& session,
                                                   editor_command_history& history, entity_id root) {

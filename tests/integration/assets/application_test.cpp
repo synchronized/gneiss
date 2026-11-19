@@ -31,15 +31,15 @@ void close_pending_window(const char* assets) {
   using namespace gneiss;
   using namespace std::chrono_literals;
   gneiss::tasks::scheduler scheduler({.workers = 1});
-  runtime::application_configuration config;
+  app::configuration config;
   config.asset_root = assets;
   config.executor = &scheduler;
   config.enable_window = true;
   config.window.visible = false;
   config.window.title = "Gneiss Asset pending close test";
   unsigned updates = 0;
-  std::shared_ptr<runtime::application> app;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+  std::shared_ptr<app::application> app;
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
             gneiss::error::success,
         "window create");
 
@@ -112,12 +112,12 @@ void run(const char* assets, bool cooperative) {
     }
   } guard{root};
   const auto root_text = root.generic_string();
-  runtime::application_configuration config;
+  app::configuration config;
   config.asset_root = root_text;
   config.executor = &scheduler;
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   unsigned frames = 0;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
             gneiss::error::success,
         "create");
 
@@ -241,7 +241,7 @@ void run(const char* assets, bool cooperative) {
   check(!app->accepts_requests(), "shutdown rejects requests");
   // 资产管理器关闭只排空自身 scope，不能关闭借用的宿主调度器。
   app.reset();
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
             gneiss::error::success,
         "recreate application");
 

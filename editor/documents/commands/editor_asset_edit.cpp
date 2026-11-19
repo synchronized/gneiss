@@ -36,8 +36,7 @@ gneiss::error editor_asset_edit::commit_add(scene_edit_session& session,
   });
 }
 
-gneiss::error editor_asset_edit::commit(runtime::application& application,
-                                        scene_edit_session& session,
+gneiss::error editor_asset_edit::commit(app::application& application, scene_edit_session& session,
                                         editor_command_history& history) {
   if (!application.is_owner_thread() || session.scene_handle() != scene_) {
     return gneiss::error::invalid_state;
@@ -132,19 +131,18 @@ gneiss::error editor_asset_edit::request_remove(scene_edit_session& session,
   return status;
 }
 
-gneiss::error editor_asset_edit::request(runtime::application& application,
-                                         scene_edit_session& session,
+gneiss::error editor_asset_edit::request(app::application& application, scene_edit_session& session,
                                          editor_command_history& history, gneiss::guid uuid,
                                          mesh_asset_reference assets) {
   return request_impl(application, session, history, {.object_uuid = uuid}, {}, assets, false);
 }
-gneiss::error editor_asset_edit::request(runtime::application& app, scene_edit_session& document,
+gneiss::error editor_asset_edit::request(app::application& app, scene_edit_session& document,
                                          editor_command_history& history,
                                          const component_edit_target& target,
                                          mesh_asset_reference assets) {
   return request_impl(app, document, history, target, {}, assets, false);
 }
-gneiss::error editor_asset_edit::request_property(runtime::application& app,
+gneiss::error editor_asset_edit::request_property(app::application& app,
                                                   scene_edit_session& document,
                                                   editor_command_history& history,
                                                   const component_edit_target& target,
@@ -176,7 +174,7 @@ gneiss::error editor_asset_edit::request_property(runtime::application& app,
     return valid.error().error;
   return request(app, document, history, target, {description.mesh_uri, description.material_uri});
 }
-gneiss::error editor_asset_edit::request_restore_source(runtime::application& app,
+gneiss::error editor_asset_edit::request_restore_source(app::application& app,
                                                         scene_edit_session& document,
                                                         editor_command_history& history,
                                                         const component_edit_target& target) {
@@ -204,13 +202,13 @@ gneiss::error editor_asset_edit::request_restore_source(runtime::application& ap
   operation_ = gneiss::error::not_ready;
   return gneiss::error::success;
 }
-gneiss::error editor_asset_edit::request_add(runtime::application& application,
+gneiss::error editor_asset_edit::request_add(app::application& application,
                                              scene_edit_session& session,
                                              editor_command_history& history, std::string_view name,
                                              mesh_asset_reference assets) {
   return request_impl(application, session, history, {}, name, assets, true);
 }
-gneiss::error editor_asset_edit::request_impl(runtime::application& application,
+gneiss::error editor_asset_edit::request_impl(app::application& application,
                                               scene_edit_session& session,
                                               editor_command_history& history,
                                               const component_edit_target& target,
@@ -337,7 +335,7 @@ void editor_asset_edit::accept_assets(std::span<const gneiss::render_resource_re
   }
 }
 
-void editor_asset_edit::advance(runtime::application& application, scene_edit_session& session,
+void editor_asset_edit::advance(app::application& application, scene_edit_session& session,
                                 editor_command_history& history) {
   if (!active_) {
     return;
@@ -368,7 +366,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_edit_se
   }
   finish(application);
 }
-void editor_asset_edit::finish(runtime::application&) {
+void editor_asset_edit::finish(app::application&) {
   request_.reset();
   active_ = false;
   visible_ = operation_.failed() && !cancelled_;
@@ -378,7 +376,7 @@ void editor_asset_edit::finish(runtime::application&) {
   progress_ = {};
 }
 
-void editor_asset_edit::cancel(runtime::application& application) {
+void editor_asset_edit::cancel(app::application& application) {
   if (!active_) {
     return;
   }

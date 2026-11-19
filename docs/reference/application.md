@@ -5,8 +5,8 @@
 
 ## 原生入口与所有权
 
-仓内宿主使用 `engine/include/gneiss/engine/function/application/application.hpp` 的 `gneiss::runtime::application`，
-配置为 `application_configuration`。`application::create(config)` 返回
+仓内宿主使用 `engine/include/gneiss/engine/function/application/application.hpp` 的 `gneiss::app::application`，
+配置为 `app::configuration`。`application::create(config)` 返回
 `gneiss::result<std::shared_ptr<application>>`；成功值拥有配置与调度对象，配置错误立即返回。基础服务在首次 step/run 初始化，
 初始化失败通过停止路径清理，最终由 step/run 返回错误。
 调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。
@@ -153,7 +153,7 @@ error::not_ready 仍是错误，不代替 pending。析构保底可同步等待�
 
 ## 平台与窗口
 
-`application_configuration::enable_window` 默认为 false，允许无窗口模式。
+`app::configuration::enable_window` 默认为 false，允许无窗口模式。
 窗口默认 1280×720。Granit 是固定构建依赖；`enable_window=false` 时，Application
 不创建窗口、不初始化 GPU 设备，仍可执行逻辑循环与 CPU 资产加载。平台事件泵送、服务初始化和
 单调时钟由 Application 内部负责，不提供平台回调配置；宿主初始化与清理使用 on_start/on_stop。

@@ -53,12 +53,12 @@ struct fixture {
 void run(gneiss::tasks::execution_mode mode) {
   fixture files;
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration desc;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+  check(gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
                                                          app)} == gneiss::error::success);
 
   auto created_world = gneiss::create_native();
@@ -276,12 +276,12 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   namespace e = gneiss;
   fixture files;
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<runtime::application> app;
-  runtime::application_configuration config;
+  std::shared_ptr<app::application> app;
+  app::configuration config;
   const auto root_path = files.root.string();
   config.asset_root = root_path;
   config.executor = &scheduler;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  check(gneiss::test_support::assign_value(app::application::create(config), app).ok());
 
   const auto uuid = [](unsigned n) {
     e::guid::byte_array bytes{};
@@ -453,9 +453,8 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   check(edit.operation().ok() && e::resource_uri(binding(child).mesh) == "asset://mesh2.json");
   // 文件保存后通过实际异步场景加载链重建；两实例的差异必须保留。
   write("saved.json", capture());
-  std::shared_ptr<runtime::application> reopened_app;
-  check(
-      gneiss::test_support::assign_value(runtime::application::create(config), reopened_app).ok());
+  std::shared_ptr<app::application> reopened_app;
+  check(gneiss::test_support::assign_value(app::application::create(config), reopened_app).ok());
 
   auto reopened_world = gneiss::create_native();
   check(bool(reopened_world));

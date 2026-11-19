@@ -291,8 +291,8 @@ int main() try {
     check(copied.get<reference_description>()->settings->amount == 9);
     check(copied.update<e::camera_description>([](auto&) {}) == e::error::not_found);
   }
-  std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
+  std::shared_ptr<gneiss::app::application> app;
+  check(gneiss::test_support::assign_value(gneiss::app::application::create({}), app).ok());
   auto world_result = gneiss::create_native();
   check(bool(world_result));
   auto world_owner = std::move(*world_result);

@@ -12,11 +12,11 @@
 bool run(gneiss::tasks::execution_mode mode) {
   gneiss::tasks::scheduler executor({.mode = mode});
   const std::string root = GNEISS_TEST_ASSET_ROOT;
-  gneiss::runtime::application_configuration description;
+  gneiss::app::configuration description;
   description.asset_root = root;
   description.executor = &executor;
-  std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(description),
                                          application) != gneiss::error::success) {
     return false;
   }

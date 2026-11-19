@@ -74,15 +74,15 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   asset_background_worker worker({}, &scheduler);
   const auto assets = root / "assets";
   const auto asset_text = assets.generic_string();
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.asset_root = asset_text;
   desc.executor = &scheduler;
-  std::shared_ptr<gneiss::runtime::application> app;
+  std::shared_ptr<gneiss::app::application> app;
   gneiss::world_owner world_owner;
   gneiss::world* world{};
   scene_edit_session session;
-  require(gneiss::error{gneiss::test_support::assign_value(
-              gneiss::runtime::application::create(desc), app)} == gneiss::error::success &&
+  require(gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
+                                                           app)} == gneiss::error::success &&
               gneiss::test_support::assign_value(gneiss::create_native(), world_owner).ok() &&
               (world = world_owner.get()) != nullptr,
           "基准应用创建失败");

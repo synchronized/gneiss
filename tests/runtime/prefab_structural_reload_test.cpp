@@ -67,14 +67,14 @@ int main() try {
   std::filesystem::remove_all(root);
   std::filesystem::copy(GNEISS_TEST_ASSET_ROOT, root, std::filesystem::copy_options::recursive);
   const auto root_text = root.generic_string();
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   config.asset_root = root_text;
   gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   config.executor = &scheduler;
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   gneiss::scene_instance scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(config), application)
           .failed())
     return 1;
   auto world = gneiss::create_native();

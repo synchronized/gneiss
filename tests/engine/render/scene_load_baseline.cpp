@@ -73,7 +73,7 @@ std::uint64_t peak_resident_bytes() {
 #endif
 }
 // 场景切换的预载也走设备变体选择和 CPU 准备，不能用同步预载阻断被测异步路径。
-gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
+gneiss::error preload_scene(const std::shared_ptr<gneiss::app::application>& app,
                             gneiss::world& world, gneiss::tasks::scheduler& scheduler,
                             bool cooperative, std::string_view uri, gneiss::scene_instance& scene) {
   auto request = app->assets().load<gneiss::scene>(uri);
@@ -142,9 +142,9 @@ int main(int argc, char** argv) try {
                                       .mode = mode == "cooperative"
                                                   ? gneiss::tasks::execution_mode::cooperative
                                                   : gneiss::tasks::execution_mode::thread_pool});
-  std::function<gneiss::error(gneiss::runtime::application*)> update;
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration desc;
+  std::function<gneiss::error(gneiss::app::application*)> update;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration desc;
   desc.enable_window = true;
   desc.asset_root = root;
   desc.executor = &scheduler;
@@ -156,7 +156,7 @@ int main(int argc, char** argv) try {
   if (scenario == "interact") {
     desc.window.visible = true;
   }
-  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
                                                        app)} != gneiss::error::success) {
     return 3;
   }
@@ -291,7 +291,7 @@ int main(int argc, char** argv) try {
     }
     auto previous = clock_type::now();
     auto deadline = previous + std::chrono::minutes(15);
-    update = [&](gneiss::runtime::application* handle) {
+    update = [&](gneiss::app::application* handle) {
       loop_sample* sample = nullptr;
       if (trace_loop) {
         const auto entered_ms = milliseconds(start);

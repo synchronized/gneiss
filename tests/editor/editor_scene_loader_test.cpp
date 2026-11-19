@@ -41,11 +41,11 @@ void multiple_worlds(gneiss::tasks::execution_mode mode) {
   editor::editor_scene_loader main_loader, preview_loader;
   editor::editor_camera main_camera, preview_camera;
   check(main_camera.initialize().ok() && preview_camera.initialize().ok());
-  runtime::application_configuration config;
+  app::configuration config;
   config.asset_root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   config.executor = &scheduler;
   // Application 先析构，全部借用的会话和执行器仍存活。
-  auto created = runtime::application::create(config);
+  auto created = app::application::create(config);
   check(created.ok());
   auto application = std::move(*created);
   auto& main = main_editing.document();
@@ -110,12 +110,12 @@ void multiple_worlds(gneiss::tasks::execution_mode mode) {
 
 void run(gneiss::tasks::execution_mode mode) {
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<runtime::application> app;
-  runtime::application_configuration desc;
+  std::shared_ptr<app::application> app;
+  app::configuration desc;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
+  check(gneiss::test_support::assign_value(app::application::create(desc), app) ==
         gneiss::error::success);
   check(app->step().ok());
 

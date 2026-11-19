@@ -24,14 +24,13 @@ public:
   editor_asset_edit& assets() noexcept { return assets_; }
   editor_prefab_edit& prefabs() noexcept { return prefabs_; }
   [[nodiscard]] bool active() const noexcept;
-  void cancel(runtime::application& application);
+  void cancel(app::application& application);
   /** 只用于退出清理；调用者驱动协作执行器，不能与正常 UI 推进重复调用。 */
-  void advance_cleanup(runtime::application& application);
+  void advance_cleanup(app::application& application);
   /** 有在途操作时不修改任何状态；成功后历史先于文档释放，可重复调用。 */
   [[nodiscard]] gneiss::error close() noexcept;
   /** 先准备空场景；失败保留文档与历史，成功先释放旧历史再替换文档。 */
-  [[nodiscard]] gneiss::error create_empty(runtime::application& application,
-                                                   gneiss::world* world);
+  [[nodiscard]] gneiss::error create_empty(app::application& application, gneiss::world* world);
 
 private:
   scene_edit_session document_;

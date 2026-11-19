@@ -331,7 +331,7 @@ bool resumable_command_allows_frames(gneiss::error terminal) {
   using namespace gneiss;
   using namespace gneiss::render::detail;
   std::atomic_bool frame_executed{};
-  auto started = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  auto started = std::make_shared<gneiss::app::main_loop_wakeup>();
   auto lifetime = std::make_shared<int>(7);
   std::weak_ptr<int> retained = lifetime;
   threaded_render_executor executor;
@@ -740,7 +740,7 @@ int main(int argc, char** argv) {
       required_sequence == 0U) {
     return 21;
   }
-  auto signal = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+  auto signal = std::make_shared<gneiss::app::main_loop_wakeup>();
   required_executor.set_completion_wakeup(signal);
   const auto observed = signal->snapshot();
   std::uint64_t notified_sequence{};

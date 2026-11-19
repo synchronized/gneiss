@@ -28,6 +28,7 @@ state_key key(T state) {
 }
 }
 using system_function = std::function<error(const frame_time&)>;
+namespace detail {
 /** 同步适配，无参数或 frame_time 参数；保留意外异常的传播语义。 */
 template <class F> system_function make_system(F function) {
   return [function = std::move(function)](const frame_time& time) mutable -> error {
@@ -50,9 +51,11 @@ template <class F> system_function make_system(F function) {
     }
   };
 }
+} // namespace detail
 /** 启动步骤等待既有请求，完成后不再执行。 */
 enum class start_progress { pending, complete };
 using start_function = std::function<result<start_progress>(const frame_time&)>;
+namespace detail {
 template <class F> start_function make_start_system(F function) {
   return
       [function = std::move(function)](const frame_time& time) mutable -> result<start_progress> {
@@ -83,9 +86,11 @@ template <class F> start_function make_start_system(F function) {
         }
       };
 }
+} // namespace detail
 /** 停止步骤可等待既有任务完成；pending 不表示错误。 */
 enum class stop_progress { pending, complete };
 using stop_function = std::function<result<stop_progress>()>;
+namespace detail {
 template <class F> stop_function make_stop_system(F function) {
   return [function = std::move(function)]() mutable -> result<stop_progress> {
     using R = std::invoke_result_t<F&>;
@@ -110,4 +115,5 @@ template <class F> stop_function make_stop_system(F function) {
   };
 }
 
-}
+} // namespace detail
+} // namespace gneiss::app

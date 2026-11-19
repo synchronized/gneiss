@@ -18,8 +18,7 @@ struct scene_activation {
   gneiss::scene_instantiation_result instance;
   gneiss::asset_batch_request visuals;
 };
-inline gneiss::result<scene_activation> activate_scene(runtime::application& app,
-                                                       gneiss::world& world,
+inline gneiss::result<scene_activation> activate_scene(app::application& app, gneiss::world& world,
                                                        const gneiss::scene_content& content) {
   auto composed = compose(content);
   if (!composed)
@@ -71,7 +70,7 @@ inline gneiss::tasks::scheduler& application_tasks() {
   return tasks;
 }
 inline gneiss::error
-prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_content& prepared,
+prepare_scene(app::application& app, std::string_view uri, gneiss::scene_content& prepared,
               gneiss::scene_resource_bindings& bindings, gneiss::tasks::scheduler* tasks = nullptr,
               gneiss::ref<const gneiss::scene>* identity = nullptr, bool reload = false) {
   if (!tasks)
@@ -155,9 +154,9 @@ prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_con
   }
   return gneiss::error::success;
 }
-inline gneiss::error load_scene(runtime::application& app, gneiss::world& world,
-                                std::string_view uri, scene_instance* output,
-                                gneiss::tasks::scheduler* tasks = nullptr, bool reload = false,
+inline gneiss::error load_scene(app::application& app, gneiss::world& world, std::string_view uri,
+                                scene_instance* output, gneiss::tasks::scheduler* tasks = nullptr,
+                                bool reload = false,
                                 std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   if (!output)
     return gneiss::error::invalid_argument;

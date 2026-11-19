@@ -18,7 +18,7 @@
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
-  std::shared_ptr<gneiss::runtime::application> app;
+  std::shared_ptr<gneiss::app::application> app;
   gneiss::world_owner world_owner;
   gneiss::world* world_handle = nullptr;
   scene_edit_session session;
@@ -26,9 +26,8 @@ int main() try {
   transform_gizmo_drag drag;
   entity_id first;
   entity_id second;
-  gneiss::runtime::application_configuration desc;
-  if (gneiss::error{
-          gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
+  gneiss::app::configuration desc;
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc), app)}
           .failed() ||
       gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
       (world_handle = world_owner.get()) == nullptr ||

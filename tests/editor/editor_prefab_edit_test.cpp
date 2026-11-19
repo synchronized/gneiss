@@ -64,12 +64,12 @@ struct fixture {
 void run_refresh(gneiss::tasks::execution_mode mode) {
   fixture files;
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration desc;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration desc;
   const auto path = files.root.string();
   desc.asset_root = path;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+  check(gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
                                                          app)} == gneiss::error::success);
 
   auto created_world = gneiss::create_native();
@@ -246,12 +246,12 @@ void run(gneiss::tasks::execution_mode mode) {
   const std::string source{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
   input.close();
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration desc;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+  check(gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
                                                          app)} == gneiss::error::success);
 
   auto created_world = gneiss::create_native();
@@ -457,12 +457,12 @@ void run_mixed_subtree() {
   fixture files;
   gneiss::tasks::scheduler scheduler(
       {.workers = 1U, .mode = gneiss::tasks::execution_mode::cooperative});
-  std::shared_ptr<runtime::application> app;
-  runtime::application_configuration config;
+  std::shared_ptr<app::application> app;
+  app::configuration config;
   const auto path = files.root.string();
   config.asset_root = path;
   config.executor = &scheduler;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  check(gneiss::test_support::assign_value(app::application::create(config), app).ok());
 
   auto created_world = gneiss::create_native();
   check(bool(created_world));

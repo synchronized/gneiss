@@ -56,10 +56,9 @@ int main(int argc, char** argv) try {
     }
   }
   context state;
-  gneiss::runtime::application_configuration description;
-  std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
-                                         application)
+  gneiss::app::configuration description;
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(description), application)
           .failed()) {
     return 3;
   }

@@ -15,17 +15,16 @@ int main() {
   static_assert(!std::is_convertible_v<std::uint64_t, gneiss::input::action_id>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://input/default.input-map.json";
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   config.asset_root = asset_root;
   gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   config.executor = &scheduler;
-  std::shared_ptr<gneiss::runtime::application> app, other;
+  std::shared_ptr<gneiss::app::application> app, other;
   gneiss::input::action_id action;
   gneiss::input::action_state state{};
   gneiss::input::event event{};
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
-          .failed() ||
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(config), app).failed() ||
       action.value != 0 || app->input().get_action_state(action, state) != error::invalid_handle ||
       app->input().poll(event) != error::not_ready || app->input().keyboard().modifiers != 0 ||
       app->input().pointer().buttons != 0 ||
@@ -39,7 +38,7 @@ int main() {
       gneiss::test_support::load_input_for_test(
           *app, scheduler, "asset://input/missing.input-map.json") != error::not_found ||
       app->input().get_action_state(original, state).failed() ||
-      gneiss::test_support::assign_value(gneiss::runtime::application::create(config), other)
+      gneiss::test_support::assign_value(gneiss::app::application::create(config), other)
           .failed() ||
       gneiss::test_support::load_input_for_test(*other, scheduler, uri).failed() ||
       other->input().get_action_state(original, state) != error::invalid_handle) {

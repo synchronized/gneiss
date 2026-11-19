@@ -16,12 +16,12 @@ int main() try {
                     ("gneiss-author-save-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directory(root);
-  runtime::application_configuration config;
+  app::configuration config;
   config.writable_assets = true;
   const auto text = root.generic_string();
   config.asset_root = text;
-  std::shared_ptr<runtime::application> app;
-  if (gneiss::test_support::assign_value(runtime::application::create(config), app).failed())
+  std::shared_ptr<app::application> app;
+  if (gneiss::test_support::assign_value(app::application::create(config), app).failed())
     return 1;
   if (!app->step())
     return 1;

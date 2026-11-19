@@ -40,15 +40,15 @@ bool near(const gneiss::math::transform& left, const gneiss::math::transform& ri
 
 int main() try {
   using gneiss::error;
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.executor = &gneiss::test_support::application_tasks();
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
-  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
                                                        application)} != gneiss::error::success ||
       gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
       (world = world_owner.get()) == nullptr ||

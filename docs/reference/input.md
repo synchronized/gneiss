@@ -34,7 +34,7 @@ Granit 的类型、句柄和枚举只存在于 `engine/src/platform/window/servi
 
 ## C++ 入口
 
-`gneiss::runtime::application::input()` 返回借用的 `input::service&`，提供 poll、keyboard、pointer、
+`gneiss::app::application::input()` 返回借用的 `input::service&`，提供 poll、keyboard、pointer、
 find_action、get_action_state 和 replace_action_map。映射加载由宿主持有资产请求。
 事件和状态使用 `gneiss::input` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
 `input::event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。

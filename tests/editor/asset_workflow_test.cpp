@@ -87,8 +87,8 @@ int main() try {
   }
   const auto material_path = project.asset_root / std::filesystem::path(material->substr(8U));
   const auto previous_material = read_text(material_path);
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration desc;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration desc;
   desc.executor = &gneiss::test_support::application_tasks();
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root;
@@ -96,7 +96,7 @@ int main() try {
   gneiss::world* world{};
   scene_edit_session session;
   entity_id node;
-  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc),
                                                        app)} != gneiss::error::success ||
       gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
       (world = world_owner.get()) == nullptr ||

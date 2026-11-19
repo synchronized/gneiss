@@ -115,7 +115,7 @@ struct editor_state {
   bool environment_pending{true};
 
   // 宿主拥有对象；只在其 run 回调期间借用。
-  gneiss::runtime::application* application{};
+  gneiss::app::application* application{};
   explicit editor_state(bool cooperative = false)
       : scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
                                        : gneiss::tasks::execution_mode::thread_pool}) {}
@@ -2950,7 +2950,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   editor_state state(options.cooperative_tasks);
   state.local_logs = &local_logs;
   log.info("Editor 启动");
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   state.smoke = options.smoke;
   state.smoke_frame_limit = options.smoke_frames;
   state.asset_root = project.asset_root;
@@ -2966,7 +2966,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
       log.error("Editor 用户目录创建失败：{}", error.message());
     user_root_text = path_utf8(root);
   }
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.user_root = user_root_text;
   desc.executor = &state.scheduler;
   desc.enable_window = true;
@@ -2977,7 +2977,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   desc.asset_root = asset_root_text;
   desc.writable_assets = true;
 
-  auto created = gneiss::runtime::application::create(desc);
+  auto created = gneiss::app::application::create(desc);
   auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
   if (operation != gneiss::error::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));

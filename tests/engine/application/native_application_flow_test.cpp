@@ -20,7 +20,7 @@ void check(bool value, std::source_location location = std::source_location::cur
 }
 void startup_systems() {
   for (unsigned scenario = 0; scenario != 3; ++scenario) {
-    auto created = runtime::application::create({});
+    auto created = app::application::create({});
     check(created.ok());
     auto application = std::move(*created);
     std::string order;
@@ -50,9 +50,9 @@ void startup_systems() {
 }
 
 void scheduled_systems() {
-  runtime::application_configuration config;
+  app::configuration config;
   std::string calls;
-  auto created = runtime::application::create(config);
+  auto created = app::application::create(config);
   check(created.ok());
   auto application = *created;
   // 故意跨阶段注册，验证阶段顺序以及同阶段的注册顺序。
@@ -83,7 +83,7 @@ void scheduled_systems() {
 enum class flow { loading, playing, paused };
 enum class overlay { hidden, visible };
 void state_systems() {
-  auto created = runtime::application::create({});
+  auto created = app::application::create({});
   check(created.ok());
   auto application = *created;
   std::string calls;
@@ -115,7 +115,7 @@ void state_systems() {
   check(application->request_state(flow::paused).ok());
   check(application->step().ok() && calls == "LlxPpAVaa");
 
-  auto failing = runtime::application::create({});
+  auto failing = app::application::create({});
   check(failing.ok());
   unsigned enters{};
   (*failing)->init_state(flow::loading);
@@ -126,7 +126,7 @@ void state_systems() {
   check((*failing)->run().error() == error::io);
   check((*failing)->run().error() == error::io && enters == 1);
 
-  auto exiting = runtime::application::create({});
+  auto exiting = app::application::create({});
   check(exiting.ok());
   (*exiting)->init_state(flow::loading);
   (*exiting)->on_enter(flow::loading, "exit", [&] {
@@ -138,8 +138,8 @@ void state_systems() {
 }
 void host_shutdown() {
   std::string order;
-  runtime::application_configuration config;
-  auto created = runtime::application::create(config);
+  app::configuration config;
+  auto created = app::application::create(config);
   check(created.ok());
   auto application = std::move(*created);
   auto* borrowed = application.get();
@@ -162,7 +162,7 @@ void host_shutdown() {
   check(order == "ab");
 
   // 未运行就退出（例如宿主装配失败）也清理；析构保底不会重复显式关闭。
-  created = runtime::application::create(config);
+  created = app::application::create(config);
   check(created.ok());
   application = std::move(*created);
   application->on_stop("never_ran", [&] { order += 'c'; });
@@ -170,7 +170,7 @@ void host_shutdown() {
   check(application->run().ok());
   application.reset();
   check(order == "abc");
-  created = runtime::application::create(config);
+  created = app::application::create(config);
   check(created.ok());
   application = std::move(*created);
   application->on_stop("destructor", [&] { order += 'd'; });
@@ -178,7 +178,7 @@ void host_shutdown() {
   check(order == "abcd");
 }
 void complete_lifecycle() {
-  auto created = runtime::application::create({});
+  auto created = app::application::create({});
   check(created.ok());
   auto application = std::move(*created);
   unsigned updates{}, releases{}, waits{};
@@ -205,7 +205,7 @@ void complete_lifecycle() {
   status = application->step();
   check(status && *status == app::lifecycle::stopped && releases == 1);
 
-  created = runtime::application::create({});
+  created = app::application::create({});
   check(created.ok());
   application = std::move(*created);
   application->add_system(app::stage::update, "failure", [] { return error::io; });
@@ -217,8 +217,8 @@ void simulation_pause() {
   enum class mode { playing, paused };
   std::uint64_t simulated{}, observed{}, latest_delta{};
   unsigned completions{}, updates{}, presented{};
-  runtime::application_configuration config;
-  auto created = runtime::application::create(config);
+  app::configuration config;
+  auto created = app::application::create(config);
   check(created.ok());
   auto application = std::move(*created);
   application->init_state(mode::playing);
@@ -248,7 +248,7 @@ void simulation_pause() {
 void starting_completions() {
   // 等待期间继续分发完成；成功、失败和主动退出都不得重放已完成步骤。
   for (unsigned mode = 0; mode < 3; ++mode) {
-    auto created = runtime::application::create({});
+    auto created = app::application::create({});
     check(created.ok());
     auto application = std::move(*created);
     unsigned requests{}, polls{}, completions{}, updates{}, cleanup{}, entered{};
@@ -290,7 +290,7 @@ void starting_completions() {
 }
 
 void stopping_completions() {
-  auto created = runtime::application::create({});
+  auto created = app::application::create({});
   check(created.ok());
   auto application = std::move(*created);
   unsigned dispatched{}, updates{}, cleanup{};
@@ -310,11 +310,11 @@ void stopping_completions() {
 void action_maps() {
   gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
-  runtime::application_configuration config;
+  app::configuration config;
   config.asset_root = GNEISS_TEST_ASSET_ROOT;
   config.executor = &scheduler;
-  std::shared_ptr<runtime::application> app, other;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  std::shared_ptr<app::application> app, other;
+  check(gneiss::test_support::assign_value(app::application::create(config), app).ok());
   constexpr auto uri = "asset://input/default.input-map.json";
   gneiss::input::action_id action;
   gneiss::input::action_state state;
@@ -328,18 +328,18 @@ void action_maps() {
   check(app->input().get_action_state(action, state) == gneiss::error::invalid_handle);
   // 使用当前仍有效的动作验证跨 Application 拒绝，避免只验证旧代次。
   check(app->input().find_action("move_horizontal", action).ok());
-  check(gneiss::test_support::assign_value(runtime::application::create(config), other).ok());
+  check(gneiss::test_support::assign_value(app::application::create(config), other).ok());
   check(gneiss::test_support::load_input_for_test(*other, scheduler, uri).ok());
   check(other->input().get_action_state(action, state) == gneiss::error::invalid_handle);
 }
 void creation_failures() {
   gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
-  runtime::application_configuration config;
-  std::shared_ptr<runtime::application> app;
+  app::configuration config;
+  std::shared_ptr<app::application> app;
   config.enable_window = true;
   config.window.width = 0;
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
         gneiss::error::invalid_argument);
   // 配置校验在创建对象前返回结果。
   check(!app);
@@ -348,12 +348,12 @@ void creation_failures() {
   config.asset_root = "gneiss-test-directory-does-not-exist";
   config.executor = &scheduler;
   // 挂载只配置来源；缺失目录在实际异步读取时报告，不在创建阶段同步探测。
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  check(gneiss::test_support::assign_value(app::application::create(config), app).ok());
   check(test_support::load_input_for_test(
             *app, scheduler, "asset://input/missing.input-map.json") == gneiss::error::not_found);
   app.reset();
   config.asset_root = {};
-  check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
+  check(gneiss::test_support::assign_value(app::application::create(config), app).ok());
   check(!app->async_files());
   app->on_start("fail", [] { return gneiss::error::not_found; });
   check(app->run().error() == gneiss::error::not_found);

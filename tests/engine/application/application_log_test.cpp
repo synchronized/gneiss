@@ -26,7 +26,7 @@ int main() try {
                .result = e::error::not_found});
   };
   emit();
-  auto created = gneiss::runtime::application::create({});
+  auto created = gneiss::app::application::create({});
   if (!created)
     return 1;
   auto application = std::move(*created);

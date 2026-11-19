@@ -158,13 +158,12 @@ void run(std::size_t workers,
   for (unsigned i = 0; i < 20; ++i)
     write(files.root / "nested" / (std::to_string(i) + ".prefab.json"), "initial");
   gneiss::tasks::scheduler scheduler({.workers = workers, .mode = mode});
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   const auto root_text = files.root.generic_string();
   config.asset_root = root_text;
-  std::shared_ptr<gneiss::runtime::application> app;
-  require(
-      gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok(),
-      "测试文件宿主创建失败");
+  std::shared_ptr<gneiss::app::application> app;
+  require(gneiss::test_support::assign_value(gneiss::app::application::create(config), app).ok(),
+          "测试文件宿主创建失败");
   require(app->step().ok(), "测试文件宿主启动失败");
   auto io = app->async_files();
   author_asset_service service(scheduler);

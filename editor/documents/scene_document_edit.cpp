@@ -148,14 +148,14 @@ gneiss::error execute_scene_edit(editor_command_history& history, scene_edit_ses
   return status;
 }
 
-gneiss::result<scene_document_snapshot> capture_scene_document(runtime::application& app,
+gneiss::result<scene_document_snapshot> capture_scene_document(app::application& app,
                                                                const scene_edit_session& document) {
   if (!document.is_open() || !app.is_owner_thread() || !app.accepts_requests())
     return gneiss::error::invalid_state;
   return document.capture_content();
 }
 
-gneiss::error restore_scene_document(runtime::application& app, scene_edit_session& document,
+gneiss::error restore_scene_document(app::application& app, scene_edit_session& document,
                                      const scene_document_snapshot& snapshot) {
   if (!app.is_owner_thread() || !app.accepts_requests() || !document.is_open() ||
       document.uri() != snapshot.uri)
@@ -172,7 +172,7 @@ void scene_document_edit::cancel() noexcept {
   if (status_ == gneiss::error::not_ready)
     (void)finish(gneiss::error::cancelled);
 }
-gneiss::error scene_document_edit::begin(runtime::application& app, scene_edit_session& document,
+gneiss::error scene_document_edit::begin(app::application& app, scene_edit_session& document,
                                          std::span<const author_document_change> changes,
                                          std::string label,
                                          std::function<void(bool)> selection) try {
@@ -207,7 +207,7 @@ gneiss::error scene_document_edit::begin(runtime::application& app, scene_edit_s
   (void)finish(gneiss::error::internal);
   throw;
 }
-gneiss::error scene_document_edit::advance(runtime::application& app, scene_edit_session& document,
+gneiss::error scene_document_edit::advance(app::application& app, scene_edit_session& document,
                                            editor_command_history& history) try {
   using gneiss::error;
   if (status_ != error::not_ready)

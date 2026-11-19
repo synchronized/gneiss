@@ -259,9 +259,9 @@ private:
 
 }
 
-namespace gneiss::runtime {
+namespace gneiss::app {
 struct application::storage {
-  explicit storage(const runtime::application_configuration& config)
+  explicit storage(const app::configuration& config)
       : config_(config), window_title_(config.window.title), asset_root_(config.asset_root),
         user_root_(config.user_root), owner_thread_(std::this_thread::get_id()) {
     config_.window.title = window_title_;
@@ -269,7 +269,7 @@ struct application::storage {
     config_.user_root = user_root_;
   }
   std::shared_ptr<gneiss::wakeup_signal> loop_wakeup_;
-  runtime::application_configuration config_;
+  app::configuration config_;
   // Application 跨帧保存配置；后端或完成回调不能借用调用方的临时字符串。
   std::string window_title_;
   std::string asset_root_;
@@ -364,8 +364,7 @@ private:
 };
 } // namespace
 
-gneiss::result<std::shared_ptr<application>>
-application::create(const application_configuration& config) {
+gneiss::result<std::shared_ptr<application>> application::create(const configuration& config) {
   if (config.enable_window && (config.window.width == 0U || config.window.height == 0U)) {
     return gneiss::error::invalid_argument;
   }
@@ -380,7 +379,7 @@ application::create(const application_configuration& config) {
   }
 }
 
-application::application(const runtime::application_configuration& config)
+application::application(const app::configuration& config)
     : storage_(std::make_unique<storage>(config)) {}
 
 application::~application() noexcept { static_cast<void>(shutdown()); }
@@ -518,7 +517,7 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
     }
     try {
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-      storage_->loop_wakeup_ = std::make_shared<gneiss::runtime::main_loop_wakeup>();
+      storage_->loop_wakeup_ = std::make_shared<gneiss::app::main_loop_wakeup>();
 #endif
     } catch (...) {
       storage_->window_service_.reset();
@@ -956,4 +955,4 @@ void application::on_close_request(std::function<void()> handler) {
 
 void application::request_exit() noexcept { storage_->should_exit_ = true; }
 
-} // namespace gneiss::runtime
+} // namespace gneiss::app

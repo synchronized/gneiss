@@ -7,7 +7,7 @@
 #include <gneiss/engine/function/scene/world.hpp>
 int main() try {
   gneiss::install_fatal_handler();
-  auto created = gneiss::runtime::application::create({});
+  auto created = gneiss::app::application::create({});
   if (!created)
     return 1;
   gneiss::world_owner world;

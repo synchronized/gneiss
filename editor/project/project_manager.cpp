@@ -41,7 +41,7 @@ struct project_manager_state final {
   gneiss::tasks::scope scope{scheduler.make_scope()};
   std::shared_ptr<project_job_result> pending;
   bool closing{};
-  runtime::application* application{};
+  app::application* application{};
   gneiss::editor::imgui_adapter ui;
   gneiss::render::frame_request frame;
   editor_project* output = nullptr;
@@ -240,9 +240,9 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
         recent_result != gneiss::error::invalid_argument) {
       state.operation = recent_result;
     }
-    std::shared_ptr<gneiss::runtime::application> application;
+    std::shared_ptr<gneiss::app::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
-    gneiss::runtime::application_configuration desc;
+    gneiss::app::configuration desc;
     desc.enable_window = true;
     desc.window.title = title;
 
@@ -250,7 +250,7 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     desc.window.height = 420U;
     desc.window.resizable = false;
     desc.window.high_dpi = false;
-    auto created = gneiss::runtime::application::create(desc);
+    auto created = gneiss::app::application::create(desc);
     auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
     if (operation != gneiss::error::success) {
       const auto message = operation.message();

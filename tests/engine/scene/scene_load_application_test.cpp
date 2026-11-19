@@ -30,7 +30,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace runtime;
+using namespace app;
 void check(bool condition, std::source_location where = std::source_location::current()) {
   if (!condition) {
     throw std::runtime_error("场景 Application 契约失败，行=" + std::to_string(where.line()));
@@ -94,7 +94,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   else
     std::ofstream(files.root / "material.json") << "broken";
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  application_configuration config;
+  configuration config;
   const auto root = files.root.string();
   config.asset_root = root;
   config.executor = &scheduler;
@@ -208,7 +208,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   namespace e = gneiss;
   fixture files;
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  application_configuration config;
+  configuration config;
   const auto asset_root = files.root.string();
   config.asset_root = asset_root;
   config.executor = &scheduler;
@@ -277,7 +277,7 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   fixture files;
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   const auto root = files.root.string();
-  application_configuration config;
+  configuration config;
   config.asset_root = root;
   config.executor = &scheduler;
   auto created = application::create(config);
@@ -344,7 +344,7 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
       << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":{"object":null,"source":null},"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://other.json","uuid":"8bc198c9-d44b-4726-8080-c13a800efd97"}}]}]})";
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<application> app;
-  application_configuration desc;
+  configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
   desc.executor = &scheduler;

@@ -106,7 +106,7 @@ struct response_context {
   gneiss::tasks::scheduler scheduler{{.workers = 1U}};
   gneiss::tasks::scope scope = scheduler.make_scope();
 };
-gneiss::error advance_scene(gneiss::runtime::application& app, response_context& state) {
+gneiss::error advance_scene(gneiss::app::application& app, response_context& state) {
   using namespace gneiss;
   if (state.scene_ready)
     return error::success;
@@ -143,7 +143,7 @@ gneiss::error advance_scene(gneiss::runtime::application& app, response_context&
   return error::success;
 }
 
-gneiss::error advance_scene_observed(gneiss::runtime::application& app, response_context& state) {
+gneiss::error advance_scene_observed(gneiss::app::application& app, response_context& state) {
   if (!state.trace) {
     return advance_scene(app, state);
   }
@@ -164,7 +164,7 @@ gneiss::error advance_scene_observed(gneiss::runtime::application& app, response
   return result;
 }
 
-gneiss::error native_update(gneiss::runtime::application& app, response_context& state) try {
+gneiss::error native_update(gneiss::app::application& app, response_context& state) try {
   if (state.stall && state.sent.load() == 1U && state.keys.load() == 0U) {
     std::this_thread::sleep_for(50ms);
     state.stall = false;
@@ -307,8 +307,8 @@ int main(int argc, char** argv) try {
   state.key_ms.reserve(asset_root.empty() ? 64U : 45000U);
   state.task_ms.reserve(asset_root.empty() ? 64U : 45000U);
   const auto title = "Gneiss Response " + std::to_string(GetCurrentProcessId());
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::runtime::application_configuration desc;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::app::configuration desc;
   desc.enable_window = true;
   desc.asset_root = asset_root;
   desc.executor = &state.scheduler;
@@ -317,8 +317,7 @@ int main(int argc, char** argv) try {
   desc.window.title = title;
   desc.window.width = 320U;
   desc.window.height = 240U;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)
-          .failed()) {
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(desc), app).failed()) {
     return 1;
   }
   app->on_close_request([&] {

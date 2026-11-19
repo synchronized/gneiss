@@ -54,15 +54,14 @@ struct temporary_project final {
          entry.asset_uri.ends_with(".material.json");
 }
 
-[[nodiscard]] gneiss::error
-create_application(const std::filesystem::path& asset_root,
-                   std::shared_ptr<gneiss::runtime::application>& output) {
+[[nodiscard]] gneiss::error create_application(const std::filesystem::path& asset_root,
+                                               std::shared_ptr<gneiss::app::application>& output) {
   const auto root = asset_root.generic_string();
-  gneiss::runtime::application_configuration desc;
+  gneiss::app::configuration desc;
   desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = root;
   return gneiss::error{
-      gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output)};
+      gneiss::test_support::assign_value(gneiss::app::application::create(desc), output)};
 }
 
 [[nodiscard]] std::string read_text(const std::filesystem::path& path) {
@@ -143,7 +142,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 7;
   }
 
-  std::shared_ptr<gneiss::runtime::application> application;
+  std::shared_ptr<gneiss::app::application> application;
   gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;

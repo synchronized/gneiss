@@ -38,8 +38,7 @@ void check(bool value, std::source_location where = std::source_location::curren
   }
 }
 // 通道对照需要确定已使用真实纹理，而非默认贴图；等待 CPU 请求后用完成的回读跨过上传提交。
-void prepare_texture_capture(runtime::application& app, world& world,
-                             world_render_binding& binding) {
+void prepare_texture_capture(app::application& app, world& world, world_render_binding& binding) {
   auto request = app.assets().load<texture>("asset://t.texture.json");
   check(bool(request));
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -96,15 +95,15 @@ void run_asset_reload() {
   files.color(std::byte{255}, std::byte{0});
   gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());
@@ -190,15 +189,15 @@ void run_asset_reload() {
 void run_pending_resources() {
   fixture files(true);
   files.color(std::byte{255}, std::byte{0});
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &gneiss::test_support::application_tasks();
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());
@@ -399,15 +398,15 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
                  static_cast<std::streamsize>(bytes.size()));
   }
   gneiss::tasks::scheduler scheduler({.workers = 1U});
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());
@@ -528,15 +527,15 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &gneiss::test_support::application_tasks();
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());
@@ -667,15 +666,15 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
     }
     std::ofstream(files.root / "s.scene.json") << scene_text;
   }
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &gneiss::test_support::application_tasks();
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());
@@ -761,15 +760,15 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());
@@ -907,19 +906,19 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   check(partial_resized[0] > partial_resized[2] + 30U);
 }
 void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
-  using namespace runtime;
+  using namespace app;
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
-  std::shared_ptr<runtime::application> app;
+  std::shared_ptr<app::application> app;
   const auto root = files.root.string();
-  runtime::application_configuration desc;
+  app::configuration desc;
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
   desc.executor = &scheduler;
-  check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
-                                                         app)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::assign_value(app::application::create(desc), app)} ==
+        gneiss::error::success);
   auto world = create_native();
   check(bool(world));
   auto render_binding = world_render_binding::create(**world, app->render());

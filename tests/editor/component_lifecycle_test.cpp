@@ -55,8 +55,8 @@ int main() try {
   check(!gneiss::editor::default_component_description({}));
   check(gneiss::editor::default_component_description(e::mesh_component_description::type_guid)
             .error() == e::error::unsupported);
-  std::shared_ptr<gneiss::runtime::application> app;
-  check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
+  std::shared_ptr<gneiss::app::application> app;
+  check(gneiss::test_support::assign_value(gneiss::app::application::create({}), app).ok());
   auto world_result = gneiss::create_native();
   check(bool(world_result));
   auto world_owner = std::move(*world_result);

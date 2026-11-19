@@ -27,7 +27,7 @@ struct capture_state final {
 
 int main() {
   capture_state state;
-  gneiss::runtime::application_configuration config;
+  gneiss::app::configuration config;
   gneiss::test_support::log_capture logs{[&](const gneiss::logging::record_view& event) {
     {
       const std::scoped_lock lock(state.mutex);
@@ -38,8 +38,8 @@ int main() {
     }
     state.changed.notify_all();
   }};
-  std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(config), application)
           .failed()) {
     return 1;
   }
