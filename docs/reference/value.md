@@ -79,7 +79,7 @@ Prefab 标量覆盖不自动升级为对象覆盖，资源 URI 继续走资源�
 ## Variant 访问与数学值
 
 Meta 的 variant_traits<value> 暴露 payload 存储；value 本身不依赖 Meta 操作表。
-instance.as_variant() 可查询分支、借用内容，mutable_variant_view.select() 默认构造所选分支。
+instance.as_variant() 可查询分支、借用内容，variant_view.select() 默认构造所选分支。
 切换分支后旧内容视图失效。value 的 read_value/write_value 仍提供整项复制和替换。
 分支标签由 variant_case_traits 显式定义，不使用枚举数字或编译器字符串。
 

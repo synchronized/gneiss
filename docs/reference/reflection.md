@@ -553,17 +553,17 @@ auto default_guid = meta::resolve(type_guid);
 注册 `ref<T>` 成员后，`property.type.kind()` 为 `type_kind::reference`，
 `cap::reference::element_type()` 返回静态目标类型；目标对象类型仍需注册。ref<void> 不支持字段反射。
 
-通过 `const_instance::as_reference()` 获取 `reference_view`，再用 `get()` 获取只读借用目标。
+通过 `const_instance::as_reference()` 获取 `const_reference_view`，再用 `get()` 获取只读借用目标。
 `instance::as_reference()` 返回可写引用视图，get 仅对 ref<T> 的可写目标有效；
 ref<const T> 返回 unsupported，可通过引用视图的 as_const().get() 读取。
 has_value 检查是否非空；视图本身不持有目标强引用。
-reference_view::get 对空引用返回 not_found。引用不是标量；可变 meta::object 目标支持 value 强引用传递，其他引用的 read_value 返回 unsupported。
+const_reference_view::get 对空引用返回 not_found。引用不是标量；可变 meta::object 目标支持 value 强引用传递，其他引用的 read_value 返回 unsupported。
 
-`mutable_reference_view::assign(source)` 接受只读引用视图，对完全相同的 ref 类型共享控制块，不复制目标；
+`reference_view::assign(source)` 接受只读引用视图，对完全相同的 ref 类型共享控制块，不复制目标；
 不同目标类型（包括 const 差异）返回 invalid_argument，不隐式推断派生转换。
 引用视图的 `reset()` 返回 void，释放当前引用，不影响其他强引用；视图不会自动延长目标寿命，
 重置/替换后应重新获取目标视图。
-`reference_view::has_value()` 直接返回 bool；`owner()` 直接返回 `ref<const void>`，
+`const_reference_view::has_value()` 直接返回 bool；`owner()` 直接返回 `ref<const void>`，
 空引用对应空强引用，非空结果显式保活目标；`actual_type()` 查询实际运行类型。
 可写视图的 `assign_owner(id, owner)` 仅接受声明目标类型的 ID，调用方须保证擦除指针与 ID 匹配。
 修改目标会被所有共享拥有者观察到，不提供写时复制。
@@ -583,7 +583,7 @@ dynamic_type() 返回 meta::type；带 registry_ref 的重载使用指定注册�
 未注册对象仍返回有效的静态类型，registered() 为 false；没有静态描述时返回空句柄。
 持久身份使用 dynamic_type().guid()，不再提供独立 dynamic_guid()。
 引用视图使用自己的注册表解析动态类型，多继承引用仍通过 dynamic_address() 取得完整对象地址。
-reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目标。
+const_reference_view.get() 返回实际类型视图；ref<const T> 只允许读取目标。
 base 链同时用于身份校验、指针调整和继承属性访问。freeze 合并完整继承链的属性，
 按属性 ID 排序；任意祖先与派生类的属性 ID 或名称冲突返回 invalid_argument，不提供遮蔽。
 基类尚未注册返回 not_found；冻结失败不会留下部分合并结果，可补齐注册后重试。
@@ -661,7 +661,7 @@ const_instance::read_value 对可变目标的 ref<T>（T 派生自 meta::object�
 instance::assign 对可直接访问的引用槽接受兼容对象或空引用，错误类型不改变旧引用。
 需要 setter 整项替换的属性仍使用 assign，避免绕过业务校验。
 这些属性仍为 reference 类别，不变成 scalar。ref<const T> 不转换为可变对象引用；
-普通结构体继续使用 const_instance，const 引用仍可通过 reference_view 访问。
+普通结构体继续使用 const_instance，const 引用仍可通过 const_reference_view 访问。
 
 原生 value 槽位也支持 const_instance::read_value 与 instance::assign；复制对象分支仍共享引用，不意味着生成快照。
 
@@ -802,7 +802,7 @@ auto same_elements = source.capability<meta::cap::sequence>();
 
 `type` 不再提供 element_type/enum_entries。sequence、associative、optional、reference
 capability 提供 element_type()，分别返回序列元素、映射值、可选值、引用声明目标的类型。
-查询前检查能力；variant 不提供该方法，它有多个分支，仍通过 variant_view::alternative(i) 查询。
+查询前检查能力；variant 不提供该方法，它有多个分支，仍通过 const_variant_view::alternative(i) 查询。
 
 ```cpp
 auto enumeration = type.capability<meta::cap::enumeration>();

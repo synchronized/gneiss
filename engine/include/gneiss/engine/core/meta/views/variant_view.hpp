@@ -7,6 +7,7 @@
 namespace gneiss::meta {
 /** 借用当前分支；select 后所有旧分支视图失效。未配置标签不影响内存访问。 */
 template <bool Mutable> class basic_variant_view {
+  template <bool> friend class basic_variant_view;
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
   template <bool> friend class basic_instance;
   template <type_kind, template <bool> class> friend class cap::container;
@@ -23,6 +24,10 @@ template <bool Mutable> class basic_variant_view {
   target_type target_;
 
 public:
+  /** 借用同一目标并移除写入能力，不复制目标数据。 */
+  [[nodiscard]] basic_variant_view<false> as_const() const noexcept {
+    return basic_variant_view<false>{target_.as_const()};
+  }
   std::size_t alternative_count() const noexcept { return ops()->alternatives.size(); }
   std::span<const std::string_view> names() const noexcept { return ops()->names; }
   result<meta::type> alternative(std::size_t i) const {

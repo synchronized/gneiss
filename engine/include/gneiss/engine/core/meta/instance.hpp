@@ -13,20 +13,20 @@
 
 namespace gneiss::meta {
 template <bool Mutable> class basic_sequence_view;
-using sequence_view = basic_sequence_view<false>;
-using mutable_sequence_view = basic_sequence_view<true>;
+using const_sequence_view = basic_sequence_view<false>;
+using sequence_view = basic_sequence_view<true>;
 template <bool Mutable> class basic_associative_view;
-using associative_view = basic_associative_view<false>;
-using mutable_associative_view = basic_associative_view<true>;
+using const_associative_view = basic_associative_view<false>;
+using associative_view = basic_associative_view<true>;
 template <bool Mutable> class basic_optional_view;
-using optional_view = basic_optional_view<false>;
-using mutable_optional_view = basic_optional_view<true>;
+using const_optional_view = basic_optional_view<false>;
+using optional_view = basic_optional_view<true>;
 template <bool Mutable> class basic_reference_view;
-using reference_view = basic_reference_view<false>;
-using mutable_reference_view = basic_reference_view<true>;
+using const_reference_view = basic_reference_view<false>;
+using reference_view = basic_reference_view<true>;
 template <bool Mutable> class basic_variant_view;
-using variant_view = basic_variant_view<false>;
-using mutable_variant_view = basic_variant_view<true>;
+using const_variant_view = basic_variant_view<false>;
+using variant_view = basic_variant_view<true>;
 /** 借用实例：类型与访问位置共享一套表示；Mutable 在编译期限定写入能力。
  * 不保活目标对象。getter 按调用读取；受约束的复合属性仅允许整体替换。 */
 template <bool Mutable> class basic_instance {

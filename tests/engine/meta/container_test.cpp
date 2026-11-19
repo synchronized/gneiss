@@ -103,7 +103,20 @@ std::span<const std::byte> bytes(std::string_view s) {
 }
 template <class T>
 concept writable_sequence = requires(T v) { v.resize(1); };
-static_assert(!writable_sequence<m::sequence_view> && writable_sequence<m::mutable_sequence_view>);
+static_assert(!writable_sequence<m::const_sequence_view> && writable_sequence<m::sequence_view>);
+static_assert(std::is_same_v<decltype(std::declval<const m::sequence_view&>().as_const()),
+                             m::const_sequence_view>);
+static_assert(std::is_same_v<decltype(std::declval<const m::associative_view&>().as_const()),
+                             m::const_associative_view>);
+static_assert(std::is_same_v<decltype(std::declval<const m::optional_view&>().as_const()),
+                             m::const_optional_view>);
+static_assert(std::is_same_v<decltype(std::declval<const m::reference_view&>().as_const()),
+                             m::const_reference_view>);
+static_assert(std::is_same_v<decltype(std::declval<const m::variant_view&>().as_const()),
+                             m::const_variant_view>);
+static_assert(std::is_same_v<decltype(std::declval<const m::object_view&>().as_const()),
+                             m::const_object_view>);
+static_assert(writable_sequence<const m::sequence_view>);
 int main() try {
   auto r = m::create_registry();
   CHECK(r);
@@ -196,7 +209,9 @@ int main() try {
   auto seq = items->as_sequence();
   CHECK(seq && seq->size() == 1);
   CHECK(seq->at(2).error() == e::error::not_found);
+  auto readonly_seq = seq->as_const();
   CHECK(seq->resize(2).ok());
+  CHECK(readonly_seq.size() == 2);
   auto object = seq->at(1);
   CHECK(object);
   CHECK(object->template capability<gneiss::meta::cap::object>()

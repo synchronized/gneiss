@@ -7,6 +7,7 @@
 namespace gneiss::meta {
 /** 借用视图；不延长目标寿命，结构修改后需重新获取元素视图。 */
 template <bool Mutable> class basic_optional_view {
+  template <bool> friend class basic_optional_view;
   using target_type = std::conditional_t<Mutable, instance, const_instance>;
   template <bool> friend class basic_instance;
   template <type_kind, template <bool> class> friend class cap::container;
@@ -23,6 +24,10 @@ template <bool Mutable> class basic_optional_view {
   target_type target_;
 
 public:
+  /** 借用同一目标并移除写入能力，不复制目标数据。 */
+  [[nodiscard]] basic_optional_view<false> as_const() const noexcept {
+    return basic_optional_view<false>{target_.as_const()};
+  }
   [[nodiscard]] bool has_value() const { return ops()->has_value(readonly().data_); }
   [[nodiscard]] result<target_type> get() const {
     auto v = readonly();

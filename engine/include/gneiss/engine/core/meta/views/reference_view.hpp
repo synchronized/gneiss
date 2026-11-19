@@ -61,9 +61,11 @@ public:
       return const_instance::from_object(v.registry(), actual_type(), owned.get());
     }
   }
-  [[nodiscard]] reference_view as_const() const noexcept { return reference_view{readonly()}; }
+  [[nodiscard]] const_reference_view as_const() const noexcept {
+    return const_reference_view{readonly()};
+  }
   /** 共享源控制块；仅允许相同引用类型，不复制目标。 */
-  [[nodiscard]] error assign(const reference_view& source) const
+  [[nodiscard]] error assign(const const_reference_view& source) const
     requires(Mutable)
   {
     return target_.assign(source.target_);

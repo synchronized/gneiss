@@ -20,7 +20,7 @@
 冻结时沿元素操作表检查对象叶子的 GUID 与运行期 ID，漏注册返回 not_found。
 递归对象（如 vector<Node>）只检查叶子身份，不在冻结阶段展开无限对象树。
 
-sequence_view 与 associative_view 的只读和可写版本都支持 size；顺序视图通过 at(index) 返回元素实例，越界返回 not_found。
+const_sequence_view 与 const_associative_view 的只读和可写版本都支持 size；顺序视图通过 at(index) 返回元素实例，越界返回 not_found。
 序列和关联视图的 `size()` 直接返回 `std::size_t`，空容器返回零；
 查询不提供错误分支，调用方仍需保证借用有效并同步访问。
 `at`、`find` 和 `keys` 保留越界、缺失或非法键等诊断。
@@ -163,3 +163,10 @@ Variant 本身不支持 read_value，须先 value() 取得当前分支。此能�
 - reference reset 的能力是必备的，直接返回 void；清空不销毁其他强引用持有的目标。
 
 这些操作不把分配异常伪装成普通结果码，也不因常见标准容器支持某项操作而要求所有扩展适配器支持。
+
+### 借用视图的读写命名
+
+可写视图使用 `xxx_view`，只读视图使用 `const_xxx_view`，与 `instance / const_instance` 一致。
+所有视图提供 `as_const()`，借用同一目标且不复制数据；不提供反向转换。
+句柄自身的 `const` 不限制目标写入，目标写权限由视图类型决定。能力对象 `cap::xxx`
+不区分读写，绑定实例后保留实例的访问权限。

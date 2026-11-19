@@ -427,9 +427,9 @@ bool type_queries() {
       object_capability.bind(m::const_instance{}).error() != e::error::invalid_state)
     return false;
   static_assert(std::same_as<decltype(source_view.as_const().capability<m::cap::object>()),
-                             e::result<m::object_view>>);
+                             e::result<m::const_object_view>>);
   static_assert(std::same_as<decltype(source_view.capability<m::cap::object>()),
-                             e::result<m::mutable_object_view>>);
+                             e::result<m::object_view>>);
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = registry;
   registry.reset();
@@ -956,7 +956,7 @@ bool capability_binding() {
     return false;
   auto mutable_view = capability.bind(source);
   auto readonly_view = capability.bind(source.as_const());
-  static_assert(std::is_same_v<decltype(readonly_view), e::result<m::sequence_view>>);
+  static_assert(std::is_same_v<decltype(readonly_view), e::result<m::const_sequence_view>>);
   if (!mutable_view || !readonly_view || mutable_view->resize(3).failed() ||
       readonly_view->size() != 3)
     return false;
