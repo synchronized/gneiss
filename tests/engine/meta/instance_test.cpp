@@ -220,8 +220,8 @@ bool enum_registration() {
               .guid(mode_guid)
               .value("value", unknown_mode::value)
               .commit() != e::error::invalid_argument ||
-      m::type_of<collision_type>(registry).registered() ||
-      m::type_of<unknown_mode>(registry).registered())
+      m::resolve<collision_type>(registry).registered() ||
+      m::resolve<unknown_mode>(registry).registered())
     return false;
   constexpr auto other_guid = e::guid::literal("b48fa732-f59e-4770-8be8-e5ad255bb3a5");
   if (m::registration::type<collision_type>(registry)
@@ -238,20 +238,20 @@ bool enum_registration() {
               .metadata(2)
               .value("value", unknown_mode::value)
               .commit() != e::error::invalid_argument ||
-      m::type_of<unknown_mode>(registry).registered())
+      m::resolve<unknown_mode>(registry).registered())
     return false;
   if (builder.commit() != e::error::invalid_state ||
       m::registration::enumeration<mode>(registry).value("duplicate", mode::first).commit() !=
           e::error::invalid_argument ||
       m::freeze(registry).failed())
     return false;
-  const auto enum_type = m::type_of<mode>(registry);
+  const auto enum_type = m::resolve<mode>(registry);
   const auto* extension = enum_type.extension<std::string>();
   if (!enum_type.registered() || enum_type.guid() != mode_guid || enum_type.name() != "Mode" ||
       enum_type.schema_version() != 3 || !extension || *extension != "mode metadata" ||
-      m::find_type(registry, mode_guid).id() != enum_type.id())
+      m::resolve(registry, mode_guid).id() != enum_type.id())
     return false;
-  auto type = m::type_of<enum_object>(registry);
+  auto type = m::resolve<enum_object>(registry);
   if (!type)
     return false;
   auto left_entries = type.template capability<m::cap::object>()
@@ -355,7 +355,7 @@ struct query_model {
 };
 bool type_queries() {
   auto registry = m::create_registry();
-  if (!registry || !m::type_of<float>(registry) || m::find_type(registry, query_model::type_guid))
+  if (!registry || !m::resolve<float>(registry) || m::resolve(registry, query_model::type_guid))
     return false;
   if (m::registration::enumeration<mode>(registry).value("first", mode::first).commit().failed() ||
       m::registration::type<query_model>(registry)
@@ -367,13 +367,13 @@ bool type_queries() {
     return false;
   if (m::freeze().failed())
     return false;
-  auto default_float = m::type_of<float>();
-  if (!default_float || !m::find_type(e::runtime_type_of<float>()) ||
-      !m::find_type(default_float.guid()))
+  auto default_float = m::resolve<float>();
+  if (!default_float || !m::resolve(e::runtime_type_of<float>()) ||
+      !m::resolve(default_float.guid()))
     return false;
-  auto typed = m::type_of<const query_model&>(registry);
-  auto by_id = m::find_type(registry, e::runtime_type_of<query_model>());
-  auto by_guid = m::find_type(registry, query_model::type_guid);
+  auto typed = m::resolve<const query_model&>(registry);
+  auto by_id = m::resolve(registry, e::runtime_type_of<query_model>());
+  auto by_guid = m::resolve(registry, query_model::type_guid);
   if (!typed || !by_id || !by_guid || typed != by_id || typed != by_guid)
     return false;
   auto named = typed.template capability<m::cap::object>().find_property("count");
@@ -392,27 +392,27 @@ bool type_queries() {
   if (props.empty() || props.size() != 2 || props[0].type().kind() != m::type_kind::sequence ||
       props[1].type().id() != e::runtime_type_of<std::int8_t>())
     return false;
-  auto sequence = m::find_type(registry, e::runtime_type_of<std::vector<mode>>());
+  auto sequence = m::resolve(registry, e::runtime_type_of<std::vector<mode>>());
   auto element = sequence.capability<m::cap::sequence>().element_type();
-  auto enumeration = m::find_type(registry, e::runtime_type_of<mode>());
+  auto enumeration = m::resolve(registry, e::runtime_type_of<mode>());
   if (!element || !element.is_enum() || !enumeration ||
       element.capability<m::cap::enumeration>().entries().data() !=
           enumeration.capability<m::cap::enumeration>().entries().data())
     return false;
-  auto scalar = m::type_of<float>(registry);
-  if (!scalar || !m::find_type(registry, scalar.guid()) || !m::type_of<settings>(registry) ||
-      m::find_type(registry, e::runtime_type_of<settings>()) || m::find_type(registry, e::guid{}) ||
-      m::find_type(m::registry_ref{}, e::runtime_type_of<float>()))
+  auto scalar = m::resolve<float>(registry);
+  if (!scalar || !m::resolve(registry, scalar.guid()) || !m::resolve<settings>(registry) ||
+      m::resolve(registry, e::runtime_type_of<settings>()) || m::resolve(registry, e::guid{}) ||
+      m::resolve(m::registry_ref{}, e::runtime_type_of<float>()))
     return false;
   // 类型句柄比较含注册表身份，不依赖模板静态描述的地址。
   auto isolated = m::create_registry();
-  if (!isolated || m::type_of<float>(isolated) == scalar ||
-      m::type_of<float>(isolated).id() != scalar.id() || scalar == typed ||
+  if (!isolated || m::resolve<float>(isolated) == scalar ||
+      m::resolve<float>(isolated).id() != scalar.id() || scalar == typed ||
       m::type{} != m::type{} || scalar == m::type{} || m::type{}.capability<m::cap::sequence>() ||
       scalar.capability<m::cap::sequence>() || element != enumeration)
     return false;
-  const auto unregistered = m::type_of<settings>(registry);
-  if (!unregistered || unregistered.registered() || unregistered != m::type_of<settings>(registry))
+  const auto unregistered = m::resolve<settings>(registry);
+  if (!unregistered || unregistered.registered() || unregistered != m::resolve<settings>(registry))
     return false;
   auto object_capability = unregistered.capability<m::cap::object>();
   settings source{};
@@ -446,7 +446,7 @@ bool registered_native_queries() {
   using optional = std::optional<float>;
   using reference = e::ref<settings>;
   using variant = std::variant<float, int>;
-  const auto before = m::type_of<sequence>(registry);
+  const auto before = m::resolve<sequence>(registry);
   if (m::registration::type<sequence>(registry).name("sequence").commit().failed() ||
       m::registration::type<mapping>(registry).name("mapping").commit().failed() ||
       m::registration::type<optional>(registry).name("optional").commit().failed() ||
@@ -459,8 +459,8 @@ bool registered_native_queries() {
       m::freeze(registry).failed())
     return false;
   auto check = [&]<class T>() {
-    const auto native = m::type_of<T>(registry);
-    const auto lookup = m::find_type(registry, e::runtime_type_of<T>());
+    const auto native = m::resolve<T>(registry);
+    const auto lookup = m::resolve(registry, e::runtime_type_of<T>());
     if (!(native == lookup && native.registered() && lookup.registered() &&
           native.kind() == lookup.kind() && native.scalar_kind() == lookup.scalar_kind()))
       return false;
@@ -478,15 +478,15 @@ bool registered_native_queries() {
   if (!check.template operator()<sequence>() || !check.template operator()<mapping>() ||
       !check.template operator()<optional>() || !check.template operator()<reference>() ||
       !check.template operator()<variant>() || before.registered() ||
-      !m::find_type(registry, e::runtime_type_of<sequence>())
+      !m::resolve(registry, e::runtime_type_of<sequence>())
            .capability<m::cap::sequence>()
            .is_fixed_size())
     return false;
-  const auto sequence_type = m::type_of<sequence>(registry).capability<m::cap::sequence>();
-  if (!sequence_type || sequence_type.element_type() != m::type_of<float>(registry) ||
-      m::type_of<int>(registry).capability<m::cap::sequence>())
+  const auto sequence_type = m::resolve<sequence>(registry).capability<m::cap::sequence>();
+  if (!sequence_type || sequence_type.element_type() != m::resolve<float>(registry) ||
+      m::resolve<int>(registry).capability<m::cap::sequence>())
     return false;
-  const auto runtime = m::find_type(registry, runtime_guid);
+  const auto runtime = m::resolve(registry, runtime_guid);
   if (!runtime || !runtime.registered() || runtime.id() || runtime.capability<m::cap::sequence>() ||
       runtime.kind() != m::type_kind::object)
     return false;
@@ -496,7 +496,7 @@ bool registered_native_queries() {
   for (const auto entry : *types) {
     if (entry.id() == e::runtime_type_of<sequence>() &&
         (!entry.capability<m::cap::sequence>().is_fixed_size() ||
-         entry.capability<m::cap::sequence>().element_type() != m::type_of<float>(registry)))
+         entry.capability<m::cap::sequence>().element_type() != m::resolve<float>(registry)))
       return false;
   }
   return true;
@@ -670,13 +670,13 @@ bool polymorphic_references() {
   const auto registered = base.dynamic_type(registry);
   auto other = m::create_registry();
   if (!other || !detached || detached.registered() || !registered.registered() ||
-      registered != m::type_of<polymorphic_child>(registry) ||
+      registered != m::resolve<polymorphic_child>(registry) ||
       base.dynamic_type(other).registered() || base.dynamic_type(other).id() != detached.id() ||
       detached.guid() != polymorphic_child::type_guid || base.dynamic_address() != &native ||
       !base.dynamic_type() || missing_dynamic_type{}.dynamic_type(registry))
     return false;
   auto capability = registered.capability<m::cap::object>();
-  if (capability.base_type() != m::type_of<polymorphic_base>(registry) ||
+  if (capability.base_type() != m::resolve<polymorphic_base>(registry) ||
       !capability.can_construct())
     return false;
   auto owner = capability.construct();
@@ -686,7 +686,7 @@ bool polymorphic_references() {
   auto root = m::instance::from_object(registered, child);
   auto object_view = root->capability<m::cap::object>();
   auto parent = object_view->cast(capability.base_type());
-  auto object = object_view->cast(m::type_of<m::object>(registry));
+  auto object = object_view->cast(m::resolve<m::object>(registry));
   if (!parent || !object || *parent->object_data() != static_cast<polymorphic_base*>(child) ||
       *object->object_data() != static_cast<m::object*>(child) ||
       detached.capability<m::cap::object>().can_construct())
@@ -694,9 +694,9 @@ bool polymorphic_references() {
   auto readonly = root->as_const().capability<m::cap::object>()->cast(capability.base_type());
   static_assert(std::is_same_v<decltype(readonly), e::result<m::const_instance>>);
   if (!readonly || *readonly->object_data() != static_cast<const polymorphic_base*>(child) ||
-      object_view->cast(m::type_of<polymorphic_base>(other)).error() !=
+      object_view->cast(m::resolve<polymorphic_base>(other)).error() !=
           e::error::invalid_argument ||
-      capability.is_a(m::type_of<int>(registry)))
+      capability.is_a(m::resolve<int>(registry)))
     return false;
   auto input = e::make_ref<polymorphic_child>();
   input->number = 42;
@@ -898,7 +898,7 @@ bool property_handles() {
   auto view = m::view(first, probe);
   auto foreign = m::view(second, std::as_const(probe));
   auto unrelated = m::view(first, std::as_const(wrong));
-  auto type = m::type_of<shared_probe>(first);
+  auto type = m::resolve<shared_probe>(first);
   if (!type)
     return false;
   auto fields = type.template capability<m::cap::object>().properties();

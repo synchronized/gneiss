@@ -1117,7 +1117,7 @@ void draw_component_descriptions(editor_state& state) {
     if (ImGui::BeginPopup("prefab_components")) {
       if (types)
         for (const auto& type : *types) {
-          auto metadata = meta::find_type(type.type);
+          auto metadata = meta::resolve(type.type);
           auto change = state.editing.document().capture_component_override(node_id, type.type);
           if (!metadata || !change)
             continue;
@@ -1154,7 +1154,7 @@ void draw_component_descriptions(editor_state& state) {
   for (const auto& component : *components) {
     identity.component_type = component->guid();
     auto view = component->view();
-    auto type = meta::find_type(component->guid());
+    auto type = meta::resolve(component->guid());
     if (!view || !type) {
       state.inspector_error = !view ? view.error() : gneiss::error{gneiss::error::not_found};
       continue;
@@ -2791,7 +2791,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
             const bool exists = current->find(choice.type) != nullptr;
             if (exists ? !choice.removable : !choice.addable || !choice.removable)
               continue;
-            auto type = gneiss::meta::find_type(choice.type);
+            auto type = gneiss::meta::resolve(choice.type);
             if (!type)
               continue;
             const auto label = std::string(exists ? "Remove " : "Add ") + std::string(type.name()) +

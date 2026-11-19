@@ -39,12 +39,12 @@ int main() {
   const auto transform_type = gneiss::math::transform::type_guid;
   const auto camera_type = gneiss::camera_description::type_guid;
   gneiss::meta::type info;
-  if (!(info = gneiss::meta::find_type(transform_type)) ||
+  if (!(info = gneiss::meta::resolve(transform_type)) ||
       info.template capability<gneiss::meta::cap::object>().properties().size() != 3 ||
-      !(info = gneiss::meta::find_type(camera_type)) ||
+      !(info = gneiss::meta::resolve(camera_type)) ||
       info.template capability<gneiss::meta::cap::object>().properties().size() != 3 ||
-      !(info = gneiss::meta::type_of<gneiss::math::transform>()) || info.guid() != transform_type ||
-      !(info = gneiss::meta::type_of<gneiss::camera_description>()) || info.guid() != camera_type)
+      !(info = gneiss::meta::resolve<gneiss::math::transform>()) || info.guid() != transform_type ||
+      !(info = gneiss::meta::resolve<gneiss::camera_description>()) || info.guid() != camera_type)
     return 2;
   gneiss::value value;
   if (gneiss::test_support::assign_value(gneiss::read_component_property(*first, entity.get(),

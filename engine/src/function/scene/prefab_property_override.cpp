@@ -96,7 +96,7 @@ error validate_prefab_property_override(const prefab_property_override& value) {
       validate_value_operation(value.operation).failed()) {
     return error::invalid_argument;
   }
-  auto owner = meta::find_type(value.key.target.target_type_guid);
+  auto owner = meta::resolve(value.key.target.target_type_guid);
   if (!owner)
     return gneiss::error{gneiss::error::not_found};
   auto field = owner.template capability<gneiss::meta::cap::object>().find_property(

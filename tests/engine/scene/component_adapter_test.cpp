@@ -137,7 +137,7 @@ int main() try {
         e::camera_description::type_guid);
   check(e::component_description_type(unknown_description::type_guid) ==
         unknown_description::type_guid);
-  const auto primary = gneiss::meta::find_type(e::camera_description::type_guid)
+  const auto primary = gneiss::meta::resolve(e::camera_description::type_guid)
                            .capability<gneiss::meta::cap::object>()
                            .find_property(e::property_id{4});
   check(primary && gneiss::is_edit_read_only(primary));

@@ -17,7 +17,7 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
     return diagnostic{.error = registry.error()};
   if constexpr (std::is_default_constructible_v<T>) {
     if (meta::detail::ops_of<T>().kind() != meta::type_kind::object ||
-        (meta::representation_traits<T>::enabled && !meta::type_of<T>(*registry).registered())) {
+        (meta::representation_traits<T>::enabled && !meta::resolve<T>(*registry).registered())) {
       T object{};
       auto view = meta::view(*registry, object);
       auto status = decode_view(view);
@@ -27,7 +27,7 @@ result<T, diagnostic> decode_typed(const read_context& ctx, DecodeView&& decode_
     }
   }
   if constexpr (meta::representation_traits<T>::enabled && !std::is_default_constructible_v<T>) {
-    const auto type = meta::type_of<T>(*registry);
+    const auto type = meta::resolve<T>(*registry);
     if (!type.registered()) {
       std::optional<T> candidate;
       diagnostic issue;

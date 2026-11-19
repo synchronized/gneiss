@@ -80,10 +80,10 @@ diagnostic decode_representation(const read_context& ctx, const instance& target
 /** 统一验证反射对象实际身份，普通值结构无此要求。 */
 serialization::diagnostic validate_identity(const registry_ref& registry, type_id id,
                                             const void* address) {
-  auto type = find_type(registry, id);
+  auto type = resolve(registry, id);
   if (!type)
     return failure(error::not_found);
-  auto object_type = meta::type_of<meta::object>(registry);
+  auto object_type = meta::resolve<meta::object>(registry);
   if (!type.capability<meta::cap::object>().is_a(object_type))
     return {};
   auto instance = meta::const_instance::from_object(type, address);
@@ -102,10 +102,10 @@ serialization::diagnostic validate_identity(const registry_ref& registry, type_i
 /** 检查注册继承链并按 C++ 转换逐层调整地址。 */
 result<void*, serialization::diagnostic> cast_base(const registry_ref& registry, type_id actual,
                                                    type_id declared, void* pointer) {
-  auto actual_type = find_type(registry, actual);
+  auto actual_type = resolve(registry, actual);
   auto declared_type = declared == runtime_type_of<meta::object>()
-                           ? meta::type_of<meta::object>(registry)
-                           : find_type(registry, declared);
+                           ? meta::resolve<meta::object>(registry)
+                           : resolve(registry, declared);
   auto capability = actual_type.capability<meta::cap::object>();
   if (!capability.is_a(declared_type))
     return failure(error::invalid_argument, "", "实际类型不属于声明基类");
@@ -144,7 +144,7 @@ result<writer::node, serialization::diagnostic> encode_nested(const write_contex
     if (status.error.failed())
       return status;
   }
-  auto type = find_type(registry, id);
+  auto type = resolve(registry, id);
   if (type.capability<gneiss::meta::cap::representation>()) {
     auto view = const_instance::from_object(registry, id, object);
     if (!view)
@@ -237,7 +237,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
         return failure(error::invalid_argument, "", "非空内嵌引用不能编码为 null");
       return content;
     }
-    auto actual_type = find_type(registry, actual);
+    auto actual_type = resolve(registry, actual);
     if (!actual_type)
       return failure(error::not_found);
     if (!actual_type.guid())
@@ -562,7 +562,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
   ref<void> object;
   serialization::diagnostic status;
   if (binding->content.decode &&
-      !find_type(registry, actual).capability<gneiss::meta::cap::representation>()) {
+      !resolve(registry, actual).capability<gneiss::meta::cap::representation>()) {
     depth_scope custom_depth{ctx, depth + (root ? 0 : 1)};
     if (context_access::depth(ctx) > ctx.maximum_depth())
       return failure(error::invalid_argument);
@@ -572,14 +572,14 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
     else
       object = std::move(*decoded);
   } else {
-    auto capability = find_type(registry, actual).capability<meta::cap::object>();
+    auto capability = resolve(registry, actual).capability<meta::cap::object>();
     if (!capability.can_construct())
       return failure(error::unsupported);
     auto created = capability.construct();
     if (!created)
       return failure(created.error());
     object = std::move(*created);
-    if (find_type(registry, actual).capability<gneiss::meta::cap::representation>()) {
+    if (resolve(registry, actual).capability<gneiss::meta::cap::representation>()) {
       auto view = instance::from_object(registry, actual, object.get());
       if (!view)
         return failure(view.error());
@@ -593,7 +593,7 @@ result<ref<void>, serialization::diagnostic> decode_owned(const read_context& ct
   if (status.error.ok())
     status = validate_identity(registry, actual, object.get());
   if (status.error.ok() &&
-      !find_type(registry, actual).capability<gneiss::meta::cap::representation>() &&
+      !resolve(registry, actual).capability<gneiss::meta::cap::representation>() &&
       binding->validation.validate && !(ctx.references() && ctx.references()->collecting()))
     status = binding->validation.validate(object.get());
   if (status.error.failed())
@@ -708,12 +708,12 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       auto guid = gneiss::guid::parse(context_access::input(ctx)->string(tag));
       if (!guid || !*guid || guid->string() != context_access::input(ctx)->string(tag))
         return failure(error::invalid_argument, "/$type_guid");
-      auto type = find_type(registry, *guid);
+      auto type = resolve(registry, *guid);
       if (!type)
         return failure(gneiss::error{gneiss::error::not_found}, "/$type_guid");
       actual = type.id();
       if (!context_access::input(ctx)->is_object(content) &&
-          !find_type(registry, actual).capability<gneiss::meta::cap::representation>())
+          !resolve(registry, actual).capability<gneiss::meta::cap::representation>())
         return failure(error::invalid_argument, "/$content", "对象内容需要对象或静态表示能力");
     }
     auto compatible = cast_base(registry, actual, target.id(), nullptr);

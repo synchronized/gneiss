@@ -127,7 +127,7 @@ bool nested_json_contract() {
       gneiss::serialization::read_context{defaults_registry}, bytes("{}"));
   if (invalid_default || invalid_default.error().path != "/item/value")
     return false;
-  auto metadata = m::type_of<parent>(registry);
+  auto metadata = m::resolve<parent>(registry);
   if (!metadata ||
       metadata.template capability<gneiss::meta::cap::object>().properties()[0].type().id() !=
           e::runtime_type_of<child>() ||
@@ -141,7 +141,7 @@ bool nested_json_contract() {
   {
     parent original;
     original.item.value = 12;
-    if (gneiss::meta::instance::from_object(gneiss::meta::find_type(registry, parent::type_guid),
+    if (gneiss::meta::instance::from_object(gneiss::meta::resolve(registry, parent::type_guid),
                                             &original)
             ->capability<gneiss::meta::cap::object>()
             ->member(gneiss::property_id{1})

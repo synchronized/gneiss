@@ -398,7 +398,7 @@ read_fields_object(const read_context& ctx, yyjson_val* input, type_id id,
   auto binding = find_policies(*selected, id);
   if (!binding)
     return failure(binding.error());
-  auto capability = find_type(*selected, id).capability<meta::cap::object>();
+  auto capability = resolve(*selected, id).capability<meta::cap::object>();
   if (!capability.can_construct())
     return failure(error::unsupported);
   if (context_access::depth(ctx) > ctx.maximum_depth())

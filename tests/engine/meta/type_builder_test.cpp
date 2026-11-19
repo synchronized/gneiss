@@ -63,7 +63,7 @@ bool explicit_registration() {
   if (builder.commit().failed() || builder.commit() != e::error::invalid_state ||
       m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<external_model>(registry);
+  auto type = m::resolve<external_model>(registry);
   if (!type || type.name() != "external_model" || type.guid() != id || type.schema_version() != 3)
     return false;
   const auto pooled = e::string_name::find("external_model");
@@ -132,8 +132,8 @@ bool runtime_only_registration() {
       m::registration::type<runtime_child>(registry).commit() != e::error::invalid_argument ||
       m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<runtime_parent>(registry);
-  if (!type || type.guid() || type.name() != "runtime_parent" || m::find_type(registry, e::guid{}))
+  auto type = m::resolve<runtime_parent>(registry);
+  if (!type || type.guid() || type.name() != "runtime_parent" || m::resolve(registry, e::guid{}))
     return false;
   runtime_parent object;
   runtime_other other;
@@ -189,7 +189,7 @@ bool extension_registration() {
   label.label = "changed";
   if (builder.commit().failed() || m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<sample>(registry);
+  auto type = m::resolve<sample>(registry);
   if (!type)
     return false;
   auto field =
@@ -223,7 +223,7 @@ bool registration_exception_contract() {
     return false;
   } catch (const std::bad_alloc&) {
   }
-  if (!cleaned || m::type_of<sample>(registry).registered())
+  if (!cleaned || m::resolve<sample>(registry).registered())
     return false;
   try {
     m::registration::enumeration<mode>(registry).extend(
@@ -231,7 +231,7 @@ bool registration_exception_contract() {
     return false;
   } catch (const std::runtime_error&) {
   }
-  if (m::type_of<mode>(registry).registered())
+  if (m::resolve<mode>(registry).registered())
     return false;
   // 预期错误仍通过 commit 返回，不变成致命异常。
   return m::registration::type<sample>(registry)
@@ -258,7 +258,7 @@ bool pooled_enum_names() {
   }
   if (m::freeze(registry).failed())
     return false;
-  auto type = m::type_of<named_mode>(registry);
+  auto type = m::resolve<named_mode>(registry);
   auto entries = type.capability<gneiss::meta::cap::enumeration>().entries();
   const auto pooled = e::string_name::find("pooled_enum_first");
   return entries.size() == 2 && pooled && entries[0].name == "pooled_enum_first" &&

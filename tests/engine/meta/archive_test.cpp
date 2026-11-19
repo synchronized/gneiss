@@ -236,13 +236,13 @@ int main() {
   // 自定义类型没有 value 分支；与内置类型共享格式无关的适配机制。
   s::write_context adapted_write{r};
   s::read_context adapted_read{r};
-  CHECK(!m::type_of<external_id>(r).registered());
-  CHECK(m::type_of<external_id>(r).capability<gneiss::meta::cap::representation>());
-  CHECK(!m::type_of<std::int64_t>(r).capability<gneiss::meta::cap::representation>());
+  CHECK(!m::resolve<external_id>(r).registered());
+  CHECK(m::resolve<external_id>(r).capability<gneiss::meta::cap::representation>());
+  CHECK(!m::resolve<std::int64_t>(r).capability<gneiss::meta::cap::representation>());
   const std::int64_t unrelated = 42;
   auto unrelated_view = m::view(r, unrelated);
   bool consumed = false;
-  auto mismatch = m::type_of<external_id>(r).capability<gneiss::meta::cap::representation>().encode(
+  auto mismatch = m::resolve<external_id>(r).capability<gneiss::meta::cap::representation>().encode(
       unrelated_view, [&](const m::const_instance&) {
         consumed = true;
         return gneiss::error::success;

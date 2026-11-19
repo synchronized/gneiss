@@ -467,7 +467,7 @@ error edit_runtime_component(component_context context, guid type, gneiss::prope
     return current.error();
   if (!*current)
     return error::not_found;
-  auto reflected = meta::find_type(adapter->type);
+  auto reflected = meta::resolve(adapter->type);
   if (!reflected)
     return gneiss::error{gneiss::error::not_found};
   auto properties = reflected.template capability<gneiss::meta::cap::object>().properties();

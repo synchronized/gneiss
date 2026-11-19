@@ -62,34 +62,34 @@ bool native_values() {
     return false;
   }
   gneiss::meta::property field;
-  if ((field = gneiss::meta::find_type(registry, native_id)
+  if ((field = gneiss::meta::resolve(registry, native_id)
                    .capability<gneiss::meta::cap::object>()
                    .find_property(gneiss::property_id{1})) ||
       !field.name().empty()) {
     return false;
   }
   gneiss::value snapshot{.payload = std::string{"旧输出"}};
-  if (gneiss::meta::find_type(registry, native_id) || gneiss::meta::freeze(registry).failed())
+  if (gneiss::meta::resolve(registry, native_id) || gneiss::meta::freeze(registry).failed())
     return false;
   auto root =
-      gneiss::meta::instance::from_object(gneiss::meta::find_type(registry, native_id), &text);
+      gneiss::meta::instance::from_object(gneiss::meta::resolve(registry, native_id), &text);
   if (!root)
     return false;
   auto member = root->capability<gneiss::meta::cap::object>()->member("text");
   if (!member || gneiss::test_support::assign_value(member->read_value(), snapshot).failed())
     return false;
-  if (!(field = gneiss::meta::find_type(registry, native_id)
+  if (!(field = gneiss::meta::resolve(registry, native_id)
                     .capability<gneiss::meta::cap::object>()
                     .find_property(gneiss::property_id{1})) ||
       field.name() != "text" || field.id() != gneiss::property_id{1} ||
       field.type().scalar_kind() != gneiss::value_kind::string ||
       !gneiss::meta::has_flags(field.capabilities(),
                                gneiss::meta::property_capabilities::writable) ||
-      (field = gneiss::meta::find_type(registry, native_id)
+      (field = gneiss::meta::resolve(registry, native_id)
                    .capability<gneiss::meta::cap::object>()
                    .find_property(gneiss::property_id{99})) ||
       !field.name().empty() ||
-      (field = gneiss::meta::find_type({}, native_id)
+      (field = gneiss::meta::resolve({}, native_id)
                    .capability<gneiss::meta::cap::object>()
                    .find_property(gneiss::property_id{1})) ||
       !field.name().empty()) {
@@ -98,7 +98,7 @@ bool native_values() {
   gneiss::error foreign;
   std::thread reader([&] {
     gneiss::meta::property borrowed;
-    foreign = ((borrowed = gneiss::meta::find_type(registry, native_id)
+    foreign = ((borrowed = gneiss::meta::resolve(registry, native_id)
                                .capability<gneiss::meta::cap::object>()
                                .find_property(gneiss::property_id{1}))
                    ? gneiss::error::success
@@ -119,7 +119,7 @@ bool native_values() {
     return false;
   }
   gneiss::meta::type metadata;
-  if (!(metadata = gneiss::meta::find_type(registry, native_id)) ||
+  if (!(metadata = gneiss::meta::resolve(registry, native_id)) ||
       metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
       metadata.template capability<gneiss::meta::cap::object>()
               .properties()[0]
@@ -128,9 +128,9 @@ bool native_values() {
       metadata.guid() != native_id ||
       metadata.template capability<gneiss::meta::cap::object>().properties()[0].type().guid() !=
           gneiss::type_identity<std::string>::guid() ||
-      gneiss::meta::find_type(registry, gneiss::guid{}) || metadata.guid() != native_id ||
+      gneiss::meta::resolve(registry, gneiss::guid{}) || metadata.guid() != native_id ||
       metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1 ||
-      gneiss::meta::find_type({}, native_id) || metadata.guid() != native_id ||
+      gneiss::meta::resolve({}, native_id) || metadata.guid() != native_id ||
       metadata.template capability<gneiss::meta::cap::object>().properties().size() != 1) {
     return false;
   }
@@ -197,14 +197,14 @@ int main() try {
                                                            .getter = throwing_getter},
                             candidate_binding};
   if (gneiss::meta::register_type(state, definition, bindings).failed() ||
-      gneiss::meta::find_type(state, type_id))
+      gneiss::meta::resolve(state, type_id))
     return 11;
   name.assign("changed");
   if (gneiss::meta::freeze(state) != gneiss::error::success) {
     return 3;
   }
   gneiss::meta::type info;
-  if (!(info = gneiss::meta::find_type(state, type_id)) || info.name() != "sample" ||
+  if (!(info = gneiss::meta::resolve(state, type_id)) || info.name() != "sample" ||
       info.template capability<gneiss::meta::cap::object>().properties().size() != 2U) {
     return 4;
   }

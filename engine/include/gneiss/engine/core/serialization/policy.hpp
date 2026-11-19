@@ -80,13 +80,13 @@ inline result<type_policies> find_policies(const meta::registry_ref& registry, t
     return error::invalid_handle;
   if (!meta::is_frozen(registry))
     return error::not_ready;
-  auto type = meta::find_type(registry, id);
+  auto type = meta::resolve(registry, id);
   return type ? result<type_policies>{policies_of(type)} : result<type_policies>{error::not_found};
 }
 inline result<type_policies> find_policies(type_id id) {
   if (!meta::is_frozen())
     return error::not_ready;
-  auto type = meta::find_type(id);
+  auto type = meta::resolve(id);
   return type ? result<type_policies>{policies_of(type)} : result<type_policies>{error::not_found};
 }
 /** 引用位置统一选择：字段显式覆盖 > 被引用类型默认 > 内嵌默认。 */

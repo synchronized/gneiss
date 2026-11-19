@@ -520,7 +520,7 @@ describe_prefab_overrides(const gneiss::prefab_reference_description& reference,
                                     &game_object_description::uuid);
     std::string text =
         object == source.objects.end() ? key.target.source_node_uuid.string() : object->name;
-    auto type = meta::find_type(key.target.target_type_guid);
+    auto type = meta::resolve(key.target.target_type_guid);
     text += " / " + (type ? std::string(type.name()) : key.target.target_type_guid.string());
     if (!key.first_property().is_valid())
       return text;

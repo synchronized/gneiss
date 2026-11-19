@@ -218,7 +218,7 @@ void draw_runtime_inspector(const runtime_scene_node& node,
     if (!view)
       continue;
     auto properties = view->type().template capability<gneiss::meta::cap::object>().properties();
-    auto type = gneiss::meta::find_type(component->guid());
+    auto type = gneiss::meta::resolve(component->guid());
     if (!type)
       continue;
     ImGui::PushID(component->guid().string().c_str());

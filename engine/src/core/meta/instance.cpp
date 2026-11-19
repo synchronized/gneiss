@@ -74,7 +74,7 @@ basic_instance<Mutable>::from_object(registry_ref registry, gneiss::type_id id, 
     return error::invalid_handle;
   if (!is_frozen(registry))
     return error::not_ready;
-  return from_object(find_type(registry, id), object);
+  return from_object(resolve(registry, id), object);
 }
 template <bool Mutable>
 result<basic_instance<Mutable>> basic_instance<Mutable>::from_object(meta::type description,

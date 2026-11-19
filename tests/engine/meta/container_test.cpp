@@ -184,7 +184,7 @@ int main() try {
                                                    optional));
   tree source;
   auto root = m::view(r, source);
-  auto info = gneiss::meta::find_type(r, tree::type_guid)
+  auto info = gneiss::meta::resolve(r, tree::type_guid)
                   .capability<gneiss::meta::cap::object>()
                   .find_property(gneiss::property_id{1});
   CHECK(info && info.type().kind() == m::type_kind::sequence && !info.type().guid());

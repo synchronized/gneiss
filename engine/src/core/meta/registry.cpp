@@ -176,7 +176,7 @@ bool valid_binding(const property_binding& binding) noexcept {
   const auto id =
       property.accessor.enum_type ? property.accessor.enum_type : property.accessor.object_type;
   if (id) {
-    return find_type(registry, id);
+    return resolve(registry, id);
   }
   meta::type output;
   [&]<std::size_t... I>(std::index_sequence<I...>) {
@@ -613,10 +613,10 @@ std::uint32_t type::schema_version() const noexcept {
 std::string_view type::name() const noexcept {
   return record_ ? record_->name.view() : std::string_view{};
 }
-meta::type find_type(const registry_ref& registry, gneiss::type_id id) {
+meta::type resolve(const registry_ref& registry, gneiss::type_id id) {
   return registry ? registry->lookup_type(id) : meta::type{};
 }
-meta::type find_type(const registry_ref& registry, gneiss::guid id) {
+meta::type resolve(const registry_ref& registry, gneiss::guid id) {
   return registry ? registry->lookup_type(id) : meta::type{};
 }
 namespace detail {
@@ -675,7 +675,7 @@ property property_range::operator[](std::size_t index) const noexcept {
 namespace gneiss::meta {
 meta::type cap::object::base_type() const {
   return type_.record_ && type_.record_->object.base_type
-             ? find_type(type_.registry_, type_.record_->object.base_type)
+             ? resolve(type_.registry_, type_.record_->object.base_type)
              : meta::type{};
 }
 bool cap::object::can_construct() const noexcept {
@@ -708,7 +708,7 @@ result<const void*> cap::object::cast_address(meta::type target, const void* add
       return error::invalid_argument;
     if (address)
       address = ops.upcast(const_cast<void*>(address));
-    current = find_type(type_.registry_, ops.base_type);
+    current = resolve(type_.registry_, ops.base_type);
     if (!current)
       return error::not_found;
   }

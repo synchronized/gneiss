@@ -54,7 +54,7 @@ GUID 字节顺序与规范 UUID 文本去掉连字符后的顺序一致，不按
 类型自身的稳定身份为 `type_definition.guid`、`type::guid()`；注册输入另有可选的运行期 `type_id`。
 重复非空 GUID 或重复非空运行期 ID 的注册返回 `error::invalid_argument`，不覆盖已有记录。
 普通 C++ 对象可仅注册运行期 type_id；GUID 与 type_id 不能同时为空。
-多个无 GUID 类型通过 type_id 区分，nil GUID 的 find_type 查询返回空句柄。
+多个无 GUID 类型通过 type_id 区分，nil GUID 的 resolve 查询返回空句柄。
 注册名称不得为空或包含内嵌空字符，必须是合法 UTF-8；重复字段编号或名称也会被拒绝。
 
 注册时一次提交字段描述和绑定；无独立 bind_property 阶段，失败不留下部分类型。
@@ -72,7 +72,7 @@ invalid_argument。注册器只在显式 commit 时提交，重复 commit 返回
 
 ## 类型句柄查询
 
-普通消费者通过 `find_type` / `type_of<T>` 获取保活注册表的 `meta::type`。
+普通消费者通过 `resolve` / `resolve<T>` 获取保活注册表的 `meta::type`。
 `name()` 借用注册对象名称；空句柄或没有注册名称的类型返回空字符串。
 `cap::object::find_property(property_id)` / `cap::object::find_property(name)` 直接返回可判空的属性句柄，
 缺少记录或属性时返回空句柄，不复制整份属性列表。
@@ -110,7 +110,7 @@ static constexpr guid type_guid =
 类型 builder 提供属性和基类注册，枚举 builder 提供 `.value(name, E)`。
 枚举名称和 GUID 可从 traits 提取或显式补充；无名称、无 GUID 的枚举仍可登记显示项。
 登记后的枚举类型支持 `type::name/guid/schema_version/extension` 及 `cap::enumeration::entries` 查询，
-非空 GUID 可用于 `find_type`，并与普通类型共用唯一性约束。
+非空 GUID 可用于 `resolve`，并与普通类型共用唯一性约束。
 枚举仍按整数读写，不新增逐枚举项 metadata，也不会自动以显示项约束值域。
 
 调用序列化模板须直接包含 `serialization.hpp`。不保留旧头文件转发层或 get/set 属性入口。
@@ -141,17 +141,17 @@ return gneiss::meta::registration::type<math::transform>()
 
 ## 查询与属性值
 
-`registered_types` 枚举冻结类型；`find_type` 和对象能力的 `find_property` 返回句柄。
-`find_type` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
+`registered_types` 枚举冻结类型；`resolve` 和对象能力的 `find_property` 返回句柄。
+`resolve` 支持稳定 GUID 和运行期 `type_id` 两种入口，指向同一份记录。
 `register_type<T>` 从 `type_identity<std::remove_cvref_t<T>>` 补齐名称、GUID 和运行期 ID；
-显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`type_of<T>` 解析规范化 C++ 类型并直接返回类型句柄。未注册类型仍提供原生能力；
+显式名称或 GUID 与非空 traits 身份冲突时返回 `invalid_argument`。`resolve<T>` 解析规范化 C++ 类型并直接返回类型句柄。未注册类型仍提供原生能力；
 通过 `registered()` 判断是否关联已发布注册数据，基础值无需重复登记。
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`。
 注册描述与 property_binding 位于 type_definition.hpp，提交入口位于 registration.hpp；
 property.hpp 保留只读属性句柄、身份、权限和遍历范围。
-find_type/find_property 返回可判空句柄，type_of 提供未注册原生类型能力；枚举数量和按索引查询
+resolve(id/guid)/find_property 返回可判空句柄，resolve<T> 提供未注册原生类型能力；枚举数量和按索引查询
 仍返回 result，未冻结为 not_ready，越界为 not_found。属性范围不复制字段数组，
 范围和句柄保活注册表；借用名称不能超过持有者寿命。
 
@@ -279,12 +279,12 @@ Camera / Mesh 组件与 Scene / Prefab 的描述字段通过反射注册。Scene
 `is_frozen` 的空表参数触发契约断言；类型范围查询对空表返回 invalid_handle，未冻结时返回 not_ready。
 false 表示尚未冻结；成功的空范围表示没有注册对象。
 默认表首次创建、查询锁和自定义类型能力查询产生的 C++ 异常向外传播，不伪装为查询未命中。
-`type_of`、`find_type`、`property.type()`、`element_type()`、`dynamic_type()` 与实例创建不承诺 noexcept；
+`resolve`、`property.type()`、`element_type()`、`dynamic_type()` 与实例创建不承诺 noexcept；
 直接读取既有句柄的名称、身份、属性范围等操作仍保持不抛异常。
 
 ## 元数据与属性值查询
 
-`type_of<T>`、`find_type` 直接返回 `type`；运行期查询未命中或注册表未发布时返回空句柄。
+`resolve<T>`、`resolve` 直接返回 `type`；运行期查询未命中或注册表未发布时返回空句柄。
 对象能力上的 `find_property` 返回可判空的 `property`；
 无冻结记录、未知类型或未知属性返回空句柄。属性读取和写入另行报告操作失败。
 `serialization::find_policies` 返回 `result<serialization::type_policies>`。
@@ -297,7 +297,7 @@ getter 显式失败或数值/文本内容非法时返回错误；成功却返回
 ## 无 GUID 对象边界
 
 `registration::type<T>().name("名称")` 可以注册没有持久 GUID 的 C++ 对象；名称已有 traits 时可省略。
-`type_of<T>`、view、member、getter/setter、嵌套对象按运行期 type_id 访问，
+`resolve<T>`、view、member、getter/setter、嵌套对象按运行期 type_id 访问，
 不能通过 nil GUID 查找这些类型。普通静态类型 JSON 内容不携带身份，可正常编解码。
 多态 `$type_guid/$content` 必须有非空 GUID，否则编码返回 unsupported。
 对象 value 快照使用稳定 GUID 标识结构，capture/apply 对无 GUID 对象返回 unsupported；
@@ -307,10 +307,10 @@ getter 显式失败或数值/文本内容非法时返回错误；成功却返回
 
 `meta::default_registry()` 返回进程共享的 `registry_ref`，只创建表，不登记内置类型、不冻结。
 定义位于 engine 编译单元；各模块应链接同一引擎，不能把引擎静态复制到多个动态库后期待共享状态。
-未冻结时 `find_type` 返回空句柄，`registered_types` 与需要冻结表的序列化入口返回 `not_ready`；
-静态 `type_of<T>` 与 `view(T&)` 仍可使用原生类型能力。
+未冻结时 `resolve` 返回空句柄，`registered_types` 与需要冻结表的序列化入口返回 `not_ready`；
+静态 `resolve<T>` 与 `view(T&)` 仍可使用原生类型能力。
 `meta::registration::type<T>()`、`register_type<T>(definition)`、
-`type_of<T>()`、属性访问和 `serialization::json::encode(object)` / `serialization::json::decode<T>(bytes)` 使用默认表；
+`resolve<T>()`、属性访问和 `serialization::json::encode(object)` / `serialization::json::decode<T>(bytes)` 使用默认表；
 显式 registry 重载保持原行为。
 
 业务模块不得直接调用 `meta::default_registry()`；默认表获取集中在 Meta 内部，
@@ -510,12 +510,23 @@ kind/category/object_type/enum_type/choices/type_guid。属性提供 id、name �
 
 ### 不依赖实例的类型查询
 
-包含 `registry.hpp` 后可以调用 `meta::type_of<T>()`、`meta::find_type(type_id)` 和
-`meta::find_type(guid)`；每个入口也支持显式 registry_ref。查询要求注册表冻结，
-未冻结返回 not_ready，空注册表返回 invalid_handle，零或未知身份返回 not_found。
+包含 `registry.hpp` 后统一使用 `meta::resolve`，返回可判空的 `meta::type`：
 
-内建标量复用 value 的静态类型集合，无需注册。C++ 对象和枚举必须在当前注册表登记；
-模板查询规范化 const/ref，并检查容器叶子类型。按 ID 查询可发现已注册属性引用的容器
+```cpp
+auto native = meta::resolve<T>();
+auto scoped = meta::resolve<T>(registry);
+auto by_id = meta::resolve(registry, runtime_type_of<T>());
+auto by_guid = meta::resolve(registry, type_guid);
+// 标识查询也有使用默认注册表的版本。
+auto default_id = meta::resolve(runtime_type_of<T>());
+auto default_guid = meta::resolve(type_guid);
+```
+
+模板入口去除顶层 cv/ref，直接取得原生能力；未注册或注册表未冻结时仍可使用原生能力，
+但没有已发布的注册字段、枚举项或元数据。按 ID/GUID 查询要求冻结注册表；空表、未冻结、
+零标识或未找到均返回空句柄，不返回 result/error。两种入口均不隐式注册类型或修改注册表。
+内建标量复用 value 的静态类型集合，无需重复登记。`registered()` 用于区分原生能力与注册信息。
+按 ID 查询可发现已注册属性引用的容器
 及其嵌套元素；查询不会把任意容器隐式加入全局表。容器没有独立稳定 GUID，枚举仍使用
 运行期身份；GUID 查询不把枚举当成其底层整数。窄整数的 ID 保留 C++ 类型身份，其 GUID
 沿用现有整数存储类别，因此 GUID 查询返回规范的 64 位承载类型。

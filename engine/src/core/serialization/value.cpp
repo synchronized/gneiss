@@ -390,7 +390,7 @@ struct restore_state {
       if (auto asset = std::get_if<asset_reference_value>(&data.payload)) {
         if (!policy->capture)
           return error::invalid_argument;
-        auto type = find_type(registry, asset->type);
+        auto type = resolve(registry, asset->type);
         auto element = target.type().capability<gneiss::meta::cap::reference>().element_type();
         if (!type || !element || type.id() != element.id())
           return error::invalid_argument;
@@ -410,7 +410,7 @@ struct restore_state {
       auto record = std::get_if<record_value>(&data.payload);
       if (!record)
         return error::invalid_argument;
-      auto type = find_type(registry, record->get().type);
+      auto type = resolve(registry, record->get().type);
       if (!type)
         return gneiss::error{gneiss::error::not_found};
       auto capability = type.capability<meta::cap::object>();

@@ -689,7 +689,7 @@ foreach(content IN ITEMS "auto value = meta::default_registry();" "using namespa
     message(FATAL_ERROR "边界检查未拒绝外部默认注册表访问")
   endif()
 endforeach()
-file(WRITE "${fixture}/editor/probe.cpp" "auto value = meta::type_of<int>();\n")
+file(WRITE "${fixture}/editor/probe.cpp" "auto value = meta::resolve<int>();\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/testing/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

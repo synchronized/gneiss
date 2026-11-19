@@ -121,7 +121,7 @@ int main(int argc, char** argv) try {
   const std::weak_ptr lifetime = registry;
   gneiss::value snapshot;
   {
-    auto root = gneiss::meta::instance::from_object(gneiss::meta::find_type(registry, camera_type),
+    auto root = gneiss::meta::instance::from_object(gneiss::meta::resolve(registry, camera_type),
                                                     &fixture);
     if (!root)
       return 3;

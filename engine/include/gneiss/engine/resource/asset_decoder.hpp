@@ -66,7 +66,7 @@ private:
   asset_decode_function<T> function_{};
 };
 template <class T> result<std::shared_ptr<const asset_decoder>> make_reflected_decoder() {
-  auto type = meta::type_of<T>();
+  auto type = meta::resolve<T>();
   if (!type)
     return error::unsupported;
   if (type.kind() == meta::type_kind::object) {

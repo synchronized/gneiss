@@ -137,7 +137,7 @@ bool inherited_properties() {
   if (static_cast<void*>(&input) == static_cast<void*>(static_cast<inherited_base*>(&input)))
     return false;
   auto view = gneiss::meta::view(registry, input);
-  auto properties = find_type(registry, e::runtime_type_of<inherited_leaf>());
+  auto properties = resolve(registry, e::runtime_type_of<inherited_leaf>());
   if (!properties ||
       properties.template capability<gneiss::meta::cap::object>().properties().size() != 5)
     return false;

@@ -364,13 +364,13 @@ int main() {
             .template capability<gneiss::meta::cap::object>()
             .properties()
             .empty());
-  CHECK(m::type_of<decltype(cannot_construct)>(empty_registry));
+  CHECK(m::resolve<decltype(cannot_construct)>(empty_registry));
   auto rejected_object = gneiss::serialization::json::encode_bytes(
       gneiss::serialization::write_context{empty_registry}, std::get<1>(cannot_construct));
   CHECK(!rejected_object);
   std::vector<non_default> unknown_elements;
   unknown_elements.emplace_back(1.0F);
-  auto unknown_sequence = m::type_of<decltype(unknown_elements)>(empty_registry);
+  auto unknown_sequence = m::resolve<decltype(unknown_elements)>(empty_registry);
   CHECK(unknown_sequence && unknown_sequence.capability<m::cap::sequence>().element_type());
   auto unknown_view = m::view(empty_registry, unknown_elements);
   CHECK(unknown_view.as_sequence()->at(0));

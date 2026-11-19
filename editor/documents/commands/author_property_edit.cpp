@@ -205,7 +205,7 @@ gneiss::error edit_component_description(scene_edit_session& document,
     if (!current)
       return error::not_found;
     auto before = *current;
-    auto type = meta::find_type(identity.component_type);
+    auto type = meta::resolve(identity.component_type);
     if (!type)
       return gneiss::error{gneiss::error::not_found};
     for (const auto& step : edit.path) {

@@ -107,7 +107,7 @@ int main() try {
               model.description().parameters.sampling[2].uv_set == 1,
           "replace array object");
     check(model.discard().ok(), "restore fixture");
-    auto metadata = e::meta::find_type(e::runtime_type_of<e::material_parameters>());
+    auto metadata = e::meta::resolve(e::runtime_type_of<e::material_parameters>());
     check(bool(metadata), "material metadata");
     auto alpha_entries = metadata.template capability<gneiss::meta::cap::object>()
                              .properties()[6]
@@ -115,7 +115,7 @@ int main() try {
                              .capability<e::meta::cap::enumeration>()
                              .entries();
     check(alpha_entries.size() == 3 && alpha_entries[2].name == "blend", "owned enum metadata");
-    auto sampling_type = e::meta::find_type(e::runtime_type_of<e::texture_sampling>());
+    auto sampling_type = e::meta::resolve(e::runtime_type_of<e::texture_sampling>());
     check(bool(sampling_type), "sampling metadata");
     auto min_filter = sampling_type.template capability<gneiss::meta::cap::object>()
                           .properties()[1]
