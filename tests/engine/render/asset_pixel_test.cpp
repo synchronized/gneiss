@@ -1022,10 +1022,52 @@ void run_queue_pressure() {
             .ok());
   render::service renderer;
   constexpr auto budget = 2 * sizeof(render::view);
+  constexpr std::size_t payload_budget = 4096;
   check(renderer
             .initialize(window.native(), window.surface(), {}, 1.F, 0.F,
-                        {.pending_frames = 1, .commands = 1, .frame_input_bytes = budget})
+                        {.pending_frames = 1,
+                         .commands = 1,
+                         .command_payload_bytes = payload_budget,
+                         .frame_input_bytes = budget})
             .ok());
+  // 资源发布命令与帧使用独立预算；拒绝不能改变已接受内容。
+  auto candidate = std::make_shared<texture_data>();
+  candidate->width = candidate->height = 32;
+  candidate->format = texture_format::rgba8_unorm;
+  candidate->color_space = texture_color_space::srgb;
+  candidate->levels = {{.width = 32,
+                        .height = 32,
+                        .pixels = std::vector<std::byte>(payload_budget, std::byte{255})}};
+  auto texture = renderer.create_texture(*candidate);
+  check(bool(texture));
+  auto original = renderer.share_texture(*texture);
+  auto oversized_data = std::make_shared<texture_data>(*candidate);
+  oversized_data->width = 64;
+  oversized_data->levels.front().width = 64;
+  oversized_data->levels.front().pixels.resize(payload_budget * 2);
+  auto denied = renderer.replace_texture(*texture, oversized_data);
+  check(!denied && denied.error() == error::out_of_memory &&
+        renderer.share_texture(*texture) == original);
+  unsigned resource_rejections{};
+  for (unsigned n = 0; n < 32; ++n) {
+    auto next = std::make_shared<texture_data>(*candidate);
+    next->levels.front().pixels.front() = std::byte{static_cast<unsigned char>(n)};
+    auto previous = renderer.share_texture(*texture);
+    auto published = renderer.replace_texture(*texture, next);
+    if (!published) {
+      check(published.error() == error::not_ready && renderer.share_texture(*texture) == previous);
+      ++resource_rejections;
+      check(renderer.finish_frames().ok());
+      published = renderer.replace_texture(*texture, next);
+    }
+    check(bool(published) && renderer.share_texture(*texture) == next);
+  }
+  check(renderer.finish_frames().ok());
+  const auto resource_stats = renderer.query_performance_stats();
+  check(resource_stats.command_payload_bytes == 0 &&
+        resource_stats.command_payload_high_watermark <= payload_budget);
+  std::printf("resource publication: updates=32 rejected=%u payload_peak=%zu budget=%zu\n",
+              resource_rejections, resource_stats.command_payload_high_watermark, payload_budget);
   auto first = renderer.create_target({128, 96});
   auto second = renderer.create_target({96, 128});
   check(bool(first) && bool(second));
@@ -1073,7 +1115,8 @@ void run_queue_pressure() {
   check(bool(renderer.request_capture(std::move(frame), image)));
   render::device_stats device;
   check(renderer.shutdown(device).ok());
-  check(device.total_live_count == 0 && !renderer.is_target(*first) &&
+  check(device.total_live_count == 0 &&
+        renderer.texture_status(*texture) == error::invalid_handle && !renderer.is_target(*first) &&
         !renderer.is_target(*second) && image->pixels.size() == 512 * 512 * 4);
   check(renderer.shutdown(device).ok());
   std::printf("queue pressure: captures=%zu rejected=%u input_peak=%zu budget=%zu "
