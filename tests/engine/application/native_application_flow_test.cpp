@@ -44,8 +44,7 @@ void loop() {
     return gneiss::error::success;
   };
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  std::uint32_t width{}, height{};
-  check(app->get_window_size(width, height).ok() && width == 1280 && height == 720);
+  check(app->window() == nullptr);
   gneiss::input::event event;
   check(app->poll_input(event) == gneiss::error::not_ready &&
         event.type == gneiss::input::event_type::none);

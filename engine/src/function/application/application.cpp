@@ -907,17 +907,8 @@ gneiss::error application::render_frame() {
   return error::success;
 }
 
-gneiss::error application::get_window_size(std::uint32_t& out_width,
-                                           std::uint32_t& out_height) const noexcept {
-  if (storage_->window_service_ != nullptr) {
-    const auto& window = storage_->window_service_->surface();
-    out_width = window.width;
-    out_height = window.height;
-    return gneiss::error::success;
-  }
-  out_width = storage_->config_.window.width;
-  out_height = storage_->config_.window.height;
-  return gneiss::error::success;
+const gneiss::window::service* application::window() const noexcept {
+  return storage_->window_service_.get();
 }
 
 error application::dispatch_completion_systems() {

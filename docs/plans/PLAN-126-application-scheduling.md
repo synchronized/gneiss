@@ -167,7 +167,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | --- | --- | --- |
 | 调度与状态 | 五个阶段、枚举状态、延迟转换、冲突拒绝、具名错误 | 服务启动装配的最终 API |
 | 生命周期 | run/step 共用推进，pending/complete 停止，停止时完成分发 | 删除测试中的 run(n) 与分步关闭旧入口 |
-| 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除 | 默认 World、视口、绑定移交 Session |
+| 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发 | 默认 World、视口、绑定移交 Session |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
 | Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | Session 接管 World、输入加载、暂停、渲染绑定 |
 | Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | World/视口归属及旧业务转发清理 |
@@ -179,6 +179,11 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 停止阶段保留文档用于卸载清理，但资产编辑入口与统一内容修改入口拒绝新请求。
 
 ### 已完成验证
+
+- window() 接入后 Editor、scene_viewer 与 Application 流程测试构建通过；无窗口查询回归、
+  双视图 smoke、窗口缩放/最小化/截图 smoke 通过。原生交互测试曾在首轮返回 invalid_state，
+  加诊断后未复现；测试改为直接获取所属窗口句柄，最终代码通过 18 次缩放、3 次最小化恢复
+  和 5 次合成 DPI 变化。该结果不宣称已证明早先偶发失败的根因或覆盖物理多屏切换。
 
 - Editor 及五项文档/加载/资产编辑回归构建通过；独立 World 下打开文档、取消、错误保留、
   快照恢复与撤销重做通过。文档须先于借用的 Application 和 World 关闭。

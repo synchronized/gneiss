@@ -9,6 +9,7 @@
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 
 #include <algorithm>
 #include <array>
@@ -112,11 +113,8 @@ gneiss::result<void> configure_dual_view(gneiss::runtime::application& applicati
   auto status = application.set_views(views);
   if (!status)
     return status;
-  std::uint32_t width{}, height{};
-  auto size_status = application.get_window_size(width, height);
-  if (size_status.failed())
-    return size_status;
-  const float w = static_cast<float>(width), h = static_cast<float>(height);
+  const auto surface = application.window()->surface();
+  const float w = static_cast<float>(surface.width), h = static_cast<float>(surface.height);
   const std::array vertices{
       ui_vertex{{0, 0}, {0, 0}, 0xffffffffU},     ui_vertex{{w / 2, 0}, {1, 0}, 0xffffffffU},
       ui_vertex{{w / 2, h}, {1, 1}, 0xffffffffU}, ui_vertex{{0, h}, {0, 1}, 0xffffffffU},

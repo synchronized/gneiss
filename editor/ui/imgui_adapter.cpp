@@ -5,6 +5,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
 
 #include "ui/editor_theme.hpp"
@@ -281,12 +282,11 @@ gneiss::error imgui_adapter::begin_frame(runtime::application& application,
     return synchronize_result;
   }
   auto& io = ImGui::GetIO();
-  std::uint32_t window_width = 0U;
-  std::uint32_t window_height = 0U;
-  const auto window_result = application.get_window_size(window_width, window_height);
-  if (window_result != gneiss::error::success) {
-    return window_result;
-  }
+  if (!application.window())
+    return gneiss::error::unsupported;
+  const auto surface = application.window()->surface();
+  const auto window_width = surface.width;
+  const auto window_height = surface.height;
   // 窗口创建、最小化或交换链调整期间，尺寸可能短暂为零；这不是致命错误。
   io.DisplaySize = ImVec2(static_cast<float>(std::max(window_width, UINT32_C(1))),
                           static_cast<float>(std::max(window_height, UINT32_C(1))));

@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include <gneiss/engine/core/base/error.hpp>
 #include "ui/imgui_adapter.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "assets/asset_background_worker.hpp"
 #include "ui/viewport/editor_camera.hpp"
@@ -39,22 +40,12 @@ struct state final {
   std::uint32_t pointer_check_frame = 0U;
 };
 
-BOOL CALLBACK find_window(HWND window, LPARAM data) {
-  DWORD process = 0U;
-  (void)GetWindowThreadProcessId(window, &process);
-  if (process == GetCurrentProcessId() && GetWindow(window, GW_OWNER) == nullptr) {
-    *reinterpret_cast<HWND*>(data) = window;
-    return FALSE;
-  }
-  return TRUE;
-}
-
 gneiss::error update(const gneiss::frame_time* time, void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
-      value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) !=
-          gneiss::error::success) {
+      value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) != gneiss::error::success) {
+    std::fprintf(stderr, "后台任务或相机状态无效\n");
     return gneiss::error::invalid_state;
   }
 #endif
@@ -62,15 +53,16 @@ gneiss::error update(const gneiss::frame_time* time, void* data) {
   if (GetClientRect(value.window, &client) == 0) {
     return gneiss::error::internal;
   }
-  std::uint32_t width = 0U;
-  std::uint32_t height = 0U;
-  auto operation = value.application->get_window_size(width, height);
-  if (operation != gneiss::error::success ||
-      width != static_cast<std::uint32_t>(client.right) ||
+  const auto surface = value.application->window()->surface();
+  const auto width = surface.width;
+  const auto height = surface.height;
+  if (width != static_cast<std::uint32_t>(client.right) ||
       height != static_cast<std::uint32_t>(client.bottom)) {
+    std::fprintf(stderr, "窗口尺寸不同步：surface=%u,%u client=%ld,%ld\n", width, height,
+                 client.right, client.bottom);
     return gneiss::error::invalid_state;
   }
-  operation = value.ui.begin_frame(*value.application, *time);
+  auto operation = value.ui.begin_frame(*value.application, *time);
   if (operation != gneiss::error::success) {
     return operation;
   }
@@ -148,9 +140,11 @@ int main() {
     return 1;
   }
   value.application = application.get();
-  (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));
-  if (value.window == nullptr ||
-      value.ui.initialize(*application) != gneiss::error::success) {
+  const auto native = application->window()->native();
+  if (native.backend != gneiss::window::native_backend::win32)
+    return 2;
+  value.window = static_cast<HWND>(native.data.win32.window);
+  if (value.window == nullptr || value.ui.initialize(*application) != gneiss::error::success) {
     return 2;
   }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
@@ -165,7 +159,12 @@ int main() {
     return 6;
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
-  const auto run = [&] { return application->run(3U) == gneiss::error::success; };
+  const auto run = [&] {
+    const auto status = application->run(3U);
+    if (status.failed())
+      std::fprintf(stderr, "窗口交互失败：frame=%u error=%d\n", value.frames, status.code());
+    return status == gneiss::error::success;
+  };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {
     success = SetWindowPos(value.window, nullptr, -3000, -3000, 640 + (index * 19),

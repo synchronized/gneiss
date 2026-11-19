@@ -34,6 +34,9 @@ class asset_manager;
 namespace files {
 class service;
 }
+namespace window {
+class service;
+}
 namespace render {
 class service;
 struct frame_image;
@@ -175,8 +178,8 @@ public:
   pointer_state() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error
   poll_input(gneiss::input::event& out_event) noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  get_window_size(std::uint32_t& out_width, std::uint32_t& out_height) const noexcept;
+  /** 借用只读窗口服务；无窗口或关闭后为空，不允许宿主重复泵送平台事件。 */
+  [[nodiscard]] GNEISS_ENGINE_API const gneiss::window::service* window() const noexcept;
   /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error begin_action_map(std::string_view uri);
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
