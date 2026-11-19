@@ -207,5 +207,5 @@ UI 与调试绘制数据由宿主装入帧请求。完成协议见 [Render](rend
 poll()、find_action()/get_action_state()。借用不保活 Application，限所属线程与服务有效期内使用；
 跨线程或关闭后借用属于程序契约错误。旧 Application 查询转发已删除。
 平台事件泵送、begin_frame 和事件注入仍由 Application 负责，消费者不得重复推进输入帧。
-Runtime 与 scene_viewer 已自行拥有 Action Map 加载请求；旧加载入口暂供未迁移测试使用，
-按 PLAN-126 继续删除。
+Runtime 与 scene_viewer 自行拥有 Action Map 加载请求，成功后显式应用到 Input；
+Application 不持有请求或自动应用结果，停止回调由宿主取消请求。

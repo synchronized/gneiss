@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/resource/input/action_map.hpp>
 #include <gneiss/protocol/domains.hpp>
 
 #include <gneiss/engine/core/base/error.hpp>

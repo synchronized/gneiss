@@ -12,7 +12,6 @@
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/platform/window/input.hpp>
-#include <gneiss/engine/resource/input/action_map.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
 #include <gneiss/engine/function/application/configuration.hpp>
@@ -148,11 +147,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::input::service& input() noexcept;
   /** 借用只读窗口服务；无窗口或关闭后为空，不允许宿主重复泵送平台事件。 */
   [[nodiscard]] GNEISS_ENGINE_API const gneiss::window::service* window() const noexcept;
-  /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error begin_action_map(std::string_view uri);
-  /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error action_map_status() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error cancel_action_map() noexcept;
   GNEISS_ENGINE_API void report(gneiss::severity severity, gneiss::category category,
                                 gneiss::error result, std::string_view module,
                                 std::string_view message);

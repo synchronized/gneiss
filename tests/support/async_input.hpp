@@ -4,6 +4,7 @@
 #include <chrono>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/resource/input/action_map.hpp>
 namespace gneiss::test_support {
 inline gneiss::error load_input_for_test(runtime::application& app,
                                          gneiss::tasks::task_scheduler& scheduler,

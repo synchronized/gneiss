@@ -334,3 +334,14 @@ Runtime 删除 input_pending 镜像标记，以请求有效性表达等待；输
 
 Windows Clang Debug 四个相关目标构建通过，两项输入/流程 CPU 回归通过；Runtime 普通及协作
 editor_demo smoke、scene_viewer 双视图均退出 0。未重复完整矩阵，未验证静态构建或其他平台。
+
+### 删除 Application Action Map 旧路径
+
+删除 begin_action_map、action_map_status、cancel_action_map 及私有请求、完成标记和自动应用逻辑。
+剩余资产集成测试直接持有请求，验证加载不自动应用、显式应用、失败保留动作身份、取消、
+关闭排空与复用宿主调度器重新创建 Application；删除仅服务于旧转发接口的测试。
+Runtime、scene_viewer 和测试辅助显式包含 Action Map 资源契约。
+
+Windows Clang Debug 相关目标构建通过，资产加载、输入与 Application 流程三项 CPU 回归通过；
+原生窗口加载途中关闭与 Runtime 协作调度 editor_demo smoke 退出 0。
+本批未重复完整矩阵，静态构建和其他平台未验证。批量资产请求与环境资源所有权仍待迁移。

@@ -35,8 +35,7 @@ Granit 的类型、句柄和枚举只存在于 `engine/src/platform/window/servi
 ## C++ 入口
 
 `gneiss::runtime::application::input()` 返回借用的 `input::service&`，提供 poll、keyboard、pointer、
-find_action、get_action_state 和 replace_action_map。Application 暂保留 begin_action_map、
-action_map_status、cancel_action_map 异步加载入口。
+find_action、get_action_state 和 replace_action_map。映射加载由宿主持有资产请求。
 事件和状态使用 `gneiss::input` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
 `input::event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。
 文本保存在事件自身的固定数组中，`length` 指定有效字节数，不保证零终止。
@@ -68,7 +67,7 @@ while (host.input().poll(event).ok()) {
 `asset_file::serialize(description)` 生成 v1 文件；编码与解码均执行业务校验并限制为 1 MiB。
 入口要求默认注册表已初始化。描述不能单独通过 manager 加载或登记 URI 缓存。
 
-`load<action_map>` 默认复用缓存；Application 的显式加载与异步重载仍重新读取。
+`load<action_map>` 默认复用缓存；显式 reload<action_map> 重新读取。
 加载和解析不修改输入服务。Runtime 与 scene_viewer 自行持有请求，成功领取后在所属线程
 调用 input().replace_action_map；停止时取消请求，避免迟到结果再次应用。
 读取、解码或采用失败保留旧映射；动作 ID 的失效规则不变。大小上限为 1 MiB，
@@ -76,4 +75,4 @@ codec 诊断提供 JSON 字节偏移或字段路径。格式约束仍以[输入�
 
 输入映射只提供异步加载：创建 Application 时配置任务执行器，宿主提交 assets().reload<input::action_map>，
 在加载状态中等待并领取，再应用到 Input。Runtime 在输入就绪后激活场景；等待不停止窗口或 IPC。
-旧 begin_action_map/action_map_status/cancel_action_map 暂供未迁移的测试使用，不作为新宿主入口。
+Application 不持有映射请求，也不自动应用加载结果。

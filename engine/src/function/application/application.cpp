@@ -254,15 +254,6 @@ struct application::storage {
   };
   std::shared_ptr<environment_read> environment_;
   std::unique_ptr<gneiss::asset_manager> asset_manager_;
-  gneiss::asset_request<gneiss::input::action_map> pending_action_map_;
-  std::shared_ptr<std::atomic<bool>> action_map_ready_;
-  gneiss::error action_map_result_{gneiss::error::invalid_state};
-
-  void cancel_action_map() noexcept {
-    action_map_ready_.reset();
-    pending_action_map_.cancel();
-    action_map_result_ = gneiss::error::invalid_state;
-  }
   std::unique_ptr<gneiss::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
@@ -635,39 +626,6 @@ gneiss::error application::poll_events(bool& out_should_close) {
   }
 }
 
-gneiss::error application::begin_action_map(std::string_view uri) {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  if (!has_asset_loading_service())
-    return gneiss::error::not_ready;
-  storage_->cancel_action_map();
-  auto requested = storage_->asset_manager_->reload<gneiss::input::action_map>(uri);
-  if (!requested)
-    return requested.error();
-  storage_->pending_action_map_ = std::move(*requested);
-  storage_->action_map_result_ = gneiss::error::not_ready;
-  storage_->action_map_ready_ = std::make_shared<std::atomic<bool>>(false);
-  // 每个请求独立的完成通知；取消或替换后，旧通知不能影响当前请求。
-  gneiss::detail::asset_request_access::when_ready(
-      storage_->pending_action_map_, [ready = std::weak_ptr{storage_->action_map_ready_}] {
-        if (auto receipt = ready.lock())
-          receipt->store(true);
-      });
-  return gneiss::error::success;
-}
-gneiss::error application::action_map_status() const noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  return has_asset_loading_service() ? storage_->action_map_result_ : gneiss::error::not_ready;
-}
-gneiss::error application::cancel_action_map() noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  if (!has_asset_loading_service())
-    return gneiss::error::not_ready;
-  storage_->cancel_action_map();
-  return gneiss::error::success;
-}
 void application::report(gneiss::severity severity, gneiss::category category, gneiss::error result,
                          std::string_view module, std::string_view message) {
   if (storage_->config_.callbacks.diagnostic != nullptr) {
@@ -742,14 +700,6 @@ error application::advance_frame() try {
     if (advanced.failed()) {
       storage_->is_running_ = false;
       return advanced;
-    }
-    if (storage_->action_map_ready_ && storage_->action_map_ready_->load()) {
-      auto loaded = storage_->pending_action_map_.take();
-      storage_->action_map_result_ =
-          loaded ? storage_->input_.replace_action_map(*(*loaded)->snapshot())
-                 : loaded.error().error;
-      storage_->pending_action_map_.cancel();
-      storage_->action_map_ready_.reset();
     }
     const auto current_time_ns = now_ns();
     const auto raw_delta = current_time_ns >= storage_->previous_time_ns_
@@ -944,7 +894,6 @@ error application::begin_service_shutdown() {
   storage_->closing_files_ = std::move(files);
   storage_->shutdown_requested_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
-  storage_->cancel_action_map();
   if (storage_->asset_loading_)
     storage_->asset_loading_->request_stop();
   if (storage_->asset_manager_)
@@ -1012,7 +961,6 @@ gneiss::error application::shutdown() {
   }
   storage_->shutting_down_ = true;
   auto shutdown_result = storage_->host_stop_result_;
-  storage_->cancel_action_map();
   storage_->asset_loading_.reset();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();

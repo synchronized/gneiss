@@ -12,6 +12,7 @@
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/platform/window/service.hpp>
+#include <gneiss/engine/resource/input/action_map.hpp>
 
 #include <algorithm>
 #include <array>
