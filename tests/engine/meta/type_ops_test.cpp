@@ -316,8 +316,10 @@ int main() {
   choice selected{std::int32_t{42}};
   auto selected_instance = m::view(registry, selected);
   auto variant = selected_instance.as_variant();
-  CHECK(variant && variant->alternative_count() == 2 && *variant->index() == 0);
-  CHECK(variant->alternative(0) && variant->alternative(2).error() == e::error::invalid_argument);
+  auto variant_type = m::resolve<choice>(registry).capability<m::cap::variant>();
+  CHECK(variant && variant_type.alternative_count() == 2 && *variant->index() == 0);
+  CHECK(variant_type.alternative(0) &&
+        variant_type.alternative(2).error() == e::error::invalid_argument);
   auto choice_bytes = gneiss::serialization::json::encode_bytes(
       gneiss::serialization::write_context{registry}, selected);
   CHECK(choice_bytes);

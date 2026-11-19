@@ -30,11 +30,12 @@ public:
   }
   /** 显式共享控制块，返回的只读强引用保活目标。 */
   ref<const void> owner() const { return ops()->owner(readonly().data_); }
-  /** 类型擦除赋值：调用方保证 owner 地址是 id 对应类型，id 必须等于声明目标类型。 */
-  error assign_owner(gneiss::type_id id, const ref<void>& owner) const
+  /** 类型擦除赋值：调用方保证 owner 地址与 source_type 匹配，必须与声明目标类型具有相同运行身份。
+   */
+  error assign_owner(meta::type source_type, const ref<void>& owner) const
     requires(Mutable)
   {
-    if (ops()->element().id != id)
+    if (!source_type || ops()->element().id != source_type.id())
       return error::invalid_argument;
     ops()->set(target_.mutable_data(), owner);
     return error::success;

@@ -261,7 +261,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     auto variant = view.as_variant();
     if (!variant)
       return failure(variant.error());
-    if (variant->names().empty())
+    if (value_type.capability<cap::variant>().names().empty())
       return failure(error::unsupported, "", "variant 未配置文件标签");
     auto index = variant->index();
     if (!index)
@@ -273,7 +273,7 @@ encode_nonobject(const write_context& ctx, const registry_ref& registry, const c
     if (!content)
       return prefix(std::move(content).error(), "/$content");
     auto* output = doc->object();
-    auto name = variant->names()[*index];
+    auto name = value_type.capability<cap::variant>().names()[*index];
     if (!output || !doc->member(output, "$kind", doc->string(name)) ||
         !doc->member(output, "$content", *content))
       return failure(error::out_of_memory);
@@ -623,7 +623,8 @@ serialization::diagnostic decode_nested(const read_context& ctx, const registry_
       if (status.error.failed())
         return status;
     }
-    return failure(target.assign_object(target.type().id(), decoded->get()));
+    auto source = instance::from_object(target.type(), decoded->get());
+    return source ? failure(target.move_from(*source)) : failure(source.error());
   }
   auto address = target.object_data();
   if (!address)
@@ -695,7 +696,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
         }
         return failure(error::invalid_argument, "", "非空引用解析结果为空");
       }
-      return failure(reference_slot->assign_owner(target.id(), *resolved));
+      return failure(reference_slot->assign_owner(target, *resolved));
     }
     auto actual = target.id();
     auto* content = input;
@@ -729,7 +730,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
     auto adjusted = cast_base(registry, actual, target.id(), object.get());
     if (!adjusted)
       return std::move(adjusted).error();
-    auto assigned = reference_slot->assign_owner(target.id(), object.alias(*adjusted));
+    auto assigned = reference_slot->assign_owner(target, object.alias(*adjusted));
     return assigned.failed() ? failure(assigned) : serialization::diagnostic{};
   }
   if (depth > ctx.maximum_depth() && value_type.kind() != type_kind::scalar)
@@ -745,7 +746,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
     auto variant = view.as_variant();
     if (!variant)
       return failure(variant.error());
-    if (variant->names().empty())
+    if (value_type.capability<cap::variant>().names().empty())
       return failure(error::unsupported, "", "variant 未配置文件标签");
     auto* tag = context_access::input(ctx)->is_object(input)
                     ? context_access::input(ctx)->member(input, "$kind")
@@ -758,7 +759,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
         !context_access::input(ctx)->is_string(tag) || !content)
       return failure(error::invalid_argument, "", "variant 必须包含 $kind 和 $content");
     const auto name = context_access::input(ctx)->string(tag);
-    auto names = variant->names();
+    auto names = value_type.capability<cap::variant>().names();
     auto found = std::ranges::find(names, name);
     if (found == names.end())
       return failure(error::invalid_argument, "/$kind", "未知 variant 标签");
@@ -792,7 +793,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
     auto v = view.as_sequence();
     if (!v)
       return failure(v.error());
-    if (v->supports_replacement()) {
+    if (value_type.capability<cap::sequence>().supports_replacement()) {
       serialization::diagnostic decoded;
       auto status = v->replace([&](const instance& candidate) {
         decoded = decode_view(ctx, registry, candidate, input, depth);
@@ -800,7 +801,7 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
       });
       return decoded.error.failed() ? decoded : failure(status);
     }
-    if (v->is_resizable()) {
+    if (value_type.capability<cap::sequence>().is_resizable()) {
       auto status = v->resize(0);
       if (status.failed())
         return failure(status);

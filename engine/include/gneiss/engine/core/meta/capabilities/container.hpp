@@ -41,5 +41,4 @@ public:
 using associative = container<type_kind::associative, basic_associative_view>;
 using optional = container<type_kind::optional, basic_optional_view>;
 using reference = container<type_kind::reference, basic_reference_view>;
-using variant = container<type_kind::variant, basic_variant_view>;
 }

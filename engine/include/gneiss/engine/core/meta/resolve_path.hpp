@@ -30,7 +30,7 @@ result<View> resolve_path(View root, std::span<const property_step> path, bool p
       if (const auto* id = std::get_if<guid>(&step))
         next = sequence->find(*id);
       else {
-        if (persistent && !sequence->is_fixed_size())
+        if (persistent && !root.type().template capability<cap::sequence>().is_fixed_size())
           return error::unsupported;
         next = sequence->at(std::get<std::size_t>(step));
       }

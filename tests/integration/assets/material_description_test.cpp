@@ -38,10 +38,11 @@ void native_material_contract() {
   auto color = parameters->template capability<gneiss::meta::cap::object>()->member("color");
   check(color && color->read_value()->kind() == value_kind::vec4);
   check(color->assign(value{math::vector4{0.2F, 0.4F, 0.6F, 1}}).ok());
-  auto sampling = parameters->template capability<gneiss::meta::cap::object>()
-                      ->member("sampling")
-                      ->as_sequence();
-  check(sampling && !sampling->is_resizable() && sampling->size() == 5);
+  auto sampling_field = parameters->capability<meta::cap::object>()->member("sampling");
+  check(sampling_field.ok());
+  auto sampling_type = sampling_field->type().capability<meta::cap::sequence>();
+  auto sampling = sampling_field->as_sequence();
+  check(sampling && !sampling_type.is_resizable() && sampling->size() == 5);
   check(sampling->resize(4) == error::invalid_argument && sampling->resize(5).ok());
   auto uv = sampling->at(0)->template capability<gneiss::meta::cap::object>()->member("uv_set");
   check(uv.ok());

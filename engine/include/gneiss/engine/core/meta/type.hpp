@@ -10,3 +10,4 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
+#include <gneiss/engine/core/meta/capabilities/variant.hpp>

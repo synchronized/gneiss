@@ -28,13 +28,6 @@ public:
   [[nodiscard]] basic_variant_view<false> as_const() const noexcept {
     return basic_variant_view<false>{target_.as_const()};
   }
-  std::size_t alternative_count() const noexcept { return ops()->alternatives.size(); }
-  std::span<const std::string_view> names() const noexcept { return ops()->names; }
-  result<meta::type> alternative(std::size_t i) const {
-    if (i >= alternative_count())
-      return error::invalid_argument;
-    return detail::resolve_type(readonly().registry(), *ops()->alternatives[i]);
-  }
   bool valueless() const { return ops()->valueless(readonly().data_); }
   result<std::size_t> index() const {
     if (valueless())

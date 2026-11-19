@@ -26,7 +26,7 @@ const_sequence_view 与 const_associative_view 的只读和可写版本都支持
 `at`、`find` 和 `keys` 保留越界、缺失或非法键等诊断。
 
 可写顺序视图提供 resize。vector 保留原有前缀、新元素默认构造，缩小时销毁尾部。
-array 的 is_resizable() 为 false，resize 仅接受原长度；JSON 长度必须恰好为 N，包含 N=0。
+array 的 cap::sequence::is_resizable() 为 false，resize 仅接受原长度；JSON 长度必须恰好为 N，包含 N=0。
 关联视图通过 keys() 获取排序后的自有键列表，通过 find(key) 获取值实例；键不可通过视图修改。
 可写关联视图提供 insert、erase、clear，insert 已存在键时保留原值。
 
@@ -81,7 +81,7 @@ size 返回 size_t；keys 返回自有 vector<string>，操作表统一按键排
 resize/clear 返回 void。回调返回真实、稳定的元素地址，不得返回临时对象或代理引用。
 可选 replace 返回 error：先在临时 vector 中完成解码，再由回调整组校验并替换。
 回调必须保证失败不改变原集合。存在 replace 时 JSON 解码优先使用该入口；
-可写序列视图通过 supports_replacement()/replace() 暴露此能力，无需开放 at_mut 或 resize。
+类型能力通过 cap::sequence::supports_replacement() 查询，实际替换使用可写序列视图的 replace()，无需开放 at_mut 或 resize。
 component_descriptions 使用此方式拒绝空组件和重复类型，保留多态引用的通用数组格式。
 缺少可写回调时，对应可写视图操作返回 unsupported。固定长度序列改变长度返回 invalid_argument；
 其他不支持 resize 的序列改变长度返回 unsupported。保持原长度允许作为无操作成功。
@@ -123,7 +123,8 @@ Prefab 的目标定位与无身份列表快照规则见[场景文件格式](scen
 ## Variant 分支反射
 
 `std::variant<T...>` 使用 `type_kind::variant` 和独立 `variant_ops`。
-`as_variant()` 返回借用视图，提供 alternative_count、alternative(index)、index、value 和 names；
+`cap::variant` 提供 alternative_count、alternative(index) 和 names，无需对象实例；
+`as_variant()` 返回借用视图，提供 index、value、valueless 和可写时的 select；
 可写视图增加 select(index)，默认构造并替换当前分支。同一分支再次 select 也重置内容。
 不支持默认构造的分支返回 unsupported，越界返回 invalid_argument。
 valueless_by_exception 状态下 index/value 返回 invalid_state；select 可用于恢复。
@@ -170,3 +171,6 @@ Variant 本身不支持 read_value，须先 value() 取得当前分支。此能�
 所有视图提供 `as_const()`，借用同一目标且不复制数据；不提供反向转换。
 句柄自身的 `const` 不限制目标写入，目标写权限由视图类型决定。能力对象 `cap::xxx`
 不区分读写，绑定实例后保留实例的访问权限。
+
+序列的 is_fixed_size、has_identity、is_resizable 和 supports_replacement 统一从
+`cap::sequence` 查询；这些描述类型能力，不代表当前借用允许写入。

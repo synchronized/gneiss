@@ -15,6 +15,7 @@ namespace gneiss::meta {
 namespace cap {
 class representation;
 class sequence;
+class variant;
 class enumeration;
 class object;
 template <type_kind, template <bool> class> class container;
@@ -57,6 +58,7 @@ private:
   friend struct detail::type_factory;
   friend class cap::representation;
   friend class cap::sequence;
+  friend class cap::variant;
   friend class cap::enumeration;
   friend class cap::object;
   template <type_kind, template <bool> class> friend class cap::container;

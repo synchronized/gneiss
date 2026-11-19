@@ -388,7 +388,9 @@ int main() {
   if (value_view.type().kind() != e::meta::type_kind::variant)
     return 46;
   auto variant = value_view.as_variant();
-  if (!variant || variant->alternative_count() != cases.size() || variant->select(12).failed())
+  if (!variant ||
+      value_view.type().capability<e::meta::cap::variant>().alternative_count() != cases.size() ||
+      variant->select(12).failed())
     return 47;
   auto selected = variant->value();
   if (!selected || selected->assign(e::value{matrix3}).failed() || edited != e::value{matrix3})

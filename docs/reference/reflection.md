@@ -436,7 +436,7 @@ replace 在独立候选中初始化，初始化失败直接返回其错误且不
 
 可写 member 拒绝只读/无 setter 的属性，通过 assign 执行原 setter 的校验与错误语义。
 只读属性仍可通过 as_const().member 读取。单字段编辑不自动执行整对象跨字段校验，业务方应在
-完成编辑后执行对应验证。嵌套自定义 codec 的整体赋值通过 assign_object 接入，先校验类型 ID，
+完成编辑后执行对应验证。嵌套自定义 codec 的整体赋值通过 move_from(instance) 接入，先校验来源类型，
 成功后移动源内容；该接口不提供失败回滚，不应用于承诺原子编辑的业务对象。
 
 视图持有 Registry 以维持元数据寿命，但不持有根对象。父对象销毁、移动或内部地址失效后，
@@ -565,7 +565,7 @@ const_reference_view::get 对空引用返回 not_found。引用不是标量；�
 重置/替换后应重新获取目标视图。
 `const_reference_view::has_value()` 直接返回 bool；`owner()` 直接返回 `ref<const void>`，
 空引用对应空强引用，非空结果显式保活目标；`actual_type()` 查询实际运行类型。
-可写视图的 `assign_owner(id, owner)` 仅接受声明目标类型的 ID，调用方须保证擦除指针与 ID 匹配。
+可写视图的 `assign_owner(type, owner)` 接收声明目标类型句柄，调用方须保证擦除指针与类型匹配；比较运行身份，不要求注册表相同。
 修改目标会被所有共享拥有者观察到，不提供写时复制。
 实例的 `registry()` 返回所持有的注册表；受 setter 约束的复合属性通过
 `requires_replacement()` 判断整体替换要求，`replace(initialize)` 在独立候选上初始化，
@@ -629,7 +629,7 @@ Texture 描述注册 source、color_space、usage 三个必填字段；后两者
 非标量 getter 必须返回稳定的 const U&，不接受临时值；setter 接收完整 const U&，返回 error
 或 void，负责先校验再修改，失败须保持旧属性。未知 U 仍需按原规则注册。
 
-此绑定的 instance 支持 assign/assign_object 整项替换，但不提供可写对象地址、
+此绑定的 instance 支持 assign/move_from 整项替换，但不提供可写对象地址、
 可写容器/引用视图或可写子属性；通过 as_const() 读取嵌套内容。属性替换后重新获取借用视图。
 反序列化先创建独立默认候选并完成解码，然后调用 setter；解析失败不调用 setter。
 setter 返回的业务错误定位到属性，嵌套解码错误保留具体子路径。
@@ -802,7 +802,7 @@ auto same_elements = source.capability<meta::cap::sequence>();
 
 `type` 不再提供 element_type/enum_entries。sequence、associative、optional、reference
 capability 提供 element_type()，分别返回序列元素、映射值、可选值、引用声明目标的类型。
-查询前检查能力；variant 不提供该方法，它有多个分支，仍通过 const_variant_view::alternative(i) 查询。
+查询前检查能力；variant 不提供该方法，它有多个分支，仍通过 cap::variant::alternative(i) 查询。
 
 ```cpp
 auto enumeration = type.capability<meta::cap::enumeration>();
@@ -852,3 +852,7 @@ if (object) {
 `type().kind()` 和 `type().scalar_kind()` 查询。`instance.capability<C>()` 保留，
 因为它将类型能力绑定到实际借用对象。引用视图的 `actual_type()` 直接返回 `meta::type`。
 属性的 `type()` 表示字段类型，`declaring_type()` 表示最初声明该字段的类型，继承不会改变声明归属。
+
+`assign(const_instance)` 复制来源，`move_from(instance)` 允许移动可直接写入的来源对象。
+自移动不改变对象；来源类型不匹配返回 invalid_argument，缺少直接可写存储返回 unsupported。
+受约束目标仍通过 setter 完成替换，因此 move_from 不保证消耗来源。

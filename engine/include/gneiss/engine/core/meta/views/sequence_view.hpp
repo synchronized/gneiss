@@ -47,10 +47,8 @@ public:
     } else
       return const_instance::from_access(v.registry(), ops()->element(), ops()->at(v.data_, index));
   }
-  [[nodiscard]] bool is_fixed_size() const noexcept { return ops()->fixed_size; }
-  [[nodiscard]] bool has_identity() const noexcept { return ops()->identity != nullptr; }
   [[nodiscard]] result<guid> identity(std::size_t index) const {
-    if (!has_identity())
+    if (!ops()->identity)
       return error::unsupported;
     auto count = size();
     if (index >= count)
@@ -62,7 +60,7 @@ public:
   [[nodiscard]] result<target_type> find(guid id) const {
     if (!id)
       return error::invalid_argument;
-    if (!has_identity())
+    if (!ops()->identity)
       return error::unsupported;
     auto count = size();
     std::unordered_set<guid, guid_hash> seen;
@@ -78,8 +76,6 @@ public:
     }
     return found == count ? result<target_type>{error::not_found} : at(found);
   }
-  [[nodiscard]] bool is_resizable() const noexcept { return ops()->resize != nullptr; }
-  [[nodiscard]] bool supports_replacement() const noexcept { return ops()->replace != nullptr; }
   /** 在临时序列上初始化，再通过容器约束校验并替换；不开放原集合可写元素。 */
   [[nodiscard]] error replace(const std::function<error(const instance&)>& initialize) const
     requires(Mutable)

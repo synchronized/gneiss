@@ -472,7 +472,8 @@ serialization::diagnostic read_fields(const read_context& ctx, yyjson_val* input
     if (status.error.failed())
       return status;
   }
-  return failure(view.assign_object(view.type().id(), decoded->get()));
+  auto source = instance::from_object(view.type(), decoded->get());
+  return source ? failure(view.move_from(*source)) : failure(source.error());
 }
 result<yyjson_mut_val*, serialization::diagnostic> write(yyjson_mut_doc* doc,
                                                          const const_instance& view) {

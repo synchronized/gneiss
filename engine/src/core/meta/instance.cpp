@@ -52,6 +52,29 @@ bool cap::sequence::has_identity() const noexcept {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
   return type_.access_->get<sequence_ops>()->identity != nullptr;
 }
+bool cap::sequence::is_resizable() const noexcept {
+  GNEISS_ASSERT(*this, "序列类型查询要求有效能力");
+  return type_.access_->get<sequence_ops>()->resize != nullptr;
+}
+bool cap::sequence::supports_replacement() const noexcept {
+  GNEISS_ASSERT(*this, "序列类型查询要求有效能力");
+  return type_.access_->get<sequence_ops>()->replace != nullptr;
+}
+std::size_t cap::variant::alternative_count() const noexcept {
+  GNEISS_ASSERT(*this, "分支查询要求有效能力");
+  return type_.access_->get<variant_ops>()->alternatives.size();
+}
+std::span<const std::string_view> cap::variant::names() const noexcept {
+  GNEISS_ASSERT(*this, "分支查询要求有效能力");
+  return type_.access_->get<variant_ops>()->names;
+}
+result<meta::type> cap::variant::alternative(std::size_t index) const {
+  if (index >= alternative_count())
+    return error::invalid_argument;
+  return detail::resolve_type(type_.registry_,
+                              *type_.access_->get<variant_ops>()->alternatives[index]);
+}
+
 template <type_kind Kind, template <bool> class View>
 meta::type cap::container<Kind, View>::element_type_impl() const {
   GNEISS_ASSERT(*this, "元素类型查询要求有效能力");
@@ -268,20 +291,22 @@ error basic_instance<Mutable>::assign(const const_instance& source) const
   return error::success;
 }
 template <bool Mutable>
-error basic_instance<Mutable>::assign_object(gneiss::type_id id, void* source) const
+error basic_instance<Mutable>::move_from(const instance& source_view) const
   requires(Mutable)
 {
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
+  GNEISS_ASSERT(source_view.type(), "移动要求有效的来源实例");
+  if (source_view.type().id() != type().id() || source_view.type().kind() != type().kind())
+    return error::invalid_argument;
+  auto* source = source_view.mutable_data();
+  if (!source)
+    return error::unsupported;
   if (requires_replacement()) {
-    if (!source || id != type().id())
-      return error::invalid_argument;
     const auto* binding = binding_;
     return binding->object_setter(mutable_parent(), source);
   }
   if (type().kind() != type_kind::object)
     return error::unsupported;
-  if (!source || id != type().id())
-    return error::invalid_argument;
   if (source == mutable_data())
     return error::success;
   if (access() && access()->move_assign) {

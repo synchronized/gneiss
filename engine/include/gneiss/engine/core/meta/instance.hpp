@@ -73,7 +73,8 @@ public:
   /** 要求有效的来源与目标实例。普通对象按值复制；引用共享控制块；受约束属性调用 setter。 */
   [[nodiscard]] GNEISS_META_API error assign(const const_instance&) const
     requires(Mutable);
-  [[nodiscard]] GNEISS_META_API error assign_object(gneiss::type_id, void*) const
+  /** 允许移动来源对象；来源必须可直接写入。受约束目标经过 setter，来源不保证被消耗。 */
+  [[nodiscard]] GNEISS_META_API error move_from(const instance&) const
     requires(Mutable);
 
 private:

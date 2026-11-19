@@ -78,13 +78,13 @@ bool object_values() {
   auto retained = slot->owner();
   auto original = holder.item;
   if (!retained || retained.get() != original.get() ||
-      slot->assign_owner(e::runtime_type_of<unrelated_probe>(), original) !=
+      slot->assign_owner(m::resolve<unrelated_probe>(registry), original) !=
           e::error::invalid_argument ||
       holder.item != original)
     return false;
   slot->reset();
   if (holder.item || slot->owner() || retained.get() != original.get() ||
-      slot->assign_owner(e::runtime_type_of<shared_probe>(), original).failed() ||
+      slot->assign_owner(m::resolve<shared_probe>(registry), original).failed() ||
       holder.item != original)
     return false;
   auto read = field->read_value();
@@ -974,7 +974,23 @@ bool capability_binding() {
          unsupported.error() == e::error::unsupported;
 }
 
+// 移动入口处理对象内容；复制入口不应悄悄消耗不可复制的来源。
+struct move_probe {
+  std::unique_ptr<int> payload;
+};
+bool move_instances() {
+  move_probe source{std::make_unique<int>(42)}, target;
+  auto from = m::view(source);
+  auto to = m::view(target);
+  if (to.assign(from.as_const()) != e::error::unsupported || !source.payload)
+    return false;
+  if (to.move_from(from).failed() || source.payload || !target.payload || *target.payload != 42)
+    return false;
+  return to.move_from(to).ok() && target.payload && *target.payload == 42;
+}
 int main() try {
+  if (!move_instances())
+    return 95;
   if (!capability_binding())
     return 60;
   if (!property_handles())
@@ -1073,9 +1089,8 @@ int main() try {
       source.label != "written")
     return 18;
   settings replacement{9};
-  if (editable_config->assign_object(e::runtime_type_of<object>(), &replacement) !=
-          e::error::invalid_argument ||
-      editable_config->assign_object(e::runtime_type_of<settings>(), &replacement).failed() ||
+  if (editable_config->move_from(writable) != e::error::invalid_argument ||
+      editable_config->move_from(m::view(registry, replacement)).failed() ||
       source.config.speed != 9)
     return 19;
   {

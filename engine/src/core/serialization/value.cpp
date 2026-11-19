@@ -77,13 +77,14 @@ struct capture_state {
       return gneiss::value{record_value{record}};
     }
     case type_kind::sequence: {
+      const auto sequence_type = source.type().capability<cap::sequence>();
       auto view = source.as_sequence();
       if (!view)
         return view.error();
       auto count = view->size();
       sequence_value_data data;
-      data.fixed = view->is_fixed_size();
-      data.keyed = view->has_identity();
+      data.fixed = sequence_type.is_fixed_size();
+      data.keyed = sequence_type.has_identity();
       data.elements.reserve(count);
       for (std::size_t i = 0; i < count; ++i) {
         detail::path_scope path{ctx, "/indices/" + std::to_string(i)};
@@ -142,13 +143,14 @@ struct capture_state {
       return gneiss::value{optional_value{data}};
     }
     case type_kind::variant: {
+      const auto variant_type = source.type().capability<cap::variant>();
       auto view = source.as_variant();
       if (!view)
         return view.error();
       auto index = view->index();
       if (!index)
         return index.error();
-      if (view->names().size() != view->alternative_count())
+      if (variant_type.names().size() != variant_type.alternative_count())
         return error::unsupported;
       auto child = view->value();
       if (!child)
@@ -156,8 +158,8 @@ struct capture_state {
       auto item = read(*child, depth + 1);
       if (!item)
         return item.error();
-      return gneiss::value{
-          variant_value{variant_value_data{std::string(view->names()[*index]), std::move(*item)}}};
+      return gneiss::value{variant_value{
+          variant_value_data{std::string(variant_type.names()[*index]), std::move(*item)}}};
     }
     case type_kind::reference: {
       auto reference_slot = source.as_reference();
@@ -278,16 +280,17 @@ struct restore_state {
       return error::success;
     }
     case type_kind::sequence: {
+      const auto sequence_type = target.type().capability<cap::sequence>();
       auto data_view = std::get_if<sequence_value>(&data.payload);
       if (!data_view)
         return error::invalid_argument;
       auto view = target.as_sequence();
       if (!view)
         return view.error();
-      if (!sequence_candidate && (data_view->get().fixed != view->is_fixed_size() ||
-                                  data_view->get().keyed != view->has_identity()))
+      if (!sequence_candidate && (data_view->get().fixed != sequence_type.is_fixed_size() ||
+                                  data_view->get().keyed != sequence_type.has_identity()))
         return error::invalid_argument;
-      if (view->supports_replacement()) {
+      if (sequence_type.supports_replacement()) {
         auto status =
             view->replace([&](const instance& temp) { return write(temp, data, depth, true); });
         if (status.failed())
@@ -315,7 +318,7 @@ struct restore_state {
         if (status.failed())
           return status;
       }
-      if (view->has_identity())
+      if (sequence_type.has_identity())
         for (std::size_t i = 0; i < data_view->get().identities.size(); ++i) {
           auto id = view->identity(i);
           if (!id || *id != data_view->get().identities[i])
@@ -361,16 +364,17 @@ struct restore_state {
       return child ? write(*child, *item->get().content, depth + 1) : child.error();
     }
     case type_kind::variant: {
+      const auto variant_type = target.type().capability<cap::variant>();
       auto item = std::get_if<variant_value>(&data.payload);
       if (!item)
         return error::invalid_argument;
       auto view = target.as_variant();
       if (!view)
         return view.error();
-      auto name = std::ranges::find(view->names(), item->get().alternative);
-      if (name == view->names().end())
+      auto name = std::ranges::find(variant_type.names(), item->get().alternative);
+      if (name == variant_type.names().end())
         return error::invalid_argument;
-      auto status = view->select(std::size_t(name - view->names().begin()));
+      auto status = view->select(std::size_t(name - variant_type.names().begin()));
       if (status.failed())
         return status;
       auto child = view->value();
@@ -404,7 +408,7 @@ struct restore_state {
         auto owner = ctx.references()->resolve(type.id(), asset->uri, ctx.property_path());
         if (!owner)
           return owner.error().error;
-        return reference_slot->assign_owner(type.id(), *owner);
+        return reference_slot->assign_owner(type, *owner);
       }
       if (policy->capture || policy->decode || policy->encode)
         return error::unsupported;
@@ -438,7 +442,7 @@ struct restore_state {
       auto adjusted = detail::cast_base(registry, type.id(), element.id(), owner.get());
       if (!adjusted)
         return adjusted.error().error;
-      return reference_slot->assign_owner(element.id(), owner.alias(*adjusted));
+      return reference_slot->assign_owner(element, owner.alias(*adjusted));
     }
     default:
       return error::unsupported;

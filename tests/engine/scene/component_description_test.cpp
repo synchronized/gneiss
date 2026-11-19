@@ -186,7 +186,8 @@ int main() try {
   auto object_view = e::meta::view(guarded);
   auto property =
       object_view.template capability<gneiss::meta::cap::object>()->member("components");
-  if (!property || !property->as_sequence() || !property->as_sequence()->supports_replacement() ||
+  if (!property || !property->as_sequence() ||
+      !property->type().capability<e::meta::cap::sequence>().supports_replacement() ||
       property->as_sequence()->at(0).error() != e::error::unsupported ||
       property->as_sequence()->resize(2) != e::error::unsupported ||
       !property->as_const().as_sequence())
