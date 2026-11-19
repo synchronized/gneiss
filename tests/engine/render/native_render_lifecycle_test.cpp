@@ -82,7 +82,9 @@ int main() try {
           native::error::invalid_argument ||
       mesh != 0)
     return 6;
-  return first->shutdown().ok() && second->shutdown().ok() ? 0 : 7;
+  first->request_exit();
+  second->request_exit();
+  return first->run().ok() && second->run().ok() ? 0 : 7;
 } catch (...) {
   return 99;
 }

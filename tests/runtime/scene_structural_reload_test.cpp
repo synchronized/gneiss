@@ -208,7 +208,8 @@ int main() try {
       reloader.reload(loaded.reload_state, uri, false) == gneiss::error::invalid_handle &&
       world.object(second.objects.front().entity).has_value();
   second.scene.unload();
-  const bool stopped = application->shutdown() == gneiss::error::success;
+  application->request_exit();
+  const bool stopped = application->run().ok();
   std::filesystem::remove_all(root);
   return destroyed && stopped ? 0 : 5;
 } catch (...) {

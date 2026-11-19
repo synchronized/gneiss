@@ -230,7 +230,8 @@ bool test_capture_prefab_scene() {
     return false;
   scene.unload();
   const bool unloaded = !scene.is_valid();
-  const bool destroyed = gneiss::error{application->shutdown()} == gneiss::error::success;
+  application->request_exit();
+  const bool destroyed = application->run().ok();
   return valid && unloaded && destroyed;
 }
 

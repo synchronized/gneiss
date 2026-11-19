@@ -69,7 +69,8 @@ int main() try {
   check(gneiss::test_support::prepare_scene(*app, "asset://scenes/missing-prefab.scene.json",
                                             missing, assets)
             .failed());
-  check(app->shutdown().ok());
+  app->request_exit();
+  check(app->run().ok());
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

@@ -73,7 +73,8 @@ void close_pending_window(const char* assets) {
     check(app->step().ok() && updates == 0, "close handled before game update");
     check(!app->accepts_requests(), "close rejects new input requests");
   }
-  check(app->shutdown() == gneiss::error::success, "close drains input");
+  app->request_exit();
+  check(app->run().ok(), "close drains input");
   check(scheduler.close_scope(scope), "close test scope");
   const auto stats = scheduler.stats();
   check(stats.waiting == 0 && stats.running == 0 && stats.retained == 0, "no remaining tasks");
@@ -127,7 +128,8 @@ void run(const char* assets, bool cooperative) {
   for (unsigned i = 0; i < 8 && app->action_map_status() == gneiss::error::not_ready; ++i)
     check(app->step().ok(), "unsupported backend completion");
   check(app->action_map_status() == gneiss::error::unsupported, "no synchronous async fallback");
-  check(app->shutdown().ok(), "unsupported backend shutdown");
+  app->request_exit();
+  check(app->run().ok(), "unsupported backend shutdown");
   return;
 #endif
   const auto wait = [&] {

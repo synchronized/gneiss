@@ -539,7 +539,8 @@ void run_mixed_subtree() {
   check(document.restore_subtree(snapshot, parent) == gneiss::error::invalid_argument);
   check(world->entity_count() == 604U);
   document.close();
-  check(app->shutdown().ok());
+  app->request_exit();
+  check(app->run().ok());
 }
 }
 int main() try {

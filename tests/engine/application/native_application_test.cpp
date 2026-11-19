@@ -73,7 +73,8 @@ void test_loop_callback_exceptions() {
     update_threw = true;
   }
   check(update_threw);
-  check(app->shutdown() == gneiss::error::success);
+  app->request_exit();
+  check(app->run().ok());
   app.reset();
   config.callbacks.update = {};
   config.callbacks.poll_events = [](bool& close) {
@@ -90,7 +91,8 @@ void test_loop_callback_exceptions() {
     allocation_threw = true;
   }
   check(allocation_threw);
-  check(app->shutdown() == gneiss::error::success);
+  app->request_exit();
+  check(app->run().ok());
   app.reset();
   unsigned delivered_diagnostics{};
   bool valid_diagnostic{};
@@ -129,8 +131,12 @@ void test_asset_request_boundaries() {
   std::thread worker([&] { rejected_on_worker = rejected(); });
   worker.join();
   check(rejected_on_worker);
-  check(app->shutdown() == gneiss::error::success);
-  check(rejected());
+  app->request_exit();
+  check(app->run().ok());
+  const auto stopped = app->step();
+  check(stopped && *stopped == app::lifecycle::stopped);
+  auto stopped_request = app->load_assets({});
+  check(!stopped_request && stopped_request.error() == error::invalid_state);
 }
 
 void test_loading_request_lifetime() {
@@ -180,7 +186,8 @@ void test_loading_request_lifetime() {
   submitted = app->load_assets({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
-  check(app->shutdown().ok() && !app->can_load_assets());
+  app->request_exit();
+  check(app->run().ok() && !app->can_load_assets());
   check(!request && bool(*independent));
   app.reset();
   auto expired = request.take();
@@ -282,7 +289,8 @@ void test_platform_callbacks() {
     poll_threw = true;
   }
   check(poll_threw);
-  check(app->shutdown() == gneiss::error::success);
+  app->request_exit();
+  check(app->run().ok());
   check(!app->accepts_requests());
   app.reset();
   check(shutdowns == 3U);
@@ -349,8 +357,10 @@ int main() try {
   check(app == previous && state.initializations == 2U && state.shutdowns == 1U);
   previous.reset();
   check(app->step().ok() && state.frames == 4U);
-  check(app->shutdown() == gneiss::error::success);
-  check(app->step().error() == gneiss::error::invalid_state);
+  app->request_exit();
+  check(app->run().ok());
+  const auto stopped = app->step();
+  check(stopped && *stopped == gneiss::app::lifecycle::stopped);
   app.reset();
   check(state.shutdowns == 2U);
   logs.service.flush();

@@ -168,7 +168,8 @@ int main() try {
     return 8;
 
   scene.unload();
-  const bool destroyed = application->shutdown() == gneiss::error::success;
+  application->request_exit();
+  const bool destroyed = application->run().ok();
   std::filesystem::remove_all(root);
   return destroyed ? 0 : 7;
 } catch (...) {

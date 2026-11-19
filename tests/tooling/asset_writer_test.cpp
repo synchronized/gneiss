@@ -132,8 +132,8 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 6;
   }
   scene.unload();
-  if (scene.is_valid() || (*world)->entity_count() != 0U ||
-      application->shutdown() != gneiss::error::success)
+  application->request_exit();
+  if (scene.is_valid() || (*world)->entity_count() != 0U || application->run().failed())
     return 6;
 
   auto multi_data = imported.data;
@@ -157,8 +157,8 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 8;
   }
   scene.unload();
-  if (scene.is_valid() || (*world)->entity_count() != 0U ||
-      application->shutdown() != gneiss::error::success)
+  application->request_exit();
+  if (scene.is_valid() || (*world)->entity_count() != 0U || application->run().failed())
     return 8;
   const auto pbr = gneiss::tooling::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /
                                                  "pbr_triangle.gltf");

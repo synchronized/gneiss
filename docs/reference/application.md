@@ -13,7 +13,8 @@
 
 Application 拥有平台状态、资源服务及可选窗口；World 与渲染绑定由宿主拥有。
 宿主停止系统先释放文档、场景与绑定，再释放 World，随后 Application 关闭服务。
-最后一个 Application 引用必须在创建线程释放，析构执行关闭；也可显式调用 `shutdown`。
+最后一个 Application 引用必须在创建线程释放，析构执行同步关闭保底；正常退出使用
+`request_exit()` 后持续 run()/step() 至终态。
 初始化失败会回收部分状态，已经进入初始化的平台回调与 shutdown 配对。
 
 原生配置中的字符串在创建期间复制，回调由 Application 保存；回调捕获的借用对象必须
@@ -117,11 +118,11 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 
 清理返回 void、result<void> 或 error；失败记录系统名称，继续后续清理及服务关闭，最终返回
 首次宿主清理错误（优先于后续服务关闭错误）。request_exit 只请求退出，step 在收尾期间返回
-stopping，清理完成后返回 stopped 或错误。分步关闭方法属于私有实现；过渡期 shutdown 仍返回最终结果。
+stopping，清理完成后返回 stopped 或错误。同步与分步关闭方法均属于私有实现，不提供第二套公开关闭协议。
 异步步骤返回 app::stop_progress 或 result<app::stop_progress>；pending 保留当前步骤，
 下一轮继续检查既有任务完成，complete 或错误则移动至下一步骤。等待期间仍分发文件和资产完成，
 不会提前关闭服务。步骤自身必须避免重复提交工作；任务作用域可直接使用 try_close_scope。
-error::not_ready 仍是错误，不代替 pending。同步 shutdown/析构可等待，外部循环应使用 step 排空。
+error::not_ready 仍是错误，不代替 pending。析构保底可同步等待，外部循环应使用 step 排空。
 意外异常保持传播，析构时按既有 noexcept/致命异常策略处理，不承诺异常后所有清理完成。
 
 项目选择界面、Editor 和 Runtime 已用 on_stop 非阻塞排空任务、会话并释放 UI，由 run() 统一完成服务关闭。

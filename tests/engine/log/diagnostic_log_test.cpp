@@ -60,7 +60,7 @@ int main() {
       return 2;
     }
   }
-  if (application->shutdown().failed()) {
+  if (application->step().error() != gneiss::error::internal) {
     return 3;
   }
   return 0;

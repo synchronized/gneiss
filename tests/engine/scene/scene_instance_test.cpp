@@ -464,8 +464,9 @@ int main() try {
   scene.unload();
   if (scene.is_valid() || camera_object.is_valid() || owner.entity_count() != 0U)
     return 10;
-  if (second_application->shutdown() != gneiss::error::success ||
-      application->shutdown() != gneiss::error::success) {
+  second_application->request_exit();
+  application->request_exit();
+  if (second_application->run().failed() || application->run().failed()) {
     return 11;
   }
 
@@ -487,7 +488,8 @@ int main() try {
   if (!recovered)
     return 12;
   recovered->unload();
-  if ((*failure_world)->entity_count() != 0U || failing_application->shutdown().failed())
+  failing_application->request_exit();
+  if ((*failure_world)->entity_count() != 0U || failing_application->run().failed())
     return 12;
   return 0;
 } catch (...) {

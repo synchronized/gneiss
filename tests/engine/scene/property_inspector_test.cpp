@@ -104,7 +104,8 @@ int main() try {
     if (app) {
       if (scene.is_valid())
         scene.unload();
-      (void)app->shutdown();
+      app->request_exit();
+      (void)app->run();
     }
   }};
   gneiss::scene_description description;
@@ -160,7 +161,8 @@ int main() try {
   scene.unload();
   auto json = std::move(*serialized);
   scene = {};
-  if (app->shutdown().failed())
+  app->request_exit();
+  if (app->run().failed())
     return 4;
   app.reset();
   const auto output_root =
@@ -190,7 +192,8 @@ int main() try {
     return 6;
   scene.unload();
   scene = {};
-  if (app->shutdown().failed())
+  app->request_exit();
+  if (app->run().failed())
     return 6;
   app.reset();
   std::filesystem::remove_all(output_root);

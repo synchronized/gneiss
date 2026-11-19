@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/function/application/application.hpp>
 #include "../../support/logging.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -31,7 +31,8 @@ int main() try {
     return 1;
   auto application = std::move(*created);
   emit();
-  if (application->shutdown().failed())
+  application->request_exit();
+  if (application->run().failed())
     return 2;
   application.reset();
   emit();

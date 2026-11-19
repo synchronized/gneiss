@@ -65,7 +65,8 @@ int main() {
     return 3;
   }
   // 强类型入口共享同一动作状态；默认构造无需 ABI 结构尺寸。
-  if (app->get_action_state(action, state).failed() || app->shutdown().failed()) {
+  app->request_exit();
+  if (app->get_action_state(action, state).failed() || app->run().failed()) {
     return 4;
   }
   state.value = 7.0F;

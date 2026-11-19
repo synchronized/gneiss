@@ -133,7 +133,6 @@ public:
   application(application&&) = delete;
   application& operator=(application&&) = delete;
 
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error shutdown();
   /** 驱动完整生命周期至停止；失败也先完成受控关闭。 */
   [[nodiscard]] GNEISS_ENGINE_API result<void> run();
   /** 推进一轮，不等待全部 GPU 帧；stopped 或失败为终态。所属线程，不可重入。 */
@@ -182,6 +181,7 @@ private:
   GNEISS_ENGINE_API std::uint64_t current_state(type_id) const;
   GNEISS_ENGINE_API void register_stop_system(std::string, app::stop_function);
   bool stop_host();
+  error shutdown();
   error request_shutdown();
   error advance_shutdown();
   error begin_service_shutdown();

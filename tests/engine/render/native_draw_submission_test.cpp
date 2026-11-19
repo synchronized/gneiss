@@ -110,5 +110,6 @@ int main() {
   context.ui.clear();
   context.debug.clear();
   context.texture.reset();
-  return app->shutdown().failed() ? 6 : 0;
+  app->request_exit();
+  return app->run().failed() ? 6 : 0;
 }

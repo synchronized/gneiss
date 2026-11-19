@@ -294,7 +294,8 @@ int main() {
   context.debug = {};
   binding->reset();
   owned_world->reset();
-  if (application->shutdown().failed())
+  application->request_exit();
+  if (application->run().failed())
     return 12;
 #ifdef _WIN32
   // 重建窗口必须分配新身份，不能再次使用单窗口占位值 1。
@@ -316,8 +317,10 @@ int main() {
   const auto next_window = FindWindowA(nullptr, title.data());
   if (!next_window || !PostMessageW(next_window, WM_KEYDOWN, 'A', 0x001e0001) ||
       !PostMessageW(next_window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) ||
-      next->step().failed() || next->step().failed() || !next_id || next_id == context.window_id ||
-      next->shutdown().failed())
+      next->step().failed() || next->step().failed() || !next_id || next_id == context.window_id)
+    return 19;
+  next->request_exit();
+  if (!next->run())
     return 19;
 #endif
   return 0;
