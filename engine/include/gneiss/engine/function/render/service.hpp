@@ -3,6 +3,7 @@
 #pragma once
 
 #include <functional>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
@@ -12,7 +13,6 @@
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 #include <gneiss/engine/platform/window/native_handle.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
-#include <gneiss/engine/core/base/result.hpp>
 #include <memory>
 #include <optional>
 #include <span>
@@ -36,23 +36,24 @@ public:
   service& operator=(const service&) = delete;
   service(service&&) = delete;
   service& operator=(service&&) = delete;
-  [[nodiscard]] GNEISS_ENGINE_API error initialize(const gneiss::window::native_handle& window,
-                                            window::surface_state surface,
-                                            std::span<const std::byte> environment_asset = {},
-                                            float environment_intensity = 1.0F,
-                                            float environment_rotation_radians = 0.0F,
-                                            queue_options queues = {});
+  [[nodiscard]] GNEISS_ENGINE_API error
+  initialize(const gneiss::window::native_handle& window, window::surface_state surface,
+             std::span<const std::byte> environment_asset = {}, float environment_intensity = 1.0F,
+             float environment_rotation_radians = 0.0F, queue_options queues = {});
   /** 异步提交已读取的环境字节；接受后执行器持有引用，调用方不等待 GPU。
    * 队列满返回 not_ready；解析失败沿用内置环境，执行失败由正常帧完成分发返回。 */
+  /** 提交环境包；空 shared_ptr 显式选择内建环境，非空包须非空。not_ready 时由调用者重试。 */
   [[nodiscard]] GNEISS_ENGINE_API error request_environment(
       std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation);
   /** 排空并关闭设备及 CPU 场景/资源；即使返回历史执行错误，服务仍进入关闭状态。
    * 可重复调用；关闭后的 RID 失效，已捕获的自有内容按原有引用生命周期释放。 */
   [[nodiscard]] GNEISS_ENGINE_API error shutdown(device_stats& stats);
   [[nodiscard]] GNEISS_ENGINE_API error finish_frames();
-  GNEISS_ENGINE_API void set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
+  GNEISS_ENGINE_API void
+  set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
   /** 领取必需帧完成记录；空值表示暂无记录，失败表示收集完成结果时出错。 */
-  [[nodiscard]] GNEISS_ENGINE_API result<std::optional<frame_completion>> try_take_required_completion();
+  [[nodiscard]] GNEISS_ENGINE_API result<std::optional<frame_completion>>
+  try_take_required_completion();
   [[nodiscard]] GNEISS_ENGINE_API queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] GNEISS_ENGINE_API texture_prepare_profile texture_profile() const noexcept;
@@ -106,9 +107,9 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API result<rid>
   create_prepared_mesh(std::shared_ptr<const mesh_data> resource);
   [[nodiscard]] GNEISS_ENGINE_API result<void> replace_mesh(rid rid,
-                                                     std::shared_ptr<const mesh_data> data);
-  [[nodiscard]] GNEISS_ENGINE_API result<void> replace_material(rid rid,
-                                                         std::shared_ptr<const material_data> data);
+                                                            std::shared_ptr<const mesh_data> data);
+  [[nodiscard]] GNEISS_ENGINE_API result<void>
+  replace_material(rid rid, std::shared_ptr<const material_data> data);
   /** 校验并复制借用视图，返回自有 CPU 内容，不分配 RID。 */
   [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const mesh_data>>
   prepare_mesh_data(const mesh_view& desc);
@@ -139,7 +140,8 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API const mesh_data* get_mesh(rid mesh) const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API const material_data* get_material(rid material) const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API const texture_data* get_texture(rid texture) const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const mesh_data> share_mesh(rid mesh) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const mesh_data>
+  share_mesh(rid mesh) const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const material_data>
   share_material(rid material) const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const texture_data>

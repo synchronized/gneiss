@@ -30,6 +30,7 @@ target_sources(gneiss_engine PRIVATE
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/scene_loader.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/object_loader.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/action_map_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/environment_loader.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/material_loader.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_entry.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/load_operation.hpp"

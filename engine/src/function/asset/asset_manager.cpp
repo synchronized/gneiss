@@ -283,6 +283,7 @@ asset_manager::asset_manager(std::shared_ptr<gneiss::files::service> files)
   bind.template operator()<scene>();
   bind.template operator()<prefab>();
   bind.template operator()<gneiss::input::action_map>();
+  bind.template operator()<environment>();
   auto frozen = meta::is_frozen();
   if (!frozen)
     throw std::invalid_argument("资源 Registry 必须冻结");
@@ -373,7 +374,8 @@ error asset_manager::register_loader(type_id type, loader_factory factory,
   if (!factory || type == runtime_type_of<void>() || type == runtime_type_of<scene>() ||
       type == runtime_type_of<prefab>() || type == runtime_type_of<mesh>() ||
       type == runtime_type_of<texture>() || type == runtime_type_of<material>() ||
-      type == runtime_type_of<gneiss::input::action_map>())
+      type == runtime_type_of<gneiss::input::action_map>() ||
+      type == runtime_type_of<environment>())
     return error::invalid_argument;
   if (state.loaders.contains(type) || !reference)
     return error::invalid_argument;
@@ -400,7 +402,8 @@ error asset_manager::register_decoder(const std::shared_ptr<const asset_decoder>
   // 内置多阶段 Loader 不接受单缓冲区解码器覆盖。
   if (type == runtime_type_of<mesh_data>() || type == runtime_type_of<texture_data>() ||
       type == runtime_type_of<scene>() || type == runtime_type_of<prefab>() ||
-      type == runtime_type_of<gneiss::input::action_map>())
+      type == runtime_type_of<gneiss::input::action_map>() ||
+      type == runtime_type_of<environment>())
     return error::invalid_argument;
   return state.decoders.emplace(type, loader).second ? error::success : error::invalid_argument;
 }

@@ -9,6 +9,7 @@
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/environment.hpp>
 
 #include "documents/commands/author_file_save.hpp"
 #include "documents/commands/author_property_edit.hpp"
@@ -107,6 +108,10 @@ struct author_scene_document final {
 };
 
 struct editor_state {
+  gneiss::asset_request<gneiss::environment> environment_request{};
+  std::shared_ptr<const std::vector<std::byte>> environment_bytes{};
+  bool environment_pending{true};
+
   // 宿主拥有对象；只在其 run 回调期间借用。
   gneiss::runtime::application* application{};
   explicit editor_state(bool cooperative = false)
@@ -1542,7 +1547,7 @@ gneiss::error advance_editor_smoke(editor_state& state) {
   if (state.scene_loader.visible() && !state.scene_loader.active()) {
     return state.scene_loader.operation();
   }
-  if (!state.scene_loader.visible()) {
+  if (!state.scene_loader.visible() && !state.environment_pending) {
     ++state.smoke_frames;
     if (state.smoke_frames == 1U || state.smoke_frames % 120U == 0U ||
         state.smoke_frames == state.smoke_frame_limit) {
@@ -2965,12 +2970,6 @@ int run_editor(int argc, char** argv) {
   desc.asset_root = asset_root_text;
   desc.writable_assets = true;
 
-  desc.environment_asset = project.environment.asset;
-
-  desc.environment_intensity = project.environment.intensity;
-  desc.environment_rotation_radians =
-      project.environment.rotation_degrees * 0.01745329251994329577F;
-
   auto created = gneiss::runtime::application::create(desc);
   auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
   if (operation != gneiss::error::success) {
@@ -2979,6 +2978,41 @@ int run_editor(int argc, char** argv) {
   }
   application = std::move(*created);
   state.application = application.get();
+  if (!project.environment.asset.empty()) {
+    auto requested = application->assets().load<gneiss::environment>(project.environment.asset);
+    if (!requested)
+      return 1;
+    state.environment_request = std::move(*requested);
+  }
+  application->add_system(gneiss::app::stage::update, "editor.environment",
+                          [&state, &project]() -> gneiss::error {
+                            if (!state.environment_pending)
+                              return gneiss::error::success;
+                            if (state.environment_request) {
+                              if (state.environment_request.status() == gneiss::error::not_ready)
+                                return gneiss::error::success;
+                              auto loaded = state.environment_request.take();
+                              if (!loaded)
+                                return loaded.error().error;
+                              state.environment_bytes = (*loaded)->snapshot().shared();
+                            }
+                            const auto status = state.application->render().request_environment(
+                                state.environment_bytes, project.environment.intensity,
+                                project.environment.rotation_degrees * 0.01745329251994329577F);
+                            if (status == gneiss::error::not_ready)
+                              return gneiss::error::success;
+                            if (status.ok()) {
+                              state.environment_pending = false;
+                              state.environment_bytes.reset();
+                            }
+                            return status;
+                          });
+  application->on_stop("editor.cancel_environment", [&state] {
+    state.environment_request.cancel();
+    state.environment_bytes.reset();
+    state.environment_pending = false;
+  });
+
   application->on_stop("editor.begin_stop", [&state, smoke = options.smoke] {
     state.pending_file_operation = {};
     // 停止已获批准（或主循环失败），这里不再走未保存内容的交互拦截。

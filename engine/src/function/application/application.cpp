@@ -224,12 +224,10 @@ namespace gneiss::runtime {
 struct application::storage {
   explicit storage(const runtime::application_configuration& config)
       : config_(config), window_title_(config.window.title), asset_root_(config.asset_root),
-        user_root_(config.user_root), environment_asset_(config.environment_asset),
-        owner_thread_(std::this_thread::get_id()) {
+        user_root_(config.user_root), owner_thread_(std::this_thread::get_id()) {
     config_.window.title = window_title_;
     config_.asset_root = asset_root_;
     config_.user_root = user_root_;
-    config_.environment_asset = environment_asset_;
   }
   std::shared_ptr<gneiss::wakeup_signal> loop_wakeup_;
   runtime::application_configuration config_;
@@ -237,7 +235,6 @@ struct application::storage {
   std::string window_title_;
   std::string asset_root_;
   std::string user_root_;
-  std::string environment_asset_;
   std::unique_ptr<gneiss::render::service> render_service_ =
       std::make_unique<gneiss::render::service>();
   app::schedule systems_;
@@ -246,12 +243,6 @@ struct application::storage {
 #endif
   std::shared_ptr<gneiss::files::service> files_;
   std::optional<error> files_initialization_;
-  struct environment_read {
-    bool ready{};
-    gneiss::error status{gneiss::error::not_ready};
-    std::shared_ptr<const std::vector<std::byte>> bytes;
-  };
-  std::shared_ptr<environment_read> environment_;
   std::unique_ptr<gneiss::asset_manager> asset_manager_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
@@ -335,14 +326,10 @@ private:
 
 gneiss::result<std::shared_ptr<application>>
 application::create(const application_configuration& config) {
-  if ((config.enable_window &&
-       (config.window.width == 0U || config.window.height == 0U ||
-        config.callbacks.initialize != nullptr || config.callbacks.poll_events != nullptr ||
-        config.callbacks.shutdown != nullptr)) ||
-      !std::isfinite(config.environment_intensity) || config.environment_intensity < 0.0F ||
-      !std::isfinite(config.environment_rotation_radians) ||
-      (!config.environment_asset.empty() &&
-       gneiss::validate_uri(config.environment_asset) != gneiss::error::success)) {
+  if (config.enable_window &&
+      (config.window.width == 0U || config.window.height == 0U ||
+       config.callbacks.initialize != nullptr || config.callbacks.poll_events != nullptr ||
+       config.callbacks.shutdown != nullptr)) {
     return gneiss::error::invalid_argument;
   }
   {
@@ -509,8 +496,7 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
       throw;
     }
     const auto render_result = storage_->render_service_->initialize(
-        storage_->window_service_->native(), storage_->window_service_->surface(), {},
-        storage_->config_.environment_intensity, storage_->config_.environment_rotation_radians);
+        storage_->window_service_->native(), storage_->window_service_->surface());
     if (render_result != gneiss::error::success) {
       report(gneiss::severity::error, gneiss::category::backend, render_result, "granit.render",
              "Granit 渲染服务初始化失败");
@@ -544,40 +530,13 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
     static_cast<void>(shutdown());
     throw;
   }
-  // 只接收服务级完成通知；不轮询各个后端。环境加载在文件服务可用后启动。
+  // 只接收服务级完成通知；业务资产由宿主系统加载。
   const auto accepted = storage_->files_->initialize([self](error status) {
     auto owner = self.lock();
     if (!owner || !owner->storage_->files_)
       return;
     auto& application_state = owner->storage_;
     application_state->files_initialization_ = status;
-    if (status.failed())
-      return;
-    if (application_state->window_service_ &&
-        !application_state->config_.environment_asset.empty()) {
-      {
-        auto state = std::make_shared<storage::environment_read>();
-        gneiss::files::request_id request;
-        const auto accepted = application_state->files_->read(
-            application_state->config_.environment_asset, {.max_bytes = 64U * 1024U * 1024U},
-            [state](gneiss::files::completion<gneiss::files::bytes> value) {
-              state->status = value.status;
-              if (value.status.ok()) {
-                {
-                  state->bytes =
-                      std::make_shared<const std::vector<std::byte>>(std::move(value.data));
-                }
-              }
-              state->ready = true;
-            },
-            request);
-        if (accepted.failed()) {
-          application_state->files_initialization_ = accepted;
-          return;
-        }
-        application_state->environment_ = std::move(state);
-      }
-    }
   });
   if (accepted.failed())
     return accepted;
@@ -956,7 +915,6 @@ gneiss::error application::shutdown() {
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();
   storage_->asset_manager_.reset();
-  storage_->environment_.reset();
   storage_->files_.reset();
   if (storage_->platform_initialized_) {
     if (storage_->config_.callbacks.shutdown != nullptr) {
@@ -1074,21 +1032,6 @@ gneiss::error application::advance_resource_io() {
     return *storage_->files_initialization_;
   storage_->asset_manager_->advance();
   storage_->asset_manager_->collect_unused();
-  if (auto state = storage_->environment_; state && state->ready) {
-    if (state->status.failed()) {
-      storage_->environment_.reset();
-      report(gneiss::severity::error, gneiss::category::asset, state->status, "environment",
-             "环境资产异步读取失败");
-      return state->status;
-    }
-    const auto submitted = storage_->render_service_->request_environment(
-        state->bytes, storage_->config_.environment_intensity,
-        storage_->config_.environment_rotation_radians);
-    if (submitted != gneiss::error::not_ready)
-      storage_->environment_.reset();
-    if (submitted.failed() && submitted != gneiss::error::not_ready)
-      return submitted;
-  }
   return gneiss::error::success;
 }
 

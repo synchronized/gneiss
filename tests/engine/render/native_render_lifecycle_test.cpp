@@ -18,6 +18,10 @@ int main() try {
     return 1;
   auto& resources = first->render();
   auto& other = second->render();
+  if (resources.request_environment({}, -1.0F, 0.0F) != native::error::invalid_argument ||
+      resources.request_environment(std::make_shared<const std::vector<std::byte>>(), 1.0F, 0.0F) !=
+          native::error::invalid_argument)
+    return 32;
   // 目标身份由 Render 校验；视图矩阵和重复输出由 render_scene_test 覆盖。
   auto target = resources.create_target({320, 240});
   if (!target || !resources.is_target(*target) || other.is_target(*target) ||

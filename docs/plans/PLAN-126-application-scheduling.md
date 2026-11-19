@@ -169,7 +169,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 生命周期 | run/step 共用推进；已删除 run(n)，分步关闭为私有实现；pending/complete 停止时分发完成 | 公开 shutdown 已移除；最终启动协议继续收敛 |
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发；宿主拥有 World/绑定/视图，默认实现已删除 | 多 World 与关闭重开验收 |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终启动协议对齐 |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入请求和批次已归宿主；剩余环境加载、诊断转发清理 |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入、批次和环境请求已归宿主；剩余诊断转发清理 |
 | Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发清理与多 World/关闭重开验收 |
 | 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载和批次已迁移；最终启动协议对齐 |
 
@@ -373,3 +373,16 @@ advance_loading 转发；基础循环只推进资产管理器。场景/编辑操
 Windows Clang Debug 完整构建与全部 213 项 CPU 测试通过，包含编辑器、Prefab、场景重载、
 模块边界和停止生命周期。静态构建及其他平台仍留待最终验收。
 像素渲染测试、Runtime 协作调度 editor_demo、Editor editor_demo 和 scene_viewer 双视图 smoke 均退出 0。
+
+### 环境资源请求归宿主
+
+新增 environment 只读包资产，复用资产管理器缓存、在途请求和重载；已领取快照不随重载改变，
+失败保留旧内容。Runtime、Editor 自行拥有请求，在 update 中领取并向 Render 提交，背压时保留
+待提交内容，停止时取消请求。Application 删除环境配置、原始文件请求和提交状态。
+Render 的空包指针明确表示选择内建环境；非空空包、负强度或非有限参数拒绝，格式解析失败仍回退。
+Editor smoke 等待环境请求提交后才开始采样，不再因场景先就绪而遗漏环境加载。
+
+Windows Clang Debug 宿主与相关测试目标构建通过；资产、Application、Render 生命周期三项 CPU
+回归通过，覆盖缓存重载、旧快照稳定、空包/超限失败及参数校验。原生窗口加载途中关闭退出 0。
+Runtime 内建环境及坏包回退、Editor 30 帧坏包回退 smoke 均退出 0；实际渲染日志确认强度 0.6、
+旋转 0.524 rad 生效。本批未验证有效环境包的视觉效果、静态链接或其他平台，也未重跑完整矩阵。

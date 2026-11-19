@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/resource/environment.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 #include <gneiss/protocol/domains.hpp>
 
@@ -58,6 +59,10 @@ struct runtime_options final {
 };
 
 struct runtime_context final {
+  gneiss::asset_request<gneiss::environment> environment_request{};
+  std::shared_ptr<const std::vector<std::byte>> environment_bytes{};
+  bool environment_pending{true};
+
   gneiss::logging::logger* log = nullptr;
   std::filesystem::path stop_file;
   std::uint64_t next_stop_check_ns = 0U;
@@ -499,7 +504,7 @@ private:
              .message = std::format("{} ({})", "工程加载完成", path_text(project.project_root)),
              .result = gneiss::error::success});
 
-  runtime_context context{&log, options.stop_file};
+  runtime_context context{.log = &log, .stop_file = options.stop_file};
   if (!context.stop_file.empty()) {
     std::error_code error;
     std::filesystem::remove(context.stop_file, error);
@@ -511,12 +516,6 @@ private:
       !options.smoke && !options.hidden; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。
 
   desc.asset_root = asset_root;
-
-  desc.environment_asset = project.environment.asset;
-
-  desc.environment_intensity = project.environment.intensity;
-  desc.environment_rotation_radians =
-      project.environment.rotation_degrees * 0.01745329251994329577F;
 
   gneiss::tasks::task_scheduler task_scheduler(
       {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
@@ -535,6 +534,41 @@ private:
   }
   application = created->get();
   context.application = application;
+  if (!project.environment.asset.empty()) {
+    auto requested = application->assets().load<gneiss::environment>(project.environment.asset);
+    if (!requested)
+      return 4;
+    context.environment_request = std::move(*requested);
+  }
+  application->add_system(gneiss::app::stage::update, "runtime.environment",
+                          [&context, &project]() -> gneiss::error {
+                            if (!context.environment_pending)
+                              return gneiss::error::success;
+                            if (context.environment_request) {
+                              if (context.environment_request.status() == gneiss::error::not_ready)
+                                return gneiss::error::success;
+                              auto loaded = context.environment_request.take();
+                              if (!loaded)
+                                return loaded.error().error;
+                              context.environment_bytes = (*loaded)->snapshot().shared();
+                            }
+                            const auto status = context.application->render().request_environment(
+                                context.environment_bytes, project.environment.intensity,
+                                project.environment.rotation_degrees * 0.01745329251994329577F);
+                            if (status == gneiss::error::not_ready)
+                              return gneiss::error::success;
+                            if (status.ok()) {
+                              context.environment_pending = false;
+                              context.environment_bytes.reset();
+                            }
+                            return status;
+                          });
+  application->on_stop("runtime.cancel_environment", [&context] {
+    context.environment_request.cancel();
+    context.environment_bytes.reset();
+    context.environment_pending = false;
+  });
+
   auto created_world = gneiss::create_native();
   if (!created_world)
     return 3;

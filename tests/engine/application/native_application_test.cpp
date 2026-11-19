@@ -320,14 +320,10 @@ int main() try {
     gneiss::logging::logger{"native-test"}.info("原生日志");
   }
   auto invalid = config;
-  invalid.environment_intensity = -1.0F;
+  invalid.enable_window = true;
+  invalid.window.width = 0;
   auto retained = app;
   auto rejected = gneiss::runtime::application::create(invalid);
-  check(!rejected && rejected.error() == gneiss::error::invalid_argument);
-  check(app == retained && state.initializations == 1U);
-  invalid = config;
-  invalid.environment_asset = "invalid-uri";
-  rejected = gneiss::runtime::application::create(invalid);
   check(!rejected && rejected.error() == gneiss::error::invalid_argument);
   check(app == retained && state.initializations == 1U);
   retained.reset();

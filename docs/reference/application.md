@@ -208,3 +208,10 @@ poll()、find_action()/get_action_state()。借用不保活 Application，限所
 平台事件泵送、begin_frame 和事件注入仍由 Application 负责，消费者不得重复推进输入帧。
 Runtime 与 scene_viewer 自行拥有 Action Map 加载请求，成功后显式应用到 Input；
 Application 不持有请求或自动应用结果，停止回调由宿主取消请求。
+
+
+## 环境选择
+
+Application 只初始化 Render 默认环境，不保存工程环境 URI、强度或旋转。
+Runtime/Editor 的环境系统持有资产请求并显式应用；停止系统取消未完成请求。
+详细加载和快照语义见[环境包](assets.md#环境包)。

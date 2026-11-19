@@ -5,6 +5,18 @@
 
 普通资源、网格和纹理统一通过[文件服务](file-service.md)异步读取；旧 VFS 和同步加载入口已删除。
 
+## 环境包
+
+`asset_manager::load<environment>(uri)` 加载环境二进制包，`snapshot()` 返回不可变字节引用。
+它不解析后端环境格式、不创建 GPU 资源；Render 解码失败仍按既有规则使用内建环境。
+文件读取遵循文件服务上限，Application 的文件服务维持 64 MiB 上限，Loader 同时拒绝空包或
+超过 64 MiB 的内容。成功重载保留资产身份，已取得的字节快照不变；失败不覆盖旧内容。
+
+Runtime、Editor 自己持有请求，领取后调用 Render 的 request_environment，提供工程中的强度
+和旋转；not_ready 时保留字节等待重试，停止时取消请求并释放尚未提交的字节。
+环境请求与场景加载独立，不阻止必要事件和完成分发；失败交给所属宿主系统的错误收尾。
+环境包不再是 Application 创建配置，也不由 Application 自动读取。
+
 ## 批次请求
 
 `asset_manager::load_batch(sources, reload)` 返回独立的 `asset_batch_request`。

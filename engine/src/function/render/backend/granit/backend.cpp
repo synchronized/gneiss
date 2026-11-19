@@ -7,9 +7,9 @@
 #include <array>
 #include <atomic>
 #include <deque>
-#include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/statistics.hpp>
 #include <gneiss/engine/function/render/ui_draw_list.hpp>
@@ -1437,9 +1437,10 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
 error backend::implementation::set_environment(std::span<const std::byte> bytes, float intensity,
                                                float rotation) {
   (void)environment_.reset();
-  environment_asset_requested_ = true;
-  auto status = environment_.initialize(renderer_, bytes);
-  environment_fallback_ = status.failed();
+  environment_asset_requested_ = !bytes.empty();
+  auto status = bytes.empty() ? environment_.initialize_builtin(renderer_)
+                              : environment_.initialize(renderer_, bytes);
+  environment_fallback_ = !bytes.empty() && status.failed();
   if (status.failed()) {
     (void)environment_.reset();
     status = environment_.initialize_builtin(renderer_);

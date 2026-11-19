@@ -61,14 +61,17 @@ gneiss::error service::implementation::initialize(const gneiss::window::native_h
 
 error service::implementation::request_environment(
     std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation) {
-  if (!bytes || bytes->empty() || !std::isfinite(intensity) || !std::isfinite(rotation))
+  if ((bytes && bytes->empty()) || !std::isfinite(intensity) || intensity < 0.0F ||
+      !std::isfinite(rotation))
     return error::invalid_argument;
-  const auto payload_bytes = bytes->size();
+  const auto payload_bytes = bytes ? bytes->size() : 0;
   const std::weak_ptr<const void> payload = bytes;
   auto submitted = executor_.submit_command(
       [this, bytes = std::move(bytes), intensity,
        rotation](const render::detail::render_command_reporter&) {
-        return backend_.set_environment(*bytes, intensity, rotation);
+        return backend_.set_environment(bytes ? std::span<const std::byte>(*bytes)
+                                              : std::span<const std::byte>{},
+                                        intensity, rotation);
       },
       render::detail::render_command_policy::once, payload_bytes, payload);
   return submitted ? error::success : submitted.error();

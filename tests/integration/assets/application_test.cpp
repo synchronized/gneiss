@@ -9,6 +9,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/resource/environment.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 #ifdef GNEISS_TEST_NATIVE_WINDOW
 #define WIN32_LEAN_AND_MEAN
@@ -69,6 +70,11 @@ void close_pending_window(const char* assets) {
     auto request = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
     check(request.ok(), "pending window input");
     check(request->status() == gneiss::error::not_ready, "input remains pending");
+    auto environment =
+        app->assets().load<gneiss::environment>("asset://input/default.input-map.json");
+    check(environment && environment->status() == error::not_ready, "environment remains pending");
+    environment->cancel();
+    check(!*environment, "host cancels environment before close");
     const auto window = FindWindowW(nullptr, L"Gneiss Asset pending close test");
     check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
     check(app->step().ok() && updates == 0, "close handled before game update");
@@ -155,6 +161,37 @@ void run(const char* assets, bool cooperative) {
 #endif
     }
   };
+  const auto environment_file = root / "environment.bin";
+  std::ofstream(environment_file, std::ios::binary) << "first";
+  auto environment_request = app->assets().load<gneiss::environment>("asset://environment.bin");
+  check(environment_request.ok(), "environment request");
+  wait(*environment_request);
+  auto environment = environment_request->take();
+  check(environment.ok(), "environment loaded");
+  auto snapshot = (*environment)->snapshot();
+  check(snapshot && snapshot->size() == 5, "environment immutable bytes");
+  std::ofstream(environment_file, std::ios::binary) << "second";
+  auto reloaded = app->assets().reload<gneiss::environment>("asset://environment.bin");
+  check(reloaded.ok(), "environment reload");
+  wait(*reloaded);
+  auto replacement = reloaded->take();
+  check(replacement && *replacement == *environment && snapshot->size() == 5 &&
+            (*environment)->snapshot()->size() == 6,
+        "environment identity and old snapshot");
+  std::ofstream(environment_file, std::ios::binary).close();
+  auto empty_environment = app->assets().reload<gneiss::environment>("asset://environment.bin");
+  check(empty_environment.ok(), "empty environment admitted");
+  wait(*empty_environment);
+  check(empty_environment->status() == error::invalid_argument &&
+            (*environment)->snapshot()->size() == 6,
+        "invalid environment preserves content");
+  std::filesystem::resize_file(environment_file, 64U * 1024U * 1024U + 1U);
+  auto oversized_environment = app->assets().reload<gneiss::environment>("asset://environment.bin");
+  check(oversized_environment.ok(), "oversized environment admitted");
+  wait(*oversized_environment);
+  check(oversized_environment->status().failed() && (*environment)->snapshot()->size() == 6,
+        "environment source limit");
+
   auto request = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
   check(request.ok(), "begin");
   wait(*request);
