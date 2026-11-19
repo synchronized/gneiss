@@ -284,3 +284,6 @@ add_test(NAME gneiss.render_scene COMMAND gneiss_render_scene_test)
 set_tests_properties(gneiss.render_scene PROPERTIES LABELS "cpu;unit")
 
 set_tests_properties(gneiss.texture-load-service PROPERTIES TIMEOUT 30)
+
+add_test(NAME gneiss.render-texture-uploads COMMAND gneiss_asset_pixel_test --probe-uploads)
+set_tests_properties(gneiss.render-texture-uploads PROPERTIES TIMEOUT 90 LABELS "gpu;integration")

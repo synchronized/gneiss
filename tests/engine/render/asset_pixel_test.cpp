@@ -1013,6 +1013,75 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   files.color(std::byte{20}, std::byte{240});
   load(4U, false);
 }
+// 每个候选都经过真实 UI 纹理采样和回读，避免只验证 CPU 内容指针。
+void run_texture_uploads() {
+  window::service window;
+  check(window
+            .initialize(
+                {.title = "Gneiss texture uploads", .width = 128, .height = 128, .visible = false})
+            .ok());
+  render::service renderer;
+  constexpr std::size_t bytes = 256 * 256 * 4;
+  check(renderer
+            .initialize(window.native(), window.surface(), {}, 1.F, 0.F,
+                        {.pending_frames = 1, .commands = 1, .command_payload_bytes = bytes})
+            .ok());
+  detail::asset_construction factory{renderer};
+  auto texture = factory.reserve_texture();
+  check(bool(texture));
+  const auto id = resource_handle(*texture);
+  const std::array vertices{
+      ui_vertex{{0, 0}, {0, 0}, 0xffffffffU}, ui_vertex{{128, 0}, {1, 0}, 0xffffffffU},
+      ui_vertex{{128, 128}, {1, 1}, 0xffffffffU}, ui_vertex{{0, 128}, {0, 1}, 0xffffffffU}};
+  const std::array<std::uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
+  const std::array commands{
+      ui_draw_command{.texture = *texture, .clip_max = {128, 128}, .index_count = 6}};
+  unsigned captures{};
+  for (unsigned n = 0; n < 16; ++n) {
+    auto next = std::make_shared<texture_data>();
+    next->width = next->height = 256;
+    next->format = texture_format::rgba8_unorm;
+    next->color_space = texture_color_space::srgb;
+    next->levels = {{.width = 256, .height = 256, .pixels = std::vector<std::byte>(bytes)}};
+    const unsigned channel = n % 2 ? 2 : 0;
+    auto& pixels = next->levels.front().pixels;
+    for (std::size_t i = 0; i < pixels.size(); i += 4) {
+      pixels[i + channel] = std::byte{255};
+      pixels[i + 3] = std::byte{255};
+    }
+    check(renderer.replace_texture(id, next).ok());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    for (;;) {
+      render::frame_request frame;
+      frame.surface = window.surface();
+      check(frame.ui
+                .replace({.display_width = 128,
+                          .display_height = 128,
+                          .vertices = vertices,
+                          .indices = indices,
+                          .commands = commands},
+                         renderer)
+                .ok());
+      render::frame_image image;
+      check(test_support::capture_frame(renderer, std::move(frame), {128, 128}, image).ok());
+      ++captures;
+      check(image.pixels.size() == 128 * 128 * 4);
+      const auto center = (64 * 128 + 64) * 4;
+      if (std::to_integer<unsigned>(image.pixels[center + channel]) > 200 &&
+          std::to_integer<unsigned>(image.pixels[center + (2 - channel)]) < 30)
+        break;
+      check(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::yield();
+    }
+  }
+  check(renderer.query_performance_stats().command_payload_bytes == 0);
+  render::device_stats stats;
+  check(renderer.shutdown(stats).ok() && stats.total_live_count == 0);
+  check(renderer.texture_status(id) == error::invalid_handle);
+  std::printf("texture uploads: versions=16 captures=%u live_after_close=%llu\n", captures,
+              static_cast<unsigned long long>(stats.total_live_count));
+}
+
 // 使用真实后端验证预算拒绝不消费请求、重试回读，以及未显式排空时关闭目标。
 void run_queue_pressure() {
   window::service window;
@@ -1128,6 +1197,10 @@ void run_queue_pressure() {
 
 }
 int main(int argc, char* argv[]) try {
+  if (argc == 2 && std::string_view{argv[1]} == "--probe-uploads") {
+    run_texture_uploads();
+    return 0;
+  }
   if (argc == 2 && std::string_view{argv[1]} == "--probe-pressure") {
     run_queue_pressure();
     return 0;
