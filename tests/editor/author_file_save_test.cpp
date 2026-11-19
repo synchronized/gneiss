@@ -48,23 +48,24 @@ int main() try {
   for (const auto& entry : std::filesystem::directory_iterator(root))
     if (entry.path().filename().string().find(".gneiss-") != std::string::npos)
       return 4;
+  auto world = gneiss::create_native();
+  if (!world)
+    return 5;
   editor::scene_edit_session document;
   entity_id node;
-  if (document.create_empty(*app, app->native_world()).failed() ||
+  if (document.create_empty(*app, world->get()).failed() ||
       document.create_node("before", {}, node).failed())
     return 5;
   std::shared_ptr<editor::scene_edit_session::save_receipt> receipt;
   if (document
-          .begin_save(*files, "asset://scene.json", gneiss::files::write_mode::create_new,
-                      receipt)
+          .begin_save(*files, "asset://scene.json", gneiss::files::write_mode::create_new, receipt)
           .failed() ||
       receipt->complete || document.rename_node(node, "after").failed() ||
       test_support::await_file(*files, receipt).failed() ||
       document.accept_save(*receipt).failed() || !document.is_dirty() ||
       read(root / "scene.json").find("before") == std::string::npos)
     return 6;
-  if (document
-          .begin_save(*files, document.uri(), gneiss::files::write_mode::replace, receipt)
+  if (document.begin_save(*files, document.uri(), gneiss::files::write_mode::replace, receipt)
           .failed())
     return 7;
   document.close(); // 回调不访问已经关闭的文档。

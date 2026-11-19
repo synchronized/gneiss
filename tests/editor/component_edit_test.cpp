@@ -9,6 +9,7 @@
 #include "ui/panels/reflected_property_editor.hpp"
 #include <algorithm>
 #include <cstdio>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
@@ -16,7 +17,6 @@
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
@@ -293,7 +293,10 @@ int main() try {
   }
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
-  auto& world = *app->native_world();
+  auto world_result = gneiss::create_native();
+  check(bool(world_result));
+  auto world_owner = std::move(*world_result);
+  auto& world = *world_owner;
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
   gneiss::entity_id node;
@@ -499,8 +502,8 @@ int main() try {
   prepared.prefabs.emplace(
       reference.prefab->uri,
       e::scene_prefab_dependency{.resource = {}, .description = e::prefab_asset_ref{prefab}});
-  auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
-                                                                        std::move(prepared), {});
+  auto receipt =
+      gneiss::test_support::scene_fixture::instantiate_scene(world, std::move(prepared), {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
   const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {
@@ -562,7 +565,8 @@ int main() try {
     check(ref_history.undo().ok() && ref_current()->amount == 1);
     ref_current()->amount = 66;
     check(ref_history.redo().ok() && ref_current()->amount == 5);
-    auto ref_rejected = ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{-1.0F}});
+    auto ref_rejected =
+        ed::edit_reference_snapshot(input, {.path = {p{1}}, .data = e::value{-1.0F}});
     check(!ref_rejected && initial->amount == 99);
     auto read_ref = e::read_component_property(world, entity(world, ref_node),
                                                reference_description::type_guid, p{1});

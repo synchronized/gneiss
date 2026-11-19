@@ -191,12 +191,15 @@ bool test_capture_prefab_scene() {
   gneiss::scene_resource_bindings resources;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, resources).failed())
     return false;
-  auto empty = application->native_world()->create_scene();
+  auto world = gneiss::create_native();
+  if (!world)
+    return false;
+  auto empty = (*world)->create_scene();
   if (!empty)
     return false;
   // 使用无运行 Prefab 绑定的重建路径，证明来源只来自显式回执。
   auto created = gneiss::test_support::scene_fixture::instantiate_scene(
-      *application->native_world(), std::move(prepared), resources);
+      **world, std::move(prepared), resources);
   if (!created)
     return false;
   empty->unload();

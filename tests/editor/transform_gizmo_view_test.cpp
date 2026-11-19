@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
+#include "ui/viewport/transform_gizmo_view.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "ui/viewport/transform_gizmo_view.hpp"
 
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
@@ -19,6 +19,7 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::world_owner world_owner;
   gneiss::world* world_handle = nullptr;
   scene_edit_session session;
   editor_command_history history;
@@ -29,7 +30,8 @@ int main() try {
   if (gneiss::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
-      (world_handle = app->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world_handle = world_owner.get()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {

@@ -59,8 +59,10 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
 
-  gneiss::world* world{};
-  check((world = app->native_world()) != nullptr);
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto world_owner = std::move(*created_world);
+  auto* world = world_owner.get();
   editor::scene_edit_session session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
@@ -314,11 +316,14 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   author.name = "second";
   scene.objects.push_back(author);
   write("prefab-scene.json", scene);
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto world_owner = std::move(*created_world);
+  auto* world = world_owner.get();
   editor::scene_edit_session document;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
-  check(test_support::open_document(document, *app, app->native_world(),
-                                    "asset://prefab-scene.json", &scheduler)
+  check(test_support::open_document(document, *app, world, "asset://prefab-scene.json", &scheduler)
             .ok());
   const editor::component_edit_target child{.instance_uuid = uuid(5),
                                             .source_uuid = uuid(3),
@@ -448,8 +453,10 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   check(
       gneiss::test_support::assign_value(runtime::application::create(config), reopened_app).ok());
 
+  auto reopened_world = gneiss::create_native();
+  check(bool(reopened_world));
   editor::scene_edit_session reopened;
-  check(test_support::open_document(reopened, *reopened_app, reopened_app->native_world(),
+  check(test_support::open_document(reopened, *reopened_app, reopened_world->get(),
                                     "asset://saved.json", &scheduler)
             .ok());
   gneiss::editor::scene_mesh_binding loaded;

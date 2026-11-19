@@ -41,11 +41,13 @@ int main() try {
   desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
   if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
                                                        application)} != gneiss::error::success ||
-      (world = application->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world = world_owner.get()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=
           gneiss::error::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
@@ -163,7 +165,7 @@ int main() try {
     return 3;
   }
   const auto selected = session.selection();
-  application->native_world()->find(selected).destroy();
+  world->find(selected).destroy();
   if (session.validate_selection() != gneiss::error::success || session.selection().is_valid()) {
     return 4;
   }

@@ -4,17 +4,17 @@
 #include "../support/movement_editor.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/components/component_registration.hpp"
+#include <algorithm>
+#include <cstdio>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
-#include <algorithm>
-#include <cstdio>
 #include <source_location>
 #include <thread>
 namespace e = gneiss;
@@ -57,7 +57,10 @@ int main() try {
             .error() == e::error::unsupported);
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
-  auto& world = *app->native_world();
+  auto world_result = gneiss::create_native();
+  check(bool(world_result));
+  auto world_owner = std::move(*world_result);
+  auto& world = *world_owner;
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
   gneiss::entity_id node;
@@ -131,13 +134,11 @@ int main() try {
   e::scene_content prepared;
   prepared.description = e::asset_ref<const e::scene_description>{
       std::make_shared<const e::scene_description>(std::move(*decoded))};
-  auto receipt =
-      gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(), prepared, {});
+  auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(world, prepared, {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
-  const auto binding = std::ranges::find_if(receipt->objects, [&](const auto& entry) {
-    return entry.object == uuid && !entry.source;
-  });
+  const auto binding = std::ranges::find_if(
+      receipt->objects, [&](const auto& entry) { return entry.object == uuid && !entry.source; });
   check(binding != receipt->objects.end());
   const auto loaded_object = world.object(binding->entity);
   check(loaded_object && loaded.contains(*loaded_object));

@@ -37,8 +37,11 @@ bool save_codec_contract(gneiss::runtime::application& application) {
                            ("gneiss-save-" + uuid.string())};
   if (!std::filesystem::create_directory(directory.path))
     return false;
+  auto created_world = gneiss::create_native();
+  if (!created_world)
+    return false;
   gneiss::editor::scene_edit_session document;
-  if (document.create_empty(application, application.native_world()).failed())
+  if (document.create_empty(application, created_world->get()).failed())
     return false;
   gneiss::entity_id node;
   if (document.create_node("保存节点", {}, node).failed())
@@ -132,10 +135,13 @@ int main() try {
     return 1;
   if (!save_codec_contract(*application))
     return 12;
+  auto created_world = gneiss::create_native();
+  if (!created_world)
+    return 1;
   bool cancelled = false;
   bool released_while_open = false;
   gneiss::editor::document_editing editing;
-  if (editing.create_empty(*application, application->native_world()).failed())
+  if (editing.create_empty(*application, created_world->get()).failed())
     return 2;
   const auto scene = editing.document().scene_handle();
   if (editing.history()
@@ -150,7 +156,7 @@ int main() try {
     return 4;
   gneiss::editor::editor_scene_loader loader;
   gneiss::editor::editor_camera camera;
-  auto world = application->native_world();
+  auto world = created_world->get();
   bool changed = true;
   if (editing.create_empty(*application, world) != gneiss::error::not_ready ||
       loader.request(*application, editing, "asset://scene.json") != gneiss::error::not_ready ||

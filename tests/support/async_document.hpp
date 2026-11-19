@@ -3,13 +3,13 @@
 #pragma once
 #include "async_application.hpp"
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/function/scene/instantiation.hpp>
 #include "scene_instantiation.hpp"
+#include <gneiss/engine/function/scene/instantiation.hpp>
 namespace gneiss::test_support {
 inline gneiss::error open_document(editor::scene_edit_session& document, runtime::application& app,
                                    gneiss::world* world, std::string_view uri,
                                    gneiss::tasks::task_scheduler* tasks = nullptr) {
-  if (world != app.native_world())
+  if (!world)
     return gneiss::error::invalid_argument;
   gneiss::scene_content prepared;
   gneiss::ref<const gneiss::scene> source;
@@ -21,8 +21,8 @@ inline gneiss::error open_document(editor::scene_edit_session& document, runtime
   if (!initial)
     return initial.error();
   initial->assets = bindings;
-  auto created = gneiss::test_support::scene_fixture::instantiate_scene(
-      *app.native_world(), std::move(prepared), bindings);
+  auto created =
+      gneiss::test_support::scene_fixture::instantiate_scene(*world, std::move(prepared), bindings);
   if (!created)
     return created.error();
   const auto instance = created->instance;

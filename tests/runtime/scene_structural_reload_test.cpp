@@ -74,10 +74,14 @@ int main() try {
   if (!created)
     return 1;
   auto application = *created;
-  auto& world = *application->native_world();
+  auto created_world = gneiss::create_native();
+  if (!created_world)
+    return 1;
+  auto& world = **created_world;
   gneiss::host::scene_open_result loaded;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
-  if (gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, loaded).failed())
+  if (gneiss::test_support::activate_scene_for_test(*application, world, scheduler, uri, loaded)
+          .failed())
     return 1;
   auto scene = loaded.scene;
   // 来源 UUID 只查询本次实例化回执；运行对象不保存文档身份。
@@ -94,17 +98,20 @@ int main() try {
 
   // 新的加载不能覆盖调用方保留的旧场景基线。
   gneiss::host::scene_open_result second;
-  if (gneiss::test_support::activate_scene_for_test(*application, scheduler, uri, second)
+  if (gneiss::test_support::activate_scene_for_test(*application, world, scheduler, uri, second)
           .failed() ||
       !loaded.reload_state || !second.reload_state || loaded.reload_state == second.reload_state)
     return 21;
-  gneiss::host::runtime_scene_loader reloader(*application, *application->native_world());
+  gneiss::host::runtime_scene_loader reloader(*application, world);
   if (reloader.reload({}, uri, false) != gneiss::error::invalid_state)
     return 22;
   auto other = gneiss::runtime::application::create(config);
   if (!other)
     return 23;
-  gneiss::host::runtime_scene_loader other_loader(**other, *(*other)->native_world());
+  auto other_world = gneiss::create_native();
+  if (!other_world)
+    return 1;
+  gneiss::host::runtime_scene_loader other_loader(**other, **other_world);
   if (other_loader.reload(loaded.reload_state, uri, false) != gneiss::error::invalid_state)
     return 23;
 
@@ -199,10 +206,11 @@ int main() try {
   scene.unload();
   const bool destroyed =
       reloader.reload(loaded.reload_state, uri, false) == gneiss::error::invalid_handle &&
-      application->native_world()->object(second.objects.front().entity).has_value() &&
-      application->shutdown() == gneiss::error::success;
+      world.object(second.objects.front().entity).has_value();
+  second.scene.unload();
+  const bool stopped = application->shutdown() == gneiss::error::success;
   std::filesystem::remove_all(root);
-  return destroyed ? 0 : 5;
+  return destroyed && stopped ? 0 : 5;
 } catch (...) {
   return 99;
 }

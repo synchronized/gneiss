@@ -144,10 +144,12 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
 
   std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
   if (create_application(project.asset_root, application) != gneiss::error::success ||
-      (world = application->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world = world_owner.get()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, project.startup_scene) !=
           gneiss::error::success) {
     return 8;

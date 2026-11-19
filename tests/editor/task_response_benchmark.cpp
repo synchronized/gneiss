@@ -77,11 +77,13 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   desc.asset_root = asset_text;
   desc.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::world_owner world_owner;
   gneiss::world* world{};
   scene_edit_session session;
   require(gneiss::error{gneiss::test_support::assign_value(
               gneiss::runtime::application::create(desc), app)} == gneiss::error::success &&
-              (world = app->native_world()) != nullptr,
+              gneiss::test_support::assign_value(gneiss::create_native(), world_owner).ok() &&
+              (world = world_owner.get()) != nullptr,
           "基准应用创建失败");
   require(authors.initialize(app->async_files()) == gneiss::error::success, "作者服务启动失败");
   const auto baseline_start = clock_type::now();

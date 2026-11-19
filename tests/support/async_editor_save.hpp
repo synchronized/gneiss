@@ -50,6 +50,7 @@ inline gneiss::error save_document(editor::scene_edit_session& document,
 }
 struct author_scene {
   std::shared_ptr<runtime::application> application;
+  gneiss::world_owner world;
   editor::scene_edit_session document;
   editor::scene_document_snapshot before, after;
   bool open(const std::filesystem::path& root, std::string_view uri) {
@@ -61,7 +62,9 @@ struct author_scene {
     auto status =
         gneiss::test_support::assign_value(runtime::application::create(config), application);
     if (status.ok())
-      status = open_document(document, *application, application->native_world(), uri);
+      status = assign_value(gneiss::create_native(), world);
+    if (status.ok())
+      status = open_document(document, *application, world.get(), uri);
     if (status.failed())
       std::fprintf(stderr, "打开文档失败: %s (%d)\n", std::string(uri).c_str(), status.code());
     return status.ok();

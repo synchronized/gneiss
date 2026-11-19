@@ -4,10 +4,11 @@
 #include "../support/movement_editor.hpp"
 #include "../support/scene_instantiation.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
+#include <cstdio>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
@@ -16,7 +17,6 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
-#include <cstdio>
 #include <source_location>
 namespace e = gneiss;
 namespace ed = gneiss::editor;
@@ -129,7 +129,10 @@ int main() try {
   reference.overrides.clear();
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create({}), app).ok());
-  auto& world = *app->native_world();
+  auto world_result = gneiss::create_native();
+  check(bool(world_result));
+  auto world_owner = std::move(*world_result);
+  auto& world = *world_owner;
   ed::scene_edit_session document;
   check(document.create_empty(*app, &world).ok());
   e::game_object_description instance;
@@ -272,8 +275,8 @@ int main() try {
   prepared.prefabs.emplace(
       reference.uri,
       e::scene_prefab_dependency{.resource = {}, .description = e::prefab_asset_ref{source}});
-  auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app->native_world(),
-                                                                        std::move(prepared), {});
+  auto receipt =
+      gneiss::test_support::scene_fixture::instantiate_scene(world, std::move(prepared), {});
   check(bool(receipt));
   const auto loaded = receipt->instance;
   const auto root_binding = std::ranges::find_if(receipt->objects, [&](const auto& object) {

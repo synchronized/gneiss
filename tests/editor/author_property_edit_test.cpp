@@ -27,12 +27,11 @@
 #include <stdexcept>
 
 namespace {
-int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_session& session,
-                 gneiss::entity_id ordinary) {
+int camera_edits(gneiss::editor::scene_edit_session& session, gneiss::entity_id ordinary) {
   namespace e = gneiss;
   namespace ed = gneiss::editor;
   using p = e::property_id;
-  auto& world = *app.native_world();
+  auto& world = *session.scene_handle().owner();
   const auto ordinary_uuid = session.selected_node()->uuid;
   if (session.set_camera(ordinary, {{1.0F, 0.1F, 100.0F}}).failed())
     return 31;
@@ -214,14 +213,14 @@ int camera_edits(gneiss::runtime::application& app, gneiss::editor::scene_edit_s
   prepared.prefabs.emplace(
       author.prefab->uri,
       e::scene_prefab_dependency{.resource = {}, .description = e::prefab_asset_ref{source}});
-  auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(*app.native_world(),
-                                                                        std::move(prepared), {});
+  auto receipt = gneiss::test_support::scene_fixture::instantiate_scene(
+      *session.scene_handle().owner(), std::move(prepared), {});
   if (!receipt)
     return 44;
   const auto loaded = receipt->instance;
   bool found_ordinary = false, found_prefab = false, found_child = false;
   for (const auto& address : receipt->objects) {
-    auto node = app.native_world()->object(address.entity);
+    auto node = world.object(address.entity);
     if (!node || !loaded.contains(*node))
       return 46;
     const auto transform = node->local_transform();
@@ -254,6 +253,7 @@ int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
   std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::world_owner world_owner;
   gneiss::world* world_handle = nullptr;
   scene_edit_session session;
   editor_command_history history;
@@ -263,7 +263,8 @@ int main() try {
   if (gneiss::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
-      (world_handle = app->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world_handle = world_owner.get()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("first", {}, first).failed() ||
       session.create_node("second", {}, second).failed() || session.select(first).failed()) {
@@ -273,8 +274,7 @@ int main() try {
   const auto second_entity = session.query_node(second)->entity;
   const auto first_uuid = session.selected_node()->uuid;
   const auto is_x = [&](float expected) {
-    const auto local =
-        app->native_world()->find(session.find_node(first_uuid)->entity).local_transform();
+    const auto local = world_handle->find(session.find_node(first_uuid)->entity).local_transform();
     return std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
@@ -323,8 +323,7 @@ int main() try {
       history.size() != 2U) {
     return 8;
   }
-  if (const auto status = camera_edits(*app, session, session.find_node(first_uuid)->node);
-      status != 0)
+  if (const auto status = camera_edits(session, session.find_node(first_uuid)->node); status != 0)
     return status;
   {
     editor_command_history hierarchy;

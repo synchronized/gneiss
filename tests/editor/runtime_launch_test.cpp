@@ -50,10 +50,12 @@ int main() try {
   }
 
   std::shared_ptr<gneiss::runtime::application> author_application;
+  gneiss::world_owner author_world_owner;
   gneiss::world* author_world = nullptr;
   gneiss::editor::scene_edit_session author_session;
   if (create_application(project.asset_root, author_application) != gneiss::error::success ||
-      (author_world = author_application->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), author_world_owner).failed() ||
+      (author_world = author_world_owner.get()) == nullptr ||
       gneiss::test_support::open_document(author_session, *author_application, author_world,
                                           project.startup_scene) != gneiss::error::success) {
     return 2;
@@ -117,10 +119,12 @@ int main() try {
   }
 
   std::shared_ptr<gneiss::runtime::application> runtime_application;
+  gneiss::world_owner runtime_world_owner;
   gneiss::world* runtime_world = nullptr;
   gneiss::editor::scene_edit_session runtime_session;
   if (create_application(project.asset_root, runtime_application) != gneiss::error::success ||
-      (runtime_world = runtime_application->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), runtime_world_owner).failed() ||
+      (runtime_world = runtime_world_owner.get()) == nullptr ||
       gneiss::test_support::open_document(runtime_session, *runtime_application, runtime_world,
                                           project.startup_scene) != gneiss::error::success) {
     return 6;

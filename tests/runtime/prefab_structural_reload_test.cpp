@@ -45,8 +45,7 @@ void write_prefab(const std::filesystem::path& path, gneiss::guid root_uuid, boo
   stream.write(json.data(), static_cast<std::streamsize>(json.size()));
 }
 
-gneiss::error find_source(const std::shared_ptr<gneiss::runtime::application>& application,
-                          gneiss::scene_instance scene,
+gneiss::error find_source(gneiss::scene_instance scene,
                           const std::vector<gneiss::scene_object_binding>& objects,
                           gneiss::guid instance_uuid, gneiss::guid source_uuid,
                           gneiss::game_object& output) {
@@ -55,7 +54,7 @@ gneiss::error find_source(const std::shared_ptr<gneiss::runtime::application>& a
   });
   if (binding == objects.end())
     return gneiss::error::not_found;
-  output = application->native_world()->find(binding->entity);
+  output = scene.owner()->find(binding->entity);
   if (!output)
     return gneiss::error::not_found;
   return scene.contains(output) ? gneiss::error::success : gneiss::error::invalid_handle;
@@ -78,6 +77,9 @@ int main() try {
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
           .failed())
     return 1;
+  auto world = gneiss::create_native();
+  if (!world)
+    return 1;
   gneiss::scene_content prepared;
   gneiss::scene_resource_bindings assets;
   if (gneiss::test_support::prepare_scene(*application, scene_uri, prepared, assets, &scheduler)
@@ -99,7 +101,8 @@ int main() try {
   // 释放准备阶段的弱缓存所有者，正式激活重新读取更新后的场景。
   prepared = {};
   gneiss::host::scene_open_result loaded;
-  if (gneiss::test_support::activate_scene_for_test(*application, scheduler, scene_uri, loaded)
+  if (gneiss::test_support::activate_scene_for_test(*application, **world, scheduler, scene_uri,
+                                                    loaded)
           .failed())
     return 2;
   scene = loaded.scene;
@@ -107,10 +110,10 @@ int main() try {
 
   gneiss::game_object first_before;
   gneiss::game_object second_before;
-  if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
-                  first_before) != gneiss::error::success ||
-      find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
-                  second_before) != gneiss::error::success) {
+  if (find_source(scene, objects, first_instance_uuid, source_root_uuid, first_before) !=
+          gneiss::error::success ||
+      find_source(scene, objects, second_instance_uuid, source_root_uuid, second_before) !=
+          gneiss::error::success) {
     return 3;
   }
 
@@ -125,17 +128,17 @@ int main() try {
   gneiss::game_object second_after;
   gneiss::game_object child;
 
-  if (find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
-                  first_after) != gneiss::error::success ||
-      find_source(application, scene, objects, second_instance_uuid, source_root_uuid,
-                  second_after) != gneiss::error::success ||
+  if (find_source(scene, objects, first_instance_uuid, source_root_uuid, first_after) !=
+          gneiss::error::success ||
+      find_source(scene, objects, second_instance_uuid, source_root_uuid, second_after) !=
+          gneiss::error::success ||
       first_after != first_before || second_after != second_before ||
       first_after.name() != "Reloaded Root" || second_after.name() != "Reloaded Root" ||
       first_after.local_transform().translation[0] != 3.0F ||
       second_after.local_transform().translation[0] != 2.0F ||
-      find_source(application, scene, objects, first_instance_uuid, source_child_uuid, child) !=
+      find_source(scene, objects, first_instance_uuid, source_child_uuid, child) !=
           gneiss::error::success ||
-      find_source(application, scene, objects, second_instance_uuid, source_child_uuid, child) !=
+      find_source(scene, objects, second_instance_uuid, source_child_uuid, child) !=
           gneiss::error::success ||
       std::ranges::count_if(objects, [](const auto& item) { return bool(item.source); }) != 6U) {
     return 5;
@@ -147,12 +150,12 @@ int main() try {
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state,
                                                   prefab_uri, true,
                                                   &objects) != gneiss::error::success ||
-      find_source(application, scene, objects, first_instance_uuid, source_root_uuid,
-                  first_after) != gneiss::error::not_found ||
-      find_source(application, scene, objects, first_instance_uuid, replacement_root_uuid,
-                  first_after) != gneiss::error::success ||
-      find_source(application, scene, objects, second_instance_uuid, replacement_root_uuid,
-                  second_after) != gneiss::error::success) {
+      find_source(scene, objects, first_instance_uuid, source_root_uuid, first_after) !=
+          gneiss::error::not_found ||
+      find_source(scene, objects, first_instance_uuid, replacement_root_uuid, first_after) !=
+          gneiss::error::success ||
+      find_source(scene, objects, second_instance_uuid, replacement_root_uuid, second_after) !=
+          gneiss::error::success) {
     return 6;
   }
   // 来源目标重新出现后，原覆盖自动恢复；冲突由组合层报告，运行查询不缓存。
@@ -160,8 +163,7 @@ int main() try {
   if (gneiss::test_support::reload_scene_for_test(*application, scheduler, loaded.reload_state,
                                                   prefab_uri, true, &objects)
           .failed() ||
-      find_source(application, scene, objects, first_instance_uuid, source_root_uuid, first_after)
-          .failed() ||
+      find_source(scene, objects, first_instance_uuid, source_root_uuid, first_after).failed() ||
       first_after.local_transform().translation.x != 3)
     return 8;
 

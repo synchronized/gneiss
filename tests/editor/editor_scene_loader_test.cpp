@@ -85,7 +85,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(!loader.visible() && loader.operation() == gneiss::error::success && world == original);
   check(loader.state() == editor::scene_open_state::opened);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
-  check(session.scene_handle().owner() == world && app->native_world()->entity_count() == 0U);
+  check(session.scene_handle().owner() == world);
   check(!gneiss::scene_instance::borrow(*world, (initial_scene).id()));
   check(gneiss::test_support::scene_query(session).nodes.size() == 2U && camera.is_valid());
   const auto current = world;

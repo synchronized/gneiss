@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/rendering/render_camera.hpp>
@@ -16,9 +16,10 @@
   } while (false)
 int main() {
   using namespace gneiss;
-  auto app = runtime::application::create({});
-  CHECK(app);
-  auto& owner = *(*app)->native_world();
+  CHECK(initialize_meta().ok());
+  auto world = create_native();
+  CHECK(world);
+  auto& owner = **world;
   auto scene = owner.create_scene();
   CHECK(scene);
   auto object = scene->create_object();
@@ -32,7 +33,6 @@ int main() {
         (**selected).projection[0][0] != 0.F);
   view_camera override_camera;
   override_camera.transform.translation.x = 17;
-  CHECK((*app)->set_view_camera(&override_camera).ok());
   selected = select_render_camera(owner, 800, 600, &override_camera);
   entity_id active;
   CHECK(get_active_camera(owner, active).ok() && active == object->entity());
@@ -40,22 +40,16 @@ int main() {
   auto invalid = override_camera;
   invalid.camera.near_plane = -1;
   CHECK(select_render_camera(owner, 800, 600, &invalid).error() == error::invalid_argument);
-  CHECK((*app)->set_view_camera(&invalid) == error::invalid_argument);
   CHECK(select_render_camera(owner, 0, 600).error() == error::invalid_argument);
-  error query_error, host_error;
-  std::thread worker([&] {
-    query_error = select_render_camera(owner, 800, 600).error();
-    host_error = (*app)->set_view_camera(nullptr);
-  });
+  error query_error;
+  std::thread worker([&] { query_error = select_render_camera(owner, 800, 600).error(); });
   worker.join();
-  CHECK(query_error == error::invalid_state && host_error == error::invalid_state);
+  CHECK(query_error == error::invalid_state);
   object->destroy();
   selected = select_render_camera(owner, 800, 600);
   CHECK(selected && !*selected);
   selected = select_render_camera(owner, 640, 480, &override_camera);
   CHECK(selected && *selected && (**selected).viewport_width == 640 &&
         (**selected).transform.translation.x == 17);
-  CHECK((*app)->set_view_camera(nullptr).ok() && (*app)->shutdown().ok());
-  CHECK((*app)->set_view_camera(nullptr) == error::invalid_state);
   return 0;
 }

@@ -92,12 +92,14 @@ int main() try {
   desc.executor = &gneiss::test_support::application_tasks();
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root;
+  gneiss::world_owner world_owner;
   gneiss::world* world{};
   scene_edit_session session;
   entity_id node;
   if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
                                                        app)} != gneiss::error::success ||
-      (world = app->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world = world_owner.get()) == nullptr ||
       gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
           gneiss::error::success ||
       gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,

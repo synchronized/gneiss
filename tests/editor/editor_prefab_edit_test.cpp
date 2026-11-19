@@ -70,8 +70,10 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
 
-  gneiss::world* world{};
-  check((world = app->native_world()) != nullptr);
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto world_owner = std::move(*created_world);
+  auto* world = world_owner.get();
   editor::scene_edit_session session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
@@ -217,8 +219,8 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(bool(session.find_prefab_source(first_uuid, removed_uuid).failed()));
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U &&
         session.is_dirty());
-  check(app->native_world()->entity_count() == 298U);
-  check(!app->native_world()->find(gneiss::entity_id{(second_node).get()}).is_valid());
+  check(world->entity_count() == 298U);
+  check(!world->find(gneiss::entity_id{(second_node).get()}).is_valid());
   // 冲突不妨碍后续编辑；撤销刷新恢复当时的源内容。
   history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,
@@ -250,8 +252,10 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
 
-  gneiss::world* world{};
-  check((world = app->native_world()) != nullptr);
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto world_owner = std::move(*created_world);
+  auto* world = world_owner.get();
   editor::scene_edit_session session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
@@ -458,10 +462,12 @@ void run_mixed_subtree() {
   config.executor = &scheduler;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
 
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto world_owner = std::move(*created_world);
+  auto* world = world_owner.get();
   editor::scene_edit_session document;
-  check(test_support::open_document(document, *app, app->native_world(), "asset://scene.json",
-                                    &scheduler)
-            .ok());
+  check(test_support::open_document(document, *app, world, "asset://scene.json", &scheduler).ok());
   entity_id parent, first, second, child;
   check(document.create_node("Parent", {}, parent).ok());
   check(test_support::create_prefab_document(*app, document, "First", "asset://prefab.json", parent,
@@ -496,7 +502,7 @@ void run_mixed_subtree() {
   auto invalid = snapshot;
   invalid.resources.erase(first_uuid);
   check(document.restore_subtree(invalid, restored) == gneiss::error::not_found);
-  check(!restored && app->native_world()->entity_count() == 0U);
+  check(!restored && world->entity_count() == 0U);
   check(document.restore_subtree(snapshot, restored).ok() && restored != parent);
   check(document.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] == 31);
   const auto new_first = document.find_prefab_root(first_uuid)->node;
@@ -529,9 +535,9 @@ void run_mixed_subtree() {
     check(std::ranges::find(original_description->objects, object.uuid,
                             &gneiss::game_object_description::uuid) ==
           original_description->objects.end());
-  check(app->native_world()->entity_count() == 604U);
+  check(world->entity_count() == 604U);
   check(document.restore_subtree(snapshot, parent) == gneiss::error::invalid_argument);
-  check(app->native_world()->entity_count() == 604U);
+  check(world->entity_count() == 604U);
   document.close();
   check(app->shutdown().ok());
 }

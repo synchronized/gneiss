@@ -79,7 +79,6 @@ void run() {
   drain();
   check(source && loader.last_result().ok());
   check(source->instance.owner() == world.get());
-  check(app->native_world()->entity_count() == 0U);
   const auto reload = [&](std::string_view target, bool prefab) {
     check(loader.reload(source, target, prefab).ok());
     check(loader.reload(source, target, prefab) == gneiss::error::not_ready);

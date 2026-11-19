@@ -223,3 +223,18 @@ scene_viewer 已自有 World、渲染绑定、双视图目标及 UI 帧数据；
 截图在同步阶段之后直接向 Render 提交本帧请求，关闭时先释放目标，再卸载场景、释放绑定与 World。
 Windows Clang Debug 构建、单视图 smoke 与双视图两组尺寸/图像差异回读均通过。
 生产宿主迁移完成不等于旧默认 World 已删除：测试仍使用 native_world()，下一步迁移这些消费者。
+
+### 默认 World 测试消费者迁移
+
+文档打开辅助改为使用传入的 World，删除与 Application 默认 World 相等的限制。
+组件编辑、Gizmo、Prefab 编辑、资产命令、文档保存夹具和 Runtime 结构重载测试显式拥有 World；
+重载辅助从已打开场景取得所属 World，不再从 Application 推断。相机选择测试只初始化内置注册
+并创建 World，删除 Application 相机转发相关断言，保留相机覆盖、非法参数、线程与销毁语义。
+
+该批仍属于默认 World 删除的前置迁移；加载/渲染测试与 Application 自身测试尚未全部迁出。
+不得保留测试专用默认 World 或新增应用所有者包装来延续旧接口。
+
+本批 Windows Clang Debug 相关目标构建通过，组件/Gizmo/文档编辑、资产与 Prefab 编辑、
+Runtime 检查/加载/启动、Scene/Prefab 结构重载、相机选择、保存及灯廊工作流回归通过。
+相机测试首次因缺少内置注册而创建场景失败，补上显式 initialize_meta 后重跑通过。
+任务响应基准仅完成编译，未执行性能测量；本批未验证其他平台或静态构建。

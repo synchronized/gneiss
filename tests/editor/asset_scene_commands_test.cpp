@@ -32,6 +32,7 @@ int main() try {
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   desc.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app;
+  gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   document_editing editing;
   auto& session = editing.document();
@@ -41,7 +42,8 @@ int main() try {
   if (gneiss::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
-      (world = app->native_world()) == nullptr || camera.initialize().failed() ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world = world_owner.get()) == nullptr || camera.initialize().failed() ||
       loader.request(*app, editing, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }
@@ -121,7 +123,7 @@ int main() try {
     auto object = session.find_node(uuid);
     if (!object)
       return gneiss::guid{};
-    auto components = gneiss::capture_components(*app->native_world(), object->node);
+    auto components = gneiss::capture_components(*world, object->node);
     return components ? components->identity(component_type) : gneiss::guid{};
   };
   if (!component_uuid || projected_identity() != component_uuid)

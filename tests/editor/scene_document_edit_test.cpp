@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
 #include "documents/commands/prefab_authoring.hpp"
+#include <cstdio>
+#include <fstream>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene/prefab_description.hpp>
-#include <cstdio>
-#include <fstream>
 #include <source_location>
 namespace e = gneiss;
 namespace ed = gneiss::editor;
@@ -56,8 +56,7 @@ void run(scenario mode) {
       "asset://mesh.json",
       mode == scenario::failure ? "asset://missing.json" : "asset://material.json"});
   source.objects.push_back(root);
-  write(files.path / "source.prefab.json",
-        text(*gneiss::asset_file::serialize_bytes(source)));
+  write(files.path / "source.prefab.json", text(*gneiss::asset_file::serialize_bytes(source)));
   e::scene_description scene;
   scene.uuid = id(3);
   e::game_object_description instance;
@@ -102,7 +101,7 @@ void run(scenario mode) {
     check(bool(node));
     auto changed = node->local_transform;
     changed.translation.x = 17;
-    check(editing.application->native_world()
+    check(editing.world.get()
               ->find(gneiss::entity_id{(node->node).get()})
               .set_local_transform(changed)
               .ok());
@@ -113,7 +112,7 @@ void run(scenario mode) {
     // 关闭文档后推进操作释放自身槽位，再启动新场景加载。
     check(operation.advance(*editing.application, editing.document, history) ==
           e::error::invalid_state);
-    check(open_document(editing.document, *editing.application, editing.application->native_world(),
+    check(open_document(editing.document, *editing.application, editing.world.get(),
                         "asset://scene.json")
               .ok());
   }
