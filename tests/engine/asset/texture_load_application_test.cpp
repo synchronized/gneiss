@@ -84,7 +84,7 @@ void run(gneiss::tasks::execution_mode mode) {
       (void)scheduler.run_ready();
     }
     // 普通主循环能够独立推进通用资产批次。
-    check(app->run(1).ok());
+    check(app->step().ok());
     check(gneiss::test_support::receive_request(assets_request, completion, ready) ==
           gneiss::error::success);
     check(std::chrono::steady_clock::now() < deadline);
@@ -100,7 +100,7 @@ void run(gneiss::tasks::execution_mode mode) {
       if (mode == gneiss::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(app->run(1).ok());
+      check(app->step().ok());
       check(gneiss::test_support::receive_request(assets_request, completion, completed) ==
             gneiss::error::success);
       check(std::chrono::steady_clock::now() < limit);

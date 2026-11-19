@@ -10,8 +10,11 @@ inline gneiss::error drive_prefab_edit(runtime::application& app, editor::editor
   while (edit.active()) {
     if (tasks.mode() == gneiss::tasks::execution_mode::cooperative)
       (void)tasks.run_ready();
-    if (const auto frame = app.run(1); frame.failed())
-      return frame;
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
     edit.advance();
     if (std::chrono::steady_clock::now() >= deadline)
       return gneiss::error::internal;

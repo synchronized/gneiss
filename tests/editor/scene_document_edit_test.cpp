@@ -125,7 +125,7 @@ void run(scenario mode) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (status == e::error::not_ready) {
     check(std::chrono::steady_clock::now() < deadline);
-    (void)editing.application->run(1);
+    (void)editing.application->step();
     status = operation.advance(*editing.application, editing.document, history);
     std::this_thread::yield();
   }
@@ -145,7 +145,7 @@ void run(scenario mode) {
       check(bool(missing));
       while (missing->status() == e::error::not_ready) {
         check(std::chrono::steady_clock::now() < deadline);
-        (void)editing.application->run(1);
+        (void)editing.application->step();
         std::this_thread::yield();
       }
       check(missing->status().failed());

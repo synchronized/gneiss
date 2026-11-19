@@ -107,8 +107,8 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
     if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    (void)app->run(1);
-    check(app->run(1).ok());
+    (void)app->step();
+    check(app->step().ok());
     edit.advance();
     std::this_thread::yield();
   };
@@ -268,8 +268,8 @@ void run(gneiss::tasks::execution_mode mode) {
     if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    (void)app->run(1);
-    check(app->run(1).ok());
+    (void)app->step();
+    check(app->step().ok());
     edit.advance();
     std::this_thread::yield();
   };

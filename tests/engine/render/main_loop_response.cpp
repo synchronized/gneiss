@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../examples/support/scope_exit.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
@@ -327,6 +328,16 @@ int main(int argc, char** argv) try {
   auto binding = gneiss::world_render_binding::create(**world, app->render());
   if (!binding)
     return 1;
+  example::scope_exit stop{[&] {
+    app->request_exit();
+    (void)app->run();
+  }};
+  app->on_stop("response.scene", [&] {
+    state.scene_request = {};
+    state.visuals.reset();
+    binding->reset();
+    world->reset();
+  });
   gneiss::test_support::add_scene_render_systems(*app, **world, **binding);
   if (!asset_root.empty() &&
       gneiss::test_support::take_value(
@@ -339,7 +350,7 @@ int main(int argc, char** argv) try {
     return 2;
   }
   std::jthread sender([&] { send_probes(state, window); });
-  const auto result = gneiss::error{app->run(0U)};
+  const auto result = app->run();
   {
     std::scoped_lock lock(state.mutex);
     state.stopped = true;
@@ -349,8 +360,8 @@ int main(int argc, char** argv) try {
   const double key_max = percentile(state.key_ms, 1.0);
   const double task_max = percentile(state.task_ms, 1.0);
   const bool passed =
-      result == gneiss::error::success && !state.failed && state.keys >= 64U &&
-      state.tasks == state.keys && state.scene_ready && state.close_ms > 0.0 &&
+      result.ok() && !state.failed && state.keys >= 64U && state.tasks == state.keys &&
+      state.scene_ready && state.close_ms > 0.0 &&
       (inject_stall
            ? key_max >= 40.0
            : key_max <= 100.0 && task_max <= 100.0 && state.close_ms <= 100.0 &&

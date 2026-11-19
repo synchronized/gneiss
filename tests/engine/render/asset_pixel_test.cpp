@@ -44,7 +44,7 @@ void prepare_texture_capture(runtime::application& app, world& world,
   check(bool(request));
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (request->status() == error::not_ready) {
-    check(app.run(1).ok());
+    check(app.step().ok());
     check(std::chrono::steady_clock::now() < deadline);
     std::this_thread::yield();
   }
@@ -122,9 +122,9 @@ void run_asset_reload() {
       (void)scheduler.run_ready();
       gneiss::asset_load_completion completion;
       bool ready{};
-      status = app->run(1);
-      if (status.failed())
-        return status;
+      const auto frame = app->step();
+      if (!frame)
+        return frame.error();
       status = gneiss::test_support::receive_request(assets_request, completion, ready);
       if (status.failed() || ready)
         return status.failed() ? status : completion.result;
@@ -166,7 +166,7 @@ void run_asset_reload() {
       }
       // 材质完成不代表纹理依赖已完成；协作式执行器也必须继续驱动。
       (void)scheduler.run_ready();
-      check(app->run(1).ok());
+      check(app->step().ok());
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       value = pixel();
     }
@@ -420,7 +420,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     while (request->status() == gneiss::error::not_ready) {
       check(std::chrono::steady_clock::now() < deadline);
-      check(app->run(1).ok());
+      check(app->step().ok());
       std::this_thread::yield();
     }
     auto content = request->snapshot();
@@ -433,7 +433,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, initial).ok());
     while (activated->visuals && !activated->visuals.ready()) {
       check(std::chrono::steady_clock::now() < deadline);
-      check(app->run(1).ok());
+      check(app->step().ok());
       std::this_thread::yield();
     }
     check(bool(activated->visuals));
@@ -458,7 +458,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)scheduler.run_ready();
-    check(app->run(1).ok());
+    check(app->step().ok());
     gneiss::render::frame_image image;
     check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image).ok());
     const auto offset = (64U * 128U + 64U) * 4U;
@@ -784,7 +784,9 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
     }
   }
   check(selected_camera);
-  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  for (unsigned frame = 0; frame < 3; ++frame)
+    check(app->step().ok());
+  check(app->render().finish_frames().ok());
   const auto capture = [&](unsigned width = 128U) {
     gneiss::render::frame_image image;
     const auto result =
@@ -808,7 +810,7 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
     while (!(is_blue ? color[2] > color[0] + 30U : color[0] > color[2] + 30U) &&
            std::chrono::steady_clock::now() < deadline) {
       (void)scheduler.run_ready();
-      check(app->run(1).ok());
+      check(app->step().ok());
       std::this_thread::yield();
       image = capture();
       color = center(image);
@@ -838,7 +840,7 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
       if (mode == gneiss::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(app->run(1).ok());
+      check(app->step().ok());
       check(gneiss::test_support::receive_request(assets_request, completed, ready) ==
             gneiss::error::success);
       std::this_thread::yield();
@@ -931,7 +933,9 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
     }
   }
   check(selected_camera);
-  check(gneiss::error{app->run(3U)} == gneiss::error::success);
+  for (unsigned frame = 0; frame < 3; ++frame)
+    check(app->step().ok());
+  check(app->render().finish_frames().ok());
   const auto capture = [&] {
     gneiss::render::frame_image image;
     check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
@@ -945,7 +949,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
          std::to_integer<unsigned>(active_pixels[center]) + 30U) {
     check(std::chrono::steady_clock::now() < initial_deadline);
     (void)scheduler.run_ready();
-    check(app->run(1).ok());
+    check(app->step().ok());
     active_pixels = capture();
   }
   // 打开场景只复用已有成功内容；外部文件更新由显式重载处理。
@@ -958,7 +962,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
       check(std::chrono::steady_clock::now() < deadline);
       if (mode == gneiss::tasks::execution_mode::cooperative)
         (void)scheduler.run_ready();
-      check(app->run(1).ok());
+      check(app->step().ok());
       std::this_thread::yield();
     };
     while (request->status() == gneiss::error::not_ready)
@@ -983,7 +987,9 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
         auto completed = activated->visuals.take();
         check(bool(completed) && completed->result.ok());
       }
-      check(app->run(3U).ok());
+      for (unsigned frame = 0; frame < 3; ++frame)
+        check(app->step().ok());
+      check(app->render().finish_frames().ok());
       const auto changed = capture();
       check(changed == active_pixels);
       active_pixels = changed;

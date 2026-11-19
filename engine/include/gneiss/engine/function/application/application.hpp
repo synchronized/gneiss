@@ -138,8 +138,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API result<void> run();
   /** 推进一轮，不等待全部 GPU 帧；stopped 或失败为终态。所属线程，不可重入。 */
   [[nodiscard]] GNEISS_ENGINE_API result<app::lifecycle> step();
-  /** 迁移期间的有界旧入口，不自动关闭；新宿主使用 run()/step()。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error run(std::uint64_t max_frame_count);
   [[nodiscard]] GNEISS_ENGINE_API bool is_owner_thread() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API bool accepts_requests() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::render::service& render() noexcept;

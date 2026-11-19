@@ -77,7 +77,7 @@ gneiss::asset_load_completion drain_visuals(const std::shared_ptr<application>& 
     check(std::chrono::steady_clock::now() < deadline);
     if (mode == gneiss::tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    check(app->run(1).ok());
+    check(app->step().ok());
     std::this_thread::yield();
   }
   auto completed = request.take();
@@ -107,7 +107,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
     if (mode == gneiss::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    (void)app->run(1);
+    (void)app->step();
     std::this_thread::yield();
   };
   const auto until = [&](auto predicate) {
@@ -167,7 +167,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   gneiss::asset_load_completion loaded;
   until([&] {
     bool finished{};
-    check(app->run(1).ok());
+    check(app->step().ok());
     check(gneiss::test_support::receive_request(assets_request, loaded, finished) ==
           gneiss::error::success);
     return finished;
@@ -183,7 +183,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
   until([&] {
     bool finished{};
-    check(app->run(1).ok());
+    check(app->step().ok());
     check(gneiss::test_support::receive_request(assets_request, loaded, finished).ok());
     return finished;
   });
@@ -223,7 +223,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   const auto tick = [&] {
     if (mode == gneiss::tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    check(app->run(1).ok());
+    check(app->step().ok());
     std::this_thread::yield();
   };
   const auto await = [&](auto&& ready) {

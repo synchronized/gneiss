@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../examples/support/scope_exit.hpp"
 #include "../../support/async_application.hpp"
 #include "../../support/render_scene.hpp"
 #include "../../support/value_result.hpp"
@@ -82,9 +83,11 @@ gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>&
   while (clock_type::now() < deadline) {
     if (cooperative)
       (void)scheduler.run_ready();
-    auto status = app->run(1);
-    if (status.failed())
-      return status;
+    const auto status = app->step();
+    if (!status)
+      return status.error();
+    if (*status == gneiss::app::lifecycle::stopping || *status == gneiss::app::lifecycle::stopped)
+      return gneiss::error::cancelled;
     if (*request && request->status() != gneiss::error::not_ready) {
       auto content = request->snapshot();
       auto loaded = request->take();
@@ -165,9 +168,25 @@ int main(int argc, char** argv) try {
   auto binding = gneiss::world_render_binding::create(**world, app->render());
   if (!binding)
     return 3;
+  example::scope_exit stop{[&] {
+    if (app) {
+      app->request_exit();
+      (void)app->run();
+    }
+  }};
+  app->add_system(gneiss::app::stage::completions, "baseline.tasks", [&] {
+    // 正常阶段由测量回调计时推进；停止后回调不再运行，在此继续排空。
+    if (mode == "cooperative" && !app->accepts_requests())
+      (void)scheduler.run_ready();
+  });
+  app->on_stop("baseline.scene", [&] {
+    binding->reset();
+    world->reset();
+  });
   gneiss::test_support::add_scene_render_systems(*app, **world, **binding);
-  if (app->run(3U).failed())
-    return 3;
+  for (unsigned frame = 0; frame < 3; ++frame)
+    if (!app->step())
+      return 3;
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss::scene_instance previous_scene{};
@@ -183,10 +202,13 @@ int main(int argc, char** argv) try {
       std::fprintf(stderr, "异步预载失败：结果=%d\n", preload.code());
       return 11;
     }
-    if (previous_scene == gneiss::scene_instance{} ||
-        gneiss::error{app->run(10U)} != gneiss::error::success) {
+    if (!previous_scene.is_valid())
       return 11;
-    }
+    for (unsigned frame = 0; frame < 10; ++frame)
+      if (!app->step())
+        return 11;
+    if (app->render().finish_frames().failed())
+      return 11;
     for (auto object : previous_scene.objects()) {
       if (object.try_component<gneiss::camera_component>()) {
         camera = object;
@@ -227,7 +249,7 @@ int main(int argc, char** argv) try {
   unsigned resized{};
   unsigned completed_switches{};
   double maximum_activation_ms{};
-  bool minimized{}, restored{}, cancel_requested{}, closed{};
+  bool minimized{}, restored{}, cancel_requested{}, closed{}, phase_done{};
   double minimized_at_ms{};
   double cancel_ms{}, shutdown_ms{};
   bool request_released{};
@@ -339,7 +361,7 @@ int main(int argc, char** argv) try {
       }
       if (clock_type::now() > deadline) {
         result = gneiss::error::not_ready;
-        handle->request_exit();
+        phase_done = true;
         return gneiss::error::success;
       }
       if (mode == "cooperative") {
@@ -352,7 +374,7 @@ int main(int argc, char** argv) try {
         if (cancel_requested) {
           scene = previous_scene;
           activation_elapsed_ms = milliseconds(start);
-          handle->request_exit();
+          phase_done = true;
           return gneiss::error::success;
         }
         if (request && request.status() != gneiss::error::not_ready) {
@@ -363,7 +385,7 @@ int main(int argc, char** argv) try {
             cancel_requested = true;
             scene = previous_scene;
             activation_elapsed_ms = milliseconds(start);
-            handle->request_exit();
+            phase_done = true;
             return gneiss::error::success;
           }
           auto content = request.snapshot();
@@ -377,7 +399,7 @@ int main(int argc, char** argv) try {
               result = gneiss::error::success;
               scene = previous_scene;
             }
-            handle->request_exit();
+            phase_done = true;
             return gneiss::error::success;
           }
           if (!content)
@@ -422,7 +444,7 @@ int main(int argc, char** argv) try {
             }
           }
           previous_phase = load_stage::completed;
-          handle->request_exit();
+          phase_done = true;
           return gneiss::error::success;
         }
       }
@@ -433,10 +455,21 @@ int main(int argc, char** argv) try {
       return gneiss::error::success;
     };
     if (result == gneiss::error::success) {
-      const auto run_result = static_cast<gneiss::error>(gneiss::error{app->run(0U)});
-      if (run_result != gneiss::error::success) {
-        result = run_result;
+      while (!phase_done) {
+        const auto before_step = clock_type::now();
+        const auto status = app->step();
+        if (!status || *status == gneiss::app::lifecycle::stopping ||
+            *status == gneiss::app::lifecycle::stopped) {
+          closed = true;
+          const auto finished = app->run();
+          shutdown_ms = milliseconds(before_step);
+          if (!finished)
+            result = finished.error();
+          break;
+        }
       }
+      if (!closed && app->render().finish_frames().failed())
+        result = gneiss::error::internal;
       if (!closed && scene == gneiss::scene_instance{} && result == gneiss::error::success) {
         result = gneiss::error::invalid_state;
       }
@@ -461,15 +494,11 @@ int main(int argc, char** argv) try {
     }
   }
   if (closed) {
-    const auto closing_start = clock_type::now();
-    binding->reset();
-    world->reset();
     app.reset();
-    shutdown_ms = milliseconds(closing_start);
     std::ofstream report(prefix.string() + ".json");
     report << "{\"closed\":true,\"shutdown_ms\":" << shutdown_ms
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
-    return report.good() && scheduler.stats().retained == 0U ? 0 : 13;
+    return result.ok() && report.good() && scheduler.stats().retained == 0U ? 0 : 13;
   }
   std::printf("scene_load result=%d milliseconds=%.3f peak_resident_bytes=%llu\n", result.code(),
               load_ms, static_cast<unsigned long long>(peak_resident_bytes()));
@@ -493,9 +522,11 @@ int main(int argc, char** argv) try {
   if (nodes == 0U)
     return 5;
   const auto rendering_start = clock_type::now();
-  if (gneiss::error{app->run(60U)} != gneiss::error::success) {
+  for (unsigned frame = 0; frame < 60; ++frame)
+    if (!app->step())
+      return 6;
+  if (app->render().finish_frames().failed())
     return 6;
-  }
   const auto render_ms = milliseconds(rendering_start);
   const auto stats = app->render_statistics();
   const auto capture_start = clock_type::now();
@@ -517,7 +548,10 @@ int main(int argc, char** argv) try {
         gneiss::error::success)
       return 16;
     previous_scene.unload();
-    if (gneiss::error{app->run(60U)} != gneiss::error::success)
+    for (unsigned frame = 0; frame < 60; ++frame)
+      if (!app->step())
+        return 16;
+    if (app->render().finish_frames().failed())
       return 16;
     retry_ms = milliseconds(retry_start);
     live_resources = app->render().live_resource_count();

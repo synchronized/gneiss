@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../examples/support/scope_exit.hpp"
 #include "../../support/async_application.hpp"
 #include "../../support/render_scene.hpp"
 #include "../../support/value_result.hpp"
@@ -65,9 +66,6 @@ gneiss::error native_update(runtime::application& app, context& state) {
   state.previous = now;
   if (elapsed >= 1.0) {
     state.max_update_ms = std::max(state.max_update_ms, interval);
-  }
-  if (state.scheduler->mode() == gneiss::tasks::execution_mode::cooperative) {
-    (void)state.scheduler->run_ready();
   }
   // 加载场景也会推进宿主循环；相机装配完成后才开始测量与窗口操作。
   if (!state.camera)
@@ -193,6 +191,24 @@ int main(int argc, char** argv) try {
   auto binding = world_render_binding::create(**world, app->render());
   if (!binding)
     return 1;
+  // 保底清理先于借用的 World/绑定销毁，失败返回也走同一停止系统。
+  example::scope_exit stop{[&] {
+    if (app) {
+      app->request_exit();
+      (void)app->run();
+    }
+  }};
+  app->add_system(app::stage::completions, "benchmark.tasks", [&] {
+    if (scheduler.mode() == tasks::execution_mode::cooperative)
+      (void)scheduler.run_ready();
+  });
+  app->on_stop("benchmark.scene", [&] {
+    state.request.reset();
+    if (state.scene.is_valid())
+      state.scene.unload();
+    binding->reset();
+    world->reset();
+  });
   test_support::add_scene_render_systems(*app, **world, **binding);
   constexpr std::string_view scene = "asset://scenes/test.scene.json";
   if (gneiss::error{gneiss::test_support::load_scene(*app, **world, scene, &state.scene,
@@ -208,10 +224,8 @@ int main(int argc, char** argv) try {
   if (!state.camera || !state.mesh)
     return 3;
   state.start = state.previous = std::chrono::steady_clock::now();
-  const auto result = gneiss::error{app->run(0U)};
-  state.scene.unload();
-  binding->reset();
-  world->reset();
+  const auto finished = app->run();
+  const auto result = finished ? error::success : finished.error();
   app.reset();
   const auto lifetime =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - state.start).count();

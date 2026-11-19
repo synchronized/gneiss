@@ -46,10 +46,11 @@ Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的�
 
 ## 主循环
 
-`run(max_frame_count)` 每帧轮询事件、计算时间、调用 update 并提交渲染。
+`run()` 通过同一 `step()` 驱动启动、正常帧和关闭，直到进入终态。
+有限帧运行或外部事件循环直接调用 `step()`；需要确认 GPU 已执行完成时显式调用
+`render().finish_frames()`，不把 GPU 等待隐含在单步推进中。
 update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回调不带参数；宿主状态由回调捕获。
-`max_frame_count` 为零表示持续运行至退出，非零限制本次执行帧数。
-多次调用 run 延续帧序号与累计时间；重入、跨线程或关闭后运行返回 `invalid_state`。
+重入或跨线程调用返回 `invalid_state`；终态不能重启，重复观察返回同一停止结果。
 
 `request_exit()` 请求在回调返回后退出。`close_requested` 返回 false 可拦截平台关闭，
 返回 true 或未提供回调时正常退出。暂停仍轮询事件和调用 update，但 delta_ns 为零。
@@ -61,8 +62,7 @@ update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回�
 首次 run 前通过 add_system 注册 completions、input、update、synchronize、present 系统。同阶段按注册顺序执行，
 名称在该 Application 内唯一；首轮运行冻结注册。completions 在正常帧和停止排空期间执行，
 用于协作任务与宿主完成分发，不受业务状态和退出标志过滤；input 在状态转换后、update 前执行。
-update 后刷新 World 变化，再执行 synchronize、
-present，最后通过现有 Render 路径提交。旧 callbacks.update 与具名 update 系统不能混用。
+update 后执行 synchronize、present；World 变化刷新、渲染绑定同步与帧提交由宿主注册的系统负责。旧 callbacks.update 与具名 update 系统不能混用。
 
 业务状态使用宿主自己的枚举，不要求反射注册。每种枚举类型有独立当前值：
 
@@ -100,8 +100,8 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 请求退出后不会再执行普通系统；停止阶段继续处理完成消息。单步不执行每帧 GPU finish_frames，
 服务最终关闭仍遵循后端回收协议。意外异常向外传播，桌面析构作为同步清理保底。
 
-迁移期间旧 run(max_frame_count) 仍保留有界执行与 GPU 帧收尾，不能在使用 step 后调用旧入口。
-项目选择界面、Runtime、Editor 和两个示例均使用 run()；旧入口仍供未迁移的测试使用。
+项目选择界面、Runtime、Editor 和两个示例均使用 run()；测试与测量工具按需求使用 run()/step()。
+测量阶段完成属于调用者的业务状态，不使用 request_exit 后重新启动 Application。
 业务 OnExit 只用于状态转换。
 
 ## 宿主停止清理

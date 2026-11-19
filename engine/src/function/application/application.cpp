@@ -873,6 +873,8 @@ result<app::lifecycle> application::step() {
   if (storage_->should_exit_ || storage_->shutdown_requested_)
     storage_->lifecycle_ = app::lifecycle::stopping;
   if (storage_->lifecycle_ != app::lifecycle::stopping) {
+    GNEISS_PROFILE_FRAME();
+    GNEISS_PROFILE_SCOPE("application.loop");
     const auto status = advance_frame();
     if (status.failed()) {
       storage_->lifecycle_result_ = status;
@@ -908,6 +910,7 @@ result<app::lifecycle> application::step() {
 }
 
 result<void> application::run() {
+  GNEISS_PROFILE_THREAD("Gneiss main");
   loop_trace_file trace;
   const auto origin = timing_clock::now();
   trace.set_origin(origin);
@@ -924,62 +927,15 @@ result<void> application::run() {
       return {};
 #ifdef GNEISS_NATIVE_LOOP_WAIT
     if (progress) {
-      (void)progress->wait(observed, std::chrono::milliseconds(4));
+      measure(loop_stage::idle_wait, [&] {
+        GNEISS_PROFILE_SCOPE("application.idle_wait");
+        (void)progress->wait(observed, std::chrono::milliseconds(4));
+      });
       continue;
     }
 #endif
     std::this_thread::yield();
   }
-}
-
-gneiss::error application::run(std::uint64_t max_frame_count) try {
-  if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_ ||
-      !accepts_requests() || storage_->step_started_) {
-    return gneiss::error::invalid_state;
-  }
-  storage_->systems_.freeze();
-  storage_->is_running_ = true;
-  storage_->should_exit_ = false;
-  loop_trace_file trace;
-  const auto trace_origin =
-      trace.get() != nullptr ? gneiss::timing_clock::now() : gneiss::timing_clock::time_point{};
-  trace.set_origin(trace_origin);
-  storage_->previous_time_ns_ = now_ns();
-  std::uint64_t frames_run = 0;
-  GNEISS_PROFILE_THREAD("Gneiss main");
-
-  while (!storage_->should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
-    GNEISS_PROFILE_FRAME();
-    GNEISS_PROFILE_SCOPE("application.loop");
-    const gneiss::loop_frame frame_trace(trace.get(), storage_->frame_index_, trace_origin);
-#ifdef GNEISS_NATIVE_LOOP_WAIT
-    auto* progress = static_cast<gneiss::runtime::main_loop_wakeup*>(storage_->loop_wakeup_.get());
-    const auto observed = progress != nullptr ? progress->snapshot() : 0U;
-#endif
-    const auto frame_result = advance_frame();
-    if (frame_result.failed())
-      return frame_result;
-    ++frames_run;
-#ifdef GNEISS_NATIVE_LOOP_WAIT
-    if (progress != nullptr && !storage_->should_exit_ &&
-        (max_frame_count == 0U || frames_run < max_frame_count)) {
-      gneiss::measure(gneiss::loop_stage::idle_wait, [&] {
-        GNEISS_PROFILE_SCOPE("application.idle_wait");
-        (void)progress->wait(observed, std::chrono::milliseconds(4));
-      });
-    }
-#endif
-  }
-
-  storage_->is_running_ = false;
-  // 返回前回收已提交帧，避免短程运行把尚未回传的上传失败误报为成功。
-  if (storage_->window_service_ != nullptr) {
-    return storage_->render_service_->finish_frames();
-  }
-  return gneiss::error::success;
-} catch (...) {
-  storage_->is_running_ = false;
-  throw;
 }
 
 bool application::is_owner_thread() const noexcept {

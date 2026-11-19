@@ -82,8 +82,11 @@ inline gneiss::error prepare_scene(runtime::application& app, std::string_view u
   const auto step = [&] {
     if (tasks->mode() == gneiss::tasks::execution_mode::cooperative)
       (void)tasks->run_ready();
-    if (const auto frame = app.run(1); frame.failed())
-      return frame;
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
     std::this_thread::yield();
     return std::chrono::steady_clock::now() < deadline ? gneiss::error{gneiss::error::success}
                                                        : gneiss::error{gneiss::error::internal};

@@ -316,7 +316,7 @@ int main() {
   const auto next_window = FindWindowA(nullptr, title.data());
   if (!next_window || !PostMessageW(next_window, WM_KEYDOWN, 'A', 0x001e0001) ||
       !PostMessageW(next_window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) ||
-      next->run(2).failed() || !next_id || next_id == context.window_id ||
+      next->step().failed() || next->step().failed() || !next_id || next_id == context.window_id ||
       next->shutdown().failed())
     return 19;
 #endif

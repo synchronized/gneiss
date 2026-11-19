@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/application/application.hpp>
+#include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include "../../support/value_result.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <chrono>
@@ -61,10 +61,15 @@ int main(int argc, char** argv) try {
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
                                          application)
-          .failed() ||
-      application->run(128).failed()) {
+          .failed()) {
     return 3;
   }
+  for (unsigned frame = 0; frame < 128; ++frame)
+    if (!application->step())
+      return 3;
+  application->request_exit();
+  if (!application->run())
+    return 3;
   const auto deadline = std::chrono::steady_clock::now() + 5s;
   while (state.received < 128U && std::chrono::steady_clock::now() < deadline) {
     std::vector<gneiss::tasks::task_completion> completed;

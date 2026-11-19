@@ -75,7 +75,7 @@ void run(gneiss::tasks::execution_mode mode) {
       if (mode == gneiss::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(app->run(1).ok());
+      check(app->step().ok());
       edit.advance(*app, session, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
@@ -345,7 +345,7 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
     while (edit.active()) {
       if (mode == gneiss::tasks::execution_mode::cooperative)
         (void)scheduler.run_ready();
-      check(app->run(1).ok());
+      check(app->step().ok());
       edit.advance(*app, document, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
@@ -421,7 +421,7 @@ void prefab_edits(gneiss::tasks::execution_mode mode) {
   while (reloading->status() == e::error::not_ready) {
     if (mode == gneiss::tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    (void)app->run(1);
+    (void)app->step();
     check(std::chrono::steady_clock::now() < reload_deadline);
     std::this_thread::yield();
   }
