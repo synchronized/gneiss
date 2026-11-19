@@ -60,22 +60,28 @@ class schedule {
 public:
   void add(stage phase, std::string name, system_function function,
            std::optional<detail::state_key> condition = {}) {
-    check_registration(name, function);
+    GNEISS_ASSERT(function, "系统不能为空");
+    check_registration(name);
     entries_.push_back({phase, std::move(name), std::move(function), condition});
   }
-  void add_stop(std::string name, system_function function) {
-    check_registration(name, function);
-    stops_.push_back({stage::update, std::move(name), std::move(function), {}});
+  void add_stop(std::string name, stop_function function) {
+    GNEISS_ASSERT(function, "停止系统不能为空");
+    check_registration(name);
+    stops_.push_back({std::move(name), std::move(function)});
   }
-  template <class Report> void stop(Report report) {
+  template <class Report> bool stop(Report report) {
     frozen_ = true;
-    // 先前移游标：意外异常沿原有边界传播时，不重复已开始的宿主清理。
     while (next_stop_ < stops_.size()) {
       const auto& item = stops_[next_stop_++];
-      auto status = item.function({});
-      if (status.failed())
-        report(system_failure{status, item.name});
+      auto status = item.function();
+      if (!status)
+        report(system_failure{status.error(), item.name});
+      else if (*status == stop_progress::pending) {
+        --next_stop_;
+        return false;
+      }
     }
+    return true;
   }
   void init(detail::state_key initial) {
     GNEISS_ASSERT(!frozen_, "状态须在运行前注册");
@@ -90,7 +96,8 @@ public:
       add(stage::update, std::move(name), std::move(function), key);
       return;
     }
-    check_registration(name, function);
+    GNEISS_ASSERT(function, "系统不能为空");
+    check_registration(name);
     hooks_.push_back({event, key, std::move(name), std::move(function)});
   }
   result<void> request(detail::state_key key) {
@@ -177,8 +184,8 @@ private:
   state_slot& find(type_id type) {
     return const_cast<state_slot&>(std::as_const(*this).find(type));
   }
-  void check_registration(const std::string& name, const system_function& function) const {
-    GNEISS_ASSERT(!frozen_ && function && !name.empty(), "系统须在运行前具名注册");
+  void check_registration(const std::string& name) const {
+    GNEISS_ASSERT(!frozen_ && !name.empty(), "系统须在运行前具名注册");
     for (const auto& item : entries_)
       GNEISS_ASSERT(item.name != name, "系统名称不能重复");
     for (const auto& item : hooks_)
@@ -203,7 +210,11 @@ private:
     return {};
   }
   std::vector<entry> entries_;
-  std::vector<entry> stops_;
+  struct stop_entry {
+    std::string name;
+    stop_function function;
+  };
+  std::vector<stop_entry> stops_;
   std::size_t next_stop_{};
   std::vector<hook> hooks_;
   std::vector<state_slot> states_;
@@ -266,6 +277,10 @@ struct application::storage {
   };
   std::shared_ptr<file_close_receipt> file_close_;
   std::shared_ptr<gneiss::files::service> closing_files_;
+  app::lifecycle lifecycle_{app::lifecycle::starting};
+  error lifecycle_result_{error::success};
+  bool step_started_{};
+  bool step_active_{};
   bool platform_initialized_ = false;
   bool is_running_ = false;
   bool is_paused_ = false;
@@ -419,26 +434,27 @@ void application::register_system(app::stage phase, std::string name,
   storage_->systems_.add(phase, std::move(name), std::move(function));
 }
 
-void application::register_stop_system(std::string name, app::system_function function) {
+void application::register_stop_system(std::string name, app::stop_function function) {
   GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
                 "停止系统仅允许所属线程在运行前注册");
   storage_->systems_.add_stop(std::move(name), std::move(function));
 }
-void application::stop_host() {
+bool application::stop_host() {
   storage_->accepts_requests_.store(false, std::memory_order_release);
   storage_->stopping_host_ = true;
   try {
-    storage_->systems_.stop([&](const app::system_failure& failure) {
+    const bool complete = storage_->systems_.stop([&](const app::system_failure& failure) {
       if (storage_->host_stop_result_.ok())
         storage_->host_stop_result_ = failure.code;
       report(severity::error, category::application, failure.code, failure.name,
              "宿主停止系统失败，继续释放其余资源");
     });
+    storage_->stopping_host_ = false;
+    return complete;
   } catch (...) {
     storage_->stopping_host_ = false;
     throw;
   }
-  storage_->stopping_host_ = false;
 }
 
 void application::register_state(app::detail::state_key initial) {
@@ -890,30 +906,9 @@ gneiss::error application::get_window_size(std::uint32_t& out_width,
   return gneiss::error::success;
 }
 
-gneiss::error application::run(std::uint64_t max_frame_count) try {
-  if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_ ||
-      !accepts_requests()) {
-    return gneiss::error::invalid_state;
-  }
-  storage_->systems_.freeze();
+error application::advance_frame() try {
   storage_->is_running_ = true;
-  storage_->should_exit_ = false;
-  loop_trace_file trace;
-  const auto trace_origin =
-      trace.get() != nullptr ? gneiss::timing_clock::now() : gneiss::timing_clock::time_point{};
-  trace.set_origin(trace_origin);
-  storage_->previous_time_ns_ = now_ns();
-  std::uint64_t frames_run = 0;
-  GNEISS_PROFILE_THREAD("Gneiss main");
-
-  while (!storage_->should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
-    GNEISS_PROFILE_FRAME();
-    GNEISS_PROFILE_SCOPE("application.loop");
-    const gneiss::loop_frame frame_trace(trace.get(), storage_->frame_index_, trace_origin);
-#ifdef GNEISS_NATIVE_LOOP_WAIT
-    auto* progress = static_cast<gneiss::runtime::main_loop_wakeup*>(storage_->loop_wakeup_.get());
-    const auto observed = progress != nullptr ? progress->snapshot() : 0U;
-#endif
+  const auto status = [&]() -> error {
     bool should_close = false;
     const auto poll_result =
         gneiss::measure(gneiss::loop_stage::events, [&] { return poll_events(should_close); });
@@ -924,15 +919,15 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
     if (should_close) {
       if (storage_->config_.callbacks.close_requested == nullptr ||
           storage_->config_.callbacks.close_requested()) {
-        break;
+        storage_->should_exit_ = true;
+        return error::success;
       }
     }
 
     const auto advanced = advance_loading();
     if (advanced == error::not_ready && !storage_->files_initialization_) {
       // 启动尚未完成，仍允许下一轮窗口事件与文件完成分发，不执行业务更新。
-      ++frames_run;
-      continue;
+      return error::success;
     }
     if (advanced.failed()) {
       storage_->is_running_ = false;
@@ -960,7 +955,7 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
         .is_paused = storage_->is_paused_,
     };
     if (storage_->should_exit_)
-      break;
+      return error::success;
     const auto transitioned = storage_->systems_.transition(time, storage_->should_exit_);
     if (!transitioned) {
       report(severity::error, category::application, transitioned.error().code,
@@ -969,7 +964,7 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
       return transitioned.error().code;
     }
     if (storage_->should_exit_)
-      break;
+      return error::success;
     gneiss::measure(gneiss::loop_stage::draw_clear, [&] {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
@@ -1029,6 +1024,129 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
       storage_->debug_draw_list_.clear();
     });
     ++storage_->frame_index_;
+    return error::success;
+  }();
+  storage_->is_running_ = false;
+  storage_->is_updating_ = false;
+  return status;
+} catch (...) {
+  storage_->is_running_ = false;
+  storage_->is_updating_ = false;
+  storage_->ui_draw_list_.clear();
+  storage_->debug_draw_list_.clear();
+  throw;
+}
+
+result<app::lifecycle> application::step() {
+  if (!is_owner_thread() || storage_->is_running_ || storage_->stopping_host_ ||
+      storage_->shutting_down_ || storage_->step_active_)
+    return error::invalid_state;
+  struct step_guard {
+    bool& active;
+    ~step_guard() { active = false; }
+  } guard{storage_->step_active_};
+  storage_->step_active_ = true;
+  if (storage_->lifecycle_ == app::lifecycle::stopped) {
+    if (storage_->lifecycle_result_.failed())
+      return storage_->lifecycle_result_;
+    return app::lifecycle::stopped;
+  }
+  if (!storage_->platform_initialized_ && !storage_->shutdown_requested_)
+    return error::invalid_state;
+  if (!storage_->step_started_) {
+    storage_->systems_.freeze();
+    storage_->previous_time_ns_ = now_ns();
+    storage_->step_started_ = true;
+  }
+  if (storage_->should_exit_ || storage_->shutdown_requested_)
+    storage_->lifecycle_ = app::lifecycle::stopping;
+  if (storage_->lifecycle_ != app::lifecycle::stopping) {
+    const auto status = advance_frame();
+    if (status.failed()) {
+      storage_->lifecycle_result_ = status;
+      storage_->should_exit_ = true;
+    }
+    if (!storage_->should_exit_) {
+      storage_->lifecycle_ =
+          storage_->files_initialization_ ? app::lifecycle::running : app::lifecycle::starting;
+      return storage_->lifecycle_;
+    }
+    storage_->lifecycle_ = app::lifecycle::stopping;
+  }
+  error status = error::success;
+  if (!storage_->shutdown_requested_) {
+    status = request_shutdown();
+    if (status.ok())
+      return app::lifecycle::stopping;
+  } else {
+    status = advance_shutdown();
+  }
+  if (status == error::not_ready)
+    return app::lifecycle::stopping;
+  if (status.failed() && !storage_->shutdown_complete_) {
+    // 启动关闭请求失败仍需释放已建立的服务；保留最先出现的业务错误。
+    (void)shutdown();
+  }
+  if (storage_->lifecycle_result_.ok())
+    storage_->lifecycle_result_ = status;
+  storage_->lifecycle_ = app::lifecycle::stopped;
+  if (storage_->lifecycle_result_.failed())
+    return storage_->lifecycle_result_;
+  return app::lifecycle::stopped;
+}
+
+result<void> application::run() {
+  loop_trace_file trace;
+  const auto origin = timing_clock::now();
+  trace.set_origin(origin);
+  for (;;) {
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    auto* progress = static_cast<main_loop_wakeup*>(storage_->loop_wakeup_.get());
+    const auto observed = progress ? progress->snapshot() : 0U;
+#endif
+    const loop_frame frame_trace(trace.get(), storage_->frame_index_, origin);
+    auto status = step();
+    if (!status)
+      return status.error();
+    if (*status == app::lifecycle::stopped)
+      return {};
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    if (progress) {
+      (void)progress->wait(observed, std::chrono::milliseconds(4));
+      continue;
+    }
+#endif
+    std::this_thread::yield();
+  }
+}
+
+gneiss::error application::run(std::uint64_t max_frame_count) try {
+  if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_ ||
+      !accepts_requests() || storage_->step_started_) {
+    return gneiss::error::invalid_state;
+  }
+  storage_->systems_.freeze();
+  storage_->is_running_ = true;
+  storage_->should_exit_ = false;
+  loop_trace_file trace;
+  const auto trace_origin =
+      trace.get() != nullptr ? gneiss::timing_clock::now() : gneiss::timing_clock::time_point{};
+  trace.set_origin(trace_origin);
+  storage_->previous_time_ns_ = now_ns();
+  std::uint64_t frames_run = 0;
+  GNEISS_PROFILE_THREAD("Gneiss main");
+
+  while (!storage_->should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
+    GNEISS_PROFILE_FRAME();
+    GNEISS_PROFILE_SCOPE("application.loop");
+    const gneiss::loop_frame frame_trace(trace.get(), storage_->frame_index_, trace_origin);
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    auto* progress = static_cast<gneiss::runtime::main_loop_wakeup*>(storage_->loop_wakeup_.get());
+    const auto observed = progress != nullptr ? progress->snapshot() : 0U;
+#endif
+    const auto frame_result = advance_frame();
+    if (frame_result.failed())
+      return frame_result;
     ++frames_run;
 #ifdef GNEISS_NATIVE_LOOP_WAIT
     if (progress != nullptr && !storage_->should_exit_ &&
@@ -1065,7 +1183,16 @@ gneiss::error application::request_shutdown() {
     return gneiss::error::invalid_state;
   if (storage_->shutdown_requested_)
     return gneiss::error::success;
-  stop_host();
+  storage_->shutdown_requested_ = true;
+  storage_->accepts_requests_.store(false, std::memory_order_release);
+  if (!stop_host())
+    return error::success;
+  return begin_service_shutdown();
+}
+
+error application::begin_service_shutdown() {
+  if (storage_->file_close_)
+    return error::success;
   auto receipt = std::make_shared<storage::file_close_receipt>();
   auto files = storage_->files_;
   if (files) {
@@ -1096,6 +1223,20 @@ gneiss::error application::advance_shutdown() {
     return gneiss::error::invalid_state;
   if (storage_->shutdown_complete_)
     return storage_->shutdown_result_;
+  if (!storage_->file_close_) {
+    if (storage_->files_) {
+      auto dispatched = storage_->files_->dispatch_completions(64);
+      if (dispatched.failed())
+        return dispatched;
+    }
+    if (storage_->asset_manager_)
+      storage_->asset_manager_->advance();
+    if (!stop_host())
+      return error::not_ready;
+    const auto begun = begin_service_shutdown();
+    if (begun.failed())
+      return begun;
+  }
   if (storage_->closing_files_) {
     const auto dispatched = storage_->closing_files_->dispatch_completions(64);
     if (dispatched.failed())
@@ -1120,7 +1261,14 @@ gneiss::error application::shutdown() {
       storage_->stopping_host_) {
     return gneiss::error::invalid_state;
   }
-  stop_host();
+  // 桌面显式关闭及析构保底可等待；外部事件循环使用非阻塞 advance_shutdown。
+  while (!stop_host()) {
+    if (storage_->files_)
+      (void)storage_->files_->dispatch_completions(64);
+    if (storage_->asset_manager_)
+      storage_->asset_manager_->advance();
+    std::this_thread::yield();
+  }
   storage_->shutting_down_ = true;
   auto shutdown_result = storage_->host_stop_result_;
   storage_->cancel_action_map();

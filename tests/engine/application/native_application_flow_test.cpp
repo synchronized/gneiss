@@ -201,6 +201,44 @@ void host_shutdown() {
   application.reset();
   check(order == "abscsds");
 }
+void complete_lifecycle() {
+  auto created = runtime::application::create({});
+  check(created.ok());
+  auto application = std::move(*created);
+  unsigned updates{}, releases{}, waits{};
+  bool finished{};
+  application->add_system(app::stage::update, "step_update", [&] {
+    check(application->step().error() == error::invalid_state);
+    if (++updates == 2)
+      application->request_exit();
+  });
+  application->on_stop("pending", [&] {
+    ++waits;
+    check(application->native_world() != nullptr);
+    return finished ? app::stop_progress::complete : app::stop_progress::pending;
+  });
+  application->on_stop("release", [&] { ++releases; });
+  auto first = application->step();
+  check(first && *first == app::lifecycle::running);
+  auto status = application->step();
+  check(status && *status == app::lifecycle::stopping && updates == 2 && waits == 1);
+  status = application->step();
+  check(status && *status == app::lifecycle::stopping && releases == 0 && waits == 2);
+  finished = true;
+  status = application->step();
+  check(status && *status == app::lifecycle::stopped && releases == 1);
+  check(application->native_world() == nullptr);
+  status = application->step();
+  check(status && *status == app::lifecycle::stopped && releases == 1);
+
+  created = runtime::application::create({});
+  check(created.ok());
+  application = std::move(*created);
+  application->add_system(app::stage::update, "failure", [] { return error::io; });
+  application->on_stop("cleanup", [&] { ++releases; });
+  check(application->run().error() == error::io);
+  check(releases == 2 && application->native_world() == nullptr);
+}
 void action_maps() {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
@@ -264,6 +302,7 @@ int main() try {
   scheduled_systems();
   state_systems();
   host_shutdown();
+  complete_lifecycle();
   action_maps();
   creation_failures();
   return 0;

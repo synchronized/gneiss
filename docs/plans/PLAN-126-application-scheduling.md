@@ -207,3 +207,13 @@ UI 关闭仍由宿主在关闭服务前执行。状态转换失败会阻止重�
 验证：Windows Clang Debug 编辑器及两项 Application 测试目标构建通过；
 gneiss.native-application-flow、gneiss.native-application 均通过。覆盖清理顺序、失败继续、
 关闭后拒绝运行、显式关闭与析构幂等；未运行真实窗口/GPU 或浏览器验收。
+
+### 共用生命周期执行阶段
+
+已提取单帧推进并接入 step()/无参数 run()；停止步骤支持 pending/complete，等待期间继续分发
+完成消息。项目选择界面已改用 try_close_scope 和完整 run()，删除手动服务关闭循环。
+当前契约见 Application Reference。旧 run(n) 仅作为迁移桥接，尚待其余消费者迁移后删除。
+默认 World、Session 所有权、启动装配及旧业务转发清理尚未完成，A126-02 不标记为完成。
+
+验证：Windows Clang Debug 编辑器及两项 Application 测试构建、运行通过；新增非阻塞停止、
+共享循环失败清理、重入拒绝和终态幂等验证。未执行真实窗口/GPU 验收。

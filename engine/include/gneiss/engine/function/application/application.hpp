@@ -103,11 +103,12 @@ public:
     register_state_system(app::detail::state_event::exit, app::detail::key(state), std::move(name),
                           app::make_system(std::move(function)));
   }
-  /** 首次运行前注册同步宿主清理；停止时按注册顺序执行一次，服务仍可借用。
-   * 无参数，返回 void 或 result<void>/error；失败不跳过后续清理，不用于异步等待。 */
+  /** 首次运行前注册宿主清理；停止时按注册顺序执行，服务仍可借用。
+   * 无参数；同步返回 void/result<void>/error，异步返回 stop_progress 或其 result。
+   * pending 保留当前步骤供下轮重试；完成或失败不重放，失败不跳过后续清理。 */
   template <class F> void on_stop(std::string name, F function) {
     static_assert(std::is_invocable_v<F&>);
-    register_stop_system(std::move(name), app::make_system(std::move(function)));
+    register_stop_system(std::move(name), app::make_stop_system(std::move(function)));
   }
   /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
@@ -154,6 +155,11 @@ public:
   /** 非阻塞推进文件/CPU 收尾；最终设备销毁仍使用 Render 的既有关闭流程。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error advance_shutdown();
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error shutdown();
+  /** 驱动完整生命周期至停止；失败也先完成受控关闭。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<void> run();
+  /** 推进一轮，不等待全部 GPU 帧；stopped 或失败为终态。所属线程，不可重入。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<app::lifecycle> step();
+  /** 迁移期间的有界旧入口，不自动关闭；新宿主使用 run()/step()。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error run(std::uint64_t max_frame_count);
   [[nodiscard]] GNEISS_ENGINE_API bool is_owner_thread() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API bool accepts_requests() const noexcept;
@@ -205,8 +211,10 @@ private:
                                                std::string, app::system_function);
   GNEISS_ENGINE_API result<void> request_state_change(app::detail::state_key);
   GNEISS_ENGINE_API std::uint64_t current_state(type_id) const;
-  GNEISS_ENGINE_API void register_stop_system(std::string, app::system_function);
-  void stop_host();
+  GNEISS_ENGINE_API void register_stop_system(std::string, app::stop_function);
+  bool stop_host();
+  error begin_service_shutdown();
+  error advance_frame();
   struct storage;
   std::unique_ptr<storage> storage_;
 };

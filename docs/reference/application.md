@@ -89,12 +89,17 @@ state<T>() 查询当前枚举值；初始 Enter 前返回配置值。
 未注册的状态类型、跨线程访问、运行后注册属于程序契约错误。Enter/Exit 返回失败时报告
 系统名称；再次 run 返回同一失败，不重放已有副作用。此时宿主应执行关闭，不尝试继续业务。
 
-以上是当前运行期调度接口。run 仍保留旧的有界执行、GPU 帧收尾和宿主关闭协议，
-尚无共享生命周期 step；业务 OnExit 只用于状态切换，不能代替宿主释放 UI/任务的关闭过程。
+无参数 run() 驱动 step() 至 stopped；可恢复失败先完成关闭，再返回最早的运行错误。
+step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，stopped 或错误为终态。
+请求退出后不会再执行普通系统；停止阶段继续处理完成消息。单步不执行每帧 GPU finish_frames，
+服务最终关闭仍遵循后端回收协议。意外异常向外传播，桌面析构作为同步清理保底。
+
+迁移期间旧 run(max_frame_count) 仍保留有界执行与 GPU 帧收尾，不能在使用 step 后调用旧入口。
+项目选择界面已使用 run()；其他宿主逐条迁移，旧入口尚未删除。业务 OnExit 只用于状态转换。
 
 ## 宿主停止清理
 
-首次运行前用 on_stop(name, callable) 注册具名、无参数的同步清理。调用方可取消并排空自己的
+首次运行前用 on_stop(name, callable) 注册具名、无参数的停止步骤。调用方可取消并排空自己的
 任务、释放 UI 或会话资源；首次 request_shutdown 或直接 shutdown 在停止资产、文件、渲染
 服务之前按注册顺序执行一次。析构保底使用相同入口，未运行就退出也会执行已注册清理。
 初始化只完成一部分时，清理函数必须根据自身拥有的资源状态处理，不能假定 Enter 已成功。
@@ -106,11 +111,13 @@ state<T>() 查询当前枚举值；初始 Enter 前返回配置值。
 清理返回 void、result<void> 或 error；失败记录系统名称，继续后续清理及服务关闭，最终返回
 首次宿主清理错误（优先于后续服务关闭错误）。request_shutdown 的成功只表示关闭请求已接收，
 清理失败通过 advance_shutdown 的终态结果返回。直接 shutdown 返回最终结果。
-not_ready 在同步清理中也是失败，不表示稍后重试；异步停止协议尚未接入。
+异步步骤返回 app::stop_progress 或 result<app::stop_progress>；pending 保留当前步骤，
+下一轮继续检查既有任务完成，complete 或错误则移动至下一步骤。等待期间仍分发文件和资产完成，
+不会提前关闭服务。步骤自身必须避免重复提交工作；任务作用域可直接使用 try_close_scope。
+error::not_ready 仍是错误，不代替 pending。同步 shutdown/析构可等待，外部循环应使用 step 排空。
 意外异常保持传播，析构时按既有 noexcept/致命异常策略处理，不承诺异常后所有清理完成。
 
-项目选择界面已用 on_stop 释放任务和 UI，但仍显式驱动 request_shutdown/advance_shutdown；
-不能将当前行为描述为 run/step 自动管理完整生命周期。
+项目选择界面已用 on_stop 非阻塞排空任务并释放 UI，由 run() 统一完成服务关闭。
 
 ## 平台与窗口
 

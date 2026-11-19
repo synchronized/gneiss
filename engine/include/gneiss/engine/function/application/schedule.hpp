@@ -12,6 +12,7 @@
 
 namespace gneiss::app {
 /** 当前接入业务阶段；平台事件与完成分发仍由 Application 固定驱动。 */
+enum class lifecycle { starting, running, stopping, stopped };
 enum class stage { update, synchronize, present };
 namespace detail {
 enum class state_event { enter, update, exit };
@@ -49,4 +50,31 @@ template <class F> system_function make_system(F function) {
     }
   };
 }
+/** 停止步骤可等待既有任务完成；pending 不表示错误。 */
+enum class stop_progress { pending, complete };
+using stop_function = std::function<result<stop_progress>()>;
+template <class F> stop_function make_stop_system(F function) {
+  return [function = std::move(function)]() mutable -> result<stop_progress> {
+    using R = std::invoke_result_t<F&>;
+    if constexpr (std::is_void_v<R>) {
+      std::invoke(function);
+      return stop_progress::complete;
+    } else if constexpr (std::is_same_v<R, stop_progress> ||
+                         std::is_same_v<R, result<stop_progress>>) {
+      return std::invoke(function);
+    } else if constexpr (std::is_same_v<R, error>) {
+      auto status = std::invoke(function);
+      if (status.failed())
+        return status;
+      return stop_progress::complete;
+    } else {
+      static_assert(std::is_same_v<R, result<void>>);
+      auto status = std::invoke(function);
+      if (!status)
+        return status.error();
+      return stop_progress::complete;
+    }
+  };
+}
+
 }

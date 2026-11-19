@@ -269,12 +269,21 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
         project_phase::selecting, "project_manager.update",
         [&state](const gneiss::frame_time& time) { return update_project_manager(state, time); });
     application->on_stop("project_manager.release_session", [&state] {
-      (void)state.scheduler.close_scope(state.scope);
+      if (!state.scheduler.try_close_scope(state.scope))
+        return gneiss::app::stop_progress::pending;
       state.pending.reset();
       state.ui.shutdown(*state.application);
+      return gneiss::app::stop_progress::complete;
     });
+    unsigned smoke_frames{};
+    if (smoke)
+      application->add_system(gneiss::app::stage::present, "project_manager.smoke", [&] {
+        if (++smoke_frames == 3)
+          application->request_exit();
+      });
     if (operation == gneiss::error::success) {
-      operation = application->run(smoke ? 3U : 0U);
+      auto ran = application->run();
+      operation = ran ? gneiss::error::success : ran.error();
       if (operation != gneiss::error::success) {
         const auto message = operation.message();
         std::fprintf(stderr,
@@ -282,17 +291,6 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
                      operation.code(), static_cast<int>(message.size()), message.data());
       }
     }
-    // 正常退出显式收尾文件回执与服务，不依赖 Application 析构等待。
-    auto closing = application->request_shutdown();
-    if (closing.ok()) {
-      do {
-        closing = application->advance_shutdown();
-        if (closing == gneiss::error::not_ready)
-          std::this_thread::yield();
-      } while (closing == gneiss::error::not_ready);
-    }
-    if (operation.ok())
-      operation = closing;
     application.reset();
     if (operation != gneiss::error::success) {
       return operation;
