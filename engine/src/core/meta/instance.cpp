@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "instance_access.hpp"
 #include "temporary_value.hpp"
 #include <algorithm>
 #include <gneiss/engine/core/base/assert.hpp>
@@ -38,8 +39,8 @@ error cap::representation::encode(
     auto view = const_instance::from_access(type_.registry_, representation, p);
     return consume(view);
   };
-  return source.visit_value(
-      [&](const const_instance& concrete) { return ops->encode(concrete.data_, visit); });
+  return detail::instance_access::read(
+      source, [&](const const_instance& concrete) { return ops->encode(concrete.data_, visit); });
 }
 bool cap::sequence::is_fixed_size() const noexcept {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
@@ -198,21 +199,20 @@ basic_instance<Mutable>::object_data() const noexcept {
     return data_;
   }
 }
-template <bool Mutable>
-error basic_instance<Mutable>::visit_value(
-    const std::function<error(const const_instance&)>& consume) const {
-  GNEISS_ASSERT(type_ && consume, "值访问要求有效实例与回调");
-  if (data_)
-    return consume(as_const());
-  if (!binding_ || !binding_->read_construct || !access())
+error detail::instance_access::read(const const_instance& source,
+                                    const std::function<error(const const_instance&)>& consume) {
+  GNEISS_ASSERT(source.type_ && consume, "值访问要求有效实例与回调");
+  if (source.data_)
+    return consume(source);
+  if (!source.binding_ || !source.binding_->read_construct || !source.access())
     return error::unsupported;
-  detail::temporary_value storage{*access()};
+  temporary_value storage{*source.access()};
   auto status = storage.construct([&](void* destination) {
-    return binding_->read_construct(binding_->state, parent_, destination);
+    return source.binding_->read_construct(source.binding_->state, source.parent_, destination);
   });
   if (status.failed())
     return status;
-  auto temporary = const_instance::from_access(registry(), *access(), storage.data());
+  auto temporary = const_instance::from_access(source.registry(), *source.access(), storage.data());
   return consume(temporary);
 }
 
@@ -220,7 +220,7 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "读取值要求有效的借用实例");
   if (!data_) {
     result<value> output = error::unsupported;
-    auto status = visit_value([&](const const_instance& source) {
+    auto status = detail::instance_access::read(as_const(), [&](const const_instance& source) {
       output = source.read_value();
       return output ? error::success : output.error();
     });
@@ -251,9 +251,10 @@ error basic_instance<Mutable>::assign(const value& input) const
   requires(Mutable)
 {
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
-  if (requires_replacement())
-    return replace(
-        [input_ptr = &input](const instance& candidate) { return candidate.assign(*input_ptr); });
+  if (detail::instance_access::constrained(*this))
+    return detail::instance_access::replace(*this, [input_ptr = &input](const instance& candidate) {
+      return candidate.assign(*input_ptr);
+    });
 
   if (type().kind() == type_kind::variant && type().id() == runtime_type_of<value>() &&
       mutable_data()) {
@@ -286,8 +287,8 @@ error basic_instance<Mutable>::assign(const const_instance& source) const
   GNEISS_ASSERT(source.type().kind() != type_kind::invalid, "复制要求有效的来源实例");
   if (type().id() != source.type().id())
     return error::invalid_argument;
-  return source.visit_value([&](const const_instance& concrete) {
-    if (requires_replacement())
+  return detail::instance_access::read(source, [&](const const_instance& concrete) {
+    if (detail::instance_access::constrained(*this))
       return binding_->write(binding_->state, mutable_parent(), concrete.data_);
     if (!mutable_data() || !access() || !access()->copy_assign)
       return error::unsupported;
@@ -307,7 +308,7 @@ error basic_instance<Mutable>::move_from(const instance& source_view) const
   auto* source = source_view.mutable_data();
   if (!source)
     return error::unsupported;
-  if (requires_replacement()) {
+  if (detail::instance_access::constrained(*this)) {
     const auto* binding = binding_;
     return binding->write(binding->state, mutable_parent(), source);
   }
@@ -322,43 +323,40 @@ error basic_instance<Mutable>::move_from(const instance& source_view) const
   return error::unsupported;
 }
 
-template <bool Mutable>
-error basic_instance<Mutable>::replace(
-    const std::function<error(const instance&)>& initialize) const
-  requires(Mutable)
-{
-  GNEISS_ASSERT(type().kind() != type_kind::invalid, "替换要求有效的目标实例");
-  if (!requires_replacement() || !initialize)
+error detail::instance_access::replace(const instance& target,
+                                       const std::function<error(const instance&)>& initialize) {
+  GNEISS_ASSERT(target.type_, "替换要求有效的目标实例");
+  if (!constrained(target) || !initialize)
     return error::invalid_argument;
-  detail::temporary_value storage{*access()};
+  temporary_value storage{*target.access()};
   auto status = storage.construct_default();
   if (status.failed())
     return status;
-  auto temporary = instance::from_access(registry(), *access(), storage.data());
+  auto temporary = instance::from_access(target.registry(), *target.access(), storage.data());
   status = initialize(temporary);
   return status.failed() ? status
-                         : binding_->write(binding_->state, mutable_parent(), storage.data());
+                         : target.binding_->write(target.binding_->state, target.mutable_parent(),
+                                                  storage.data());
 }
 
-template <bool Mutable>
-error basic_instance<Mutable>::edit(const std::function<error(const instance&)>& modify) const
-  requires(Mutable)
-{
-  GNEISS_ASSERT(type_ && modify, "属性编辑要求有效实例与回调");
-  if (!requires_replacement() || !access() || !access()->copy_construct)
+error detail::instance_access::edit(const instance& target,
+                                    const std::function<error(const instance&)>& modify) {
+  GNEISS_ASSERT(target.type_ && modify, "属性编辑要求有效实例与回调");
+  if (!constrained(target) || !target.access() || !target.access()->copy_construct)
     return error::unsupported;
-  return visit_value([&](const const_instance& current) {
-    detail::temporary_value storage{*access()};
+  return read(target.as_const(), [&](const const_instance& current) {
+    temporary_value storage{*target.access()};
     auto status = storage.construct([&](void* destination) {
-      access()->copy_construct(destination, current.data_);
+      target.access()->copy_construct(destination, current.data_);
       return error::success;
     });
     if (status.failed())
       return status;
-    auto candidate = instance::from_access(registry(), *access(), storage.data());
+    auto candidate = instance::from_access(target.registry(), *target.access(), storage.data());
     status = modify(candidate);
     return status.failed() ? status
-                           : binding_->write(binding_->state, mutable_parent(), storage.data());
+                           : target.binding_->write(target.binding_->state, target.mutable_parent(),
+                                                    storage.data());
   });
 }
 

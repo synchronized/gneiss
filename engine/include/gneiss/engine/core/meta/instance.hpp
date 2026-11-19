@@ -12,6 +12,9 @@
 #include <utility>
 
 namespace gneiss::meta {
+namespace detail {
+struct instance_access;
+}
 template <bool Mutable> class basic_sequence_view;
 using const_sequence_view = basic_sequence_view<false>;
 using sequence_view = basic_sequence_view<true>;
@@ -43,13 +46,6 @@ public:
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
   [[nodiscard]] GNEISS_META_API result<value> read_value() const;
-  /** 同步访问实际值；计算属性临时值仅在回调期间有效，不得保存派生借用。 */
-  [[nodiscard]] GNEISS_META_API error
-  visit_value(const std::function<error(const const_instance&)>&) const;
-  /** 复制当前属性后修改候选，成功后调用 setter；不支持复制时返回 unsupported。 */
-  [[nodiscard]] GNEISS_META_API error edit(const std::function<error(const instance&)>&) const
-    requires(Mutable);
-
   [[nodiscard]] GNEISS_META_API result<pointer> object_data() const noexcept;
   /** 查询能力并绑定本实例；返回类型保留当前只读/可写属性。 */
   template <class Capability> [[nodiscard]] auto capability() const {
@@ -61,14 +57,6 @@ public:
   [[nodiscard]] GNEISS_META_API result<basic_optional_view<Mutable>> as_optional() const noexcept;
   [[nodiscard]] GNEISS_META_API result<basic_reference_view<Mutable>> as_reference() const noexcept;
   [[nodiscard]] GNEISS_META_API result<basic_variant_view<Mutable>> as_variant() const noexcept;
-  [[nodiscard]] bool requires_replacement() const noexcept
-    requires(Mutable)
-  {
-    return parent_ && !writable_;
-  }
-  /** 在独立候选上初始化，成功后交给 setter；初始化失败不调用 setter。要求有效实例。 */
-  [[nodiscard]] GNEISS_META_API error replace(const std::function<error(const instance&)>&) const
-    requires(Mutable);
   /** 要求有效目标实例；类型/内容不匹配、能力缺失及 setter 业务拒绝仍返回错误。 */
   [[nodiscard]] GNEISS_META_API error assign(const value&) const
     requires(Mutable);
@@ -85,6 +73,7 @@ public:
     requires(Mutable);
 
 private:
+  friend struct detail::instance_access;
   template <bool> friend class basic_instance;
   friend class cap::representation;
   friend class cap::object;

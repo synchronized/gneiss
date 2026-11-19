@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "core/serialization/detail/traversal.hpp"
+#include "core/meta/instance_access.hpp"
 #include <algorithm>
 #include <gneiss/engine/core/meta/capabilities/container.hpp>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
@@ -658,7 +659,7 @@ serialization::diagnostic decode_view(const read_context& ctx, const registry_re
       return failure(error::invalid_argument);
     return decode_representation(ctx, view, input);
   }
-  if (view.type().kind() == type_kind::object && !view.requires_replacement())
+  if (view.type().kind() == type_kind::object && !meta::detail::instance_access::constrained(view))
     return decode_nested(ctx, registry, view, input, depth);
   return decode_nonobject(ctx, registry, view, input, depth, override);
 }
@@ -666,9 +667,9 @@ serialization::diagnostic decode_nonobject(const read_context& ctx, const regist
                                            const instance& view, reader::node input,
                                            std::size_t depth, const reference_policy* override) {
   depth_scope scope{ctx, depth};
-  if (view.requires_replacement()) {
+  if (meta::detail::instance_access::constrained(view)) {
     serialization::diagnostic diagnostic;
-    auto status = view.replace([&](const instance& temporary) {
+    auto status = meta::detail::instance_access::replace(view, [&](const instance& temporary) {
       diagnostic = decode_view(ctx, registry, temporary, input, depth, override);
       return diagnostic.error;
     });
@@ -935,7 +936,7 @@ result<writer::node, serialization::diagnostic>
 encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
             writer* doc, std::size_t depth, const reference_policy* override) {
   result<writer::node, serialization::diagnostic> output = failure(error::unsupported);
-  auto status = view.visit_value([&](const const_instance& concrete) {
+  auto status = meta::detail::instance_access::read(view, [&](const const_instance& concrete) {
     output = encode_view_storage(ctx, registry, concrete, doc, depth, override);
     return error::success;
   });
@@ -947,7 +948,7 @@ namespace gneiss::serialization::detail {
 serialization::diagnostic validate_view(const read_context& ctx, const registry_ref& registry,
                                         const const_instance& view, std::size_t depth) {
   serialization::diagnostic output;
-  auto status = view.visit_value([&](const const_instance& concrete) {
+  auto status = meta::detail::instance_access::read(view, [&](const const_instance& concrete) {
     output = validate_view_storage(ctx, registry, concrete, depth);
     return error::success;
   });

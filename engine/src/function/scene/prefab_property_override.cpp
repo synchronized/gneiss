@@ -2,17 +2,17 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/scene/detail/component_validation.hpp"
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>
 #include <gneiss/engine/resource/property_edit_policy.hpp>
-#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -227,8 +227,7 @@ gneiss::error apply_candidate_object(const prefab_property_override& value,
   if (is_type(math::transform::type_guid)) {
     auto transform = object.transform;
     auto root = meta::view(transform);
-    auto field = meta::resolve_path(root, value.key.path);
-    result = field ? field->assign(native) : field.error();
+    result = meta::write_path(root, value.key.path, native);
     if (result != gneiss::error::success) {
       return result;
     }

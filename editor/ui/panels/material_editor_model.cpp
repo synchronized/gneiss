@@ -50,14 +50,18 @@ error material_editor_model::apply(const property_path& path, const value* input
   auto candidate = current_->description;
   auto root = meta::view(candidate);
   std::string key = gneiss::property_path_text(path);
-  auto target = meta::resolve_path(root, path);
-  if (!target)
-    return target.error();
-  // 对象替换是编辑器操作约束，不能依赖通用实例赋值拒绝其他类型。
-  if (source && (target->type().kind() != meta::type_kind::object ||
-                 source->type().kind() != meta::type_kind::object))
-    return error::unsupported;
-  auto status = source ? target->assign(*source) : target->assign(*input);
+  error status;
+  if (source) {
+    auto target = meta::resolve_path(root, path);
+    if (!target)
+      return target.error();
+    if (target->type().kind() != meta::type_kind::object ||
+        source->type().kind() != meta::type_kind::object)
+      return error::unsupported;
+    status = target->assign(*source);
+  } else {
+    status = meta::write_path(root, path, *input);
+  }
   if (status.failed())
     return status;
   for (const auto& uri : candidate.texture_uris)

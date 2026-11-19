@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/core/meta/type.hpp>
 
 // 在其他 Meta 头之前检查汇总入口，防止依赖间接 include 才能取得完整能力类型。
 static_assert(sizeof(gneiss::meta::cap::object) + sizeof(gneiss::meta::cap::enumeration) +
-              sizeof(gneiss::meta::cap::representation) + sizeof(gneiss::meta::cap::sequence) +
-              sizeof(gneiss::meta::cap::associative) + sizeof(gneiss::meta::cap::optional) +
-              sizeof(gneiss::meta::cap::reference) + sizeof(gneiss::meta::cap::variant) > 0);
+                  sizeof(gneiss::meta::cap::representation) + sizeof(gneiss::meta::cap::sequence) +
+                  sizeof(gneiss::meta::cap::associative) + sizeof(gneiss::meta::cap::optional) +
+                  sizeof(gneiss::meta::cap::reference) + sizeof(gneiss::meta::cap::variant) >
+              0);
 
 #include "../../support/throws.hpp"
 #include <cstdio>
@@ -213,7 +214,7 @@ int main() {
   mapped_owner owner;
   auto owner_view = m::view(registry, owner);
   auto item = owner_view.template capability<gneiss::meta::cap::object>()->member("item");
-  CHECK(item && item->requires_replacement());
+  CHECK(item);
   CHECK(item->assign(e::value{std::int64_t{-1}}) == e::error::invalid_argument);
   CHECK(owner.stored.number == 7);
   CHECK(item->assign(e::value{std::int64_t{12}}).ok());

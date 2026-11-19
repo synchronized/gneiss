@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/core/meta/resolve_path.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
@@ -840,17 +841,6 @@ bool bound_property_contract() {
   if (decode(*values, "[2,-3]").has_value() || object.calls != 1 ||
       object.values != std::vector<std::int64_t>{1})
     return false;
-  const auto calls_before = object.calls;
-  auto cancelled = values->replace([](const m::instance& candidate) {
-    auto sequence = candidate.as_sequence();
-    if (!sequence)
-      return sequence.error();
-    auto status = sequence->resize(2);
-    return status.failed() ? status : e::error::not_ready;
-  });
-  if (cancelled != e::error::not_ready || object.calls != calls_before ||
-      object.values != std::vector<std::int64_t>{1})
-    return false;
   if (decode(*values, "[2,3]").failed() || object.calls != 2 ||
       object.values != std::vector<std::int64_t>{2, 3})
     return false;
@@ -1012,6 +1002,8 @@ struct computed_owner {
   int writes = 0;
   computed_record get_data() const { return data; }
   e::error set_data(const computed_record& next) {
+    if (next.first == 13)
+      throw std::runtime_error{"setter probe"};
     if (next.first < 0)
       return e::error::invalid_argument;
     data = next;
@@ -1022,6 +1014,21 @@ struct computed_owner {
   move_probe get_move() const { return {std::make_unique<int>(11)}; }
   void set_move(const move_probe&) {}
   void set_numbers(const std::vector<int>& next) { numbers = next; }
+};
+struct computed_envelope {
+  static constexpr std::string_view type_name = "computed_envelope";
+  static constexpr e::guid type_guid = e::guid::from_bytes({95, 33});
+  computed_owner data;
+  int writes = 0;
+  bool reject = false;
+  computed_owner get() const { return data; }
+  e::error set(const computed_owner& next) {
+    if (reject)
+      return e::error::invalid_argument;
+    data = next;
+    ++writes;
+    return e::error::success;
+  }
 };
 bool computed_properties() {
   auto registry = m::create_registry();
@@ -1040,6 +1047,10 @@ bool computed_properties() {
               e::property_id{3}, "move")(e::serialization::field_policy{.save = false})
           .commit()
           .failed() ||
+      m::registration::type<computed_envelope>(registry)
+          .property<&computed_envelope::get, &computed_envelope::set>(e::property_id{1}, "data")
+          .commit()
+          .failed() ||
       m::freeze(registry).failed())
     return false;
   computed_owner owner;
@@ -1047,30 +1058,39 @@ bool computed_properties() {
   auto root = m::view(registry, owner);
   auto field = root.capability<m::cap::object>()->member("data");
   auto move_only = root.capability<m::cap::object>()->member("move");
-  if (!move_only || move_only->edit([](const m::instance&) { return e::error::success; }) !=
-                        e::error::unsupported)
+  const e::property_path move_path{e::property_id{3}, e::property_id{1}};
+  if (!move_only ||
+      m::write_path(root, move_path, e::value{std::int64_t{1}}) != e::error::unsupported)
     return false;
-  if (!field || !field->requires_replacement() ||
-      field->capability<m::cap::object>().error() != e::error::unsupported)
+  if (!field || field->capability<m::cap::object>().error() != e::error::unsupported)
     return false;
-  auto change = [](int next) {
-    return [next](const m::instance& candidate) {
-      return candidate.capability<m::cap::object>()->member("first")->assign(
-          e::value{std::int64_t{next}});
-    };
-  };
-  if (field->edit(change(7)).failed() || owner.data.first != 7 || owner.data.second != 42 ||
-      owner.writes != 1 || computed_record::live != 1)
+  const e::property_path path{e::property_id{1}, e::property_id{1}};
+  if (m::write_path(root, path, e::value{std::int64_t{7}}).failed() || owner.data.first != 7 ||
+      owner.data.second != 42 || owner.writes != 1 || computed_record::live != 1)
     return false;
-  if (field->edit(change(-1)) != e::error::invalid_argument || owner.data.first != 7 ||
-      owner.writes != 1 || computed_record::live != 1)
+  auto read = m::read_path(root.as_const(), path);
+  if (!read || *read != e::value{std::int64_t{7}} || computed_record::live != 1)
+    return false;
+  if (m::write_path(root, path, e::value{std::int64_t{-1}}) != e::error::invalid_argument ||
+      owner.data.first != 7 || owner.writes != 1 || computed_record::live != 1)
     return false;
   try {
-    (void)field->edit([](const m::instance&) -> e::error { throw std::runtime_error{"probe"}; });
+    (void)m::write_path(root, path, e::value{std::int64_t{13}});
     return false;
   } catch (const std::runtime_error&) {
   }
   if (computed_record::live != 1 || owner.writes != 1)
+    return false;
+  const e::property_path number_path{e::property_id{2}, std::size_t{1}};
+  if (m::write_path(root, number_path, e::value{std::int64_t{9}}).failed() ||
+      owner.numbers != std::vector<int>{3, 9})
+    return false;
+  if (m::write_path(root, number_path, e::value{std::int64_t{10}}, true) != e::error::unsupported ||
+      owner.numbers != std::vector<int>{3, 9})
+    return false;
+  const e::property_path invalid_path{e::property_id{1}, e::property_id{99}};
+  if (m::write_path(root, invalid_path, e::value{std::int64_t{1}}) != e::error::not_found ||
+      owner.writes != 1 || computed_record::live != 1)
     return false;
   auto bytes =
       e::serialization::json::encode_bytes(e::serialization::write_context{registry}, owner);
@@ -1087,7 +1107,27 @@ bool computed_properties() {
   if (!restored || restored->data.first != 7 || restored->data.second != 42 ||
       restored->numbers != owner.numbers)
     return false;
-  if (field->replace(change(8)).failed() || owner.data.second != 2 || owner.data.first != 8)
+  const std::string_view replacement = R"({"first":8})";
+  if (e::serialization::json::read_into(
+          e::serialization::read_context{registry}, *field,
+          std::as_bytes(std::span{replacement.data(), replacement.size()}))
+          .failed() ||
+      owner.data.second != 2 || owner.data.first != 8)
+    return false;
+  // 两层计算属性逐层写回；内层失败或外层拒绝均不发布候选。
+  computed_envelope envelope;
+  envelope.data.data.second = 61;
+  auto outer = m::view(registry, envelope);
+  const e::property_path nested{e::property_id{1}, e::property_id{1}, e::property_id{1}};
+  if (m::write_path(outer, nested, e::value{std::int64_t{5}}).failed() ||
+      envelope.data.data.first != 5 || envelope.data.data.second != 61 || envelope.writes != 1)
+    return false;
+  if (m::write_path(outer, nested, e::value{std::int64_t{-1}}) != e::error::invalid_argument ||
+      envelope.data.data.first != 5 || envelope.writes != 1)
+    return false;
+  envelope.reject = true;
+  if (m::write_path(outer, nested, e::value{std::int64_t{6}}) != e::error::invalid_argument ||
+      envelope.data.data.first != 5 || envelope.writes != 1)
     return false;
   return true;
 }

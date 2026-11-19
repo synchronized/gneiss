@@ -8,6 +8,14 @@
 #include <gneiss/engine/core/data/property_path.hpp>
 
 namespace gneiss::meta {
+/** 按路径读取 value；计算属性的临时存储在内部管理，不向外返回临时借用。 */
+[[nodiscard]] GNEISS_META_API result<value>
+read_path(const const_instance&, std::span<const property_step>, bool persistent = false);
+/** 设置路径叶值；穿过受约束属性时复制当前候选，成功后经 setter 写回。
+ * 复制遵循 C++ 语义，不保证 ref 指向对象的深拷贝或跨属性事务。 */
+[[nodiscard]] GNEISS_META_API error write_path(const instance&, std::span<const property_step>,
+                                               const value&, bool persistent = false);
+
 /** 每次从根重新定位；持久化地址拒绝可变序列的位置下标。 */
 template <class View>
 result<View> resolve_path(View root, std::span<const property_step> path, bool persistent = false) {

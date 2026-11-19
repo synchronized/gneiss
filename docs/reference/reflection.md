@@ -171,9 +171,9 @@ read_construct 成功必须构造正确类型，失败或抛异常不得留下�
 
 未绑定字段或缺少对应方向能力返回 unsupported。数值非有限或文本非法返回 invalid_argument；
 getter 显式失败保留原始错误码。访问器异常（包括 bad_alloc）沿执行边界传播，不转换为普通属性错误。
-instance::visit_value(callback) 在回调期间提供实际只读存储，适用于按值返回的对象和容器；
-临时值支持过度对齐，正常、错误及异常退出均释放。回调内取得的实例和子视图不得逃逸。
-按值 getter 无稳定借用时，直接获取 object/container view 返回 unsupported，使用 visit_value 遍历。
+计算属性的临时存储、候选复制与 setter 提交由 Meta 私有实现管理，调用方不接收回调。
+按值 getter 无稳定借用时，直接获取 object/container view 返回 unsupported；
+使用 read_path/write_path 读取或修改路径叶值，序列化自动处理对象和容器。
 
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
@@ -575,9 +575,9 @@ const_reference_view::get 对空引用返回 not_found。引用不是标量；�
 空引用对应空强引用，非空结果显式保活目标；`actual_type()` 查询实际运行类型。
 可写视图的 `assign_owner(type, owner)` 接收声明目标类型句柄，调用方须保证擦除指针与类型匹配；比较运行身份，不要求注册表相同。
 修改目标会被所有共享拥有者观察到，不提供写时复制。
-实例的 `registry()` 返回所持有的注册表；受 setter 约束的属性通过
-`requires_replacement()` 判断整体替换要求，`replace(initialize)` 在独立候选上初始化，
-成功后才调用 setter。普通成员继续使用 `assign`，序列化不访问 Meta 私有状态。
+实例的 registry() 返回所持有的注册表；普通字段继续使用 get/member 后的
+read_value()/assign()。受约束属性经 setter 写入，序列化在内部创建整体候选，
+调用方不判断是否需要替换，也不管理候选。
 
 默认反射 JSON 按值内联引用：空引用输出 null，普通 ref<T> 输出目标字段。
 声明类型通过 registration::type<T>().polymorphic() 显式启用多态后，输出
@@ -865,16 +865,28 @@ if (object) {
 自移动不改变对象；来源类型不匹配返回 invalid_argument，缺少直接可写存储返回 unsupported。
 受约束目标仍通过 setter 完成替换，因此 move_from 不保证消耗来源。
 
-## 统一属性候选操作
+## 属性路径读写与内部候选
 
-type_ops 保存 size/alignment、destroy、default_construct、copy_construct 和赋值能力。
-它只负责原生类型，不知道属性宿主或 setter；property_ops 负责宿主访问。缺少默认构造或复制
-能力时，对应候选操作返回 unsupported，不要求所有类型具备全部能力。
+type_ops 管理原生类型的构造、析构与复制；property_ops 管理宿主属性的 getter/setter。
+instance 保留属性定位所需的内部状态，但不拥有业务对象，不公开临时访问或候选提交回调。
 
-- replace(initialize)：默认构造候选，初始化成功后写回；用于完整反序列化，缺失字段遵循默认值。
-- edit(modify)：复制当前属性作为候选，修改成功后写回；保留未修改字段。
-- assign(instance)：同类型复制或调用 setter；move_from(instance) 保留显式移动语义。
-- 受 setter 约束的属性不提供可写借用，不能通过对象/容器视图绕过 setter。
+调用方直接表达操作：
 
-候选遵循原生 C++ 复制语义，ref 仍共享对象，不是递归深拷贝，也不承诺跨属性事务。
-序列化与 value 快照通过 visit_value 同步读取计算属性，不保存临时地址，不改变持久化格式。
+~~~cpp
+auto root = meta::view(registry, object);
+property_path path{property_id{1}, property_id{2}};
+auto current = meta::read_path(root.as_const(), path);
+auto status = meta::write_path(root, path, value{std::int64_t{7}});
+~~~
+
+read_path 返回 value，支持的叶值范围与 read_value 相同；不引入任意 C++ 拥有型容器。
+write_path 穿过受约束属性时，内部复制当前候选；成功后逐层经 setter 写回，保留未修改字段。
+路径错误、转换错误、getter/setter 失败沿调用链返回；内部修改失败不调用外层 setter。
+不可复制类型不支持穿过该属性局部修改，返回 unsupported；整项 assign 仍可使用原生值。
+persistent 参数沿用 resolve_path 规则，拒绝可变序列的位置索引。
+
+resolve_path 继续用于稳定借用，不会返回计算临时值内部的悬空实例。
+JSON 与 value 快照在私有协议内同步读取计算属性；完整解码使用默认候选，
+缺失字段遵循默认值规则，与保留其他字段的路径修改区别明确。
+
+复制遵循 C++ 语义，ref 仍共享目标，不是递归深拷贝；不承诺跨属性或任意回调副作用的事务。

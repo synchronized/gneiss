@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "core/meta/instance_access.hpp"
 #include "core/serialization/detail/context_access.hpp"
 #include "core/serialization/detail/traversal.hpp"
 #include <algorithm>
@@ -34,7 +35,7 @@ struct capture_state {
   result<gneiss::value> read(const const_instance& source, std::size_t depth,
                              const reference_policy* override = nullptr) {
     result<gneiss::value> result = error::unsupported;
-    auto status = source.visit_value([&](const const_instance& concrete) {
+    auto status = meta::detail::instance_access::read(source, [&](const const_instance& concrete) {
       result = read_impl(concrete, depth, override);
       return error::success;
     });
@@ -224,9 +225,9 @@ struct restore_state {
                    bool sequence_candidate, const reference_policy* override) {
     if (depth > ctx.maximum_depth())
       return error::invalid_argument;
-    if (target.requires_replacement())
-      return target.replace(
-          [&](const instance& temp) { return write(temp, data, depth, false, override); });
+    if (meta::detail::instance_access::constrained(target))
+      return meta::detail::instance_access::replace(
+          target, [&](const instance& temp) { return write(temp, data, depth, false, override); });
     switch (target.type().kind()) {
     case type_kind::empty:
       return data.kind() == value_kind::invalid ? error::success : error::invalid_argument;

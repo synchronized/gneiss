@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
-add_library(gneiss_meta registry.cpp instance.cpp object.cpp)
+add_library(gneiss_meta registry.cpp instance.cpp object.cpp resolve_path.cpp)
 add_library(gneiss::meta ALIAS gneiss_meta)
 target_link_libraries(gneiss_meta PUBLIC gneiss_data PRIVATE gneiss_libassert)
 target_compile_definitions(gneiss_meta PRIVATE GNEISS_BUILDING_META
