@@ -4,13 +4,13 @@
 #include "../support/async_document.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/scene_document_edit.hpp"
+#include "ui/viewport/transform_gizmo_drag.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "ui/viewport/transform_gizmo_drag.hpp"
 
 #include <gneiss/engine/core/base/error.hpp>
 
@@ -22,8 +22,7 @@ using namespace gneiss;
 
 namespace {
 
-bool near(const gneiss::math::transform& left,
-          const gneiss::math::transform& right) {
+bool near(const gneiss::math::transform& left, const gneiss::math::transform& right) {
   for (std::size_t index = 0; index < 3U; ++index) {
     if (std::abs(left.translation[index] - right.translation[index]) > 1.0e-4F ||
         std::abs(left.scale[index] - right.scale[index]) > 1.0e-4F) {
@@ -42,14 +41,14 @@ bool near(const gneiss::math::transform& left,
 int main() try {
   using gneiss::error;
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
-  if (gneiss::error{gneiss::test_support::assign_value(
-          gneiss::runtime::application::create(desc), application)} !=
-          gneiss::error::success ||
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                                       application)} != gneiss::error::success ||
       (world = application->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world,
                                           "asset://scenes/triangle.scene.json") !=
@@ -131,8 +130,7 @@ int main() try {
   desired.translation[2] += 2.0F;
   gneiss::editor::gizmo_matrix matrix{};
   if (drag.begin(session) != gneiss::error::success ||
-      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-          gneiss::error::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != gneiss::error::success ||
       drag.preview(session, matrix) != gneiss::error::success ||
       drag.finish(session, unavailable_history) != gneiss::error::invalid_argument ||
       !near(session.selected_node()->local_transform, before) || session.is_dirty()) {
@@ -171,8 +169,7 @@ int main() try {
                 .world_transform();
   desired.translation[0] += 3.0F;
   if (drag.begin(session) != gneiss::error::success ||
-      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-          gneiss::error::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != gneiss::error::success ||
       drag.preview(session, matrix) != gneiss::error::success ||
       session.select({}) != gneiss::error::success || drag.matches_selection(session) ||
       drag.finish(session, history) != gneiss::error::success || history.size() != 1U ||
@@ -207,8 +204,7 @@ int main() try {
                 .world_transform();
   desired.translation[0] += 2.0F;
   if (drag.begin(session) != gneiss::error::success ||
-      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) !=
-          gneiss::error::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != gneiss::error::success ||
       drag.preview(session, matrix) != gneiss::error::success ||
       drag.finish(session, history) != gneiss::error::success) {
     return 18;

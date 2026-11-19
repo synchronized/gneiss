@@ -36,9 +36,10 @@ void run(gneiss::tasks::execution_mode mode) {
   runtime::application_configuration desc;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
         gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+
   editor::document_editing editing;
   auto& session = editing.document();
   editor::editor_camera camera;
@@ -78,8 +79,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(loader.state() == editor::scene_open_state::loading);
   check(loader.request(*app, editing, uri) == gneiss::error::not_ready);
   drain();
-  check(!loader.visible() && loader.operation() == gneiss::error::success &&
-        world == original);
+  check(!loader.visible() && loader.operation() == gneiss::error::success && world == original);
   check(loader.state() == editor::scene_open_state::opened);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
   check(!gneiss::scene_instance::borrow(*world, (initial_scene).id()));
@@ -95,10 +95,8 @@ void run(gneiss::tasks::execution_mode mode) {
           .redo = [&] { return session.rename_node(node, "Edited"); },
           .merge_key = {}});
   check(history.record(std::move(command)) == gneiss::error::success);
-  check(history.undo() == gneiss::error::success &&
-        history.redo() == gneiss::error::success);
-  check(loader.request(*app, editing, "asset://missing.scene.json") ==
-        gneiss::error::success);
+  check(history.undo() == gneiss::error::success && history.redo() == gneiss::error::success);
+  check(loader.request(*app, editing, "asset://missing.scene.json") == gneiss::error::success);
   drain();
   check(loader.visible() && loader.operation() != gneiss::error::success);
   check(loader.state() == editor::scene_open_state::failed);

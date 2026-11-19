@@ -336,6 +336,8 @@ gneiss::error scene_edit_session::synchronize() try {
 gneiss::error
 scene_edit_session::edit_content(const content_edit& edit,
                                  const std::function<gneiss::error()>& after_projection) {
+  if (!is_open() || !application_->accepts_requests())
+    return gneiss::error::invalid_state;
   auto next = capture_content();
   if (!next)
     return next.error();
@@ -943,6 +945,8 @@ gneiss::error scene_edit_session::validate_selection() {
 }
 
 gneiss::result<scene_mesh_binding> scene_edit_session::capture_mesh_binding(entity_id node) const {
+  if (!is_open() || !application_->accepts_requests())
+    return gneiss::error::invalid_state;
   {
     auto values = components(node);
     if (!values)
@@ -963,7 +967,7 @@ gneiss::result<scene_mesh_binding> scene_edit_session::capture_mesh_binding(enti
 gneiss::result<entity_id>
 scene_edit_session::create_mesh_node(const mesh_node_creation& snapshot,
                                      const scene_mesh_binding& resources) {
-  if (!is_open())
+  if (!is_open() || !application_->accepts_requests())
     return gneiss::error::invalid_state;
   if (snapshot.uuid.is_nil())
     return gneiss::error::invalid_argument;

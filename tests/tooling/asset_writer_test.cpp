@@ -5,18 +5,18 @@
 #include "../support/value_result.hpp"
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <gneiss/tooling/import/asset_writer.hpp>
 #include <gneiss/tooling/import/gltf_importer.hpp>
 
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <iterator>
 #include <string>
 
@@ -116,6 +116,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   const auto asset_root = first.generic_string();
   gneiss::runtime::application_configuration description;
+  description.executor = &gneiss::test_support::application_tasks();
   description.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance scene = {};
@@ -180,9 +181,8 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 10;
   }
   const auto material_file = read_file(pbr_output / "materials/material-0.material.json");
-  auto decoded_material =
-      gneiss::asset_file::deserialize<gneiss::material_description>(
-          std::as_bytes(std::span{material_file.data(), material_file.size()}));
+  auto decoded_material = gneiss::asset_file::deserialize<gneiss::material_description>(
+      std::as_bytes(std::span{material_file.data(), material_file.size()}));
   if (!decoded_material ||
       decoded_material->texture_uris[1].find("image-0-linear.texture.json") == std::string::npos ||
       decoded_material->texture_uris[2].find("image-0-normal.texture.json") == std::string::npos ||

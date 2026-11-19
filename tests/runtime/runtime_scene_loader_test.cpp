@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/function/scene/camera_selection.hpp>
-#include <gneiss/engine/resource/asset_file.hpp>
 #include "scene/runtime_scene_loader.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -47,10 +47,11 @@ void run() {
   runtime::application_configuration config;
   const auto root = files.root.generic_string();
   config.asset_root = root;
+  config.executor = &scheduler;
   auto created = runtime::application::create(config);
   check(bool(created));
   auto app = *created;
-  check(app->attach_task_executor(scheduler).ok());
+
   host::runtime_scene_loader loader(*app);
   gneiss::ref<host::scene_reload_state> source;
   loader.after_activate = [&](const auto& completion) {

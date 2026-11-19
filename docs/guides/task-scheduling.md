@@ -19,11 +19,18 @@ Editor 和 Runtime 各自在宿主中创建一个 `task_scheduler`。默认使�
 ```cpp
 gneiss::tasks::task_scheduler scheduler({
     .mode = gneiss::tasks::execution_mode::cooperative});
-// 创建 Application 后注入；Application 必须先于 scheduler 销毁。
-auto result = gneiss::application_internal::attach_task_executor(host, scheduler);
-// 在帧循环不持有业务锁的位置显式驱动，再消费各服务完成结果。
-auto driven = scheduler.run_ready({.max_tasks = 8U,
-                                  .max_time = std::chrono::milliseconds(2)});
+gneiss::runtime::application_configuration config;
+config.executor = &scheduler;
+auto created = gneiss::runtime::application::create(config);
+if (!created)
+  return created.error();
+auto application = std::move(*created); // 必须先于 scheduler 关闭、销毁。
+application->add_system(gneiss::app::stage::completions, "tasks", [&] {
+  (void)scheduler.run_ready({.max_tasks = 8U,
+                            .max_time = std::chrono::milliseconds(2)});
+});
+// 注册业务与停止系统，再调用 run；停止排空也会执行 completions。
+return application->run();
 ```
 
 `submit` 只接受和排队；`poll`、`query` 不执行任务。`run_ready` 只属于协作模式，错误模式、错误线程
@@ -38,69 +45,16 @@ auto driven = scheduler.run_ready({.max_tasks = 8U,
 最小 Emscripten 宿主、异常配置和真实浏览器测试命令见[构建指南](building.md#最小无线程浏览器调度验证)。
 这里只验证调度模块，完整 Runtime/Editor Web 及 Emscripten pthreads 不在已验证范围内。
 
-## 渲染资产请求与事务
+## 资产与场景加载
 
-内部宿主用 `request_render_assets` 提交 Mesh/Material/Texture 的 URI/类型批次，保存请求号，
-通过 `poll_textures`（沿用原内部命名）驱动同一服务并消费一次终态；`request_textures` 是纯纹理
-兼容入口。完成对象的 `assets` 保留全部依赖租约，`textures` 保留纹理租约，均须先于 Application
-销毁。`reload=false` 且请求全部命中缓存时不读取磁盘。接口不属于公共安装 SDK。
+资产请求、缓存、批次取消与资源更新规则以 [资产参考](../reference/assets.md) 为准。
+Application 负责服务完成分发，业务系统持有自己的请求；查询请求不驱动底层任务。
+宿主配置、请求观察与关闭顺序见 [Application 参考](../reference/application.md)。
 
-CPU 准备复制只读 VFS 挂载表，在宿主执行器读取 JSON/二进制 Mesh、Material、PNG/KTX2/运行纹理，
-将材质发现的纹理依赖加入闭包，同 URI 只准备一次。挂载后端在服务存活期间不得重配，
-`read_bounded` 须支持并发只读；不支持有界读取的后端返回 unsupported。结束前逐一复查源字节，
-不承诺跨进程原子文件快照。CPU 任务不访问缓存、RID 或 GPU。
-
-主线程暂存 RID 和资源版本，渲染执行器分批创建 GPU 候选，全部确认后才整批发布。
-已有 RID 保持不变，材质依赖随版本保留，旧帧持有旧数据；缺失资源只在成功后进入缓存。
-失败回收候选并保留旧画面。请求接受时保存全局缓存修订，任何缓存映射变化或另一事务发布都会
-保守地使该请求过期，包括不相关 URI；宿主可以在终态失败后重试。
-
-`query_asset_load_progress` 仅查询所属线程状态；`cancel_render_assets` 在首次 GPU 命令接受前
-返回成功并请求取消，之后返回 NOT_READY，当前批次继续完成或回滚。取消不是同步完成；仍须消费
-终态。关闭先停止接收并收尾，再销毁 Application 和宿主池；解码及驱动调用不可强制抢占。
-
-## 限额与可观察性
-
-- 同一服务只允许一个在途请求或一个未消费终态，繁忙返回 NOT_READY。
-- 通用请求及依赖闭包最多 256 个资产；独立源文件合计和 CPU 候选分别限制 256 MiB。
-  单纹理准备仍限制 64 MiB；兼容纹理入口最多 16 个请求 URI。临时读取、解码、复查、GPU 暂存
-  和旧帧资源额外占用内存，以上不是整个进程内存上限。
-- 主线程每次最多暂存四个资产，资产之间检查 2 ms；渲染上传命令每次处理一个资源。
-  网格按实际打包顶点和索引估算，纹理按负载估算；单资源超过预算时单独执行，不无限饥饿。
-  预算不能抢占单个资源或保证驱动耗时上限。网格独立缓冲避免每次更新重建全部几何。
-- Runtime 保序保留最多 16 个待回复资产命令，只有最终成功才推进已应用修订；Scene/Prefab 结构更新
-  保持同步。Editor 待发队列保留原有 1024 引用/128 KiB URI 预算；服务闭包超限
-  明确失败；普通请求逐项处理，部分失败不撤回成功项。
-- Asset IPC 域版本 4，Envelope 仍为 v2；旧域版本不宣称支持新行为。准备/上传以独立 progress
-  事件每 100 ms 至多一次报告会话、修订、上传数量和可取消性。cancel 事件携带会话与修订，
-  只匹配当前请求；过期或迟到取消不影响后续批次。原请求最终只回复一次 applied/failed/cancelled。
-  终态携带逐项 URI、结果码和生效标记，Editor 可展开查看；取消保留已生效内容。
-  Editor 忽略不匹配修订的通知，取消后可重新同步。心跳独立推进。
-- 完成记录包含 CPU 准备、任务排队、提交等待（包含 GPU 等待）、GPU 命令耗时与候选字节数。
-  协作模式单个准备任务仍会阻塞宿主，2 ms 预算仅在任务之间生效。
-- 资产准备的增量读取/内容摘要，线程池单任务字节预算为 16 MiB，协作为 4 MiB。
-  这是工作量边界，不是执行期限；单次打开、解析和解码仍不可被该字节预算抢占，
-  不支持范围读取的后端仍可能执行整文件兼容路径。
-
-## Runtime 完整场景加载
-
-Runtime 启动场景与同工程完整切换使用内部 Scene 加载服务。窗口与 IPC 先运行，宿主执行器
-准备 Scene/Prefab 结构描述，主线程预留资源 RID，并在独立 World 同步实例化。结构就绪即可在安全点激活场景，不等待视觉资源上传。
-
-Scene/Prefab 源描述合计上限 16 MiB，实例节点和依赖各最多 65,536，组合层级最多 1,024。
-结构准备不再复读来源，不保证跨文件版本一致。活动场景会话接管视觉请求，
-每项复用缓存或异步准备、上传；单项 CPU 上限 256 MiB，Application 资源账本限制仍生效。
-未就绪网格跳过绘制，材质和纹理使用缺省资源。失败写入诊断，显式重载可以填充原 RID。
-
-`scene` IPC 域版本 1 与 `asset` 域独立协商。阶段为描述准备、引用建立、实例化、
-等待激活及 applied/failed/cancelled 终态。applied 表示结构激活，不表示视觉资源全部完成。
-新场景请求停止上一场景剩余的自动视觉加载；在途上传先安全收尾。宿主确认可以切换后才
-切换活动场景；动态游戏模块关闭流程已撤销。已成功资源不因取消场景切换而回滚。
-
-结构失败或取消保持活动场景和模块。激活后资源失败不撤回结构。成功切换后旧 World 延迟
-退役，重新建立 Game Context 与检查会话身份；模块回调失败仍不承诺回滚任意游戏副作用。
-`--smoke` 等待结构终态及后续视觉队列完成，再运行少量帧；结构加载失败返回退出码 4，
-主循环或模块回调失败仍返回 7。协作模式复用相同流程，单次解析、解码仍可能阻塞宿主。
+场景结构加载及视觉依赖由 Runtime/Editor 宿主协调。结构就绪与视觉资源完成是不同事件，
+不要把加载状态转换等同于 GPU 已完成。示例 `examples/scene_viewer/main.cpp` 展示 loading/viewing
+状态及双视图释放；Runtime 保持结构激活与后续视觉加载分离。场景实例所有权与切换规则见
+[场景实例参考](../reference/scene-instance.md)。
 
 ## 实际图形验证
 

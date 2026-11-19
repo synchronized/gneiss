@@ -1,19 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <chrono>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 namespace gneiss::test_support {
 inline gneiss::error load_input_for_test(runtime::application& app,
-                                         gneiss::tasks::task_scheduler& scheduler, std::string_view uri) {
+                                         gneiss::tasks::task_scheduler& scheduler,
+                                         std::string_view uri) {
   auto status = app.begin_action_map(uri);
-  if (status == gneiss::error::not_ready) {
-    status = app.attach_task_executor(scheduler);
-    if (status.failed())
-      return status;
-    status = app.begin_action_map(uri);
-  }
   if (status.failed())
     return status;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);

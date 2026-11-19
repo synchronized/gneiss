@@ -77,9 +77,6 @@ inline gneiss::error prepare_scene(runtime::application& app, std::string_view u
                                    bool reload = false) {
   if (!tasks)
     tasks = &application_tasks();
-  const auto attached = app.attach_task_executor(*tasks);
-  if (attached.failed() && attached != gneiss::error::invalid_state)
-    return attached;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   const auto step = [&] {
     if (tasks->mode() == gneiss::tasks::execution_mode::cooperative)

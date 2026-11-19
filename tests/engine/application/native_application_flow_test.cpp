@@ -262,6 +262,7 @@ void action_maps() {
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   config.asset_root = GNEISS_TEST_ASSET_ROOT;
+  config.executor = &scheduler;
   std::shared_ptr<runtime::application> app, other;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   constexpr auto uri = "asset://input/default.input-map.json";
@@ -282,6 +283,8 @@ void action_maps() {
   check(other->get_action_state(action, state) == gneiss::error::invalid_handle);
 }
 void creation_failures() {
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   std::shared_ptr<runtime::application> app;
   unsigned diagnostics{};
@@ -300,10 +303,9 @@ void creation_failures() {
   config.enable_window = false;
   config.window.width = 1280;
   config.asset_root = "gneiss-test-directory-does-not-exist";
+  config.executor = &scheduler;
   // 挂载只配置来源；缺失目录在实际异步读取时报告，不在创建阶段同步探测。
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  gneiss::tasks::task_scheduler scheduler(
-      {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   check(test_support::load_input_for_test(
             *app, scheduler, "asset://input/missing.input-map.json") == gneiss::error::not_found);
   app.reset();

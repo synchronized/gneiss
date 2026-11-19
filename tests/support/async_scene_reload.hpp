@@ -11,9 +11,6 @@ inline gneiss::error activate_scene_for_test(runtime::application& app,
                                              gneiss::tasks::task_scheduler& tasks,
                                              std::string_view uri,
                                              host::scene_open_result& output) {
-  auto attached = app.attach_task_executor(tasks);
-  if (attached.failed() && attached != gneiss::error::invalid_state)
-    return attached;
   host::runtime_scene_loader loader(app);
   loader.after_activate = [&](const auto& result) {
     output = result;

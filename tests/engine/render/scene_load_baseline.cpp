@@ -3,15 +3,13 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
+#include "function/render/detail/frame_packet.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include "function/render/detail/frame_packet.hpp"
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 
-#include <gneiss/engine/function/scene/components.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -19,6 +17,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <iomanip>
 
 #ifdef _WIN32
@@ -145,6 +145,7 @@ int main(int argc, char** argv) try {
   };
   desc.enable_window = true;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   constexpr std::string_view title = "Gneiss Scene Loading Baseline";
   desc.window.title = title;
   // 只有窗口交互验收显示窗口，其余 GPU 测量保持隐藏，避免打断桌面操作。
@@ -153,12 +154,9 @@ int main(int argc, char** argv) try {
   if (scenario == "interact") {
     desc.window.visible = true;
   }
-  if (gneiss::error{gneiss::test_support::assign_value(
-          gneiss::runtime::application::create(desc), app)} != gneiss::error::success ||
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                                       app)} != gneiss::error::success ||
       gneiss::error{app->run(3U)} != gneiss::error::success) {
-    return 3;
-  }
-  if (app->attach_task_executor(scheduler) != gneiss::error::success) {
     return 3;
   }
   gneiss::scene_instance scene{};
@@ -175,8 +173,7 @@ int main(int argc, char** argv) try {
       std::fprintf(stderr, "异步预载失败：结果=%d\n", preload.code());
       return 11;
     }
-    if (previous_scene == gneiss::scene_instance{} ||
-        app->native_world() == nullptr ||
+    if (previous_scene == gneiss::scene_instance{} || app->native_world() == nullptr ||
         gneiss::error{app->run(10U)} != gneiss::error::success) {
       return 11;
     }
@@ -188,8 +185,7 @@ int main(int argc, char** argv) try {
       }
     }
     previous_resources = app->render().live_resource_count();
-    if (preserve &&
-        app->capture_frame(1024U, 768U, previous_image) != gneiss::error::success) {
+    if (preserve && app->capture_frame(1024U, 768U, previous_image) != gneiss::error::success) {
       return 11;
     }
   }
@@ -252,8 +248,8 @@ int main(int argc, char** argv) try {
   {
     gneiss::asset_request<gneiss::scene> request;
     gneiss::asset_batch_request visuals;
-    result = gneiss::test_support::take_value(app->assets().load<gneiss::scene>(source_uri),
-                                              request);
+    result =
+        gneiss::test_support::take_value(app->assets().load<gneiss::scene>(source_uri), request);
     if (result.ok() && scenario == "cancel-prepare") {
       cancel_start = clock_type::now();
       request.cancel();
@@ -426,8 +422,7 @@ int main(int argc, char** argv) try {
       return gneiss::error::success;
     };
     if (result == gneiss::error::success) {
-      const auto run_result =
-          static_cast<gneiss::error>(gneiss::error{app->run(0U)});
+      const auto run_result = static_cast<gneiss::error>(gneiss::error{app->run(0U)});
       if (run_result != gneiss::error::success) {
         result = run_result;
       }
@@ -502,8 +497,7 @@ int main(int argc, char** argv) try {
   bool retried{};
   if (scenario == "failure") {
     const auto retry_start = clock_type::now();
-    if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) !=
-        gneiss::error::success)
+    if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) != gneiss::error::success)
       return 16;
     previous_scene.unload();
     if (gneiss::error{app->run(60U)} != gneiss::error::success)

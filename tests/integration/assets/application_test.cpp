@@ -6,8 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #ifdef GNEISS_TEST_NATIVE_WINDOW
 #define WIN32_LEAN_AND_MEAN
@@ -29,6 +29,7 @@ void close_pending_window(const char* assets) {
   gneiss::tasks::task_scheduler scheduler({.workers = 1});
   runtime::application_configuration config;
   config.asset_root = assets;
+  config.executor = &scheduler;
   config.enable_window = true;
   config.window.visible = false;
   config.window.title = "Gneiss Asset pending close test";
@@ -41,7 +42,7 @@ void close_pending_window(const char* assets) {
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
             gneiss::error::success,
         "window create");
-  check(app->attach_task_executor(scheduler) == gneiss::error::success, "window attach");
+
   std::promise<void> release, entered;
   auto future = release.get_future().share();
   auto started = entered.get_future();
@@ -102,6 +103,7 @@ void run(const char* assets, bool cooperative) {
   const auto root_text = root.generic_string();
   runtime::application_configuration config;
   config.asset_root = root_text;
+  config.executor = &scheduler;
   std::shared_ptr<runtime::application> app;
   unsigned frames = 0;
   bool seen_ready = false;
@@ -118,9 +120,7 @@ void run(const char* assets, bool cooperative) {
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
             gneiss::error::success,
         "create");
-  check(app->begin_action_map("asset://input/default.input-map.json") == gneiss::error::not_ready,
-        "requires executor");
-  check(app->attach_task_executor(scheduler) == gneiss::error::success, "attach");
+
 #if !GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
   // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器内存后端则验证完整加载流程。
   check(app->begin_action_map("asset://input/default.input-map.json").ok(),
@@ -218,7 +218,7 @@ void run(const char* assets, bool cooperative) {
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
             gneiss::error::success,
         "recreate application");
-  check(app->attach_task_executor(scheduler) == gneiss::error::success, "reuse executor");
+
   check(app->begin_action_map("asset://input/default.input-map.json") == gneiss::error::success,
         "new owner begins input");
   wait();

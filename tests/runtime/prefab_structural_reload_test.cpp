@@ -4,11 +4,11 @@
 #include "../support/async_application.hpp"
 #include "../support/async_scene_reload.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
@@ -21,17 +21,14 @@
 namespace {
 
 constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
-const gneiss::guid source_root_uuid =
-    *gneiss::guid::parse("30000000-0000-4000-8000-000000000002");
-const gneiss::guid source_child_uuid =
-    *gneiss::guid::parse("30000000-0000-4000-8000-000000000003");
+const gneiss::guid source_root_uuid = *gneiss::guid::parse("30000000-0000-4000-8000-000000000002");
+const gneiss::guid source_child_uuid = *gneiss::guid::parse("30000000-0000-4000-8000-000000000003");
 const gneiss::guid first_instance_uuid =
     *gneiss::guid::parse("30000000-0000-4000-8000-000000000012");
 const gneiss::guid second_instance_uuid =
     *gneiss::guid::parse("30000000-0000-4000-8000-000000000013");
 
-void write_prefab(const std::filesystem::path& path, gneiss::guid root_uuid,
-                  bool add_child) {
+void write_prefab(const std::filesystem::path& path, gneiss::guid root_uuid, bool add_child) {
   std::string json =
       std::string{
           R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"30000000-0000-4000-8000-000000000001","root_uuid":"30000000-0000-4000-8000-000000000004","objects":[{"uuid":"30000000-0000-4000-8000-000000000004","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[]},{"uuid":")"} +
@@ -74,6 +71,7 @@ int main() try {
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  config.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance scene = {};
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";

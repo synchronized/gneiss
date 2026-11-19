@@ -38,6 +38,7 @@ int main() try {
   constexpr std::string_view missing_uri = "asset://scenes/missing.scene.json";
   const std::string asset_root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::world* world = nullptr;

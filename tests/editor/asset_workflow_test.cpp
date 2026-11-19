@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/registration.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
 #include "../support/async_document.hpp"
 #include "../support/async_editor_save.hpp"
 #include "../support/async_mesh_edit.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "assets/asset_reimport_queue.hpp"
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
 #include "project/package_archive.hpp"
 #include "project/project_workspace.hpp"
 #include "runtime/runtime_process.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/protocol/registration.hpp>
 
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
@@ -58,7 +58,8 @@ bool wait_for(gneiss::host::runtime_process& process, Predicate predicate) {
 }
 
 int main() try {
-  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed()) return 98;
+  if (gneiss::initialize_meta(gneiss::protocol::register_types).failed())
+    return 98;
   using namespace gneiss;
   using namespace gneiss::editor;
   temporary_project temporary{
@@ -88,20 +89,20 @@ int main() try {
   const auto previous_material = read_text(material_path);
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root;
   gneiss::world* world{};
   scene_edit_session session;
   entity_id node;
-  if (gneiss::error{gneiss::test_support::assign_value(
-          gneiss::runtime::application::create(desc), app)} != gneiss::error::success ||
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                                       app)} != gneiss::error::success ||
       (world = app->native_world()) == nullptr ||
       gneiss::test_support::open_document(session, *app, world, project.startup_scene) !=
           gneiss::error::success ||
       gneiss::test_support::create_mesh_document(*app, session, "Imported", *mesh, *material,
                                                  node) != gneiss::error::success ||
-      gneiss::test_support::save_document(session, project.asset_root) !=
-          gneiss::error::success) {
+      gneiss::test_support::save_document(session, project.asset_root) != gneiss::error::success) {
     return 5;
   }
   session.close();
@@ -121,8 +122,7 @@ int main() try {
     }
     return code;
   };
-  if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) !=
-          gneiss::error::success ||
+  if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) != gneiss::error::success ||
       !wait_for(runtime, [&] {
         return runtime.control_state() == runtime_control_state::running &&
                runtime.scene_load_status().phase == ipc_scene_phase::applied;

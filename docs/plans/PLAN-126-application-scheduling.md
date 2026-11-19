@@ -13,7 +13,7 @@
 `engine/src/function/application/application.cpp` 同时维护服务装配、唯一 World、渲染视图、
 Action Map 加载、环境文件读取、资产批次及主循环。`create()` 后还需安装任务执行器；
 `run(1)` 返回时会执行帧收尾，不能直接作为外部事件循环的一步。Editor、Runtime、项目管理器
-分别协调分步关闭。以上为源码现状，不是目标接口。
+分别协调分步关闭。以上为实施前问题；迁移现状见下方进度表。
 
 目标是通过共享基础循环与宿主系统组合支持三种真实用例，不建立另一套 ECS 或业务对象所有权。
 
@@ -161,103 +161,35 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 4. 服务装配的拥有与借用执行器形式：默认唯一拥有，确有共享线程池需求时显式声明借用期限。
 5. 同状态请求：建议视为无操作；需要重新加载时由明确业务操作触发，不隐式重复 Enter/Exit。
 
-## 当前验收记录
+## 当前进度与剩余工作
 
-首批实现接入 Application 的 update / synchronize / present 具名串行系统：
-- 首次 run 冻结注册；名称唯一、同阶段按注册顺序执行；支持无参数或 frame_time 参数，
-  返回 void、result<void>，过渡期兼容 error。
-- 系统可恢复失败携带系统名称报告，停止本帧后续系统并清理运行标记；意外异常保持向外传播。
-- update 后刷新 World 变化，再执行 synchronize / present，最后由旧路径提交渲染。
-- 项目选择界面已使用具名 update 系统，移除其旧 callbacks.update；单个 Application 禁止混用两者。
+| 范围 | 已实现 | 尚未完成 |
+| --- | --- | --- |
+| 调度与状态 | 五个阶段、枚举状态、延迟转换、冲突拒绝、具名错误 | 服务启动装配的最终 API |
+| 生命周期 | run/step 共用推进，pending/complete 停止，停止时完成分发 | 删除测试中的 run(n) 与分步关闭旧入口 |
+| 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除 | 默认 World、视口、绑定移交 Session |
+| 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景 | Session 接管 World、输入加载、暂停、渲染绑定 |
+| Editor | completions/update、取消/等待/释放三段停止，删除手动服务关闭循环 | World/视口归属及旧业务转发清理 |
+| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | scene_viewer 的 World/视口归属迁移 |
 
-这是 A126-02 的阶段成果，不代表该项完成。默认 World、服务初始化、事件分发、Render 提交、
-宿主手动关闭仍沿用原路径；共享 run/step、无 World 宿主和 Session 所有权迁移尚待实现。
-注册 callable 的借用捕获必须覆盖运行及关闭过程；调度表只在 cpp 内实现，不传播断言库依赖。
+当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
+不能把多个宿主使用新 run 等同于整体所有权迁移完成。旧 attach_task_executor 已从源码删除，
+测试配置显式指定执行器，等待辅助不再隐式装配或吞掉 attach 错误。
+停止阶段保留文档用于卸载清理，但资产编辑入口与统一内容修改入口拒绝新请求。
 
-验证：Windows Clang Debug 的 gneiss_editor 与 gneiss_native_application_flow_test 构建通过；
-原生流程测试通过，覆盖跨阶段排序、同阶段顺序、失败中止和再次运行。未执行真实窗口交互与 GPU 验收。
+### 已完成验证
 
-### 业务状态调度阶段
+- Windows Clang Debug 全量构建通过。213 项 CPU 回归首次 211 项通过；资产编辑关闭边界
+  修复后回归通过。预制体编辑独跑通过（约 42 秒），原 45 秒上限缺少并行调度余量，
+  防挂死超时改为 90 秒；两项失败用例重跑均通过，预制体编辑耗时约 30 秒。
 
-已接入 init_state、request_state、state<T> 与 on_enter/on_update/on_exit。
-具体当前契约及用例见 [Application Reference](../reference/application.md#具名系统与业务状态)。
-注册采用直接传入“状态、名称、callable”，暂不为链式 add 创建代理对象；具名系统的状态条件
-与普通 update 共用同一个序列。当前支持宿主枚举，类型身份复用 Base type_id，无反射注册依赖。
+- Windows Clang Debug：Runtime、Editor、两例及两项 Application 回归目标构建通过。
+- native-application、native-application-flow、texture-load-application、minimal-example 回归通过。
+- 项目选择器 smoke 退出 0，但 GPU 实际执行帧数为 0，仅作为生命周期证据。
+- Editor editor_demo 普通/协作 smoke 退出 0，执行 11/10 个 GPU 帧，无资源关闭错误。
+- Runtime editor_demo 普通/协作 smoke 退出 0，执行 5/4 个 GPU 帧，任务 submitted=completed=3、
+  retained=0；runtime.scene-loader 回归通过。
+- scene_viewer --smoke --dual-view 退出 0，覆盖两组目标尺寸和双相机图像差异回读。
 
-项目选择界面由初始 selecting 状态的 Enter 初始化 UI，按状态执行更新。
-UI 关闭仍由宿主在关闭服务前执行。状态转换失败会阻止重放，但统一受控关闭仍待生命周期迁移，
-因此 A126-02 保持未完成。下一步需先把宿主 UI/任务释放纳入停止协议，再统一 run/step；
-不能直接把现有 run(1) 改为每次关闭，也不能把 GPU finish_frames 搬到每次 step 中。
-
-验证：Windows Clang Debug 构建 gneiss_editor、gneiss_native_application_flow_test 通过；
-原生流程测试通过，包含多状态隔轮转换、冲突合并、同值无操作、失败不重放与退出优先。
-未执行真实项目选择界面交互、GPU 或其他平台验收。
-
-### 宿主同步停止阶段
-
-已接入 on_stop，并把项目选择界面的任务排空、UI 释放移入具名停止系统。
-当前顺序与错误契约见 [Application Reference](../reference/application.md#宿主停止清理)。
-显式关闭、未运行即关闭和析构保底共用一次清理；关闭开始后不再接受 run。
-修正 UI shutdown 对 accepts_requests 的错误依赖，允许停止阶段释放现有资源。
-
-这是同步宿主清理的闭环，不是非阻塞停止协议。项目选择界面仍使用已有 close_scope 同步排空，
-服务关闭仍通过旧 request_shutdown/advance_shutdown 驱动。下一步将任务完成凭据纳入停止阶段，
-然后共用 run/step 生命周期；不得把同步阻塞步骤包装成已支持浏览器的异步单步能力。
-
-验证：Windows Clang Debug 编辑器及两项 Application 测试目标构建通过；
-gneiss.native-application-flow、gneiss.native-application 均通过。覆盖清理顺序、失败继续、
-关闭后拒绝运行、显式关闭与析构幂等；未运行真实窗口/GPU 或浏览器验收。
-
-### 共用生命周期执行阶段
-
-已提取单帧推进并接入 step()/无参数 run()；停止步骤支持 pending/complete，等待期间继续分发
-完成消息。项目选择界面已改用 try_close_scope 和完整 run()，删除手动服务关闭循环。
-当前契约见 Application Reference。旧 run(n) 仅作为迁移桥接，尚待其余消费者迁移后删除。
-默认 World、Session 所有权、启动装配及旧业务转发清理尚未完成，A126-02 不标记为完成。
-
-验证：Windows Clang Debug 编辑器及两项 Application 测试构建、运行通过；新增非阻塞停止、
-共享循环失败清理、重入拒绝和终态幂等验证。未执行真实窗口/GPU 验收。
-
-### 装配审计与旧实现清理
-
-已确认旧 service_registry 只有自身测试调用，无生产消费者；删除实现、头文件、测试和目标，
-不把其虚拟 Service 层扩展为新调度器。Application 复制窗口标题、资产根、用户根与环境 URI，
-异步回调不再借用调用方配置字符串。相关构建及两项 Application 回归通过。
-
-项目选择界面实际 --smoke 启动/关闭退出码为 0，无资源关闭错误；渲染统计实际执行帧为 0，
-因此仅记为生命周期验收，不记为画面/GPU 渲染验收。
-
-### Editor 停止迁移
-
-Editor 更新已进入具名系统；协作任务放入 completions，在普通运行和停止期间共用分发。
-停止分为开始取消/布局保存、等待会话、释放 UI/文档三个步骤，删除手动 while 关闭循环。
-取消场景加载与文档存活查询不再错误依赖 accepts_requests；新业务操作仍保留请求校验。
-
-验证：两项 Application 回归通过；Editor editor_demo 普通与 cooperative-tasks smoke 均退出 0，
-分别执行 11 和 10 个 GPU 帧，无资源关闭错误。A126-04 仍未完成：World/视口归属与其他旧入口
-尚未迁移，多 World/重新打开工程尚待相应变更后验收。
-
-### Runtime 停止迁移
-
-Runtime 已使用 completions/update 系统与完整 run()，删除手动服务关闭循环。
-停止回调放弃场景/重载请求、解除属性编辑绑定、卸载场景；运行所有者在会话对象之后建立，
-保证异常展开期间停止回调的借用仍有效。IPC 终止通知保留在 run 返回之后，仍能报告最终结果。
-
-验证：Runtime 普通及 cooperative-tasks 的 editor_demo smoke 均退出 0，分别执行 5、4 个 GPU 帧，
-任务统计 submitted=completed=3、retained=0，无资源关闭错误；scene-loader 回归通过。
-World/视口归属和业务转发尚未迁移，A126-03 仍未完成。
-
-### 创建时配置任务执行器
-
-创建配置已支持借用 executor，Runtime/Editor 改为创建时完成资产服务装配。
-旧 attach 仍供未迁移测试使用，删除条件是这些创建夹具完成迁移；不作为新宿主 API。
-验证：Runtime、Editor、纹理加载回归目标构建通过，texture-load-application 回归通过。
-
-### 示例生命周期迁移
-
-minimal 使用独立拥有的 World，具名 update/synchronize 与 on_stop；scene_viewer 使用
-loading/viewing 状态提交、领取加载请求，双视图尺寸切换在运行系统中执行，停止系统释放目标与场景。
-两例不再使用旧 run(n)、callbacks.update 或手动 shutdown；场景查看器的 World/视口仍待迁移。
-
-验证：两例及两项 Application 目标构建通过，Application 两项回归和 minimal 通过；
-scene_viewer --smoke --dual-view 真实窗口运行退出 0，包含两组目标尺寸及双相机图像差异回读。
+尚未验证其他平台、完整浏览器宿主、多 World 视口与项目关闭后重开；这些随对应所有权迁移验收。

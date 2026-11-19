@@ -11,9 +11,9 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
@@ -100,9 +100,10 @@ void run_asset_reload() {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
-  check(app->attach_task_executor(scheduler).ok());
+
   const auto reload = [&](std::span<const gneiss::render_resource_source> requests) {
     gneiss::asset_batch_request assets_request;
     auto status =
@@ -186,6 +187,7 @@ void run_pending_resources() {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &gneiss::test_support::application_tasks();
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -387,12 +389,13 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   if (async) {
-    check(app->attach_task_executor(scheduler).ok());
+
     auto request = app->assets().load<gneiss::scene>(uri);
     check(bool(request));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
@@ -509,6 +512,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &gneiss::test_support::application_tasks();
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -640,6 +644,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &gneiss::test_support::application_tasks();
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -726,9 +731,10 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
   check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
@@ -866,9 +872,10 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   desc.enable_window = true;
   desc.window.visible = false;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==

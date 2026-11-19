@@ -3,10 +3,10 @@
 
 #include "../support/async_scene_reload.hpp"
 #include "../support/logging.hpp"
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
@@ -69,6 +69,7 @@ int main() try {
     }) && visual_failures == expected;
   };
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  config.executor = &scheduler;
   auto created = gneiss::runtime::application::create(config);
   if (!created)
     return 1;

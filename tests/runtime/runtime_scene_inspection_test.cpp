@@ -7,10 +7,10 @@
 #include "../support/value_result.hpp"
 #include "inspection/runtime_property_editor.hpp"
 #include "inspection/runtime_scene_inspection.hpp"
-#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
@@ -42,13 +42,11 @@ bool test_full_and_incremental_snapshot() {
   using namespace gneiss::host;
   runtime_scene_inspection inspection(77U);
   std::vector<runtime_scene_source_node> nodes{
-      make_node(10U, 0U, *gneiss::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"),
-                "Root"),
-      make_node(20U, 10U, *gneiss::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"),
-                "Child")};
+      make_node(10U, 0U, *gneiss::guid::parse("21470280-22a3-5087-9443-62d27dfc4bbf"), "Root"),
+      make_node(20U, 10U, *gneiss::guid::parse("0552e973-b75c-5936-a81b-c56bcd7688d5"), "Child")};
   runtime_scene_snapshot snapshot;
-  if (inspection.capture(nodes, false, snapshot) != gneiss::error::success ||
-      !snapshot.is_full || snapshot.stamp.session_id != 77U || snapshot.stamp.sequence != 1U ||
+  if (inspection.capture(nodes, false, snapshot) != gneiss::error::success || !snapshot.is_full ||
+      snapshot.stamp.session_id != 77U || snapshot.stamp.sequence != 1U ||
       snapshot.changes.size() != 2U || snapshot.changes[0].node.parent.is_valid() ||
       snapshot.changes[1].node.parent != snapshot.changes[0].id) {
     return false;
@@ -86,8 +84,7 @@ bool test_full_and_incremental_snapshot() {
       snapshot.changes[0].id != old_child_id) {
     return false;
   }
-  nodes.push_back(make_node(30U, 10U,
-                            *gneiss::guid::parse("34c70a8f-c340-5fb3-9a78-64e4fd396cf0"),
+  nodes.push_back(make_node(30U, 10U, *gneiss::guid::parse("34c70a8f-c340-5fb3-9a78-64e4fd396cf0"),
                             "Replacement"));
   if (inspection.capture(nodes, false, snapshot) != gneiss::error::success ||
       snapshot.changes.size() != 1U || snapshot.changes[0].id.value != old_child_id.value ||
@@ -95,8 +92,8 @@ bool test_full_and_incremental_snapshot() {
       snapshot.changes[0].node.parent != root_id) {
     return false;
   }
-  return inspection.capture(nodes, true, snapshot) == gneiss::error::success &&
-         snapshot.is_full && snapshot.stamp.sequence == 5U && snapshot.changes.size() == 2U;
+  return inspection.capture(nodes, true, snapshot) == gneiss::error::success && snapshot.is_full &&
+         snapshot.stamp.sequence == 5U && snapshot.changes.size() == 2U;
 }
 
 // 动态对象没有文档来源，IPC 身份按运行实体区分，不能用共享的 nil UUID 合并。
@@ -127,25 +124,24 @@ bool test_validation_and_reset() {
   using namespace gneiss::host;
   runtime_scene_inspection invalid(0U);
   runtime_scene_snapshot snapshot;
-  std::vector<runtime_scene_source_node> nodes{make_node(
-      1U, 0U, *gneiss::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"), "Node")};
+  std::vector<runtime_scene_source_node> nodes{
+      make_node(1U, 0U, *gneiss::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"), "Node")};
   if (invalid.capture(nodes, false, snapshot) != gneiss::error::invalid_argument) {
     return false;
   }
   runtime_scene_inspection inspection(1U);
-  nodes.push_back(make_node(
-      1U, 0U, *gneiss::guid::parse("1b6731aa-61df-5a06-beca-f74909e7a766"), "Duplicate"));
+  nodes.push_back(
+      make_node(1U, 0U, *gneiss::guid::parse("1b6731aa-61df-5a06-beca-f74909e7a766"), "Duplicate"));
   if (inspection.capture(nodes, false, snapshot) != gneiss::error::invalid_argument) {
     return false;
   }
-  nodes = {make_node(1U, 99U, *gneiss::guid::parse("96eadd94-e998-5d37-9d62-c408d137eb09"),
-                     "Orphan")};
+  nodes = {
+      make_node(1U, 99U, *gneiss::guid::parse("96eadd94-e998-5d37-9d62-c408d137eb09"), "Orphan")};
   if (inspection.capture(nodes, false, snapshot) != gneiss::error::invalid_argument) {
     return false;
   }
   inspection.reset(2U);
-  nodes = {make_node(1U, 0U, *gneiss::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"),
-                     "Node")};
+  nodes = {make_node(1U, 0U, *gneiss::guid::parse("f75c07c9-9e51-51b7-8dab-cffc2bf231c9"), "Node")};
   return inspection.capture(nodes, false, snapshot) == gneiss::error::success &&
          snapshot.stamp.session_id == 2U && snapshot.stamp.sequence == 1U && snapshot.is_full;
 }
@@ -154,25 +150,22 @@ bool test_empty_scene_is_stable() {
   gneiss::host::runtime_scene_inspection inspection(3U);
   gneiss::host::runtime_scene_snapshot snapshot;
   const std::vector<gneiss::host::runtime_scene_source_node> nodes;
-  return inspection.capture(nodes, false, snapshot) == gneiss::error::success &&
-         snapshot.is_full && snapshot.stamp.sequence == 1U && snapshot.changes.empty() &&
+  return inspection.capture(nodes, false, snapshot) == gneiss::error::success && snapshot.is_full &&
+         snapshot.stamp.sequence == 1U && snapshot.changes.empty() &&
          inspection.capture(nodes, false, snapshot) == gneiss::error::not_ready;
 }
 
 bool test_prefab_composite_identity() {
   using namespace gneiss::host;
   runtime_scene_inspection inspection(4U);
-  auto first = make_node(
-      1U, 0U, *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c"), "First");
+  auto first =
+      make_node(1U, 0U, *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c"), "First");
   first.prefab_instance_uuid = *gneiss::guid::parse("6693b403-d7fb-5b73-ab3a-da0bbe718045");
-  first.prefab_source_node_uuid =
-      *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c");
-  auto second = make_node(
-      2U, 0U, *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c"), "Second");
-  second.prefab_instance_uuid =
-      *gneiss::guid::parse("940a392c-a4eb-55a6-a13d-682e4ff6290b");
-  second.prefab_source_node_uuid =
-      *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c");
+  first.prefab_source_node_uuid = *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c");
+  auto second =
+      make_node(2U, 0U, *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c"), "Second");
+  second.prefab_instance_uuid = *gneiss::guid::parse("940a392c-a4eb-55a6-a13d-682e4ff6290b");
+  second.prefab_source_node_uuid = *gneiss::guid::parse("117a1bb4-e8b7-5da7-b737-9d7cf00fff3c");
   const std::vector<runtime_scene_source_node> nodes{first, second};
   runtime_scene_snapshot snapshot;
   return inspection.capture(nodes, false, snapshot) == gneiss::error::success &&
@@ -187,6 +180,7 @@ bool test_capture_prefab_scene() {
   constexpr std::string_view asset_root = GNEISS_RUNTIME_TEST_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance scene = {};
@@ -234,8 +228,7 @@ bool test_capture_prefab_scene() {
     return false;
   scene.unload();
   const bool unloaded = !scene.is_valid();
-  const bool destroyed =
-      gneiss::error{application->shutdown()} == gneiss::error::success;
+  const bool destroyed = gneiss::error{application->shutdown()} == gneiss::error::success;
   return valid && unloaded && destroyed;
 }
 

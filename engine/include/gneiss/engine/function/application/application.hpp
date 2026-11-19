@@ -125,8 +125,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error
   capture_frame(std::uint32_t width, std::uint32_t height, gneiss::render::frame_image& output);
   [[nodiscard]] GNEISS_ENGINE_API gneiss::render::queue_stats render_statistics() const;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  attach_task_executor(gneiss::tasks::task_executor& executor);
   [[nodiscard]] GNEISS_ENGINE_API bool has_asset_loading_service() const noexcept;
   /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::result<gneiss::asset_batch_request>

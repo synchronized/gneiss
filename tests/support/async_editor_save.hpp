@@ -26,6 +26,7 @@ inline gneiss::error save_document(editor::scene_edit_session& document,
                                    const std::filesystem::path& root, std::string* saved = nullptr,
                                    std::string_view uri = {}) {
   runtime::application_configuration config;
+  config.executor = &gneiss::test_support::application_tasks();
   config.writable_assets = true;
   const auto root_text = root.generic_string();
   config.asset_root = root_text;
@@ -53,6 +54,7 @@ struct author_scene {
   editor::scene_document_snapshot before, after;
   bool open(const std::filesystem::path& root, std::string_view uri) {
     runtime::application_configuration config;
+    config.executor = &gneiss::test_support::application_tasks();
     config.writable_assets = true;
     const auto text = root.generic_string();
     config.asset_root = text;

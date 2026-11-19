@@ -498,12 +498,6 @@ std::uint64_t application::current_state(type_id type) const {
   return storage_->systems_.current(type);
 }
 
-gneiss::error application::attach_task_executor(gneiss::tasks::task_executor& executor) {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  return configure_executor(executor);
-}
-
 error application::configure_executor(tasks::task_executor& executor) {
   if (storage_->asset_loading_.get())
     return error::invalid_state;

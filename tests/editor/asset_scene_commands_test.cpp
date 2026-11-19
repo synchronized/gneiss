@@ -4,18 +4,18 @@
 #include "../support/document_prefab.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/editor_asset_edit.hpp"
 #include "documents/commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
+#include <chrono>
+#include <cstdio>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <chrono>
-#include <cstdio>
 #include <thread>
 
 #include <gneiss/engine/core/math/transform.hpp>
@@ -30,6 +30,7 @@ int main() try {
   gneiss::runtime::application_configuration desc;
   desc.asset_root = assets;
   gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  desc.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::world* world = nullptr;
   document_editing editing;
@@ -40,8 +41,7 @@ int main() try {
   if (gneiss::error{
           gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)}
           .failed() ||
-      (world = app->native_world()) == nullptr || app->attach_task_executor(scheduler).failed() ||
-      camera.initialize().failed() ||
+      (world = app->native_world()) == nullptr || camera.initialize().failed() ||
       loader.request(*app, editing, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }

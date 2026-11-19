@@ -29,8 +29,7 @@ using namespace gneiss;
 namespace {
 
 constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
-const gneiss::guid camera_uuid =
-    *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
+const gneiss::guid camera_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
 constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
 constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
 
@@ -50,6 +49,7 @@ create_application(const std::filesystem::path& root,
                    std::shared_ptr<gneiss::runtime::application>& output) {
   const auto root_text = root.generic_string();
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = root_text;
   return gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output);
 }
@@ -104,8 +104,7 @@ int main() try {
   gneiss::entity_id empty_parent;
   gneiss::entity_id empty_child;
   if (session.create_node("Empty Parent", {}, empty_parent) != gneiss::error::success ||
-      session.create_node("Empty Child", empty_parent, empty_child) !=
-          gneiss::error::success ||
+      session.create_node("Empty Child", empty_parent, empty_child) != gneiss::error::success ||
       session.rename_node(empty_child, "Renamed Child") != gneiss::error::success ||
       session.reparent_node(created_node, empty_parent) != gneiss::error::success) {
     return 13;
@@ -175,8 +174,7 @@ int main() try {
       read_text(scene_path) != saved) {
     return 10;
   }
-  const gneiss::guid new_scene_uuid =
-      *gneiss::guid::parse("00000000-0000-4000-8000-000000000099");
+  const gneiss::guid new_scene_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000099");
   constexpr std::string_view new_scene_uri = "asset://scenes/new.scene.json";
   std::string converted_uri;
   if (gneiss::editor::make_asset_uri(root, root / "scenes" / "new.scene.json", converted_uri) !=
@@ -190,8 +188,7 @@ int main() try {
   if (session.create_empty(*application, world, new_scene_uuid) != gneiss::error::success ||
       !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
       session.create_node("Root", {}, new_node) != gneiss::error::success ||
-      gneiss::test_support::save_document(session, root) !=
-          gneiss::error::invalid_argument ||
+      gneiss::test_support::save_document(session, root) != gneiss::error::invalid_argument ||
       gneiss::test_support::save_document(session, root, nullptr, new_scene_uri) !=
           gneiss::error::success ||
       session.is_dirty() || session.uri() != new_scene_uri ||
@@ -209,8 +206,7 @@ int main() try {
   gneiss::scene_instance reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::error::success ||
       gneiss::test_support::load_scene(*reloaded_application, scene_uri, &reloaded_scene, nullptr,
-                                       false,
-                                       &reloaded_objects) != gneiss::error::success) {
+                                       false, &reloaded_objects) != gneiss::error::success) {
     return 11;
   }
   const auto camera_binding = std::ranges::find_if(reloaded_objects, [&](const auto& binding) {
@@ -223,8 +219,7 @@ int main() try {
     return 12;
   const auto camera = reloaded_application->native_world()->object(camera_binding->entity);
   const auto created = reloaded_application->native_world()->object(created_binding->entity);
-  if (!camera || !created ||
-      std::abs(camera->local_transform().translation[0] - 7.0F) > 0.0001F)
+  if (!camera || !created || std::abs(camera->local_transform().translation[0] - 7.0F) > 0.0001F)
     return 12;
   reloaded_scene.unload();
   if (camera->is_valid() || created->is_valid() || reloaded_scene.is_valid())

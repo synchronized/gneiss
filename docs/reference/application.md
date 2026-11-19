@@ -21,12 +21,12 @@ Application 拥有 World、平台状态、资源服务及可选窗口。`native_
 
 创建配置的 `executor` 借用宿主任务执行器，必须覆盖 Application 关闭。提供执行器时在创建过程中
 完成资产服务装配；省略时不启用资产任务。协作执行器由宿主的 completions 系统执行 run_ready。
-旧 attach_task_executor 仅供尚未迁移的测试使用，不用于新的宿主装配。
+不提供创建后 attach；是否装配资产执行器在创建时确定。
 
 ## 加载请求
 
 Application 每帧在 update 回调前统一处理文件完成、资产管理器和共享资源批次。
-自定义宿主循环调用 `run(1)` 驱动完整一帧；业务回调内不重入 run。
+自定义宿主循环调用 `step()` 驱动一轮并处理停止状态；业务回调内不重入循环。
 场景打开、来源重载、实例化及替换策略由 Runtime/Editor 宿主加载器维护。
 示例直接使用资产请求与组合/实例化接口；examples/support/scene_activation.hpp 仅复用示例装配。
 
@@ -101,7 +101,8 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 服务最终关闭仍遵循后端回收协议。意外异常向外传播，桌面析构作为同步清理保底。
 
 迁移期间旧 run(max_frame_count) 仍保留有界执行与 GPU 帧收尾，不能在使用 step 后调用旧入口。
-项目选择界面已使用 run()；其他宿主逐条迁移，旧入口尚未删除。业务 OnExit 只用于状态转换。
+项目选择界面、Runtime、Editor 和两个示例均使用 run()；旧入口仍供未迁移的测试使用。
+业务 OnExit 只用于状态转换。
 
 ## 宿主停止清理
 
@@ -132,8 +133,8 @@ error::not_ready 仍是错误，不代替 pending。同步 shutdown/析构可等
 不创建窗口、不初始化 GPU 设备，仍可执行逻辑循环与 CPU 资产加载。窗口模式不允许同时提供平台 initialize、
 poll_events 或 shutdown 回调，业务 update 与时间回调仍可使用。
 
-Application 私有持有 `gneiss::window_service`，负责窗口生命周期及键盘/鼠标事件轮询。
-`engine/platform/window_service.hpp` 不包含 Granit 头；具体窗口类型、原生句柄提取和事件转换
+Application 私有持有 `gneiss::window::service`，负责窗口生命周期及键盘/鼠标事件轮询。
+`engine/include/gneiss/engine/platform/window/service.hpp` 不包含 Granit 头；具体窗口类型、原生句柄提取和事件转换
 封装在 `.cpp` 的 PImpl 中。服务只能由所属线程使用，不可复制或移动；原生窗口信息仅供内部渲染桥接，
 不能超过服务生命周期。Application 先关闭渲染，再销毁窗口服务。
 当前只有 Granit 实现，没有后端工厂或运行期实现选择；暂未接入 Granit headless 离屏渲染。

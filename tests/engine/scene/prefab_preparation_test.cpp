@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
+#include <chrono>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/resource/prefab.hpp>
-#include <chrono>
 #include <thread>
 
 bool run(gneiss::tasks::execution_mode mode) {
@@ -14,10 +14,10 @@ bool run(gneiss::tasks::execution_mode mode) {
   const std::string root = GNEISS_TEST_ASSET_ROOT;
   gneiss::runtime::application_configuration description;
   description.asset_root = root;
+  description.executor = &executor;
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(description),
-                                         application) != gneiss::error::success ||
-      application->attach_task_executor(executor) != gneiss::error::success) {
+                                         application) != gneiss::error::success) {
     return false;
   }
   for (int attempt = 0; attempt < 3; ++attempt) {

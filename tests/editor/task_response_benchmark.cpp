@@ -3,12 +3,12 @@
 
 #include "../support/async_document.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "assets/asset_background_worker.hpp"
 #include "assets/author_asset_service.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <gneiss/engine/core/base/error.hpp>
@@ -75,6 +75,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   const auto asset_text = assets.generic_string();
   gneiss::runtime::application_configuration desc;
   desc.asset_root = asset_text;
+  desc.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::world* world{};
   scene_edit_session session;
@@ -82,8 +83,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
               gneiss::runtime::application::create(desc), app)} == gneiss::error::success &&
               (world = app->native_world()) != nullptr,
           "基准应用创建失败");
-  require(authors.initialize(app->async_files()) == gneiss::error::success,
-          "作者服务启动失败");
+  require(authors.initialize(app->async_files()) == gneiss::error::success, "作者服务启动失败");
   const auto baseline_start = clock_type::now();
   while (authors.is_rescanning()) {
     (void)app->async_files()->dispatch_completions(64);
@@ -123,18 +123,19 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
     require(now - start < std::chrono::seconds(120), "真实资产基准超时");
     std::vector<std::filesystem::path> paths;
     (void)app->async_files()->dispatch_completions(64);
-    max_poll = std::max(
-        max_poll, measure([&] {
-          require(authors.poll_rescan(paths) == gneiss::error::success, "作者扫描失败");
-          std::vector<asset_reimport_event> events;
-          (void)worker.poll_events(events);
-          require(worker.status().error.empty(), "后台服务错误");
-          for (const auto& event : events) {
-            imported_again = imported_again || event.state == asset_reimport_state::succeeded;
-            require(event.state != asset_reimport_state::failed, "后台导入失败");
-          }
-          peak = std::max(peak, scheduler.stats().retained);
-        }));
+    max_poll =
+        std::max(max_poll, measure([&] {
+                   require(authors.poll_rescan(paths) == gneiss::error::success, "作者扫描失败");
+                   std::vector<asset_reimport_event> events;
+                   (void)worker.poll_events(events);
+                   require(worker.status().error.empty(), "后台服务错误");
+                   for (const auto& event : events) {
+                     imported_again =
+                         imported_again || event.state == asset_reimport_state::succeeded;
+                     require(event.state != asset_reimport_state::failed, "后台导入失败");
+                   }
+                   peak = std::max(peak, scheduler.stats().retained);
+                 }));
     for (const auto& path : paths) {
       const auto change = authors.observe(path, false);
       if (change.state == author_asset_change_state::changed &&

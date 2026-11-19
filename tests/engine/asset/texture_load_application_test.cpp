@@ -68,7 +68,7 @@ void run(gneiss::tasks::execution_mode mode) {
   gneiss::asset_batch_request empty;
   check(empty.cancel() == gneiss::error::invalid_state);
   check(app->can_load_assets());
-  check(app->attach_task_executor(scheduler) == gneiss::error::invalid_state);
+
   const std::array uris{gneiss::render_resource_source{
       .uri = "asset://a.texture.json", .type = gneiss::render_resource_kind::texture}};
   gneiss::asset_batch_request assets_request;

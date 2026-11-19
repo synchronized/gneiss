@@ -4,8 +4,8 @@
 #include "../../support/async_input.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/function/scene/entity_id.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
 #include <thread>
 #include <type_traits>
 
@@ -19,6 +19,7 @@ int main() {
   config.asset_root = asset_root;
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
+  config.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app, other;
   gneiss::input::action_id action;
   gneiss::input::action_state state{};

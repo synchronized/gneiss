@@ -5,10 +5,10 @@
 #include "../../support/codec_result.hpp"
 #include "../../support/value_result.hpp"
 #include "function/scene/detail/identifier_conversion.hpp"
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
@@ -96,10 +96,11 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   application_configuration config;
   const auto root = files.root.string();
   config.asset_root = root;
+  config.executor = &scheduler;
   std::shared_ptr<application> app;
   check(gneiss::test_support::assign_value(application::create(config), app) ==
         gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+
   auto request = app->assets().load<gneiss::scene>("asset://scene.json");
   check(bool(request));
   const auto step = [&] {
@@ -204,10 +205,11 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   application_configuration config;
   const auto asset_root = files.root.string();
   config.asset_root = asset_root;
+  config.executor = &scheduler;
   auto created = application::create(config);
   check(bool(created));
   auto app = *created;
-  check(app->attach_task_executor(scheduler).ok());
+
   auto* world = app->native_world();
   auto original = world->create_scene();
   check(bool(original));
@@ -268,6 +270,7 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   const auto root = files.root.string();
   application_configuration config;
   config.asset_root = root;
+  config.executor = &scheduler;
   auto created = application::create(config);
   check(bool(created));
   auto app = *created;
@@ -331,9 +334,10 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
   application_configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
+  desc.executor = &scheduler;
   check(gneiss::test_support::assign_value(application::create(desc), app) ==
         gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+
   scene_instance scene_id;
   check(test_support::load_scene(*app, "asset://scene.json", &scene_id, &scheduler).ok());
   auto first = app->assets().find<gneiss::material>("asset://material.json");

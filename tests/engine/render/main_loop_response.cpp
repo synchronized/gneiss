@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
 #include "../../support/async_application.hpp"
 #include <gneiss/engine/function/application/application.hpp>
@@ -306,6 +306,7 @@ int main(int argc, char** argv) try {
   gneiss::runtime::application_configuration desc;
   desc.enable_window = true;
   desc.asset_root = asset_root;
+  desc.executor = &state.scheduler;
   desc.window.visible = false;
   desc.window.high_dpi = false;
   desc.window.title = title;
@@ -314,8 +315,7 @@ int main(int argc, char** argv) try {
   desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   desc.callbacks.close_requested = [&]() { return close_requested(state); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), app)
-          .failed() ||
-      app->attach_task_executor(state.scheduler) != gneiss::error::success) {
+          .failed()) {
     return 1;
   }
   if (!asset_root.empty() &&

@@ -8,12 +8,12 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
@@ -33,12 +33,11 @@ bool open_scene(gneiss::tasks::task_scheduler& scheduler, std::string_view root,
                 gneiss::scene_description* description = nullptr) {
   gneiss::runtime::application_configuration config;
   config.asset_root = root;
+  config.executor = &scheduler;
   auto created = gneiss::runtime::application::create(config);
   if (!created)
     return false;
   app = std::move(*created);
-  if (app->attach_task_executor(scheduler).failed())
-    return false;
   auto submitted = app->assets().load<gneiss::scene>(scene_uri);
   if (!submitted)
     return false;
@@ -69,8 +68,7 @@ bool open_scene(gneiss::tasks::task_scheduler& scheduler, std::string_view root,
   return true;
 }
 bool target_for(gneiss::runtime::application& app,
-                std::span<const gneiss::scene_object_binding> bindings,
-                gneiss::entity_id& target) {
+                std::span<const gneiss::scene_object_binding> bindings, gneiss::entity_id& target) {
   auto found = std::ranges::find_if(bindings, [](const auto& binding) {
     return binding.object == camera_uuid && !binding.source;
   });
@@ -145,8 +143,8 @@ int main() try {
   if (!object || gneiss::replace_components({*object}, *components).failed())
     return 3;
   // 保存以加载时的描述为基础，只写回本示例明确修改的相机属性。
-  auto author = std::ranges::find(description.objects, camera_uuid,
-                                  &gneiss::game_object_description::uuid);
+  auto author =
+      std::ranges::find(description.objects, camera_uuid, &gneiss::game_object_description::uuid);
   if (author == description.objects.end())
     return 4;
   auto local = app->native_world()->object(target);
@@ -184,8 +182,7 @@ int main() try {
   if (!translation || translation->kind() != gneiss::value_kind::vec3 ||
       std::abs(std::get<gneiss::math::vector3>(translation->payload).x - 2) > 0.0001F)
     return 6;
-  auto runtime_camera =
-      app->native_world()->find(target).try_component<gneiss::camera_component>();
+  auto runtime_camera = app->native_world()->find(target).try_component<gneiss::camera_component>();
   if (!runtime_camera || std::abs(runtime_camera->settings.near_plane - 0.25F) > 0.0001F)
     return 6;
   if (!scene.is_valid())

@@ -4,10 +4,10 @@
 #include "../../support/scene_application.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
+#include <cstdio>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <cstdio>
 #include <source_location>
 #include <stdexcept>
 namespace e = gneiss;
@@ -20,6 +20,7 @@ void check(bool value, std::source_location where = std::source_location::curren
 int main() try {
   check(e::initialize_meta().ok());
   gneiss::runtime::application_configuration configuration;
+  configuration.executor = &gneiss::test_support::application_tasks();
   configuration.asset_root = GNEISS_TEST_ASSET_ROOT;
   std::shared_ptr<gneiss::runtime::application> app;
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(configuration), app)
@@ -51,10 +52,7 @@ int main() try {
   check(bool(second));
   auto second_mapping = gneiss::test_support::associations(second->objects);
   check(second_mapping.at(member->address).entity != child.entity());
-  auto second_identity =
-      app->native_world()
-          ->find(second_mapping.at(member->parent).entity)
-          .name();
+  auto second_identity = app->native_world()->find(second_mapping.at(member->parent).entity).name();
   check(second_identity == identity && second_mapping.at(member->parent).entity != root.entity());
   child.set_name("Runtime edit");
   check(child.reparent({}).ok());

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/asset/render_resource.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/resource/scene.hpp>
 #include "../../support/logging.hpp"
 #include "../../support/value_result.hpp"
 #include <array>
 #include <chrono>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/asset/render_resource.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/resource/scene.hpp>
 
 #include <atomic>
 #include <cstdio>
@@ -135,14 +135,15 @@ void test_asset_request_boundaries() {
 
 void test_loading_request_lifetime() {
   using namespace gneiss;
-  gneiss::tasks::task_scheduler tasks({.workers = 1, .mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler tasks(
+      {.workers = 1, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   config.asset_root = ".";
+  config.executor = &tasks;
   auto created = runtime::application::create(config);
   check(bool(created));
   auto app = std::move(*created);
-  check(!app->can_load_assets());
-  check(app->attach_task_executor(tasks).ok() && app->can_load_assets());
+  check(app->can_load_assets());
   const gneiss::render_resource_source source{"asset://missing.texture",
                                               gneiss::render_resource_kind::texture};
   auto submitted = app->load_assets({&source, 1});
@@ -170,9 +171,10 @@ void test_loading_request_lifetime() {
   check(app->can_load_assets());
   check(bool(cancelled) && cancelled->state == gneiss::asset_load_state::cancelled && !request);
   // 每个 Application 的批次独立；关闭一个不会使另一个的请求失效。
-  auto other_created = runtime::application::create({});
+  runtime::application_configuration other_config;
+  other_config.executor = &tasks;
+  auto other_created = runtime::application::create(other_config);
   check(bool(other_created));
-  check((*other_created)->attach_task_executor(tasks).ok());
   auto independent = (*other_created)->load_assets({});
   check(bool(independent) && independent->ready());
   submitted = app->load_assets({&source, 1});
@@ -192,24 +194,23 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
     gneiss::runtime::application_configuration config;
     config.asset_root = GNEISS_TEST_ASSET_ROOT;
+    config.executor = &scheduler;
     unsigned closed{};
     config.callbacks.shutdown = [&] { ++closed; };
     std::shared_ptr<gneiss::runtime::application> app;
     check(
         gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app).ok());
-    check(app->attach_task_executor(scheduler).ok());
     check(app->advance_shutdown() == gneiss::error::invalid_state);
     gneiss::asset_request<gneiss::scene> request;
     gneiss::asset_batch_request assets_request;
     if (stage == 1) {
       check(gneiss::test_support::take_value(
-                app->assets().load<gneiss::scene>("asset://scenes/triangle.scene.json"),
-                request)
+                app->assets().load<gneiss::scene>("asset://scenes/triangle.scene.json"), request)
                 .ok());
       (void)app->run(1);
     } else if (stage == 2) {
-      const std::array sources{gneiss::render_resource_source{
-          "asset://models/triangle.mesh.json", gneiss::render_resource_kind::mesh}};
+      const std::array sources{gneiss::render_resource_source{"asset://models/triangle.mesh.json",
+                                                              gneiss::render_resource_kind::mesh}};
       check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
       gneiss::asset_load_completion completion;
       bool ready{};
@@ -267,9 +268,7 @@ void test_platform_callbacks() {
   check(app->run(3U) == gneiss::error::success && polls == 1U);
   app.reset();
   check(shutdowns == 2U);
-  platform_config.callbacks.poll_events = [](bool&) -> gneiss::error {
-    throw std::bad_alloc{};
-  };
+  platform_config.callbacks.poll_events = [](bool&) -> gneiss::error { throw std::bad_alloc{}; };
   platform_config.callbacks.shutdown = [&] { ++shutdowns; };
   check(gneiss::test_support::assign_value(gneiss::runtime::application::create(platform_config),
                                            app) == gneiss::error::success);
@@ -292,8 +291,7 @@ int main() try {
   gneiss::runtime::application_configuration config;
   config.callbacks.initialize = [&state] {
     ++state.initializations;
-    return state.fail ? gneiss::error::initialization_failed
-                      : gneiss::error::success;
+    return state.fail ? gneiss::error::initialization_failed : gneiss::error::success;
   };
   config.callbacks.shutdown = [&state] { ++state.shutdowns; };
   config.callbacks.update = [&state](const gneiss::frame_time&) -> gneiss::error {

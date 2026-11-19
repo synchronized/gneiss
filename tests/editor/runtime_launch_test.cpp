@@ -5,14 +5,14 @@
 #include "../support/async_editor_save.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/runtime_author_apply.hpp"
+#include "project/project_workspace.hpp"
+#include "runtime/runtime_launch.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "project/project_workspace.hpp"
-#include "runtime/runtime_launch.hpp"
 
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
@@ -30,6 +30,7 @@ create_application(const std::filesystem::path& asset_root,
                    std::shared_ptr<gneiss::runtime::application>& output) {
   const auto root = asset_root.generic_string();
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = root;
   return gneiss::error{
       gneiss::test_support::assign_value(gneiss::runtime::application::create(desc), output)};
@@ -51,12 +52,10 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> author_application;
   gneiss::world* author_world = nullptr;
   gneiss::editor::scene_edit_session author_session;
-  if (create_application(project.asset_root, author_application) !=
-          gneiss::error::success ||
+  if (create_application(project.asset_root, author_application) != gneiss::error::success ||
       (author_world = author_application->native_world()) == nullptr ||
       gneiss::test_support::open_document(author_session, *author_application, author_world,
-                                          project.startup_scene) !=
-          gneiss::error::success) {
+                                          project.startup_scene) != gneiss::error::success) {
     return 2;
   }
 
@@ -68,8 +67,7 @@ int main() try {
   }
 
   gneiss::entity_id author_node;
-  if (author_session.create_node("Author Node", {}, author_node) !=
-          gneiss::error::success ||
+  if (author_session.create_node("Author Node", {}, author_node) != gneiss::error::success ||
       !author_session.is_dirty() ||
       gneiss::editor::inspect_runtime_launch(author_session, project_root, request) !=
           gneiss::editor::runtime_launch_state::requires_save ||
@@ -103,8 +101,8 @@ int main() try {
     return 6;
   }
   history.mark_saved();
-  if (author_session.is_dirty() || history.is_dirty() ||
-      history.undo() != gneiss::error::success || !history.is_dirty() ||
+  if (author_session.is_dirty() || history.is_dirty() || history.undo() != gneiss::error::success ||
+      !history.is_dirty() ||
       author_session.find_node(runtime_snapshot.uuid)->local_transform.translation[0] == 4.0F ||
       history.redo() != gneiss::error::success || history.is_dirty() ||
       author_session.find_node(runtime_snapshot.uuid)->local_transform.translation[0] != 4.0F) {
@@ -121,17 +119,14 @@ int main() try {
   std::shared_ptr<gneiss::runtime::application> runtime_application;
   gneiss::world* runtime_world = nullptr;
   gneiss::editor::scene_edit_session runtime_session;
-  if (create_application(project.asset_root, runtime_application) !=
-          gneiss::error::success ||
+  if (create_application(project.asset_root, runtime_application) != gneiss::error::success ||
       (runtime_world = runtime_application->native_world()) == nullptr ||
       gneiss::test_support::open_document(runtime_session, *runtime_application, runtime_world,
-                                          project.startup_scene) !=
-          gneiss::error::success) {
+                                          project.startup_scene) != gneiss::error::success) {
     return 6;
   }
   gneiss::entity_id runtime_node;
-  if (runtime_session.create_node("Runtime Only", {}, runtime_node) !=
-          gneiss::error::success ||
+  if (runtime_session.create_node("Runtime Only", {}, runtime_node) != gneiss::error::success ||
       gneiss::test_support::scene_query(author_session).nodes.size() != author_node_count ||
       author_session.is_dirty()) {
     return 7;

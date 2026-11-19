@@ -7,8 +7,8 @@
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
-#include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <cmath>
@@ -77,9 +77,8 @@ gneiss::error native_update(runtime::application& app, context& state) {
   transform.translation[0] = static_cast<float>(std::sin(elapsed) * 0.15);
   transform.translation[2] = 2.0F;
   if (gneiss::error{app.native_world()
-                                ->find(gneiss::entity_id{(state.camera).get()})
-                                .set_local_transform(transform)} !=
-      gneiss::error::success) {
+                        ->find(gneiss::entity_id{(state.camera).get()})
+                        .set_local_transform(transform)} != gneiss::error::success) {
     return gneiss::error::internal;
   }
 #ifdef _WIN32
@@ -106,9 +105,9 @@ gneiss::error native_update(runtime::application& app, context& state) {
           << R"({"format":"gneiss.texture","version":2,"source":"asset://textures/after.png","color_space":"srgb","usage":"default"})";
     }
     state.requested = true;
-    const std::array uris{gneiss::render_resource_source{
-        .uri = "asset://textures/test.texture.json",
-        .type = gneiss::render_resource_kind::texture}};
+    const std::array uris{
+        gneiss::render_resource_source{.uri = "asset://textures/test.texture.json",
+                                       .type = gneiss::render_resource_kind::texture}};
     auto result = state.model ? app.load_assets(state.assets, true) : app.load_assets(uris, true);
     if (!result)
       return result.error();
@@ -175,17 +174,17 @@ int main(int argc, char** argv) try {
   const auto root = state.root.string();
   desc.enable_window = true;
   desc.asset_root = root;
+  desc.executor = &scheduler;
   desc.window.title = title;
   desc.window.high_dpi = false;
   desc.callbacks.update = [&](const auto&) { return native_update(*app, state); };
   if (gneiss::test_support::assign_value(runtime::application::create(desc), app) !=
-          gneiss::error::success ||
-      app->attach_task_executor(scheduler) != gneiss::error::success) {
+      gneiss::error::success) {
     return 1;
   }
   constexpr std::string_view scene = "asset://scenes/test.scene.json";
-  if (gneiss::error{gneiss::test_support::load_scene(
-          *app, scene, &state.scene, &scheduler)} != gneiss::error::success) {
+  if (gneiss::error{gneiss::test_support::load_scene(*app, scene, &state.scene, &scheduler)} !=
+      gneiss::error::success) {
     return 2;
   }
   for (auto object : state.scene.objects()) {

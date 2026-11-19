@@ -3,17 +3,17 @@
 #include "../support/async_prefab_edit.hpp"
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/editor_prefab_edit.hpp"
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -66,9 +66,10 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   gneiss::runtime::application_configuration desc;
   const auto path = files.root.string();
   desc.asset_root = path;
-  check(gneiss::error{gneiss::test_support::assign_value(
-            gneiss::runtime::application::create(desc), app)} == gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+  desc.executor = &scheduler;
+  check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                                         app)} == gneiss::error::success);
+
   gneiss::world* world{};
   check((world = app->native_world()) != nullptr);
   editor::scene_edit_session session;
@@ -133,8 +134,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(moved_start != std::string::npos && parent_start != std::string::npos);
   updated.replace(parent_start, 36U, source_uuid.string());
   std::ofstream(files.root / "prefab.json") << updated;
-  check(edit.request_refresh(*app, scheduler, session, history, first) ==
-        gneiss::error::success);
+  check(edit.request_refresh(*app, scheduler, session, history, first) == gneiss::error::success);
   // 异步来源准备仍可取消；同步实例化开始后不提供跨帧取消点。
   check(edit.active() && edit.can_cancel());
   edit.cancel();
@@ -142,8 +142,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(history.size() == 0U && session.selection() == old_selected);
   check(session.find_prefab_root(first_uuid)->node == first &&
         session.find_prefab_root(second_uuid)->node == second);
-  check(edit.request_refresh(*app, scheduler, session, history, first) ==
-        gneiss::error::success);
+  check(edit.request_refresh(*app, scheduler, session, history, first) == gneiss::error::success);
   drive();
   if (edit.operation().failed())
     std::fprintf(stderr, "refresh result=%d nodes=%zu history=%zu\n", edit.operation().code(),
@@ -187,8 +186,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(history.redo().ok());
   const auto preserved = session.selection();
   check(edit.request_refresh(*app, scheduler, session, history,
-                             session.find_prefab_root(first_uuid)->node) ==
-        gneiss::error::success);
+                             session.find_prefab_root(first_uuid)->node) == gneiss::error::success);
   drive();
   check(edit.operation().failed() && history.size() == 1U && session.selection() == preserved);
   history.clear();
@@ -197,8 +195,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["","","","",""]})";
   // 来源删除被覆盖节点：两个实例均更新，失效覆盖保留为冲突，不删除整个实例。
-  const gneiss::guid removed_uuid =
-      *gneiss::guid::parse("30000000-0000-4000-8000-000000000003");
+  const gneiss::guid removed_uuid = *gneiss::guid::parse("30000000-0000-4000-8000-000000000003");
   const auto second_node = session.find_prefab_source(second_uuid, removed_uuid)->node;
   const auto original = session.find_prefab_source(second_uuid, removed_uuid)->local_transform;
   auto changed = original;
@@ -234,8 +231,7 @@ void run_refresh(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::scene_query(session).prefab_nodes.size() == 298U);
   history.clear();
   check(edit.request_refresh(*app, scheduler, session, history,
-                             session.find_prefab_root(first_uuid)->node) ==
-        gneiss::error::success);
+                             session.find_prefab_root(first_uuid)->node) == gneiss::error::success);
   session.close();
   drive();
   check(edit.operation() == gneiss::error::invalid_state && history.size() == 0U);
@@ -250,9 +246,10 @@ void run(gneiss::tasks::execution_mode mode) {
   gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
   desc.asset_root = root;
-  check(gneiss::error{gneiss::test_support::assign_value(
-            gneiss::runtime::application::create(desc), app)} == gneiss::error::success);
-  check(app->attach_task_executor(scheduler) == gneiss::error::success);
+  desc.executor = &scheduler;
+  check(gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
+                                                         app)} == gneiss::error::success);
+
   gneiss::world* world{};
   check((world = app->native_world()) != nullptr);
   editor::scene_edit_session session;
@@ -379,14 +376,12 @@ void run(gneiss::tasks::execution_mode mode) {
   check(session.validate_selection().ok());
   deletion_history.clear();
 
-  check(edit.request_remove(*app, session, deletion_history, root_node) ==
-        gneiss::error::success);
+  check(edit.request_remove(*app, session, deletion_history, root_node) == gneiss::error::success);
   edit.cancel();
   drive();
   check(deletion_history.size() == 0U &&
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 150U);
-  check(edit.request_remove(*app, session, deletion_history, root_node) ==
-        gneiss::error::success);
+  check(edit.request_remove(*app, session, deletion_history, root_node) == gneiss::error::success);
   drive();
   check(edit.operation() == gneiss::error::success &&
         gneiss::test_support::scene_query(session).prefab_nodes.empty() &&
@@ -454,13 +449,15 @@ void run(gneiss::tasks::execution_mode mode) {
 }
 void run_mixed_subtree() {
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::task_scheduler scheduler(
+      {.workers = 1U, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<runtime::application> app;
   runtime::application_configuration config;
   const auto path = files.root.string();
   config.asset_root = path;
+  config.executor = &scheduler;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
-  check(app->attach_task_executor(scheduler).ok());
+
   editor::scene_edit_session document;
   check(test_support::open_document(document, *app, app->native_world(), "asset://scene.json",
                                     &scheduler)

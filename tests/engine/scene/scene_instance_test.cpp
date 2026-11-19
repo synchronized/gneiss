@@ -3,13 +3,13 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/mesh_objects.hpp"
-#include <gneiss/engine/function/scene/component_registration.hpp>
-#include <algorithm>
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
+#include <algorithm>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/scene_update.hpp>
@@ -23,6 +23,7 @@
 namespace {
 std::shared_ptr<gneiss::runtime::application> create_application(std::string_view asset_root) {
   gneiss::runtime::application_configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
   desc.asset_root = asset_root;
   std::shared_ptr<gneiss::runtime::application> application;
   return (gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
@@ -39,10 +40,8 @@ int main() try {
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
   constexpr std::string_view missing_uri = "asset://scenes/missing-asset.scene.json";
   constexpr std::string_view corrupt_uri = "asset://scenes/corrupt.scene.json";
-  const gneiss::guid triangle_uuid =
-      *gneiss::guid::parse("00000000-0000-4000-8000-000000000003");
-  const gneiss::guid camera_uuid =
-      *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
+  const gneiss::guid triangle_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000003");
+  const gneiss::guid camera_uuid = *gneiss::guid::parse("00000000-0000-4000-8000-000000000002");
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
@@ -151,10 +150,10 @@ int main() try {
   const auto* camera_description = camera_components->get<gneiss::camera_description>();
   const auto* mesh_description = triangle_components->get<gneiss::mesh_component_description>();
   if (scene.size() != 2U || original_camera->parent().is_valid() ||
-      original_camera->name() != "Camera" || !camera_description || !camera_description->is_primary ||
-      original_triangle->parent() != *original_camera || !original_triangle->name().empty() ||
-      !mesh_description || mesh_description->mesh_uri != mesh_uri ||
-      mesh_description->material_uri != material_uri)
+      original_camera->name() != "Camera" || !camera_description ||
+      !camera_description->is_primary || original_triangle->parent() != *original_camera ||
+      !original_triangle->name().empty() || !mesh_description ||
+      mesh_description->mesh_uri != mesh_uri || mesh_description->material_uri != material_uri)
     return 2;
   if (gneiss::scene_instance::borrow(*second_application->native_world(), scene.id()).error() !=
           gneiss::error::invalid_handle ||
@@ -166,7 +165,7 @@ int main() try {
   if (!accepted)
     return 30;
   const auto accepted_binding = *accepted;
-  if (      gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
+  if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
                                         triangle, missing_mesh_uri, material_uri)
           .ok())
     return 30;
@@ -253,8 +252,10 @@ int main() try {
             .failed())
       return 40;
   }
-  if (created_object.add_component<gneiss::camera_component>(
-          gneiss::camera_component{{1.04719755F, 0.2F, 1000.0F}, false}).failed() ||
+  if (created_object
+          .add_component<gneiss::camera_component>(
+              gneiss::camera_component{{1.04719755F, 0.2F, 1000.0F}, false})
+          .failed() ||
       application->native_world()
               ->find(gneiss::entity_id{created_node.get()})
               .remove_component<gneiss::camera_component>() != gneiss::error::success ||
@@ -293,10 +294,10 @@ int main() try {
   if (!group_components || !group_components->empty())
     return 13;
   // 运行删除递归清理成员；重建消费显式描述和资源引用，不从 World 保存作者快照。
-  if (owner.find(generic_node).reparent(owner.find(camera_node))
-          .failed())
+  if (owner.find(generic_node).reparent(owner.find(camera_node)).failed())
     return 29;
-  const auto* retained_component = application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
+  const auto* retained_component =
+      application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
   if (!retained_component)
     return 15;
   const auto retained = *retained_component;
@@ -319,7 +320,8 @@ int main() try {
   if (!rebuilt || *rebuilt == old_triangle_node)
     return 20;
   triangle = *rebuilt;
-  const auto* rebuilt_binding = application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
+  const auto* rebuilt_binding =
+      application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
   if (!rebuilt_binding || rebuilt_binding->mesh != retained.mesh ||
       rebuilt_binding->material != retained.material)
     return 21;
@@ -348,11 +350,9 @@ int main() try {
   transform.translation[0] = 5.0F;
   gneiss::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   camera.near_plane = 0.25F;
-  if (gneiss::test_support::assign_value(
-          world->object(gneiss::entity_id{(camera_node).get()}),
-          camera_entity) != gneiss::error::success ||
-      camera_object.set_local_transform(transform) !=
-          gneiss::error::success ||
+  if (gneiss::test_support::assign_value(world->object(gneiss::entity_id{(camera_node).get()}),
+                                         camera_entity) != gneiss::error::success ||
+      camera_object.set_local_transform(transform) != gneiss::error::success ||
       !(camera_object.try_component<gneiss::camera_component>()->settings = camera).valid() ||
       !world->find(gneiss::entity_id{(camera_node).get()}).is_valid()) {
     return 7;
@@ -371,8 +371,8 @@ int main() try {
     return 8;
   created_object.destroy();
   owner.find(generic_node).destroy();
-  if (owner.object(created_node) || owner.object(generic_node) ||
-      scene.size() != 2U || owner.entity_count() != 2U)
+  if (owner.object(created_node) || owner.object(generic_node) || scene.size() != 2U ||
+      owner.entity_count() != 2U)
     return 9;
   // 原生 World 无需 attach 集合或提供描述 UUID，也能独立管理场景。
   {
@@ -407,8 +407,8 @@ int main() try {
     if (!child)
       return 22;
     auto matrix = child->world_matrix();
-    if (matrix != gneiss::math::model_matrix(root_transform) *
-                                  gneiss::math::model_matrix(child_transform))
+    if (matrix !=
+        gneiss::math::model_matrix(root_transform) * gneiss::math::model_matrix(child_transform))
       return 23;
     if ((*native)->transfer_subtree(*object, *instance, *child) !=
             gneiss::error::invalid_argument ||
@@ -443,9 +443,8 @@ int main() try {
       return 28;
     instance = std::move(target_scene);
     gneiss::error worker_status;
-    std::thread worker([&] {
-      worker_status = gneiss::scene_instance::borrow(**native, instance->id()).error();
-    });
+    std::thread worker(
+        [&] { worker_status = gneiss::scene_instance::borrow(**native, instance->id()).error(); });
     worker.join();
     if (worker_status != gneiss::error::invalid_state)
       return 18;
@@ -461,7 +460,8 @@ int main() try {
   auto reused_scene = owner.create_scene();
   if (!reused_scene || *reused_scene == *empty_scene || empty_scene->is_valid() ||
       gneiss::scene_instance::borrow(owner, empty_scene->id()).error() !=
-          gneiss::error::invalid_handle || reused_scene->size() != 0U)
+          gneiss::error::invalid_handle ||
+      reused_scene->size() != 0U)
     return 14;
   reused_scene->unload();
   scene.unload();
