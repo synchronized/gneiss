@@ -70,6 +70,10 @@ World 拥有 ECS、层级与场景成员；game_object 和 scene_instance 为借
 Prefab 覆盖、文档历史属于编辑领域，不能从运行 World 自动还原创作意图。
 具体运行语义见[场景参考](../reference/scene-instance.md)。
 
+Base 的运行类型身份由 `type_id.hpp` 提供，编译器类型名提取属于
+`core/base/detail/compiler_type_name.hpp`，身份表由 Base 实现唯一持有。
+编译器名称只用于相同工具链和 ABI 下的进程内去重，不是反射显示名称或持久化 GUID。
+
 ## 属性路径与值编辑
 
 `core/data/property_id.hpp`、`property_path.hpp` 在 `gneiss` 命名空间定义字段身份和路径数据，

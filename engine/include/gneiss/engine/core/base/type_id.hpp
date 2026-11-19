@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include <gneiss/engine/core/base/detail/compiler_type_name.hpp>
 #include <gneiss/engine/core/base/export.hpp>
-#include <gneiss/engine/core/detail/canonical_type_name.hpp>
 
 #include <compare>
 #include <cstddef>
@@ -37,7 +37,7 @@ template <class T> [[nodiscard]] type_id runtime_type_of() noexcept {
   if constexpr (std::is_void_v<type>)
     return {};
   else {
-    constexpr auto name = detail::canonical_cpp_type_name<type>();
+    constexpr auto name = detail::compiler_type_name<type>();
     static const auto id = detail::intern_runtime_type(name.data(), name.size());
     return id;
   }

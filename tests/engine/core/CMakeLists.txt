@@ -143,7 +143,7 @@ set_tests_properties(gneiss.core-identity PROPERTIES LABELS "cpu;integration")
 
 # 同一 Engine 中的类型名注册、并发首次注册及跨翻译单元身份。
 add_executable(gneiss_type_id_test type_id_test.cpp type_id_other.cpp)
-target_link_libraries(gneiss_type_id_test PRIVATE gneiss::engine Threads::Threads)
+target_link_libraries(gneiss_type_id_test PRIVATE gneiss_base Threads::Threads)
 gneiss_target_compile_warnings(gneiss_type_id_test)
 gneiss_target_output_directories(gneiss_type_id_test)
 set_target_properties(gneiss_type_id_test PROPERTIES FOLDER "Tests")

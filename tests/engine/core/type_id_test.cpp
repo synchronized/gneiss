@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <array>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>
-#include <array>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 gneiss::type_id runtime_type_from_other_unit();
@@ -11,8 +12,8 @@ int main() {
   using namespace gneiss;
   static_assert(!std::is_convertible_v<type_id, gneiss::guid>);
   static_assert(!std::is_convertible_v<gneiss::guid, type_id>);
-  static_assert(detail::canonical_cpp_type_name<int[2][3]>() !=
-                detail::canonical_cpp_type_name<int[2][4]>());
+  if (runtime_type_of<int[2][3]>() == runtime_type_of<int[2][4]>())
+    return 2;
   const auto text = runtime_type_of<std::string>();
   if (!text || text != runtime_type_from_other_unit() ||
       text != runtime_type_of<const std::string&>() || text == runtime_type_of<int>() ||
@@ -22,7 +23,7 @@ int main() {
   std::vector<std::thread> threads;
   for (std::size_t i = 0; i < ids.size(); ++i)
     threads.emplace_back([&, i] {
-      constexpr auto key = detail::canonical_cpp_type_name<std::vector<long>>();
+      constexpr std::string_view key = "gneiss.test.concurrent.type";
       ids[i] = detail::intern_runtime_type(key.data(), key.size());
     });
   for (auto& thread : threads)
