@@ -13,7 +13,7 @@
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -52,7 +52,7 @@ struct fixture {
 };
 void run(gneiss::tasks::execution_mode mode) {
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
@@ -275,7 +275,7 @@ void run(gneiss::tasks::execution_mode mode) {
 void prefab_edits(gneiss::tasks::execution_mode mode) {
   namespace e = gneiss;
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   runtime::application_configuration config;
   const auto root_path = files.root.string();

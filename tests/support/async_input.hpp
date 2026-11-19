@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <chrono>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
 namespace gneiss::test_support {
 inline gneiss::error load_input_for_test(runtime::application& app,
-                                         gneiss::tasks::task_scheduler& scheduler,
+                                         gneiss::tasks::scheduler& scheduler,
                                          std::string_view uri) {
   auto request = app.assets().reload<input::action_map>(uri);
   if (!request)

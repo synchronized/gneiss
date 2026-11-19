@@ -11,7 +11,7 @@
 #include <string_view>
 
 namespace gneiss::tasks {
-class task_executor;
+class executor;
 }
 
 namespace gneiss::runtime {
@@ -30,7 +30,7 @@ struct application_callbacks final {
 struct application_configuration final {
   application_callbacks callbacks;
   /** 借用资产任务执行器，必须覆盖 Application 关闭。空表示不装配资产任务。 */
-  tasks::task_executor* executor{};
+  tasks::executor* executor{};
   bool enable_window = false;
   gneiss::window::configuration window;
   std::string_view asset_root;

@@ -16,7 +16,7 @@
 #include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <gneiss/engine/function/files/service.hpp>
@@ -64,7 +64,7 @@ struct asset_manager::implementation {
     cache_conversion conversion;
     std::shared_ptr<asset_loader> loader;
     gneiss::files::request_id read_request;
-    gneiss::tasks::task_handle task;
+    gneiss::tasks::handle task;
     double queue_ms{};
     gneiss::files::bytes bytes;
     std::string pending_uri;
@@ -119,9 +119,9 @@ struct asset_manager::implementation {
     }
   };
   std::shared_ptr<gneiss::files::service> files;
-  gneiss::tasks::task_executor* executor{};
+  gneiss::tasks::executor* executor{};
   texture_prepare_profile profile{};
-  gneiss::tasks::task_scope scope{};
+  gneiss::tasks::scope scope{};
   bool frozen{}, stopped{};
   std::map<type_id, std::shared_ptr<const asset_decoder>> decoders;
   std::map<type_id, loader_factory> loaders;
@@ -184,7 +184,7 @@ struct asset_manager::implementation {
             }
           }
           completion->ran = true;
-          return gneiss::tasks::task_outcome{};
+          return gneiss::tasks::outcome{};
         },
         work->task);
     if (submitted == gneiss::tasks::submit_result::full) {
@@ -324,11 +324,11 @@ bool asset_manager::stop_requested() const noexcept { return impl_->stopped; }
 bool asset_manager::loading_configured() const noexcept {
   return impl_->executor && !stop_requested();
 }
-error asset_manager::configure(gneiss::tasks::task_executor& executor) {
+error asset_manager::configure(gneiss::tasks::executor& executor) {
   return configure(executor, impl_->profile, impl_->scope);
 }
-error asset_manager::configure(gneiss::tasks::task_executor& executor,
-                               texture_prepare_profile profile, gneiss::tasks::task_scope scope) {
+error asset_manager::configure(gneiss::tasks::executor& executor, texture_prepare_profile profile,
+                               gneiss::tasks::scope scope) {
   auto& state = *impl_;
   if (state.stopped)
     return error::invalid_state;
@@ -610,7 +610,7 @@ void asset_manager::implementation::advance(asset_manager& owner) {
     return;
   }
   // 文件完成由宿主统一分发；这里只处理 CPU 解码与资源结果。
-  std::vector<gneiss::tasks::task_completion> completions;
+  std::vector<gneiss::tasks::completion> completions;
   (void)state.executor->poll(state.scope, completions);
   for (const auto& completion : completions) {
     auto found = state.tasks.find(completion.task.id);

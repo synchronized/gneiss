@@ -3,7 +3,7 @@
 
 #include "../support/scene_activation.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/input/service.hpp>
@@ -185,7 +185,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   const auto started = clock::now();
   sample_state state;
   state.measure = measure;
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   enum class mode { loading, viewing };
   gneiss::asset_request<gneiss::scene> scene_request;

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../core/cooperative_scheduler_contract.h"
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 
 #include <cstdio>
 #include <emscripten.h>
@@ -10,8 +10,8 @@
 namespace {
 using namespace gneiss;
 struct browser_host {
-  gneiss::tasks::task_scheduler scheduler{{.mode = gneiss::tasks::execution_mode::cooperative}};
-  gneiss::tasks::task_scope scope{scheduler.make_scope()};
+  gneiss::tasks::scheduler scheduler{{.mode = gneiss::tasks::execution_mode::cooperative}};
+  gneiss::tasks::scope scope{scheduler.make_scope()};
   unsigned frames{};
   unsigned ran_at{};
 };
@@ -20,13 +20,13 @@ void tick() {
   try {
     ++host.frames;
     if (host.frames == 1U) {
-      gneiss::tasks::task_handle handle;
+      gneiss::tasks::handle handle;
       if (host.scheduler.submit(
               {.scope = host.scope,
                .not_before = std::chrono::steady_clock::now() + std::chrono::milliseconds(40)},
               [](const auto&) {
                 host.ran_at = host.frames;
-                return gneiss::tasks::task_outcome{};
+                return gneiss::tasks::outcome{};
               },
               handle) != gneiss::tasks::submit_result::success) {
         throw std::runtime_error("浏览器任务提交失败");
@@ -57,7 +57,7 @@ int main() {
     cooperative_scheduler_contract();
     bool rejected{};
     try {
-      gneiss::tasks::task_scheduler unavailable;
+      gneiss::tasks::scheduler unavailable;
     } catch (const std::invalid_argument&) {
       rejected = true;
     }

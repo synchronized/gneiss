@@ -3,7 +3,7 @@
 
 #include "../../support/async_input.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/scene/entity_id.hpp>
@@ -17,7 +17,7 @@ int main() {
   constexpr std::string_view uri = "asset://input/default.input-map.json";
   gneiss::runtime::application_configuration config;
   config.asset_root = asset_root;
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   config.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app, other;

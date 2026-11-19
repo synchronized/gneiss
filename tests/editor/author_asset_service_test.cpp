@@ -4,7 +4,7 @@
 #include "../support/value_result.hpp"
 #include "assets/author_asset_service.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/files/backend.hpp>
 
@@ -71,7 +71,7 @@ public:
 void pending_shutdown(bool destroy, bool list = false) {
   fixture disk;
   write(disk.root / "main.scene.json", "initial");
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   auto files = std::make_shared<gneiss::files::service>();
   auto backend = std::make_shared<delayed_backend>();
@@ -118,7 +118,7 @@ void pending_shutdown(bool destroy, bool list = false) {
   (void)files->dispatch_completions(64);
 }
 void scan_failure_retry() {
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   auto files = std::make_shared<gneiss::files::service>();
   auto backend = std::make_shared<delayed_backend>();
@@ -157,7 +157,7 @@ void run(std::size_t workers,
   std::filesystem::create_directories(files.root / "nested");
   for (unsigned i = 0; i < 20; ++i)
     write(files.root / "nested" / (std::to_string(i) + ".prefab.json"), "initial");
-  gneiss::tasks::task_scheduler scheduler({.workers = workers, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = workers, .mode = mode});
   gneiss::runtime::application_configuration config;
   const auto root_text = files.root.generic_string();
   config.asset_root = root_text;
@@ -284,10 +284,10 @@ void run(std::size_t workers,
     return service.stopped();
   });
   const auto other = scheduler.make_scope();
-  gneiss::tasks::task_handle handle;
+  gneiss::tasks::handle handle;
   require(scheduler.submit(
-              {.scope = other}, [](const auto&) { return gneiss::tasks::task_outcome{}; },
-              handle) == gneiss::tasks::submit_result::success,
+              {.scope = other}, [](const auto&) { return gneiss::tasks::outcome{}; }, handle) ==
+              gneiss::tasks::submit_result::success,
           "停止作者服务关闭了共享调度器");
   require(scheduler.close_scope(other), "独立作用域无法关闭");
 }

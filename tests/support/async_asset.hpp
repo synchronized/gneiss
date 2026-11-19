@@ -4,15 +4,15 @@
 #include "memory_file_fixture.hpp"
 #include "value_result.hpp"
 #include <chrono>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/prefab.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <stdexcept>
 namespace gneiss::test_support {
-inline gneiss::tasks::task_scheduler& asset_tasks() {
-  static gneiss::tasks::task_scheduler tasks(
+inline gneiss::tasks::scheduler& asset_tasks() {
+  static gneiss::tasks::scheduler tasks(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   return tasks;
 }

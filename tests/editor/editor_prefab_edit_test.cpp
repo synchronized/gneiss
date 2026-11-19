@@ -12,7 +12,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -63,7 +63,7 @@ struct fixture {
 };
 void run_refresh(gneiss::tasks::execution_mode mode) {
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
   const auto path = files.root.string();
@@ -245,7 +245,7 @@ void run(gneiss::tasks::execution_mode mode) {
   std::ifstream input(files.root / "prefab.json");
   const std::string source{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
   input.close();
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;
   const auto root = files.root.string();
@@ -455,7 +455,7 @@ void run(gneiss::tasks::execution_mode mode) {
 }
 void run_mixed_subtree() {
   fixture files;
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 1U, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<runtime::application> app;
   runtime::application_configuration config;

@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/logging/default_service.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/environment.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
@@ -83,7 +83,7 @@ struct runtime_context final {
   std::uint64_t next_statistics_sequence = 1U;
   bool force_full_inspection = false;
   gneiss::error ipc_failure = gneiss::error::success;
-  gneiss::tasks::task_scheduler* tasks{};
+  gneiss::tasks::scheduler* tasks{};
   std::deque<gneiss::host::runtime_ipc_actions::asset_reload_command> pending_assets{};
   gneiss::host::runtime_scene_loader* scene_loader{};
   std::uint64_t next_scene_progress_ns{};
@@ -519,11 +519,11 @@ private:
 
   desc.asset_root = asset_root;
 
-  gneiss::tasks::task_scheduler task_scheduler(
-      {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
-                                         : gneiss::tasks::execution_mode::thread_pool});
-  context.tasks = &task_scheduler;
-  desc.executor = &task_scheduler;
+  gneiss::tasks::scheduler scheduler({.mode = options.cooperative_tasks
+                                                  ? gneiss::tasks::execution_mode::cooperative
+                                                  : gneiss::tasks::execution_mode::thread_pool});
+  context.tasks = &scheduler;
+  desc.executor = &scheduler;
   gneiss::runtime::application* application{};
   auto created = gneiss::runtime::application::create(desc);
   auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
@@ -619,9 +619,9 @@ private:
         return !submitted && submitted.error() != gneiss::error::not_ready ? submitted
                                                                            : gneiss::result<void>{};
       });
-  application->add_system(gneiss::app::stage::completions, "runtime.tasks", [&task_scheduler] {
-    if (task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
-      (void)task_scheduler.run_ready();
+  application->add_system(gneiss::app::stage::completions, "runtime.tasks", [&scheduler] {
+    if (scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
+      (void)scheduler.run_ready();
   });
   application->add_system(
       gneiss::app::stage::update, "runtime.update",
@@ -895,7 +895,7 @@ private:
   });
   auto ran = application->run();
   operation = ran ? gneiss::error::success : ran.error();
-  const auto task_stats = task_scheduler.stats();
+  const auto task_stats = scheduler.stats();
   log.write({.severity = gneiss::logging::level::info,
              .category = "task_statistics",
              .message = "submitted=" + std::to_string(task_stats.submitted) +

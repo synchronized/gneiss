@@ -3,7 +3,7 @@
 
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <tracy/Tracy.hpp>
 
@@ -17,25 +17,25 @@
 namespace {
 using namespace std::chrono_literals;
 struct context {
-  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::tasks::task_scope scope = scheduler.make_scope();
+  gneiss::tasks::scheduler scheduler{{.workers = 1U}};
+  gneiss::tasks::scope scope = scheduler.make_scope();
   std::size_t received{};
 };
 gneiss::error update(const gneiss::frame_time& time, context& state) noexcept {
   try {
-    gneiss::tasks::task_handle task;
+    gneiss::tasks::handle task;
     const auto accepted = state.scheduler.submit(
         {.name = time.frame_index == 0U ? std::string(65536U, 'x') : "capture.work",
          .scope = state.scope},
-        [](const gneiss::tasks::task_context&) {
+        [](const gneiss::tasks::context&) {
           std::this_thread::sleep_for(1ms);
-          return gneiss::tasks::task_outcome{.state = gneiss::tasks::task_state::succeeded};
+          return gneiss::tasks::outcome{.state = gneiss::tasks::state::succeeded};
         },
         task);
     if (accepted != gneiss::tasks::submit_result::success) {
       return gneiss::error::internal;
     }
-    std::vector<gneiss::tasks::task_completion> completed;
+    std::vector<gneiss::tasks::completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(2ms);
     return gneiss::error::success;
@@ -73,7 +73,7 @@ int main(int argc, char** argv) try {
     return 3;
   const auto deadline = std::chrono::steady_clock::now() + 5s;
   while (state.received < 128U && std::chrono::steady_clock::now() < deadline) {
-    std::vector<gneiss::tasks::task_completion> completed;
+    std::vector<gneiss::tasks::completion> completed;
     state.received += state.scheduler.poll(state.scope, completed);
     std::this_thread::sleep_for(1ms);
   }

@@ -123,6 +123,6 @@ magic、schema、对齐规则和数据区合法性仍由各 codec 负责，文�
 
 ## 任务命名空间
 
-`engine/core/tasks/task_scheduler.hpp` 的任务调度类型统一位于 `gneiss::tasks`，
-例如 `gneiss::tasks::task_scheduler`、`task_executor`、`task_handle` 和 `task_scope`。
+`engine/core/tasks/scheduler.hpp` 的任务调度类型统一位于 `gneiss::tasks`，
+例如 `gneiss::tasks::scheduler`、`executor`、`handle` 和 `scope`。
 目录和 CMake 目标不变；调度器私有后端位于 `gneiss::tasks::detail`。

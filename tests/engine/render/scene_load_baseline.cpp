@@ -8,7 +8,7 @@
 #include "function/render/detail/frame_packet.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
@@ -74,7 +74,7 @@ std::uint64_t peak_resident_bytes() {
 }
 // 场景切换的预载也走设备变体选择和 CPU 准备，不能用同步预载阻断被测异步路径。
 gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
-                            gneiss::world& world, gneiss::tasks::task_scheduler& scheduler,
+                            gneiss::world& world, gneiss::tasks::scheduler& scheduler,
                             bool cooperative, std::string_view uri, gneiss::scene_instance& scene) {
   auto request = app->assets().load<gneiss::scene>(uri);
   if (!request)
@@ -138,10 +138,10 @@ int main(int argc, char** argv) try {
       scenario != "failure" && scenario != "close") {
     return 2;
   }
-  gneiss::tasks::task_scheduler scheduler(
-      {.workers = 1U,
-       .mode = mode == "cooperative" ? gneiss::tasks::execution_mode::cooperative
-                                     : gneiss::tasks::execution_mode::thread_pool});
+  gneiss::tasks::scheduler scheduler({.workers = 1U,
+                                      .mode = mode == "cooperative"
+                                                  ? gneiss::tasks::execution_mode::cooperative
+                                                  : gneiss::tasks::execution_mode::thread_pool});
   std::function<gneiss::error(gneiss::runtime::application*)> update;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration desc;

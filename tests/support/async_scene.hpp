@@ -2,15 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include <chrono>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 namespace gneiss::test_support {
 inline gneiss::error load_scene_content(gneiss::asset_manager& assets,
-                                        gneiss::tasks::task_scheduler& executor,
-                                        std::string_view uri, gneiss::scene_content& output,
+                                        gneiss::tasks::scheduler& executor, std::string_view uri,
+                                        gneiss::scene_content& output,
                                         gneiss::scene_diagnostic& diagnostic,
                                         gneiss::ref<const gneiss::scene>* identity = nullptr) {
   output = {};

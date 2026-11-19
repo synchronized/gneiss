@@ -6,7 +6,7 @@
 #include <array>
 #include <chrono>
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/asset/render_resource.hpp>
@@ -116,7 +116,7 @@ void test_asset_request_boundaries() {
 
 void test_loading_request_lifetime() {
   using namespace gneiss;
-  gneiss::tasks::task_scheduler tasks(
+  gneiss::tasks::scheduler tasks(
       {.workers = 1, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   config.asset_root = ".";
@@ -168,7 +168,7 @@ void test_loading_request_lifetime() {
 
 void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
   for (int stage = 0; stage < 3; ++stage) {
-    gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+    gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
     gneiss::runtime::application_configuration config;
     config.asset_root = GNEISS_TEST_ASSET_ROOT;
     config.executor = &scheduler;

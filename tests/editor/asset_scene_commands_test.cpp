@@ -12,7 +12,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -29,7 +29,7 @@ int main() try {
   const std::string assets = GNEISS_EDITOR_TEST_ASSET_ROOT;
   gneiss::runtime::application_configuration desc;
   desc.asset_root = assets;
-  gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   desc.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::world_owner world_owner;

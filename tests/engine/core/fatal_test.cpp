@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <chrono>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <new>
 #include <stdexcept>
 #include <string_view>
@@ -30,13 +30,14 @@ int main(int argc, char** argv) {
     }
   }
   const bool worker = mode == "worker" || mode == "worker-oom";
-  gneiss::tasks::task_scheduler scheduler(
-      {.workers = 1, .mode = worker ? gneiss::tasks::execution_mode::thread_pool : gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::scheduler scheduler({.workers = 1,
+                                      .mode = worker ? gneiss::tasks::execution_mode::thread_pool
+                                                     : gneiss::tasks::execution_mode::cooperative});
   const auto scope = scheduler.make_scope();
-  gneiss::tasks::task_handle task;
+  gneiss::tasks::handle task;
   if (scheduler.submit(
           {.scope = scope},
-          [mode](const auto&) -> gneiss::tasks::task_outcome {
+          [mode](const auto&) -> gneiss::tasks::outcome {
             if (mode == "worker-oom")
               throw std::bad_alloc{};
             throw std::runtime_error("fixture");

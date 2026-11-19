@@ -7,7 +7,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -69,7 +69,7 @@ int main() try {
   const auto root_text = root.generic_string();
   gneiss::runtime::application_configuration config;
   config.asset_root = root_text;
-  gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   config.executor = &scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::scene_instance scene = {};

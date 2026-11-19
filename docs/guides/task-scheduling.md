@@ -10,14 +10,19 @@
 设计取舍见 [ADR-047](../decisions/ADR-047-cooperative-task-execution.md) 和
 [ADR-048](../decisions/ADR-048-runtime-asset-preparation.md)。
 
+任务类型由 `gneiss::tasks` 命名空间限定，统一包含
+`<gneiss/engine/core/tasks/scheduler.hpp>`：`scheduler` 为实现，`executor` 为借用接口，
+`handle`、`scope` 表示任务与作用域身份，`description`、`context`、`outcome`、`completion`
+表达提交、执行和完成数据。`state`、`priority` 保留原有枚举值；名称调整不改变调度语义。
+
 ## 创建与驱动
 
-Editor 和 Runtime 各自在宿主中创建一个 `task_scheduler`。默认使用三个工作线程；通过
+Editor 和 Runtime 各自在宿主中创建一个 `scheduler`。默认使用三个工作线程；通过
 `--cooperative-tasks` 选择由所属宿主线程执行任务。Editor 的导入、作者资产服务及 Application
 借用同一个实例。Application 的公共同步创建接口不会自行创建额外任务池。
 
 ```cpp
-gneiss::tasks::task_scheduler scheduler({
+gneiss::tasks::scheduler scheduler({
     .mode = gneiss::tasks::execution_mode::cooperative});
 gneiss::runtime::application_configuration config;
 config.executor = &scheduler;

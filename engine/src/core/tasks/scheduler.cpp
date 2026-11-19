@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "task_platform.hpp"
+#include "platform.hpp"
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/diagnostics/profiling.hpp>
 #include <gneiss/engine/core/diagnostics/timing.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 
 #include <algorithm>
 #include <deque>
@@ -19,16 +19,14 @@ namespace {
 std::atomic_uint64_t next_owner{1U};
 thread_local const void* active_scheduler{};
 thread_local const char thread_identity{};
-bool terminal(task_state state) {
-  return state != task_state::waiting && state != task_state::running;
-}
+bool terminal(state state) { return state != state::waiting && state != state::running; }
 }
 
-struct task_scheduler::implementation {
+struct scheduler::implementation {
   struct task {
-    task_description description;
-    task_function function;
-    task_completion completion;
+    tasks::description description;
+    scheduler::function function;
+    tasks::completion completion;
     std::atomic_bool cancellation{};
     std::vector<std::shared_ptr<task>> dependencies;
     std::chrono::steady_clock::time_point enqueued{};
@@ -58,17 +56,17 @@ struct task_scheduler::implementation {
   const void* host_thread{&thread_identity};
   auto now() const { return options.clock ? options.clock() : std::chrono::steady_clock::now(); }
 
-  void finish(task& value, task_outcome outcome) {
+  void finish(task& value, outcome outcome) {
     if (terminal(value.completion.outcome.state)) {
       return;
     }
     GNEISS_PROFILE_SCOPE("task.complete");
     GNEISS_PROFILE_TASK(owner, value.completion.task.id, value.description.name);
     const auto now = this->now();
-    if (value.completion.outcome.state == task_state::running) {
+    if (value.completion.outcome.state == state::running) {
       value.completion.execution_ms =
           std::chrono::duration<double, std::milli>(now - value.started).count();
-      if (value.description.priority == task_priority::background) {
+      if (value.description.priority == priority::background) {
         --running_background;
       }
     } else {
@@ -78,11 +76,11 @@ struct task_scheduler::implementation {
     value.completion.outcome = std::move(outcome);
     scopes.at(value.description.scope.id).completed.push_back(value.completion.task.id);
     ++counters.completed;
-    if (value.completion.outcome.state == task_state::cancelled) {
+    if (value.completion.outcome.state == state::cancelled) {
       ++counters.cancelled;
     }
-    if (value.completion.outcome.state == task_state::failed ||
-        value.completion.outcome.state == task_state::dependency_failed) {
+    if (value.completion.outcome.state == state::failed ||
+        value.completion.outcome.state == state::dependency_failed) {
       ++counters.failed;
     }
     // 终态无需保留整条前置链；其他任务已单独持有它所需的终态。
@@ -94,8 +92,8 @@ struct task_scheduler::implementation {
   }
   void request_cancel(task& value) {
     value.cancellation = true;
-    if (value.completion.outcome.state == task_state::waiting) {
-      finish(value, {.state = task_state::cancelled, .error = {}});
+    if (value.completion.outcome.state == state::waiting) {
+      finish(value, {.state = state::cancelled, .error = {}});
     }
   }
   bool scope_idle(std::uint64_t scope) const {
@@ -110,7 +108,7 @@ struct task_scheduler::implementation {
     const auto now = this->now();
     for (auto& [id, value] : tasks) {
       (void)id;
-      if (value->completion.outcome.state != task_state::waiting) {
+      if (value->completion.outcome.state != state::waiting) {
         continue;
       }
       bool ready = true;
@@ -118,11 +116,10 @@ struct task_scheduler::implementation {
       for (const auto& before : value->dependencies) {
         const auto state = before->completion.outcome.state;
         ready = ready && terminal(state);
-        dependency_failed =
-            dependency_failed || (terminal(state) && state != task_state::succeeded);
+        dependency_failed = dependency_failed || (terminal(state) && state != state::succeeded);
       }
       if (dependency_failed) {
-        finish(*value, {.state = task_state::dependency_failed, .error = "前置任务未成功"});
+        finish(*value, {.state = state::dependency_failed, .error = "前置任务未成功"});
         continue;
       }
       const bool serial_blocked =
@@ -138,7 +135,7 @@ struct task_scheduler::implementation {
         next_due = std::min(next_due, value->description.not_before);
         continue;
       }
-      if (value->description.priority == task_priority::normal) {
+      if (value->description.priority == priority::normal) {
         if (!normal) {
           normal = value;
         }
@@ -148,7 +145,7 @@ struct task_scheduler::implementation {
     }
     auto chosen = normal && (!background || normal_streak < 8U) ? normal : background;
     if (chosen) {
-      if (chosen->description.priority == task_priority::background) {
+      if (chosen->description.priority == priority::background) {
         ++running_background;
         normal_streak = 0U;
       } else {
@@ -157,19 +154,19 @@ struct task_scheduler::implementation {
       chosen->started = now;
       chosen->completion.queue_ms =
           std::chrono::duration<double, std::milli>(now - chosen->enqueued).count();
-      chosen->completion.outcome.state = task_state::running;
+      chosen->completion.outcome.state = state::running;
     }
     return chosen;
   }
-  void execute(const std::shared_ptr<task>& current, task_function function) {
+  void execute(const std::shared_ptr<task>& current, function function) {
     GNEISS_PROFILE_SCOPE("task.execute");
     GNEISS_PROFILE_TASK(owner, current->completion.task.id, current->description.name);
-    task_outcome outcome;
+    outcome outcome;
     try {
-      outcome = function(
-          task_context{current->cancellation, options.mode == execution_mode::thread_pool});
-      if (!terminal(outcome.state) || outcome.state == task_state::dependency_failed) {
-        outcome = {.state = task_state::failed, .error = "任务返回非法终态"};
+      outcome =
+          function(context{current->cancellation, options.mode == execution_mode::thread_pool});
+      if (!terminal(outcome.state) || outcome.state == state::dependency_failed) {
+        outcome = {.state = state::failed, .error = "任务返回非法终态"};
       }
     } catch (...) {
       fatal_current_exception();
@@ -186,7 +183,7 @@ struct task_scheduler::implementation {
     active_scheduler = this;
     for (;;) {
       std::shared_ptr<task> current;
-      task_function function;
+      scheduler::function function;
       {
         std::unique_lock lock(mutex);
         while (!current) {
@@ -211,8 +208,7 @@ struct task_scheduler::implementation {
   }
 };
 
-task_scheduler::task_scheduler(scheduler_options options)
-    : impl_(std::make_unique<implementation>()) {
+scheduler::scheduler(scheduler_options options) : impl_(std::make_unique<implementation>()) {
   if ((options.mode != execution_mode::thread_pool &&
        options.mode != execution_mode::cooperative) ||
       options.workers > 64U || options.capacity == 0U ||
@@ -251,7 +247,7 @@ task_scheduler::task_scheduler(scheduler_options options)
     throw;
   }
 }
-task_scheduler::~task_scheduler() {
+scheduler::~scheduler() {
   try {
     stop();
   } catch (...) {
@@ -260,7 +256,7 @@ task_scheduler::~task_scheduler() {
   }
 }
 
-task_scope task_scheduler::make_scope(std::shared_ptr<wakeup_signal> wakeup) {
+scope scheduler::make_scope(std::shared_ptr<wakeup_signal> wakeup) {
   std::scoped_lock lock(impl_->mutex);
   if (impl_->stopping || impl_->scopes.size() >= impl_->options.capacity) {
     return {};
@@ -269,7 +265,7 @@ task_scope task_scheduler::make_scope(std::shared_ptr<wakeup_signal> wakeup) {
   impl_->scopes.emplace(id, implementation::scope_state{false, std::move(wakeup), {}});
   return {.owner = impl_->owner, .id = id};
 }
-serial_queue task_scheduler::make_serial_queue(task_scope scope) {
+serial_queue scheduler::make_serial_queue(scope scope) {
   std::scoped_lock lock(impl_->mutex);
   const auto found = impl_->scopes.find(scope.id);
   if (impl_->stopping || scope.owner != impl_->owner || found == impl_->scopes.end() ||
@@ -280,8 +276,7 @@ serial_queue task_scheduler::make_serial_queue(task_scope scope) {
   impl_->lanes.emplace(id, implementation::lane{.scope = scope.id});
   return {.owner = impl_->owner, .id = id};
 }
-submit_result task_scheduler::submit(task_description description, task_function function,
-                                     task_handle& output) {
+submit_result scheduler::submit(description description, function function, handle& output) {
   GNEISS_PROFILE_SCOPE("task.submit");
   output = {};
   auto* timings = std::exchange(description.submission_timings, nullptr);
@@ -324,10 +319,10 @@ submit_result task_scheduler::submit(task_description description, task_function
   value->enqueued = impl_->now();
   value->description = std::move(description);
   value->function = std::move(function);
-  const task_handle handle{.owner = impl_->owner, .id = impl_->sequence++};
+  const handle handle{.owner = impl_->owner, .id = impl_->sequence++};
   value->completion = {.task = handle,
                        .name = value->description.name,
-                       .outcome = {.state = task_state::waiting, .error = {}},
+                       .outcome = {.state = state::waiting, .error = {}},
                        .queue_ms = 0,
                        .execution_ms = 0};
   gneiss::measure(timings != nullptr ? &timings->insert_ms : nullptr,
@@ -339,7 +334,7 @@ submit_result task_scheduler::submit(task_description description, task_function
                   [&] { impl_->wake.notify_all(); });
   return submit_result::success;
 }
-bool task_scheduler::cancel(task_handle task) {
+bool scheduler::cancel(handle task) {
   std::scoped_lock lock(impl_->mutex);
   const auto found = impl_->tasks.find(task.id);
   if (task.owner != impl_->owner || found == impl_->tasks.end() ||
@@ -349,7 +344,7 @@ bool task_scheduler::cancel(task_handle task) {
   impl_->request_cancel(*found->second);
   return true;
 }
-void task_scheduler::cancel_scope(task_scope scope) {
+void scheduler::cancel_scope(scope scope) {
   std::scoped_lock lock(impl_->mutex);
   if (scope.owner != impl_->owner || !impl_->scopes.contains(scope.id)) {
     return;
@@ -362,12 +357,12 @@ void task_scheduler::cancel_scope(task_scope scope) {
     }
   }
 }
-bool task_scheduler::idle(task_scope scope) const {
+bool scheduler::idle(scope scope) const {
   std::scoped_lock lock(impl_->mutex);
   return scope.owner == impl_->owner && impl_->scopes.contains(scope.id) &&
          impl_->scope_idle(scope.id);
 }
-bool task_scheduler::close_scope(task_scope scope) {
+bool scheduler::close_scope(scope scope) {
   if (active_scheduler == impl_.get()) {
     return false;
   }
@@ -381,12 +376,12 @@ bool task_scheduler::close_scope(task_scope scope) {
   }
   return try_close_scope(scope);
 }
-bool task_scheduler::try_close_scope(task_scope scope) {
+bool scheduler::try_close_scope(scope scope) {
   if (active_scheduler == impl_.get()) {
     return false;
   }
   cancel_scope(scope);
-  std::vector<task_function> cleanup;
+  std::vector<function> cleanup;
   std::vector<std::shared_ptr<implementation::task>> retired;
   {
     std::unique_lock lock(impl_->mutex);
@@ -411,9 +406,8 @@ bool task_scheduler::try_close_scope(task_scope scope) {
   }
   return true;
 }
-std::size_t task_scheduler::poll(task_scope scope, std::vector<task_completion>& output,
-                                 std::size_t budget) {
-  std::vector<task_function> cleanup;
+std::size_t scheduler::poll(scope scope, std::vector<completion>& output, std::size_t budget) {
+  std::vector<function> cleanup;
   std::vector<std::shared_ptr<implementation::task>> retired;
   {
     std::scoped_lock lock(impl_->mutex);
@@ -435,7 +429,7 @@ std::size_t task_scheduler::poll(task_scope scope, std::vector<task_completion>&
   }
   return retired.size();
 }
-bool task_scheduler::query(task_handle task, task_completion& output) const {
+bool scheduler::query(handle task, completion& output) const {
   std::scoped_lock lock(impl_->mutex);
   const auto found = impl_->tasks.find(task.id);
   if (task.owner != impl_->owner || found == impl_->tasks.end()) {
@@ -444,23 +438,23 @@ bool task_scheduler::query(task_handle task, task_completion& output) const {
   output = found->second->completion;
   return true;
 }
-scheduler_stats task_scheduler::stats() const {
+scheduler_stats scheduler::stats() const {
   std::scoped_lock lock(impl_->mutex);
   auto stats = impl_->counters;
   stats.retained = impl_->tasks.size();
   for (const auto& [id, value] : impl_->tasks) {
     (void)id;
-    if (value->completion.outcome.state == task_state::waiting) {
+    if (value->completion.outcome.state == state::waiting) {
       ++stats.waiting;
     }
-    if (value->completion.outcome.state == task_state::running) {
+    if (value->completion.outcome.state == state::running) {
       ++stats.running;
     }
   }
   return stats;
 }
-execution_mode task_scheduler::mode() const noexcept { return impl_->options.mode; }
-drive_result task_scheduler::run_ready(drive_budget budget) {
+execution_mode scheduler::mode() const noexcept { return impl_->options.mode; }
+drive_result scheduler::run_ready(drive_budget budget) {
   if (mode() != execution_mode::cooperative) {
     return {.status = drive_status::wrong_mode};
   }
@@ -484,7 +478,7 @@ drive_result task_scheduler::run_ready(drive_budget budget) {
   } guard{impl_.get()};
   while (result.executed < budget.max_tasks && impl_->now() - start < budget.max_time) {
     std::shared_ptr<implementation::task> current;
-    task_function function;
+    scheduler::function function;
     {
       std::scoped_lock lock(impl_->mutex);
       if (impl_->stopping) {
@@ -504,7 +498,7 @@ drive_result task_scheduler::run_ready(drive_budget budget) {
   result.budget_exhausted = true;
   return result;
 }
-void task_scheduler::request_stop() {
+void scheduler::request_stop() {
   std::scoped_lock lock(impl_->mutex);
   impl_->stopping = true;
   for (auto& [id, value] : impl_->tasks) {
@@ -513,13 +507,13 @@ void task_scheduler::request_stop() {
   }
   impl_->wake.notify_all();
 }
-bool task_scheduler::stopped() const {
+bool scheduler::stopped() const {
   std::scoped_lock lock(impl_->mutex);
   return impl_->stopping && std::ranges::all_of(impl_->tasks, [](const auto& item) {
            return terminal(item.second->completion.outcome.state);
          });
 }
-void task_scheduler::stop() {
+void scheduler::stop() {
   if (mode() == execution_mode::cooperative && impl_->host_thread != &thread_identity) {
     throw std::logic_error("协作调度器必须由所属宿主线程停止");
   }

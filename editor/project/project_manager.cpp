@@ -12,7 +12,7 @@
 #include "ui/imgui_adapter.hpp"
 
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 
 #include <imgui.h>
@@ -37,8 +37,8 @@ struct project_job_result {
 };
 
 struct project_manager_state final {
-  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::tasks::task_scope scope{scheduler.make_scope()};
+  gneiss::tasks::scheduler scheduler{{.workers = 1U}};
+  gneiss::tasks::scope scope{scheduler.make_scope()};
   std::shared_ptr<project_job_result> pending;
   bool closing{};
   runtime::application* application{};
@@ -87,11 +87,11 @@ gneiss::error begin_project_job(project_manager_state& state, std::filesystem::p
   if (state.pending || state.closing)
     return gneiss::error::not_ready;
   auto pending = std::make_shared<project_job_result>();
-  gneiss::tasks::task_handle task;
+  gneiss::tasks::handle task;
   const auto submitted = state.scheduler.submit(
       {.name = "工程创建或打开", .scope = state.scope},
       [pending, state_file = state.state_file, root = std::move(root),
-       name = std::move(name)](const gneiss::tasks::task_context&) {
+       name = std::move(name)](const gneiss::tasks::context&) {
         pending->status = name.empty() ? load_editor_project(root, pending->project)
                                        : create_editor_project(root, name, pending->project);
         if (pending->status.ok()) {
@@ -99,7 +99,7 @@ gneiss::error begin_project_job(project_manager_state& state, std::filesystem::p
           if (saved.failed())
             std::fprintf(stderr, "最近工程配置保存失败：%d\n", saved.code());
         }
-        return gneiss::tasks::task_outcome{};
+        return gneiss::tasks::outcome{};
       },
       task);
   if (submitted != gneiss::tasks::submit_result::success)
@@ -111,11 +111,11 @@ gneiss::error begin_project_job(project_manager_state& state, std::filesystem::p
 gneiss::error update_project_manager(project_manager_state& state, const gneiss::frame_time& time) {
   {
     if (state.pending) {
-      std::vector<gneiss::tasks::task_completion> completed;
+      std::vector<gneiss::tasks::completion> completed;
       state.scheduler.poll(state.scope, completed);
       if (!completed.empty()) {
         auto pending = std::exchange(state.pending, {});
-        state.operation = completed.front().outcome.state == gneiss::tasks::task_state::succeeded
+        state.operation = completed.front().outcome.state == gneiss::tasks::state::succeeded
                               ? pending->status
                               : gneiss::error::internal;
         if (!state.closing && state.operation.ok())

@@ -7,16 +7,16 @@
 #include "../../support/value_result.hpp"
 #include "function/asset/detail/asset_construction.hpp"
 #include <algorithm>
-#include <gneiss/engine/core/serialization/json.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/asset/loaders/mesh_decoder.hpp>
 #include <gneiss/engine/function/files/backend.hpp>
 #include <gneiss/engine/function/files/service.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
-#include <gneiss/engine/function/asset/loaders/mesh_decoder.hpp>
 #include <gneiss/engine/resource/texture/texture_ktx2.hpp>
 #include <stdexcept>
 
@@ -105,18 +105,15 @@ void texture_source_revisions() {
   const render_resource_source request{"asset://texture", render_resource_kind::texture};
   decoded_asset before, repeated, after;
   asset_diagnostic diagnostic;
-  check(gneiss::test_support::decode_fixture(files, request, before, diagnostic, SIZE_MAX,
-                                             {})
-            .ok());
+  check(
+      gneiss::test_support::decode_fixture(files, request, before, diagnostic, SIZE_MAX, {}).ok());
   check(gneiss::test_support::decode_fixture(files, request, repeated, diagnostic, SIZE_MAX, {})
             .ok());
   check(before.sources.size() == 2 && repeated.sources.size() == 2);
   check(before.sources.back().digest == repeated.sources.back().digest);
   source->pixel(std::byte{20});
   source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
-  check(gneiss::test_support::decode_fixture(files, request, after, diagnostic, SIZE_MAX,
-                                             {})
-            .ok());
+  check(gneiss::test_support::decode_fixture(files, request, after, diagnostic, SIZE_MAX, {}).ok());
   check(after.sources.size() == 2);
   check(before.uri == after.uri &&
         before.sources.front().identity == after.sources.front().identity);
@@ -299,7 +296,7 @@ void reserved_material_lifetime() {
   check(resources.material_status(rid) == gneiss::error::invalid_handle);
 }
 void cpu_loading(gneiss::tasks::execution_mode mode) {
-  gneiss::tasks::task_scheduler scheduler({.mode = mode});
+  gneiss::tasks::scheduler scheduler({.mode = mode});
   auto backend = std::make_shared<delayed_backend>();
   auto files = std::make_shared<gneiss::files::service>(
       gneiss::files::service_options{.max_file_bytes = 64U * 1024U * 1024U});
@@ -477,7 +474,7 @@ void cpu_loading(gneiss::tasks::execution_mode mode) {
   check(manager.load<gneiss::mesh>("asset://mesh").error() == error::invalid_state);
 }
 void independent_loads(gneiss::tasks::execution_mode mode) {
-  gneiss::tasks::task_scheduler scheduler({.mode = mode});
+  gneiss::tasks::scheduler scheduler({.mode = mode});
   auto source = std::make_shared<memory_files>();
   source->text(
       "a",

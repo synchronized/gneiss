@@ -4,7 +4,7 @@
 #include "documents/commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <memory>
 namespace gneiss::editor {
 enum class prefab_edit_phase { preparing, assets, constructing, cleanup, finished };
@@ -14,17 +14,14 @@ class editor_prefab_edit final {
 public:
   editor_prefab_edit();
   ~editor_prefab_edit();
-  gneiss::error request(runtime::application& application,
-                                gneiss::tasks::task_executor& executor,
-                                scene_edit_session& session, editor_command_history& history,
-                                std::string_view name, std::string_view uri, entity_id parent);
-  gneiss::error request_remove(runtime::application& application,
-                                       scene_edit_session& session, editor_command_history& history,
-                                       entity_id root);
+  gneiss::error request(runtime::application& application, gneiss::tasks::executor& executor,
+                        scene_edit_session& session, editor_command_history& history,
+                        std::string_view name, std::string_view uri, entity_id parent);
+  gneiss::error request_remove(runtime::application& application, scene_edit_session& session,
+                               editor_command_history& history, entity_id root);
   gneiss::error request_refresh(runtime::application& application,
-                                        gneiss::tasks::task_executor& executor,
-                                        scene_edit_session& session,
-                                        editor_command_history& history, entity_id root);
+                                gneiss::tasks::executor& executor, scene_edit_session& session,
+                                editor_command_history& history, entity_id root);
   void advance();
   void cancel();
   bool active() const noexcept;

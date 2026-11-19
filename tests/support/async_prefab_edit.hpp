@@ -5,7 +5,7 @@
 #include "documents/commands/editor_prefab_edit.hpp"
 namespace gneiss::test_support {
 inline gneiss::error drive_prefab_edit(runtime::application& app, editor::editor_prefab_edit& edit,
-                                       gneiss::tasks::task_scheduler& tasks) {
+                                       gneiss::tasks::scheduler& tasks) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
   while (edit.active()) {
     if (tasks.mode() == gneiss::tasks::execution_mode::cooperative)
@@ -34,7 +34,7 @@ inline gneiss::error finish_history(editor::editor_command_history& history, gne
 inline gneiss::error create_prefab_document(runtime::application& app,
                                             editor::scene_edit_session& doc, std::string_view name,
                                             std::string_view uri, entity_id parent, entity_id& root,
-                                            gneiss::tasks::task_scheduler* tasks = nullptr) {
+                                            gneiss::tasks::scheduler* tasks = nullptr) {
   root = {};
   if (!tasks)
     tasks = &application_tasks();

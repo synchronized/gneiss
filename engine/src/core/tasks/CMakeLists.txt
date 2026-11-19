@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
-add_library(gneiss_tasks task_scheduler.cpp)
+add_library(gneiss_tasks scheduler.cpp)
 add_library(gneiss::tasks ALIAS gneiss_tasks)
 if(COMMAND gneiss_target_profiling)
   gneiss_target_profiling(gneiss_tasks)

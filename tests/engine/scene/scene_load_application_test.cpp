@@ -8,7 +8,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
@@ -70,7 +70,7 @@ struct fixture {
   }
 };
 gneiss::asset_load_completion drain_visuals(const std::shared_ptr<application>& app,
-                                            gneiss::tasks::task_scheduler& scheduler,
+                                            gneiss::tasks::scheduler& scheduler,
                                             gneiss::tasks::execution_mode mode,
                                             gneiss::asset_batch_request& request) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -93,7 +93,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
         << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[1,0,0,1]},"texture_uris":["asset://missing.ktx2","","","",""]})";
   else
     std::ofstream(files.root / "material.json") << "broken";
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   application_configuration config;
   const auto root = files.root.string();
   config.asset_root = root;
@@ -206,7 +206,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
 void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   namespace e = gneiss;
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   application_configuration config;
   const auto asset_root = files.root.string();
   config.asset_root = asset_root;
@@ -273,7 +273,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
 
 void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   const auto root = files.root.string();
   application_configuration config;
   config.asset_root = root;
@@ -339,7 +339,7 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
       << R"({"format":"gneiss.scene","version":5,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)"
       << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":{"object":null,"source":null},"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://material.json","uuid":"3c65d64c-c47c-40f1-b0d6-34af2619a4eb"}}]},)"
       << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":{"object":null,"source":null},"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://mesh.json","material":"asset://other.json","uuid":"8bc198c9-d44b-4726-8080-c13a800efd97"}}]}]})";
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<application> app;
   application_configuration desc;
   const auto root = files.root.string();

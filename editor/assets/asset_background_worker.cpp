@@ -3,7 +3,7 @@
 
 #include "assets/asset_background_worker.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 
 #include <deque>
 #include <mutex>
@@ -18,11 +18,11 @@ struct asset_background_worker::implementation {
     std::filesystem::path path;
   };
   static constexpr std::size_t capacity = 256U;
-  std::unique_ptr<gneiss::tasks::task_scheduler> owned_scheduler;
-  gneiss::tasks::task_scheduler* scheduler{};
-  gneiss::tasks::task_scope scope;
+  std::unique_ptr<gneiss::tasks::scheduler> owned_scheduler;
+  gneiss::tasks::scheduler* scheduler{};
+  gneiss::tasks::scope scope;
   gneiss::tasks::serial_queue lane;
-  gneiss::tasks::task_handle scheduled;
+  gneiss::tasks::handle scheduled;
   mutable std::mutex mutex;
   std::deque<command> commands;
   std::deque<command> manual;
@@ -102,12 +102,12 @@ struct asset_background_worker::implementation {
     if (!started) {
       return;
     }
-    std::vector<gneiss::tasks::task_completion> completed;
+    std::vector<gneiss::tasks::completion> completed;
     (void)scheduler->poll(scope, completed);
     for (const auto& item : completed) {
       scheduled = {};
       state.active = false;
-      if (item.outcome.state == gneiss::tasks::task_state::failed) {
+      if (item.outcome.state == gneiss::tasks::state::failed) {
         state.error = item.outcome.error;
         state.stopping = true;
       }
@@ -123,18 +123,18 @@ struct asset_background_worker::implementation {
         (commands.empty() && !rescan && !refresh && !pending_work)) {
       return;
     }
-    gneiss::tasks::task_description description{
-        .name = "asset import/check",
-        .scope = scope,
-        .serial = lane,
-        .not_before = std::chrono::steady_clock::now() + (commands.empty() && !rescan && !refresh
+    gneiss::tasks::description description{.name = "asset import/check",
+                                           .scope = scope,
+                                           .serial = lane,
+                                           .not_before = std::chrono::steady_clock::now() +
+                                                         (commands.empty() && !rescan && !refresh
                                                               ? std::chrono::milliseconds(20)
                                                               : std::chrono::milliseconds(0))};
     const auto submitted = scheduler->submit(
         std::move(description),
         [this](const auto&) {
           step();
-          return gneiss::tasks::task_outcome{};
+          return gneiss::tasks::outcome{};
         },
         scheduled);
     if (submitted != gneiss::tasks::submit_result::success &&
@@ -250,10 +250,10 @@ struct asset_background_worker::implementation {
 };
 
 asset_background_worker::asset_background_worker(import_function importer,
-                                                 gneiss::tasks::task_scheduler* scheduler)
+                                                 gneiss::tasks::scheduler* scheduler)
     : impl_(std::make_unique<implementation>()) {
   if (scheduler == nullptr) {
-    impl_->owned_scheduler = std::make_unique<gneiss::tasks::task_scheduler>();
+    impl_->owned_scheduler = std::make_unique<gneiss::tasks::scheduler>();
     scheduler = impl_->owned_scheduler.get();
   }
   impl_->scheduler = scheduler;
@@ -365,9 +365,7 @@ asset_worker_status asset_background_worker::status() const {
   return state;
 }
 bool asset_background_worker::is_rescanning() const { return status().rescanning; }
-gneiss::error asset_background_worker::rescan_result() const {
-  return status().rescan_result;
-}
+gneiss::error asset_background_worker::rescan_result() const { return status().rescan_result; }
 std::size_t asset_background_worker::dropped_candidate_count() const { return status().dropped; }
 std::size_t asset_background_worker::poll_events(std::vector<asset_reimport_event>& events) {
   std::scoped_lock lock(impl_->mutex);

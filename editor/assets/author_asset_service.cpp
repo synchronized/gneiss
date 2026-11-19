@@ -3,7 +3,7 @@
 
 #include "assets/author_asset_service.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 
 #include <algorithm>
 #include <deque>
@@ -67,8 +67,8 @@ struct author_asset_service::implementation {
   std::shared_ptr<gneiss::files::service> files;
   gneiss::files::request_id read_request;
   std::shared_ptr<read_receipt> reading;
-  gneiss::tasks::task_scheduler& scheduler;
-  gneiss::tasks::task_scope scope;
+  gneiss::tasks::scheduler& scheduler;
+  gneiss::tasks::scope scope;
   std::shared_ptr<backend> worker{std::make_shared<backend>()};
   std::shared_ptr<batch> active;
   std::deque<command> commands;
@@ -81,7 +81,7 @@ struct author_asset_service::implementation {
   bool stopping{};
   gneiss::error operation{gneiss::error::success};
 
-  explicit implementation(gneiss::tasks::task_scheduler& value)
+  explicit implementation(gneiss::tasks::scheduler& value)
       : scheduler(value), scope(value.make_scope()) {}
 
   bool enqueue(command value) {
@@ -179,10 +179,10 @@ struct author_asset_service::implementation {
       reading.reset();
       read_request = {};
     }
-    std::vector<gneiss::tasks::task_completion> completions;
+    std::vector<gneiss::tasks::completion> completions;
     scheduler.poll(scope, completions, 1U);
     if (!completions.empty() && active) {
-      operation = completions.front().outcome.state == gneiss::tasks::task_state::succeeded
+      operation = completions.front().outcome.state == gneiss::tasks::state::succeeded
                       ? active->operation
                       : gneiss::error::internal;
       if (active->revision == revision) {
@@ -241,14 +241,13 @@ struct author_asset_service::implementation {
     for (std::size_t index = 0U; index < count; ++index) {
       work.push_back(commands[index]);
     }
-    gneiss::tasks::task_handle handle;
+    gneiss::tasks::handle handle;
     const auto accepted = scheduler.submit(
         {.name = "author-assets.check", .scope = scope},
-        [state = worker, output,
-         work = std::move(work)](const gneiss::tasks::task_context& context) {
+        [state = worker, output, work = std::move(work)](const gneiss::tasks::context& context) {
           for (const auto& item : work) {
             if (context.stop_requested()) {
-              return gneiss::tasks::task_outcome{gneiss::tasks::task_state::cancelled};
+              return gneiss::tasks::outcome{gneiss::tasks::state::cancelled};
             }
             if (item.kind == command_kind::saved) {
               output->changes.clear();
@@ -272,7 +271,7 @@ struct author_asset_service::implementation {
               }
             }
           }
-          return gneiss::tasks::task_outcome{};
+          return gneiss::tasks::outcome{};
         },
         handle);
     if (accepted == gneiss::tasks::submit_result::success) {
@@ -286,7 +285,7 @@ struct author_asset_service::implementation {
   }
 };
 
-author_asset_service::author_asset_service(gneiss::tasks::task_scheduler& scheduler)
+author_asset_service::author_asset_service(gneiss::tasks::scheduler& scheduler)
     : impl_(std::make_unique<implementation>(scheduler)) {}
 author_asset_service::~author_asset_service() {
   request_stop();

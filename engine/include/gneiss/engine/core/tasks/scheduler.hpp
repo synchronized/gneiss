@@ -17,11 +17,11 @@
 
 namespace gneiss::tasks {
 
-struct task_handle {
+struct handle {
   std::uint64_t owner{};
   std::uint64_t id{};
 };
-struct task_scope {
+struct scope {
   std::uint64_t owner{};
   std::uint64_t id{};
 };
@@ -29,7 +29,7 @@ struct serial_queue {
   std::uint64_t owner{};
   std::uint64_t id{};
 };
-enum class task_state : std::uint8_t {
+enum class state : std::uint8_t {
   waiting,
   running,
   succeeded,
@@ -37,16 +37,16 @@ enum class task_state : std::uint8_t {
   cancelled,
   dependency_failed
 };
-enum class task_priority : std::uint8_t { normal, background };
+enum class priority : std::uint8_t { normal, background };
 enum class submit_result : std::uint8_t { success, invalid_argument, full, stopped };
 
-struct task_outcome {
-  task_state state{task_state::succeeded};
+struct outcome {
+  tasks::state state{state::succeeded};
   std::string error{};
 };
-class task_context final {
+class context final {
 public:
-  explicit task_context(const std::atomic_bool& cancelled, bool worker_thread = false) noexcept
+  explicit context(const std::atomic_bool& cancelled, bool worker_thread = false) noexcept
       : cancelled_(cancelled), worker_thread_(worker_thread) {}
   [[nodiscard]] bool stop_requested() const noexcept { return cancelled_.load(); }
   [[nodiscard]] bool allows_blocking_wait() const noexcept { return worker_thread_; }
@@ -56,24 +56,24 @@ private:
   bool worker_thread_;
 };
 /** 可选的同步提交观测；仅由 submit 调用线程写入，每次覆盖，不可并发复用。 */
-struct task_submission_timings {
+struct submission_timings {
   bool measured{};
   double lock_ms{}, work_ms{}, allocate_ms{}, insert_ms{}, notify_ms{};
 };
-struct task_description {
+struct description {
   std::string name{};
-  task_scope scope{};
+  tasks::scope scope{};
   serial_queue serial{};
-  std::vector<task_handle> prerequisites{};
-  task_priority priority{task_priority::background};
+  std::vector<handle> prerequisites{};
+  tasks::priority priority{priority::background};
   std::chrono::steady_clock::time_point not_before{};
   // 仅借用到 submit 返回；调度器不得将此指针留给任务或后台线程。
-  task_submission_timings* submission_timings{};
+  tasks::submission_timings* submission_timings{};
 };
-struct task_completion {
-  task_handle task;
+struct completion {
+  handle task;
   std::string name{};
-  task_outcome outcome;
+  tasks::outcome outcome;
   double queue_ms{};
   double execution_ms{};
 };
@@ -109,49 +109,48 @@ struct scheduler_stats {
 };
 
 /** 宿主注入的内部执行入口；无独立状态。跨共享库时通过宿主虚调用保持唯一池和线程上下文。 */
-class task_executor {
+class executor {
 public:
-  using task_function = std::function<task_outcome(const task_context&)>;
-  virtual ~task_executor() = default;
+  using function = std::function<outcome(const context&)>;
+  virtual ~executor() = default;
   /** 未声明线程能力的自定义执行器默认按协作模式处理。 */
   [[nodiscard]] virtual execution_mode mode() const noexcept { return execution_mode::cooperative; }
   /** 创建独立任务域；先发布终态再唤醒，信号保活至域关闭，不持有宿主。 */
-  [[nodiscard]] virtual task_scope make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) = 0;
-  [[nodiscard]] virtual submit_result submit(task_description description, task_function function,
-                                             task_handle& output) = 0;
-  [[nodiscard]] virtual bool cancel(task_handle task) = 0;
-  virtual void cancel_scope(task_scope scope) = 0;
-  [[nodiscard]] virtual bool idle(task_scope scope) const = 0;
-  [[nodiscard]] virtual bool close_scope(task_scope scope) = 0;
+  [[nodiscard]] virtual scope make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) = 0;
+  [[nodiscard]] virtual submit_result submit(description description, function function,
+                                             handle& output) = 0;
+  [[nodiscard]] virtual bool cancel(handle task) = 0;
+  virtual void cancel_scope(scope scope) = 0;
+  [[nodiscard]] virtual bool idle(scope scope) const = 0;
+  [[nodiscard]] virtual bool close_scope(scope scope) = 0;
   /** 消费所属 scope 的终态队列；内置调度器按完成入队顺序交付，不扫描未完成任务。 */
-  virtual std::size_t poll(task_scope scope, std::vector<task_completion>& output,
+  virtual std::size_t poll(scope scope, std::vector<completion>& output,
                            std::size_t budget = 64U) = 0;
 };
 
 /// 内部调度器；无线程构建仅允许所属宿主线程访问，启用线程时提交、查询和取消线程安全。
 /// poll/close_scope 回收结果后句柄失效；已提交依赖仍持有前置终态。
 /// stop 和析构由宿主线程串行调用；不得从自身任务销毁调度器。服务须在调度器之前销毁。
-class task_scheduler final : public task_executor {
+class scheduler final : public executor {
 public:
-  using task_function = std::function<task_outcome(const task_context&)>;
-  GNEISS_TASKS_API explicit task_scheduler(scheduler_options options = {});
-  GNEISS_TASKS_API ~task_scheduler() override;
-  task_scheduler(const task_scheduler&) = delete;
-  task_scheduler& operator=(const task_scheduler&) = delete;
-  [[nodiscard]] GNEISS_TASKS_API task_scope
+  using function = std::function<outcome(const context&)>;
+  GNEISS_TASKS_API explicit scheduler(scheduler_options options = {});
+  GNEISS_TASKS_API ~scheduler() override;
+  scheduler(const scheduler&) = delete;
+  scheduler& operator=(const scheduler&) = delete;
+  [[nodiscard]] GNEISS_TASKS_API scope
   make_scope(std::shared_ptr<wakeup_signal> wakeup = {}) override;
-  [[nodiscard]] GNEISS_TASKS_API serial_queue make_serial_queue(task_scope scope);
-  [[nodiscard]] GNEISS_TASKS_API submit_result submit(task_description description,
-                                                      task_function function,
-                                                      task_handle& output) override;
-  [[nodiscard]] GNEISS_TASKS_API bool cancel(task_handle task) override;
-  GNEISS_TASKS_API void cancel_scope(task_scope scope) override;
-  [[nodiscard]] GNEISS_TASKS_API bool idle(task_scope scope) const override;
+  [[nodiscard]] GNEISS_TASKS_API serial_queue make_serial_queue(scope scope);
+  [[nodiscard]] GNEISS_TASKS_API submit_result submit(description description, function function,
+                                                      handle& output) override;
+  [[nodiscard]] GNEISS_TASKS_API bool cancel(handle task) override;
+  GNEISS_TASKS_API void cancel_scope(scope scope) override;
+  [[nodiscard]] GNEISS_TASKS_API bool idle(scope scope) const override;
   /// 取消并等待该作用域，丢弃尚未消费的结果。池内调用返回 false，不发生自等待。
-  [[nodiscard]] GNEISS_TASKS_API bool close_scope(task_scope scope) override;
-  GNEISS_TASKS_API std::size_t poll(task_scope scope, std::vector<task_completion>& output,
+  [[nodiscard]] GNEISS_TASKS_API bool close_scope(scope scope) override;
+  GNEISS_TASKS_API std::size_t poll(scope scope, std::vector<completion>& output,
                                     std::size_t budget = 64U) override;
-  [[nodiscard]] GNEISS_TASKS_API bool query(task_handle task, task_completion& output) const;
+  [[nodiscard]] GNEISS_TASKS_API bool query(handle task, completion& output) const;
   [[nodiscard]] GNEISS_TASKS_API scheduler_stats stats() const;
   [[nodiscard]] GNEISS_TASKS_API execution_mode mode() const noexcept override;
   /// 仅协作模式所属宿主线程调用，不允许嵌套驱动任何调度器。
@@ -159,7 +158,7 @@ public:
   GNEISS_TASKS_API void request_stop();
   [[nodiscard]] GNEISS_TASKS_API bool stopped() const;
   /// 请求取消并尝试回收；尚有运行任务时返回 false，不阻塞。
-  [[nodiscard]] GNEISS_TASKS_API bool try_close_scope(task_scope scope);
+  [[nodiscard]] GNEISS_TASKS_API bool try_close_scope(scope scope);
   GNEISS_TASKS_API void stop();
 
 private:

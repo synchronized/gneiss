@@ -221,7 +221,7 @@ void editor_prefab_edit::dismiss() noexcept {
   }
 }
 gneiss::error editor_prefab_edit::request(runtime::application& application,
-                                          gneiss::tasks::task_executor& executor,
+                                          gneiss::tasks::executor& executor,
                                           scene_edit_session& session,
                                           editor_command_history& history, std::string_view name,
                                           std::string_view uri, entity_id parent) {
@@ -295,7 +295,7 @@ gneiss::error editor_prefab_edit::request_remove(runtime::application& applicati
 }
 
 gneiss::error editor_prefab_edit::request_refresh(runtime::application& application,
-                                                  gneiss::tasks::task_executor& executor,
+                                                  gneiss::tasks::executor& executor,
                                                   scene_edit_session& session,
                                                   editor_command_history& history, entity_id root) {
   if (active() || history.is_pending() || !session.is_open()) {

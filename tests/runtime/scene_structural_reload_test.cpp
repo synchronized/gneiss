@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
@@ -69,7 +69,7 @@ int main() try {
       return visual_failures >= expected;
     }) && visual_failures == expected;
   };
-  gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   config.executor = &scheduler;
   auto created = gneiss::runtime::application::create(config);
   if (!created)

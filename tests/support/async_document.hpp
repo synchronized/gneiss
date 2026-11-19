@@ -8,7 +8,7 @@
 namespace gneiss::test_support {
 inline gneiss::error open_document(editor::scene_edit_session& document, runtime::application& app,
                                    gneiss::world* world, std::string_view uri,
-                                   gneiss::tasks::task_scheduler* tasks = nullptr) {
+                                   gneiss::tasks::scheduler* tasks = nullptr) {
   if (!world)
     return gneiss::error::invalid_argument;
   gneiss::scene_content prepared;

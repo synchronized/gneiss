@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
@@ -44,7 +44,7 @@ template <class T> void save(const std::filesystem::path& path, const T& descrip
 }
 void run() {
   fixture files;
-  gneiss::tasks::task_scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::tasks::scheduler scheduler({.mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   const auto root = files.root.generic_string();
   config.asset_root = root;

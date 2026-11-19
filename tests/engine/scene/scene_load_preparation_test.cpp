@@ -6,13 +6,13 @@
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/scene_application.hpp"
 #include "../../support/value_result.hpp"
+#include "function/asset/detail/content_dependency.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include "function/asset/detail/content_dependency.hpp"
-#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/files/service.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/prefab.hpp>
 #include <gneiss/engine/resource/scene.hpp>
@@ -42,7 +42,7 @@ struct memory_files final : gneiss::test_support::memory_file_fixture {
     return gneiss::error::unsupported;
   }
   gneiss::error read_bounded(std::string_view path, std::size_t limit,
-                                     std::vector<std::byte>& bytes) const noexcept override try {
+                             std::vector<std::byte>& bytes) const noexcept override try {
     const auto found = files.find(std::string(path));
     if (found == files.end()) {
       return gneiss::error::not_found;

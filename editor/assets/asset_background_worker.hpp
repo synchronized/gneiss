@@ -11,7 +11,7 @@
 #include <string>
 
 namespace gneiss::tasks {
-class task_scheduler;
+class scheduler;
 }
 
 namespace gneiss::editor {
@@ -38,7 +38,7 @@ public:
       const std::filesystem::path&, const std::filesystem::path&, const std::filesystem::path&,
       bool, const gneiss::tooling::import_control&)>;
   explicit asset_background_worker(import_function importer = {},
-                                   gneiss::tasks::task_scheduler* scheduler = nullptr);
+                                   gneiss::tasks::scheduler* scheduler = nullptr);
   ~asset_background_worker();
   asset_background_worker(const asset_background_worker&) = delete;
   asset_background_worker& operator=(const asset_background_worker&) = delete;

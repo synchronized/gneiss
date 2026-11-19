@@ -6,7 +6,7 @@
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
@@ -58,7 +58,7 @@ void run(gneiss::tasks::execution_mode mode) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;

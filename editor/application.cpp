@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -117,8 +117,8 @@ struct editor_state {
   // 宿主拥有对象；只在其 run 回调期间借用。
   gneiss::runtime::application* application{};
   explicit editor_state(bool cooperative = false)
-      : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
-                                            : gneiss::tasks::execution_mode::thread_pool}) {}
+      : scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
+                                       : gneiss::tasks::execution_mode::thread_pool}) {}
   gneiss::world_owner world_owner;
   std::unique_ptr<gneiss::world_render_binding> render_binding;
   gneiss::render::frame_request frame;
@@ -128,7 +128,7 @@ struct editor_state {
   gneiss::rid retired_scene_target{};
   gneiss::render::target_description scene_extent{};
   gneiss::editor::editor_camera camera;
-  gneiss::tasks::task_scheduler task_scheduler;
+  gneiss::tasks::scheduler scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
   bool smoke{};
   std::uint32_t smoke_frames{};
@@ -204,8 +204,8 @@ struct editor_state {
   gneiss::error asset_watch_result = gneiss::error::success;
   gneiss::error author_watch_result = gneiss::error::success;
   gneiss::editor::asset_file_watcher author_asset_watcher;
-  gneiss::editor::author_asset_service author_assets{task_scheduler};
-  gneiss::editor::asset_background_worker asset_reimports{{}, &task_scheduler};
+  gneiss::editor::author_asset_service author_assets{scheduler};
+  gneiss::editor::asset_background_worker asset_reimports{{}, &scheduler};
   std::deque<gneiss::editor::asset_file_event> pending_author_events;
   std::optional<std::string> author_reload_uri;
   std::size_t observed_author_drops = 0U;
@@ -1342,9 +1342,8 @@ void execute_asset_browser_request(editor_state& state,
     if (entry != state.assets.entries().end() && is_prefab_asset(*entry)) {
       const auto node = state.editing.document().selected_node();
       state.asset_scene_result = state.editing.prefabs().request(
-          *state.application, state.task_scheduler, state.editing.document(),
-          state.editing.history(), entry->display_name, entry->asset_uri,
-          !node ? gneiss::entity_id{} : node->node);
+          *state.application, state.scheduler, state.editing.document(), state.editing.history(),
+          entry->display_name, entry->asset_uri, !node ? gneiss::entity_id{} : node->node);
       state.asset_scene_attempted = true;
     }
     break;
@@ -2463,7 +2462,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         ImGui::SameLine();
         if (ImGui::Button("Refresh Prefab") && !state.editing.prefabs().active()) {
           state.history_error = state.editing.prefabs().request_refresh(
-              *state.application, state.task_scheduler, state.editing.document(),
+              *state.application, state.scheduler, state.editing.document(),
               state.editing.history(), prefab_selected->node);
         }
         ImGui::SameLine();
@@ -2973,7 +2972,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   }
   gneiss::runtime::application_configuration desc;
   desc.user_root = user_root_text;
-  desc.executor = &state.task_scheduler;
+  desc.executor = &state.scheduler;
   desc.callbacks.close_requested = [&state]() { return handle_close_requested(&state) != 0U; };
   desc.enable_window = true;
   desc.window.title = title;
@@ -3090,8 +3089,8 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   });
 
   application->add_system(gneiss::app::stage::completions, "editor.tasks", [&state] {
-    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
-      (void)state.task_scheduler.run_ready();
+    if (state.scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
+      (void)state.scheduler.run_ready();
   });
   application->add_system(
       gneiss::app::stage::update, "editor.update",

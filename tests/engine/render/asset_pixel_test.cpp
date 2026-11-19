@@ -14,7 +14,7 @@
 #include <fstream>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
@@ -94,7 +94,7 @@ struct fixture {
 void run_asset_reload() {
   fixture files(true);
   files.color(std::byte{255}, std::byte{0});
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
@@ -396,7 +396,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U});
+  gneiss::tasks::scheduler scheduler({.workers = 1U});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
@@ -755,7 +755,7 @@ void run_material_channels() {
 void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;
@@ -904,7 +904,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   using namespace runtime;
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   const auto root = files.root.string();
   runtime::application_configuration desc;

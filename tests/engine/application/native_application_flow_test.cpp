@@ -4,7 +4,7 @@
 #include "../../support/async_input.hpp"
 #include "../../support/value_result.hpp"
 #include <cstdio>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/input/service.hpp>
 #include <source_location>
@@ -312,7 +312,7 @@ void stopping_completions() {
 }
 
 void action_maps() {
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   config.asset_root = GNEISS_TEST_ASSET_ROOT;
@@ -337,7 +337,7 @@ void action_maps() {
   check(other->input().get_action_state(action, state) == gneiss::error::invalid_handle);
 }
 void creation_failures() {
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   std::shared_ptr<runtime::application> app;

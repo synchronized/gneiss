@@ -4,7 +4,7 @@
 #include "../../../examples/support/scope_exit.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 
 #include "../../support/async_application.hpp"
 #include "../../support/render_scene.hpp"
@@ -103,8 +103,8 @@ struct response_context {
   std::uint64_t nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
   // 调度器先于被探针任务引用的状态销毁，异常退出也会先等待任务结束。
-  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::tasks::task_scope scope = scheduler.make_scope();
+  gneiss::tasks::scheduler scheduler{{.workers = 1U}};
+  gneiss::tasks::scope scope = scheduler.make_scope();
 };
 gneiss::error advance_scene(gneiss::runtime::application& app, response_context& state) {
   using namespace gneiss;
@@ -188,10 +188,10 @@ gneiss::error native_update(gneiss::runtime::application& app, response_context&
       state.received.notify_all();
     }
   }
-  std::vector<gneiss::tasks::task_completion> results;
+  std::vector<gneiss::tasks::completion> results;
   state.scheduler.poll(state.scope, results);
   for (const auto& result : results) {
-    if (result.outcome.state != gneiss::tasks::task_state::succeeded) {
+    if (result.outcome.state != gneiss::tasks::state::succeeded) {
       state.failed = true;
     }
     const probe_sample sample{
@@ -237,12 +237,12 @@ void send_probes(response_context& state, HWND window) noexcept {
       std::this_thread::sleep_for(20ms);
       state.key_sent = now_ns();
       state.sent = index;
-      gneiss::tasks::task_handle task;
+      gneiss::tasks::handle task;
       const auto submitted = state.scheduler.submit(
           {.name = "response", .scope = state.scope},
-          [&](const gneiss::tasks::task_context&) {
+          [&](const gneiss::tasks::context&) {
             state.task_finished = now_ns();
-            return gneiss::tasks::task_outcome{};
+            return gneiss::tasks::outcome{};
           },
           task);
       if (submitted != gneiss::tasks::submit_result::success ||

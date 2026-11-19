@@ -7,7 +7,7 @@
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
@@ -38,7 +38,7 @@ struct sample {
 struct context {
   gneiss::world* world{};
   gneiss::asset_batch_request request;
-  gneiss::tasks::task_scheduler* scheduler{};
+  gneiss::tasks::scheduler* scheduler{};
   std::filesystem::path root;
   bool model{};
   std::vector<gneiss::render_resource_source> assets;
@@ -152,9 +152,9 @@ int main(int argc, char** argv) try {
   const std::string mode = argv[2];
   if (mode != "async" && mode != "cooperative" && mode != "close")
     return 64;
-  gneiss::tasks::task_scheduler scheduler(
-      {.mode = mode == "cooperative" ? gneiss::tasks::execution_mode::cooperative
-                                     : gneiss::tasks::execution_mode::thread_pool});
+  gneiss::tasks::scheduler scheduler({.mode = mode == "cooperative"
+                                                  ? gneiss::tasks::execution_mode::cooperative
+                                                  : gneiss::tasks::execution_mode::thread_pool});
   context state;
   state.scheduler = &scheduler;
   state.root = argv[1];

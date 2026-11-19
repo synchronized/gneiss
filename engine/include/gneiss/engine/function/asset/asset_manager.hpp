@@ -6,7 +6,7 @@
 #include <functional>
 #include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_loading.hpp>
@@ -53,9 +53,9 @@ public:
   GNEISS_ENGINE_API error attach_render(gneiss::render::service& render);
   /** 配置 CPU 加载；scope 须独占且空闲；成功后接管关闭责任。省略时内部创建。
    * 首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
-  GNEISS_ENGINE_API error configure(gneiss::tasks::task_executor& executor,
+  GNEISS_ENGINE_API error configure(gneiss::tasks::executor& executor,
                                     texture_prepare_profile profile,
-                                    gneiss::tasks::task_scope scope = {});
+                                    gneiss::tasks::scope scope = {});
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   GNEISS_ENGINE_API result<render_resource_ref> find(const render_resource_source&,
                                                      texture_prepare_profile = {}) const;
@@ -86,7 +86,7 @@ public:
   explicit GNEISS_ENGINE_API asset_manager(std::shared_ptr<gneiss::files::service> files);
   GNEISS_ENGINE_API ~asset_manager();
   /** 借用宿主解码执行器；文件 I/O 由服务后端执行，不创建独立线程池。 */
-  GNEISS_ENGINE_API error configure(gneiss::tasks::task_executor& executor);
+  GNEISS_ENGINE_API error configure(gneiss::tasks::executor& executor);
   /** 宿主每次先分发文件完成，再推进本管理器；不驱动文件或其他服务回调。 */
   GNEISS_ENGINE_API void advance();
   /** 请求停止：立即拒绝新加载、终止观察者并取消 I/O/CPU 任务，不等待任务退出。

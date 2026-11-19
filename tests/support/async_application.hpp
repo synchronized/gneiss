@@ -5,7 +5,7 @@
 #include "value_result.hpp"
 #include <chrono>
 #include <cstdio>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
@@ -66,16 +66,14 @@ inline gneiss::result<scene_activation> activate_scene(runtime::application& app
   return output;
 }
 // 仅测试使用的宿主驱动器；生产库不提供阻塞包装。应用须在测试退出前释放。
-inline gneiss::tasks::task_scheduler& application_tasks() {
-  static gneiss::tasks::task_scheduler tasks({.workers = 1U});
+inline gneiss::tasks::scheduler& application_tasks() {
+  static gneiss::tasks::scheduler tasks({.workers = 1U});
   return tasks;
 }
-inline gneiss::error prepare_scene(runtime::application& app, std::string_view uri,
-                                   gneiss::scene_content& prepared,
-                                   gneiss::scene_resource_bindings& bindings,
-                                   gneiss::tasks::task_scheduler* tasks = nullptr,
-                                   gneiss::ref<const gneiss::scene>* identity = nullptr,
-                                   bool reload = false) {
+inline gneiss::error
+prepare_scene(runtime::application& app, std::string_view uri, gneiss::scene_content& prepared,
+              gneiss::scene_resource_bindings& bindings, gneiss::tasks::scheduler* tasks = nullptr,
+              gneiss::ref<const gneiss::scene>* identity = nullptr, bool reload = false) {
   if (!tasks)
     tasks = &application_tasks();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
@@ -155,7 +153,7 @@ inline gneiss::error prepare_scene(runtime::application& app, std::string_view u
 }
 inline gneiss::error load_scene(runtime::application& app, gneiss::world& world,
                                 std::string_view uri, scene_instance* output,
-                                gneiss::tasks::task_scheduler* tasks = nullptr, bool reload = false,
+                                gneiss::tasks::scheduler* tasks = nullptr, bool reload = false,
                                 std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   if (!output)
     return gneiss::error::invalid_argument;

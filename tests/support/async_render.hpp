@@ -8,7 +8,7 @@
 #include <gneiss/engine/function/files/service.hpp>
 #include <stdexcept>
 namespace gneiss::test_support {
-inline gneiss::tasks::task_scheduler& render_tasks() { return asset_tasks(); }
+inline gneiss::tasks::scheduler& render_tasks() { return asset_tasks(); }
 inline gneiss::error load_render(gneiss::asset_manager& loader, gneiss::render_resource_kind type,
                                  std::string_view uri, gneiss::render_resource_ref& output,
                                  gneiss::asset_diagnostic& diagnostic) {

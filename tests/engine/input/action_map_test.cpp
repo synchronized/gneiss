@@ -5,13 +5,13 @@
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/value_result.hpp"
 #include <cstring>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/files/service.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
@@ -26,8 +26,8 @@ void advance_assets_for_test(gneiss::asset_manager& assets) {
     (void)files->dispatch_completions(64);
   assets.advance();
 }
-gneiss::error load_map_for_test(gneiss::asset_manager& assets,
-                                gneiss::tasks::task_scheduler& executor, std::string_view uri,
+gneiss::error load_map_for_test(gneiss::asset_manager& assets, gneiss::tasks::scheduler& executor,
+                                std::string_view uri,
                                 gneiss::input::action_map_description& output) {
   gneiss::asset_request<gneiss::input::action_map> request;
   auto status = gneiss::test_support::assign_value(

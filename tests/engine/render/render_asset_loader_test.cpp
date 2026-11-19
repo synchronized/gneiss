@@ -11,7 +11,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/asset/asset_reference_context.hpp>
 #include <gneiss/engine/function/files/service.hpp>
@@ -43,7 +43,7 @@
 namespace {
 
 gneiss::error reload_assets_for_test(gneiss::asset_manager& loader,
-                                     gneiss::tasks::task_scheduler& scheduler,
+                                     gneiss::tasks::scheduler& scheduler,
                                      std::span<const gneiss::render_resource_source> sources,
                                      gneiss::asset_diagnostic& diagnostic) {
   using namespace gneiss;

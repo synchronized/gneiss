@@ -7,7 +7,7 @@
 #include <fstream>
 #include <future>
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/input/service.hpp>
@@ -30,7 +30,7 @@ void check(bool value, const char* message) {
 void close_pending_window(const char* assets) {
   using namespace gneiss;
   using namespace std::chrono_literals;
-  gneiss::tasks::task_scheduler scheduler({.workers = 1});
+  gneiss::tasks::scheduler scheduler({.workers = 1});
   runtime::application_configuration config;
   config.asset_root = assets;
   config.executor = &scheduler;
@@ -58,13 +58,13 @@ void close_pending_window(const char* assets) {
   };
   {
     unblock guard{release};
-    gneiss::tasks::task_handle handle;
+    gneiss::tasks::handle handle;
     check(scheduler.submit(
               {.name = "test-input-gate", .scope = scope},
               [future, &entered](const auto&) {
                 entered.set_value();
                 future.wait();
-                return gneiss::tasks::task_outcome{};
+                return gneiss::tasks::outcome{};
               },
               handle) == gneiss::tasks::submit_result::success,
           "gate submit");
@@ -92,10 +92,10 @@ void close_pending_window(const char* assets) {
 void run(const char* assets, bool cooperative) {
   using namespace gneiss;
   using namespace std::chrono_literals;
-  gneiss::tasks::task_scheduler scheduler(
-      {.workers = 1,
-       .mode = cooperative ? gneiss::tasks::execution_mode::cooperative
-                           : gneiss::tasks::execution_mode::thread_pool});
+  gneiss::tasks::scheduler scheduler({.workers = 1,
+                                      .mode = cooperative
+                                                  ? gneiss::tasks::execution_mode::cooperative
+                                                  : gneiss::tasks::execution_mode::thread_pool});
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-asset-application-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));

@@ -13,7 +13,7 @@
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
@@ -28,7 +28,7 @@
 namespace {
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 const auto camera_uuid = *gneiss::guid::parse("37cff772-2e8d-4bc7-9ed2-f94435926d4e");
-bool open_scene(gneiss::tasks::task_scheduler& scheduler, std::string_view root,
+bool open_scene(gneiss::tasks::scheduler& scheduler, std::string_view root,
                 std::shared_ptr<gneiss::runtime::application>& app, gneiss::world& world,
                 gneiss::scene_instance& scene, std::vector<gneiss::scene_object_binding>& bindings,
                 gneiss::scene_description* description = nullptr) {
@@ -93,7 +93,7 @@ int main() try {
       std::printf("  字段 %u: %.*s\n", field.id().get(), static_cast<int>(field.name().size()),
                   field.name().data());
   }
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::tasks::scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   std::shared_ptr<gneiss::runtime::application> app;
   auto world = gneiss::create_native();

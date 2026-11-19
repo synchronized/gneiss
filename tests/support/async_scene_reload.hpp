@@ -3,13 +3,12 @@
 #pragma once
 #include "scene/runtime_scene_loader.hpp"
 #include <chrono>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <thread>
 namespace gneiss::test_support {
 inline gneiss::error activate_scene_for_test(runtime::application& app, gneiss::world& world,
-                                             gneiss::tasks::task_scheduler& tasks,
-                                             std::string_view uri,
+                                             gneiss::tasks::scheduler& tasks, std::string_view uri,
                                              host::scene_open_result& output) {
   host::runtime_scene_loader loader(app, world);
   loader.after_activate = [&](const auto& result) {
@@ -37,7 +36,7 @@ inline gneiss::error activate_scene_for_test(runtime::application& app, gneiss::
   return loader.last_result();
 }
 inline gneiss::error
-reload_scene_for_test(runtime::application& app, gneiss::tasks::task_scheduler& tasks,
+reload_scene_for_test(runtime::application& app, gneiss::tasks::scheduler& tasks,
                       gneiss::ref<host::scene_reload_state> source, std::string_view uri,
                       bool prefab, std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   host::runtime_scene_loader loader(app, *source->instance.owner());

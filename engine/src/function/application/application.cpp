@@ -447,7 +447,7 @@ std::uint64_t application::current_state(type_id type) const {
   return storage_->systems_.current(type);
 }
 
-error application::configure_executor(tasks::task_executor& executor) {
+error application::configure_executor(tasks::executor& executor) {
   {
     gneiss::texture_prepare_profile profile;
     if (storage_->window_service_)

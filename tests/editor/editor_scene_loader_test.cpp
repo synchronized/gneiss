@@ -8,7 +8,7 @@
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
@@ -33,7 +33,7 @@ void check(bool value, std::source_location where = std::source_location::curren
 
 // 两个文档共享基础服务，World 和加载请求始终归各自宿主所有。
 void multiple_worlds(gneiss::tasks::execution_mode mode) {
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   auto main_world = create_native();
   auto preview_world = create_native();
   check(main_world && preview_world);
@@ -108,7 +108,7 @@ void multiple_worlds(gneiss::tasks::execution_mode mode) {
 }
 
 void run(gneiss::tasks::execution_mode mode) {
-  gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  gneiss::tasks::scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
   runtime::application_configuration desc;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;

@@ -8,18 +8,18 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/reader.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/type_id.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/files/backend.hpp>
 #include <gneiss/engine/function/files/service.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <stdexcept>
@@ -279,7 +279,7 @@ void decoder_selection() {
   const auto adopted_scope = executor.make_scope();
   {
     asset_manager scoped(gneiss::test_support::test_files(files));
-    gneiss::tasks::task_scheduler foreign({.mode = gneiss::tasks::execution_mode::cooperative});
+    gneiss::tasks::scheduler foreign({.mode = gneiss::tasks::execution_mode::cooperative});
     const auto foreign_scope = foreign.make_scope();
     check(scoped.configure(executor, {}, foreign_scope) == error::invalid_argument,
           "foreign scope is rejected without ownership transfer");
@@ -316,7 +316,7 @@ void decoder_selection() {
   check(reflected.configure(executor, texture_prepare_profile{.generation = 1}) ==
             error::invalid_state,
         "configuration conflict is rejected");
-  gneiss::tasks::task_scheduler other_executor(
+  gneiss::tasks::scheduler other_executor(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   check(reflected.configure(other_executor) == error::invalid_state,
         "manager rejects executor replacement");
@@ -764,7 +764,7 @@ void run() {
   check(executor.stats().retained == 0 && executor.stats().running == 0, "scope drained");
   check(a->byte == 'z', "reference survives shutdown");
 
-  gneiss::tasks::task_scheduler stopped(
+  gneiss::tasks::scheduler stopped(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   asset_manager rejected(gneiss::test_support::test_files(files));
   check(rejected.register_decoder(parser) == gneiss::error::success, "rejection parser");
@@ -782,17 +782,17 @@ void run() {
         "queue rejection does not hang");
 }
 void decode_capacity_retry() {
-  gneiss::tasks::task_scheduler executor(
+  gneiss::tasks::scheduler executor(
       {.capacity = 2U, .mode = gneiss::tasks::execution_mode::cooperative});
   const auto occupied = executor.make_scope();
-  gneiss::tasks::task_handle blocker;
+  gneiss::tasks::handle blocker;
   check(executor.submit(
-            {.scope = occupied}, [](const auto&) { return gneiss::tasks::task_outcome{}; },
-            blocker) == gneiss::tasks::submit_result::success,
+            {.scope = occupied}, [](const auto&) { return gneiss::tasks::outcome{}; }, blocker) ==
+            gneiss::tasks::submit_result::success,
         "occupy decode capacity");
   check(executor.submit(
-            {.scope = occupied}, [](const auto&) { return gneiss::tasks::task_outcome{}; },
-            blocker) == gneiss::tasks::submit_result::success,
+            {.scope = occupied}, [](const auto&) { return gneiss::tasks::outcome{}; }, blocker) ==
+            gneiss::tasks::submit_result::success,
         "fill decode capacity");
   auto source = std::make_shared<memory_files>();
   gneiss::test_support::fixture_files files;
@@ -808,7 +808,7 @@ void decode_capacity_retry() {
   check(submitted->status() == error::not_ready && decoder->decodes == 0,
         "full decode queue does not lose request");
   (void)executor.run_ready();
-  std::vector<gneiss::tasks::task_completion> completed;
+  std::vector<gneiss::tasks::completion> completed;
   check(executor.poll(occupied, completed) == 2, "release decode capacity");
   advance_assets_for_test(assets);
   (void)executor.run_ready();
@@ -872,7 +872,7 @@ void nonblocking_decode_shutdown() {
       return std::shared_ptr<const void>{std::make_shared<const value>(value{'z'})};
     }
   };
-  gneiss::tasks::task_scheduler executor(
+  gneiss::tasks::scheduler executor(
       {.workers = 1, .mode = gneiss::tasks::execution_mode::thread_pool});
   auto backend = std::make_shared<delayed_files>();
   auto files = std::make_shared<gneiss::files::service>();
