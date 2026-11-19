@@ -5,21 +5,22 @@
 #include "function/scene/rendering/render_camera.hpp"
 #include "function/scene/rendering/world_render_binding.hpp"
 #include <atomic>
-#include <gneiss/engine/function/diagnostics/loop_timing.hpp>
-#include <gneiss/engine/core/diagnostics/profiling.hpp>
-#include <gneiss/engine/core/logging/logger.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/base/utf8.hpp>
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/diagnostics/profiling.hpp>
+#include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/diagnostics/loop_timing.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/function/files/service.hpp>
 #include <optional>
 #include <thread>
 #include <tuple>
@@ -49,6 +50,45 @@
 #include <new>
 #include <vector>
 
+namespace gneiss::app {
+struct system_failure {
+  error code;
+  std::string_view name; // 借用已冻结调度表，不能超过其有效期。
+};
+/** 所属线程使用；首次运行前冻结。捕获的借用对象须覆盖全部运行及关闭过程。 */
+class schedule {
+public:
+  void add(stage phase, std::string name, system_function function) {
+    GNEISS_ASSERT(!frozen_ && function && !name.empty(), "系统须在运行前具名注册");
+    for (const auto& item : entries_)
+      GNEISS_ASSERT(item.name != name, "系统名称不能重复");
+    entries_.push_back({phase, std::move(name), std::move(function)});
+  }
+  void freeze() noexcept { frozen_ = true; }
+  result<void, system_failure> run(stage phase, const frame_time& time) const {
+    GNEISS_ASSERT(frozen_, "运行前必须冻结调度表");
+    for (const auto& item : entries_) {
+      if (item.phase != phase)
+        continue;
+      auto status = item.function(time);
+      if (status.failed())
+        return system_failure{status, item.name};
+    }
+    return {};
+  }
+
+private:
+  struct entry {
+    stage phase;
+    std::string name;
+    system_function function;
+  };
+  std::vector<entry> entries_;
+  bool frozen_{};
+};
+
+}
+
 namespace gneiss::runtime {
 struct application::storage {
   explicit storage(const runtime::application_configuration& config)
@@ -57,6 +97,7 @@ struct application::storage {
   runtime::application_configuration config_;
   std::unique_ptr<gneiss::render::service> render_service_ =
       std::make_unique<gneiss::render::service>();
+  app::schedule systems_;
   gneiss::ui_draw_list ui_draw_list_;
   gneiss::debug_draw_list debug_draw_list_;
   std::vector<application_view> views_{application_view{}};
@@ -241,6 +282,15 @@ gneiss::render::queue_stats application::render_statistics() const {
     return storage_->render_service_->query_performance_stats();
   }
   return {};
+}
+
+void application::register_system(app::stage phase, std::string name,
+                                  app::system_function function) {
+  GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
+                "系统仅允许所属线程在运行前注册");
+  GNEISS_ASSERT(phase != app::stage::update || !storage_->config_.callbacks.update,
+                "更新系统不能与旧更新回调混用");
+  storage_->systems_.add(phase, std::move(name), std::move(function));
 }
 
 gneiss::error application::attach_task_executor(gneiss::tasks::task_executor& executor) {
@@ -672,6 +722,7 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
   if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_) {
     return gneiss::error::invalid_state;
   }
+  storage_->systems_.freeze();
   storage_->is_running_ = true;
   storage_->should_exit_ = false;
   loop_trace_file trace;
@@ -755,7 +806,31 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
         return update_result;
       }
     }
+    const auto run_systems = [&](app::stage phase) {
+      auto result = storage_->systems_.run(phase, time);
+      if (!result) {
+        report(gneiss::severity::error, gneiss::category::application, result.error().code,
+               result.error().name, "应用系统执行失败");
+        storage_->is_running_ = false;
+        storage_->is_updating_ = false;
+        storage_->ui_draw_list_.clear();
+        storage_->debug_draw_list_.clear();
+        return result.error().code;
+      }
+      return error::success;
+    };
+    storage_->is_updating_ = true;
+    auto system_status = run_systems(app::stage::update);
+    if (system_status.failed())
+      return system_status;
     storage_->world_->flush_changes();
+    system_status = run_systems(app::stage::synchronize);
+    if (system_status.failed())
+      return system_status;
+    system_status = run_systems(app::stage::present);
+    if (system_status.failed())
+      return system_status;
+    storage_->is_updating_ = false;
     const auto render_result =
         gneiss::measure(gneiss::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。

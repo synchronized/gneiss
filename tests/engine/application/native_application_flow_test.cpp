@@ -66,6 +66,40 @@ void loop() {
   app.reset();
   check(shutdowns == 3);
 }
+void scheduled_systems() {
+  runtime::application_configuration config;
+  std::string calls;
+  unsigned diagnostics{};
+  config.callbacks.diagnostic = [&](const diagnostic_view& event) {
+    if (event.result == error::not_found)
+      ++diagnostics;
+  };
+  auto created = runtime::application::create(config);
+  check(created.ok());
+  auto application = *created;
+  // 故意跨阶段注册，验证阶段顺序以及同阶段的注册顺序。
+  application->add_system(app::stage::present, "ui", [&] { calls += 'p'; });
+  application->add_system(app::stage::update, "logic", [&](const frame_time&) { calls += 'a'; });
+  application->add_system(app::stage::synchronize, "sync", [&]() -> result<void> {
+    calls += 's';
+    return {};
+  });
+  bool fail{};
+  application->add_system(app::stage::update, "second", [&] {
+    calls += 'b';
+    return fail ? error::not_found : error::success;
+  });
+  check(application->run(2).ok());
+  check(calls == "abspabsp");
+  fail = true;
+  calls.clear();
+  check(application->run(1) == error::not_found);
+  check(calls == "ab" && diagnostics == 1);
+  // 失败退出不能留下 running/updating 标记，下一次运行仍能正常完成。
+  fail = false;
+  calls.clear();
+  check(application->run(1).ok() && calls == "absp");
+}
 void action_maps() {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
@@ -126,6 +160,7 @@ void creation_failures() {
 }
 int main() try {
   loop();
+  scheduled_systems();
   action_maps();
   creation_failures();
   return 0;

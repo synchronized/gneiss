@@ -4,18 +4,19 @@
 #ifndef GNEISS_RUNTIME_APPLICATION_HPP_
 #define GNEISS_RUNTIME_APPLICATION_HPP_
 
-#include <gneiss/engine/export.hpp>
-#include <gneiss/engine/platform/window/input.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/input/action.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/platform/window/input.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
-#include <gneiss/engine/core/base/result.hpp>
 
 #include <gneiss/engine/core/logging/record.hpp>
 #include <gneiss/engine/function/application/configuration.hpp>
+#include <gneiss/engine/function/application/schedule.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_batch_types.hpp>
 #include <gneiss/engine/function/render/camera.hpp>
@@ -61,6 +62,11 @@ struct application_view {
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class application final {
 public:
+  /** 创建后、首次 run 前注册；同阶段依注册顺序执行，捕获对象借用至关闭结束。
+   * update 系统与旧 callbacks.update 不得混用。 */
+  template <class F> void add_system(app::stage phase, std::string name, F function) {
+    register_system(phase, std::move(name), app::make_system(std::move(function)));
+  }
   /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
@@ -73,8 +79,8 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error set_view_camera(const gneiss::view_camera* camera);
   /** 修改首个视图的借用目标；零表示窗口。调用方负责目标生命周期。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error set_view_target(gneiss::rid target);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error capture_frame(std::uint32_t width, std::uint32_t height,
-                                                       gneiss::render::frame_image& output);
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
+  capture_frame(std::uint32_t width, std::uint32_t height, gneiss::render::frame_image& output);
   [[nodiscard]] GNEISS_ENGINE_API gneiss::render::queue_stats render_statistics() const;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error
   attach_task_executor(gneiss::tasks::task_executor& executor);
@@ -115,12 +121,16 @@ public:
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::asset_manager& assets() noexcept;
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
-  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<gneiss::files::service> async_files() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API const gneiss::input::keyboard_state& keyboard_state() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API const gneiss::input::pointer_state& pointer_state() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error poll_input(gneiss::input::event& out_event) noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error get_window_size(std::uint32_t& out_width,
-                                                         std::uint32_t& out_height) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<gneiss::files::service>
+  async_files() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API const gneiss::input::keyboard_state&
+  keyboard_state() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API const gneiss::input::pointer_state&
+  pointer_state() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
+  poll_input(gneiss::input::event& out_event) noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
+  get_window_size(std::uint32_t& out_width, std::uint32_t& out_height) const noexcept;
   /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error begin_action_map(std::string_view uri);
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
@@ -132,11 +142,13 @@ public:
   get_action_state(gneiss::input::action_id action,
                    gneiss::input::action_state& out_state) const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API bool can_submit_draw_lists() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error submit_ui_draw_list(const gneiss::ui_draw_view& desc);
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
+  submit_ui_draw_list(const gneiss::ui_draw_view& desc);
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error
   submit_debug_draw_list(std::span<const gneiss::debug_line> lines);
-  GNEISS_ENGINE_API void report(gneiss::severity severity, gneiss::category category, gneiss::error result,
-                         std::string_view module, std::string_view message);
+  GNEISS_ENGINE_API void report(gneiss::severity severity, gneiss::category category,
+                                gneiss::error result, std::string_view module,
+                                std::string_view message);
   GNEISS_ENGINE_API void request_exit() noexcept;
   GNEISS_ENGINE_API void set_paused(bool value) noexcept;
 
@@ -145,6 +157,7 @@ private:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error poll_events(bool& out_should_close);
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error render_frame();
 
+  GNEISS_ENGINE_API void register_system(app::stage, std::string, app::system_function);
   struct storage;
   std::unique_ptr<storage> storage_;
 };

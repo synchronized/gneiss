@@ -3,7 +3,7 @@
 
 # PLAN-126：Application 生命周期、调度与宿主状态组合
 
-状态：已规划，尚未实施。用户已确认目标方向；目标 API 为设计草案，不代表当前能力。
+状态：实施中，已接入具名业务阶段系统，完整生命周期迁移尚未完成。用户已确认目标方向；目标 API 为设计草案，不代表当前能力。
 架构取舍见 [ADR-129](../decisions/ADR-129-application-scheduling.md)。本计划属于
 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，不包含远端发布授权。
 
@@ -163,4 +163,16 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 
 ## 当前验收记录
 
-本次仅建立开发计划与架构决策，未实施 Application 重构，未执行构建或运行测试。
+首批实现接入 Application 的 update / synchronize / present 具名串行系统：
+- 首次 run 冻结注册；名称唯一、同阶段按注册顺序执行；支持无参数或 frame_time 参数，
+  返回 void、result<void>，过渡期兼容 error。
+- 系统可恢复失败携带系统名称报告，停止本帧后续系统并清理运行标记；意外异常保持向外传播。
+- update 后刷新 World 变化，再执行 synchronize / present，最后由旧路径提交渲染。
+- 项目选择界面已使用具名 update 系统，移除其旧 callbacks.update；单个 Application 禁止混用两者。
+
+这是 A126-02 的阶段成果，不代表该项完成。默认 World、服务初始化、事件分发、Render 提交、
+宿主手动关闭仍沿用原路径；状态转换、共享 run/step、无 World 宿主和 Session 所有权迁移尚待实现。
+注册 callable 的借用捕获必须覆盖运行及关闭过程；调度表只在 cpp 内实现，不传播断言库依赖。
+
+验证：Windows Clang Debug 的 gneiss_editor 与 gneiss_native_application_flow_test 构建通过；
+原生流程测试通过，覆盖跨阶段排序、同阶段顺序、失败中止和再次运行。未执行真实窗口交互与 GPU 验收。

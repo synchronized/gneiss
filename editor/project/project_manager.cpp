@@ -4,14 +4,14 @@
 #include "project/project_manager.hpp"
 #include <thread>
 
+#include "project/project_workspace.hpp"
+#include "ui/dialogs/native_dialog.hpp"
 #include "ui/editor_theme.hpp"
 #include "ui/imgui_adapter.hpp"
-#include "ui/dialogs/native_dialog.hpp"
-#include "project/project_workspace.hpp"
 
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 
 #include <imgui.h>
 
@@ -105,8 +105,7 @@ gneiss::error begin_project_job(project_manager_state& state, std::filesystem::p
   return gneiss::error::success;
 }
 
-gneiss::error update_project_manager(project_manager_state& state,
-                                             const gneiss::frame_time& time) {
+gneiss::error update_project_manager(project_manager_state& state, const gneiss::frame_time& time) {
   {
     if (state.pending) {
       std::vector<gneiss::tasks::task_completion> completed;
@@ -212,8 +211,7 @@ gneiss::error update_project_manager(project_manager_state& state,
       ImGui::End();
       return operation;
     }
-    if (state.operation != gneiss::error::success &&
-        state.operation != gneiss::error::not_ready) {
+    if (state.operation != gneiss::error::success && state.operation != gneiss::error::not_ready) {
       const auto message = state.operation.message();
       ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
                          static_cast<int>(message.size()), message.data());
@@ -239,9 +237,6 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     std::shared_ptr<gneiss::runtime::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::runtime::application_configuration desc;
-    desc.callbacks.update = [&state](const gneiss::frame_time& time) {
-      return update_project_manager(state, time);
-    };
     desc.callbacks.close_requested = [&state] {
       state.closing = true;
       return !state.pending;
@@ -254,8 +249,7 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     desc.window.resizable = false;
     desc.window.high_dpi = false;
     auto created = gneiss::runtime::application::create(desc);
-    auto operation =
-        created ? gneiss::error{gneiss::error::success} : created.error();
+    auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
     if (operation != gneiss::error::success) {
       const auto message = operation.message();
       std::fprintf(
@@ -266,6 +260,9 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     }
     application = std::move(*created);
     state.application = application.get();
+    application->add_system(
+        gneiss::app::stage::update, "project_manager.update",
+        [&state](const gneiss::frame_time& time) { return update_project_manager(state, time); });
     operation = state.ui.initialize(*application);
     if (operation != gneiss::error::success) {
       const auto message = operation.message();
