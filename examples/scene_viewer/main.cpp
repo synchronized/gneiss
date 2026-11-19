@@ -186,6 +186,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   enum class mode { loading, viewing };
   gneiss::asset_request<gneiss::scene> scene_request;
+  gneiss::asset_request<gneiss::input::action_map> input_request;
   gneiss::scene_instance scene{};
   example::scene_activation completion;
   auto scene_ready = started, setup_ready = started, run_finished = started,
@@ -321,9 +322,10 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   });
   app->init_state(mode::loading);
   app->on_enter(mode::loading, "load_scene", [&]() -> gneiss::result<void> {
-    auto input = app->begin_action_map(input_map_uri);
-    if (input.failed())
-      return input;
+    auto input = app->assets().reload<gneiss::input::action_map>(input_map_uri);
+    if (!input)
+      return input.error();
+    input_request = std::move(*input);
     auto submitted = app->assets().load<gneiss::scene>(scene_uri);
     if (!submitted)
       return submitted.error();
@@ -347,11 +349,17 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       completion = std::move(*activated);
       scene = completion.instance.instance;
     }
-    const auto input = app->action_map_status();
+    const auto input = input_request.status();
     if (input == gneiss::error::not_ready || (completion.visuals && !completion.visuals.ready()))
       return {};
     if (input.failed())
       return input;
+    auto loaded_input = input_request.take();
+    if (!loaded_input)
+      return loaded_input.error().error;
+    const auto applied = app->input().replace_action_map(*(*loaded_input)->snapshot());
+    if (applied.failed())
+      return applied;
     example::report_visuals(completion);
     scene_ready = clock::now();
     return app->request_state(mode::viewing);
@@ -407,6 +415,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   app->on_stop("release_scene", [&] {
     run_finished = clock::now();
     scene_request = {};
+    input_request.cancel();
     completion = {};
     if (scene.is_valid())
       scene.unload();

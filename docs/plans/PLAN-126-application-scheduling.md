@@ -324,3 +324,13 @@ Action Map 请求所有权尚未迁出，不以查询迁移代替整条输入加
 本批 Windows Clang Debug 相关目标构建通过，Input 单元、输入集成、资产映射加载与 Application
 流程四项 CPU 回归通过；平台 smoke、Editor、双视图、主循环响应及编辑器原生窗口交互均退出 0。
 窗口交互覆盖 18 次缩放、3 次最小化恢复和 5 次模拟 DPI 切换。静态链接与其他平台留待最终矩阵。
+
+### 宿主 Action Map 请求迁移
+
+Runtime 与 scene_viewer 自行拥有 action_map 请求，成功后显式应用到 Input，停止回调取消请求。
+Runtime 删除 input_pending 镜像标记，以请求有效性表达等待；输入就绪前不激活场景，窗口/IPC 仍推进。
+测试等待辅助改用同一路径，加载失败不修改现有输入映射。旧 Application 加载实现仅待剩余测试退出，
+当前仍属过渡阶段，不标记输入加载职责迁移完成。
+
+Windows Clang Debug 四个相关目标构建通过，两项输入/流程 CPU 回归通过；Runtime 普通及协作
+editor_demo smoke、scene_viewer 双视图均退出 0。未重复完整矩阵，未验证静态构建或其他平台。

@@ -69,9 +69,11 @@ while (host.input().poll(event).ok()) {
 入口要求默认注册表已初始化。描述不能单独通过 manager 加载或登记 URI 缓存。
 
 `load<action_map>` 默认复用缓存；Application 的显式加载与异步重载仍重新读取。
-加载和解析不修改输入服务，成功后由 Application 在所属线程复制描述并调用 replace_action_map。
+加载和解析不修改输入服务。Runtime 与 scene_viewer 自行持有请求，成功领取后在所属线程
+调用 input().replace_action_map；停止时取消请求，避免迟到结果再次应用。
 读取、解码或采用失败保留旧映射；动作 ID 的失效规则不变。大小上限为 1 MiB，
 codec 诊断提供 JSON 字节偏移或字段路径。格式约束仍以[输入映射格式](input-map-format.md)为准。
 
-输入映射只提供异步加载：创建 Application 时配置任务执行器，再调用 begin_action_map；成功仅表示请求被接受。
-宿主事件循环在 update 前应用结果，通过 action_map_status 查询终态；不存在同步 load_action_map。
+输入映射只提供异步加载：创建 Application 时配置任务执行器，宿主提交 assets().reload<input::action_map>，
+在加载状态中等待并领取，再应用到 Input。Runtime 在输入就绪后激活场景；等待不停止窗口或 IPC。
+旧 begin_action_map/action_map_status/cancel_action_map 暂供未迁移的测试使用，不作为新宿主入口。

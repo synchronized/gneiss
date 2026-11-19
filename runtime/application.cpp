@@ -62,7 +62,7 @@ struct runtime_context final {
   std::uint64_t next_stop_check_ns = 0U;
   gneiss::runtime::application* application{};
   bool has_logged_first_frame = false;
-  bool input_pending = false;
+  gneiss::asset_request<gneiss::input::action_map> input_request{};
   std::string input_uri{};
   gneiss::host::runtime_ipc_session* ipc_session = nullptr;
   gneiss::host::runtime_scene_inspection* scene_inspection = nullptr;
@@ -325,25 +325,25 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     }
   }
   // 等待输入映射时仍处理 IPC、停止文件和窗口事件；场景激活会初始化游戏，必须晚于输入就绪。
-  if (context.input_pending) {
-    const auto input_result = context.application->action_map_status();
-    if (input_result != gneiss::error::not_ready) {
-      context.input_pending = false;
-      if (context.log)
-        context.log->write(
-            {.severity = input_result == gneiss::error::success ? gneiss::logging::level::info
-                                                                : gneiss::logging::level::error,
-             .category = "input_map",
-             .message = std::format("{} ({})",
-                                    input_result == gneiss::error::success ? "输入映射加载完成"
-                                                                           : "输入映射加载失败",
-                                    context.input_uri),
-             .result = input_result});
-      if (input_result != gneiss::error::success)
-        return input_result;
-    }
+  if (context.input_request && context.input_request.status() != gneiss::error::not_ready) {
+    auto loaded = context.input_request.take();
+    const auto input_result =
+        loaded ? context.application->input().replace_action_map(*(*loaded)->snapshot())
+               : loaded.error().error;
+    if (context.log)
+      context.log->write(
+          {.severity = input_result == gneiss::error::success ? gneiss::logging::level::info
+                                                              : gneiss::logging::level::error,
+           .category = "input_map",
+           .message = std::format("{} ({})",
+                                  input_result == gneiss::error::success ? "输入映射加载完成"
+                                                                         : "输入映射加载失败",
+                                  context.input_uri),
+           .result = input_result});
+    if (input_result != gneiss::error::success)
+      return input_result;
   }
-  if (context.scene_loader && !context.input_pending) {
+  if (context.scene_loader && !context.input_request) {
     const auto advanced = context.scene_loader->advance();
     if (advanced != gneiss::error::success)
       return advanced;
@@ -585,9 +585,10 @@ private:
              .result = gneiss::error::success});
 
   if (!project.input_map.empty()) {
-    auto input_result = application->begin_action_map(project.input_map);
-    if (input_result == gneiss::error::success) {
-      context.input_pending = true;
+    auto submitted = application->assets().reload<gneiss::input::action_map>(project.input_map);
+    const auto input_result = submitted ? gneiss::error::success : submitted.error();
+    if (submitted) {
+      context.input_request = std::move(*submitted);
       context.input_uri = project.input_map;
       log.write({.severity = gneiss::logging::level::info,
                  .category = "input_map_pending",
@@ -835,6 +836,7 @@ private:
   application->on_stop("runtime.release_session", [&] {
     scene_loader.stop();
     context.asset_request.reset();
+    context.input_request.cancel();
     property_editor.reset();
     scene_source.reset();
     context.scene = {};

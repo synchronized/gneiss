@@ -8,11 +8,11 @@ namespace gneiss::test_support {
 inline gneiss::error load_input_for_test(runtime::application& app,
                                          gneiss::tasks::task_scheduler& scheduler,
                                          std::string_view uri) {
-  auto status = app.begin_action_map(uri);
-  if (status.failed())
-    return status;
+  auto request = app.assets().reload<input::action_map>(uri);
+  if (!request)
+    return request.error();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-  while ((status = app.action_map_status()) == gneiss::error::not_ready) {
+  while (request->status() == gneiss::error::not_ready) {
     if (std::chrono::steady_clock::now() >= deadline)
       return gneiss::error::internal;
     (void)scheduler.run_ready();
@@ -22,6 +22,7 @@ inline gneiss::error load_input_for_test(runtime::application& app,
     if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
       return error::cancelled;
   }
-  return status;
+  auto loaded = request->take();
+  return loaded ? app.input().replace_action_map(*(*loaded)->snapshot()) : loaded.error().error;
 }
 }
