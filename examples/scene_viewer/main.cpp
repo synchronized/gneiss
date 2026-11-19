@@ -32,12 +32,45 @@ namespace {
 constexpr std::uint64_t measure_warmup_frames = 60U;
 constexpr std::uint64_t measure_sample_frames = 300U;
 
+// 宿主在更新前提供当前相机与输入；生存期覆盖 World 系统。
+struct camera_input {
+  gneiss::entity_id target;
+  float orbit{};
+};
+
+class orbit_camera_system {
+public:
+  explicit orbit_camera_system(const camera_input& input) : input_(input) {}
+
+  gneiss::error operator()(gneiss::world& target, const gneiss::frame_time& time) {
+    constexpr double nanoseconds_per_second = 1'000'000'000.0;
+    constexpr double radius = 6.0;
+    constexpr double height = 2.3;
+    angle_ += static_cast<double>(time.delta_ns) / nanoseconds_per_second * input_.orbit;
+    const auto yaw_half = angle_ * 0.5;
+    const auto pitch_half = std::atan2(-height, radius) * 0.5;
+
+    gneiss::math::transform transform;
+    transform.translation[0] = static_cast<float>(std::sin(angle_) * radius);
+    transform.translation[1] = static_cast<float>(height);
+    transform.translation[2] = static_cast<float>(std::cos(angle_) * radius);
+    transform.rotation[0] = static_cast<float>(std::cos(yaw_half) * std::sin(pitch_half));
+    transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
+    transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
+    transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
+    return target.find(input_.target).set_local_transform(transform);
+  }
+
+private:
+  const camera_input& input_;
+  double angle_{};
+};
+
 struct sample_state {
   gneiss::world* world{};
-  gneiss::entity_id camera_node;
+  camera_input camera;
   gneiss::input::action_id orbit;
   gneiss::input::action_id quit;
-  float orbit_value{};
   bool measure = false;
   std::array<gneiss::rid, 2> targets{};
   bool captured_dual{};
@@ -54,30 +87,24 @@ void report_failure(std::string_view stage, gneiss::error result) {
 }
 
 gneiss::error update_sample(gneiss::app::application& application, const gneiss::frame_time& time,
-                            void* user_data) {
-  if (user_data == nullptr) {
-    return gneiss::error::invalid_argument;
-  }
-
-  auto* state = static_cast<sample_state*>(user_data);
-  if (state->measure) {
+                            sample_state& state) {
+  if (state.measure) {
     const auto current_update = std::chrono::steady_clock::now();
-    if (state->measured_updates++ >= measure_warmup_frames &&
-        state->frame_time_count < state->frame_times_ms.size()) {
-      state->frame_times_ms[state->frame_time_count] =
-          std::chrono::duration<double, std::milli>(current_update - state->previous_update)
-              .count();
-      ++state->frame_time_count;
+    if (state.measured_updates++ >= measure_warmup_frames &&
+        state.frame_time_count < state.frame_times_ms.size()) {
+      state.frame_times_ms[state.frame_time_count] =
+          std::chrono::duration<double, std::milli>(current_update - state.previous_update).count();
+      ++state.frame_time_count;
     }
-    state->previous_update = current_update;
+    state.previous_update = current_update;
   }
   gneiss::input::action_state orbit{};
   gneiss::input::action_state quit{};
-  const auto orbit_result = application.input().get_action_state(state->orbit, orbit);
+  const auto orbit_result = application.input().get_action_state(state.orbit, orbit);
   if (orbit_result.failed()) {
     return orbit_result;
   }
-  const auto quit_result = application.input().get_action_state(state->quit, quit);
+  const auto quit_result = application.input().get_action_state(state.quit, quit);
   if (quit_result.failed()) {
     return quit_result;
   }
@@ -86,8 +113,8 @@ gneiss::error update_sample(gneiss::app::application& application, const gneiss:
     return gneiss::error::success;
   }
 
-  state->orbit_value = orbit.value;
-  auto updated = state->world->update(time);
+  state.camera.orbit = orbit.value;
+  auto updated = state.world->update(time);
   return updated ? gneiss::error::success : updated.error();
 }
 
@@ -244,27 +271,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       return world.error();
     world_owner = std::move(*world);
     state.world = world_owner.get();
-    state.world->add_system(
-        "camera.orbit",
-        [&state, angle = 0.0](gneiss::world& target,
-                              const gneiss::frame_time& time) mutable -> gneiss::error {
-          constexpr double nanoseconds_per_second = 1'000'000'000.0;
-          constexpr double radius = 6.0;
-          constexpr double height = 2.3;
-          angle += static_cast<double>(time.delta_ns) / nanoseconds_per_second * state.orbit_value;
-          const auto yaw_half = angle * 0.5;
-          const auto pitch_half = std::atan2(-height, radius) * 0.5;
-
-          gneiss::math::transform transform;
-          transform.translation[0] = static_cast<float>(std::sin(angle) * radius);
-          transform.translation[1] = static_cast<float>(height);
-          transform.translation[2] = static_cast<float>(std::cos(angle) * radius);
-          transform.rotation[0] = static_cast<float>(std::cos(yaw_half) * std::sin(pitch_half));
-          transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
-          transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
-          transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-          return target.find(state.camera_node).set_local_transform(transform);
-        });
+    state.world->add_system("camera.orbit", orbit_camera_system{state.camera});
     auto created_binding = gneiss::world_render_binding::create(*state.world, app->render());
     if (!created_binding)
       return created_binding.error();
@@ -393,7 +400,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     status = app->input().find_action("quit", state.quit);
     if (status.failed())
       return status;
-    status = gneiss::get_active_camera(*state.world, state.camera_node);
+    status = gneiss::get_active_camera(*state.world, state.camera.target);
     if (status.failed())
       return status;
     auto targets = create_targets();
@@ -422,7 +429,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
                        return {};
                      }
                    }
-                   auto updated = update_sample(*app, time, &state);
+                   auto updated = update_sample(*app, time, state);
                    if (updated.failed())
                      return updated;
                    ++rendered_updates;

@@ -23,6 +23,20 @@ World 及其实体只能在创建线程访问；跨线程操作返回 `error::in
 `update` 返回 `result<void>`。callable 当前要求可复制，注册时保存自身副本，有状态实例分别属于各 World。
 引用捕获是显式借用，不会自动隔离调用方共享的数据。
 
+简单无状态逻辑可直接注册函数或 lambda；包含多个依赖或运行状态时，使用具名 class，
+构造函数接收具体依赖，`operator()(world&, const frame_time&)` 执行更新，不要求继承系统基类。
+例如场景查看器使用 `orbit_camera_system`，只借用 `camera_input` 并保存自己的角度：
+
+```cpp
+world->add_system("camera.orbit", orbit_camera_system{state.camera});
+```
+
+宿主在更新前填写当前相机身份与输入值，因此异步加载、场景切换无需重新注册系统。
+系统不接收整个宿主状态或 Application。`state.camera` 的地址和寿命必须覆盖 World 的使用期；
+World 复制的是 callable，借用输入不会随之变成独立副本。需要资源服务时也通过构造参数显式注入，
+不为此引入自动服务查找或通用 context。
+
+
 ```cpp
 auto created = gneiss::create_native();
 if (!created)
