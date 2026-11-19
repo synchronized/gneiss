@@ -185,6 +185,7 @@ struct editor_state {
   bool closing{};
   bool return_to_project_manager{};
   bool layout_save_started{};
+  bool layout_initialized{};
   gneiss::error layout_status{gneiss::error::success};
   gizmo_operation gizmo_mode = gizmo_operation::translate;
   gneiss::editor::transform_gizmo_drag gizmo_drag;
@@ -2954,11 +2955,6 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   state.smoke_frame_limit = options.smoke_frames;
   state.asset_root = project.asset_root;
   state.project_root = project.project_root;
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-  state.asset_reimports.start(state.project_root, state.asset_root);
-  state.asset_reimports.request_refresh();
-  start_source_asset_watch(state);
-#endif
   const auto title = project.name + " - Gneiss Editor";
   // 工程启动引导仍负责准备原生配置目录；运行后的布局内容只走 user://。
   std::string user_root_text;
@@ -3042,7 +3038,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
     state.asset_reimports.request_stop();
     state.author_assets.request_stop();
 #endif
-    if (!smoke && !state.layout_save_started) {
+    if (!smoke && state.layout_initialized && !state.layout_save_started) {
       state.layout_save_started = true;
       state.layout_status = state.layout.save(state.panel_visibility);
     }
@@ -3062,7 +3058,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
     return pending ? gneiss::app::stop_progress::pending : gneiss::app::stop_progress::complete;
   });
   application->on_stop("editor.release_session", [&state, smoke = options.smoke] {
-    if (!smoke) {
+    if (!smoke && state.layout_initialized) {
       const auto status =
           state.layout_status.failed() ? state.layout_status : state.layout.save_result();
       if (status.failed())
@@ -3095,62 +3091,71 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   application->add_system(
       gneiss::app::stage::update, "editor.update",
       [&state](const gneiss::frame_time& time) { return update_editor(&time, &state); });
+  application->on_start("editor.start_asset_monitors", [&] {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-  const auto author_monitor_result = state.author_assets.initialize(application->async_files());
-  if (author_monitor_result != gneiss::error::success) {
-    report_startup_failure("作者资产监视初始化", author_monitor_result);
-  } else {
-    const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
-    state.author_watch_result = author_watcher_result;
-    if (author_watcher_result != gneiss::error::success) {
-      report_startup_failure("作者资产监听启动", author_watcher_result);
+    state.asset_reimports.start(state.project_root, state.asset_root);
+    state.asset_reimports.request_refresh();
+    start_source_asset_watch(state);
+    const auto author_monitor_result = state.author_assets.initialize(application->async_files());
+    if (author_monitor_result != gneiss::error::success) {
+      report_startup_failure("作者资产监视初始化", author_monitor_result);
+    } else {
+      const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
+      state.author_watch_result = author_watcher_result;
+      if (author_watcher_result != gneiss::error::success) {
+        report_startup_failure("作者资产监听启动", author_watcher_result);
+      }
     }
-  }
 #endif
-  operation = state.ui.initialize(*application);
-  if (operation != gneiss::error::success) {
-    report_startup_failure("Editor UI 初始化", operation);
-    return 2;
-  }
-  if (!options.smoke) {
-    const auto layout_result = state.layout.initialize(
-        application->async_files(), path_utf8(project.project_root), state.panel_visibility);
-    if (layout_result != gneiss::error::success &&
-        layout_result != gneiss::error::invalid_argument) {
-      report_startup_failure("布局加载", layout_result);
-    }
-  }
-  auto world = gneiss::create_native();
-  operation = world ? gneiss::error::success : world.error();
-  if (world) {
-    state.world_owner = std::move(*world);
-    state.world = state.world_owner.get();
-    auto binding = gneiss::world_render_binding::create(*state.world, application->render());
-    operation = binding ? gneiss::error::success : binding.error();
-    if (binding)
-      state.render_binding = std::move(*binding);
-  }
-  if (operation != gneiss::error::success) {
-    report_startup_failure("Editor World/Inspector 初始化", operation);
-  } else {
-    operation = state.editing.create_empty(*application, state.world);
+  });
+  application->on_start("editor.initialize_ui", [&]() -> gneiss::error {
+    operation = state.ui.initialize(*application);
     if (operation != gneiss::error::success) {
-      report_startup_failure("启动场景打开", operation, project.startup_scene);
+      report_startup_failure("Editor UI 初始化", operation);
+      return operation;
     }
-  }
-  if (operation == gneiss::error::success) {
-    operation = state.camera.initialize();
+    if (!options.smoke) {
+      const auto layout_result = state.layout.initialize(
+          application->async_files(), path_utf8(project.project_root), state.panel_visibility);
+      state.layout_initialized = layout_result == gneiss::error::success;
+      if (layout_result != gneiss::error::success &&
+          layout_result != gneiss::error::invalid_argument) {
+        report_startup_failure("布局加载", layout_result);
+      }
+    }
+    return gneiss::error::success;
+  });
+  application->on_start("editor.open_document", [&]() -> gneiss::error {
+    auto world = gneiss::create_native();
+    operation = world ? gneiss::error::success : world.error();
+    if (world) {
+      state.world_owner = std::move(*world);
+      state.world = state.world_owner.get();
+      auto binding = gneiss::world_render_binding::create(*state.world, application->render());
+      operation = binding ? gneiss::error::success : binding.error();
+      if (binding)
+        state.render_binding = std::move(*binding);
+    }
     if (operation != gneiss::error::success) {
-      report_startup_failure("Editor Camera 初始化", operation);
+      report_startup_failure("Editor World/Inspector 初始化", operation);
+    } else {
+      operation = state.editing.create_empty(*application, state.world);
+      if (operation != gneiss::error::success) {
+        report_startup_failure("启动场景打开", operation, project.startup_scene);
+      }
     }
-  }
-  if (operation != gneiss::error::success) {
-    state.ui.shutdown(*application);
-    (void)state.editing.close();
-    return 3;
-  }
-  state.editing.history().clear();
-  (void)state.scene_loader.request(*application, state.editing, project.startup_scene);
+    if (operation == gneiss::error::success) {
+      operation = state.camera.initialize();
+      if (operation != gneiss::error::success) {
+        report_startup_failure("Editor Camera 初始化", operation);
+      }
+    }
+    if (operation != gneiss::error::success) {
+      return operation;
+    }
+    state.editing.history().clear();
+    return state.scene_loader.request(*application, state.editing, project.startup_scene);
+  });
   application->add_system(gneiss::app::stage::synchronize, "editor.synchronize", [&state] {
     state.world->flush_changes();
     return state.render_binding->synchronize();

@@ -477,3 +477,15 @@ Windows Clang Debug Runtime 构建通过，Application 两项与 Editor Runtime 
 渲染关闭完成且任务 retained=0，验证已建立会话后的失败清理。无效 URI 和缺失文件由项目加载
 提前拒绝，不作为 on_start 失败证据；步骤失败测试仍由 native-application-flow 覆盖。
 Editor/示例启动迁移、基础服务延迟初始化、跨工程 UI 和静态验收仍待完成。
+
+### Editor 会话启动迁移
+
+资产监视、UI/布局、World/渲染绑定、文档与初始场景请求迁入具名 on_start；删除启动失败时
+提前返回的重复清理，复用 on_stop。布局只有初始化成功后才保存，初始场景请求错误不再忽略。
+检查关闭回调：空文档的 is_dirty 返回 false，未创建文档时不解引用文档对象。
+
+Windows Clang Debug 全量构建通过；document-editing、scene-loader、session、asset-background-worker、
+author-asset-service、startup-diagnostic 六项回归通过。Editor 线程池与协作模式各 30 帧环境回退
+smoke 退出 0；空环境资产的异步加载失败退出 4，日志确认渲染服务完成关闭。
+该失败发生在启动请求之后，不作为 UI 初始化失败或首次启动前 OS 关闭的交互验证。
+示例启动迁移、基础服务延迟初始化、跨工程完整 UI 操作与静态验收仍待完成。
