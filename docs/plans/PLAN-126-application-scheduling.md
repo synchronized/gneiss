@@ -559,3 +559,19 @@ Windows Clang Static Debug 引擎、两项 Application 测试及引擎头文件�
 三项测试通过。共享构建下 scene_viewer 单/双视图回归通过；不存在的输入映射返回 not_found，
 经 run 返回失败，进程退出 7。本次未执行物理窗口关闭发生于输入等待中的交互验收，
 等待中退出的调度语义由 Application 流程回归覆盖；不宣称全部宿主静态矩阵完成。
+
+### Runtime 控制分发与启动等待
+
+将旧 update_runtime(time*, void*) 拆为具名控制分发、资产推进、场景推进与统计系统，
+内部使用 runtime_context 引用。IPC 命令和停止文件进入 completions；关闭后拒绝新命令，
+停止文件检查使用独立单调时钟。await_input 是最后一个启动步骤，等待期间 IPC 已连接，
+场景请求已提交，但游戏初始化与普通更新尚未执行。资产更新只在业务 update 推进。
+停止步骤清空资产队列并解除会话借用，删除 run 后重复资源清理。
+
+IPC 最终结果须在应用服务停止后才能确定，因此 notify_shutdown 与宿主连接关闭仍在 run 返回后。
+它们属于宿主协议尾声，不是 Application 的第二套关闭推进；不增加只为转发这一通知的生命周期 API。
+之前记录的“IPC 最终通知在 run 后”保留为历史，本轮明确了其职责边界。
+
+Windows Clang Debug Runtime 构建通过；首轮 11 项 IPC/启动/生命周期/Editor Runtime 回归通过。
+集中停止清理后重跑受影响的 5 项真实进程回归全部通过，覆盖线程池/协作输入启动与失败、
+停止文件、IPC 命令、场景切换及取消重试。git diff --check 通过。
