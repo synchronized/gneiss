@@ -3,7 +3,7 @@
 
 # PLAN-126：Application 生命周期、调度与宿主状态组合
 
-状态：实施中，已接入具名业务阶段系统，已接入业务状态转换；完整生命周期迁移尚未完成。用户已确认目标方向；目标 API 为设计草案，不代表当前能力。
+状态：收尾验收中。生命周期、具名系统与宿主启动等待已接入；实际工程 A → 项目管理器 → 工程 B 已验证。仍需最终旧路径审计和验收归档；下方早期目标 API 为设计草案，当前接口以 Reference 为准。
 架构取舍见 [ADR-129](../decisions/ADR-129-application-scheduling.md)。本计划属于
 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，不包含远端发布授权。
 
@@ -165,17 +165,17 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 
 | 范围 | 已实现 | 尚未完成 |
 | --- | --- | --- |
-| 调度与状态 | 五个阶段、枚举状态、延迟转换、冲突拒绝、具名错误 | 服务启动装配的最终 API |
-| 生命周期 | run/step 共用推进；已删除 run(n)，分步关闭为私有实现；pending/complete 停止时分发完成 | 公开 shutdown 已移除；最终启动协议继续收敛 |
-| 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发；宿主拥有 World/绑定/视图，默认实现已删除 | 多 World 与关闭重开验收 |
-| 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终启动协议对齐 |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入、批次和环境请求已归宿主；诊断转发已删除；最终启动协议对齐 |
-| Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发清理与多 World/关闭重开验收 |
-| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载和批次已迁移；最终启动协议对齐 |
+| 调度与状态 | 固定阶段、枚举状态、延迟转换、冲突拒绝、具名错误；类型统一到 app 命名空间 | 最终错误诊断与旧入口审计 |
+| 生命周期 | run/step 共用推进；基础服务延迟到启动；启动 pending/complete；停止分发完成；旧 run(n)、公开 shutdown 和平台回调已删除 | 最终契约与实现逐项核对 |
+| 所有权 | 宿主拥有 World/绑定/视图；多 World 文档隔离回归通过；真实关闭工程再开另一工程通过 | 汇总验收证据 |
+| 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终旧路径审计 |
+| Runtime | IPC/停止文件在 completions；输入请求由 on_start 等待；资产/场景/报告分离；统一停止清理 | 最终旧路径审计；真实进程测试未单独证明输入 pending 瞬间的 IPC 退出 |
+| Editor | 会话 on_start；取消/等待/释放三段停止；实际 A → Manager → B 会话切换通过 | 最终旧业务转发审计 |
+| 示例 | minimal 自有 World；scene_viewer 一次提交输入/场景，启动等待输入；单/双视图验证通过 | 汇总验收证据 |
 
-当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
-不能把多个宿主使用新 run 等同于整体所有权迁移完成。旧 attach_task_executor 已从源码删除，
-测试配置显式指定执行器，等待辅助不再隐式装配或吞掉 attach 错误。
+当前接口契约以 [Application Reference](../reference/application.md) 为准。上方阶段复选框待最终
+逐项审计后勾选，不再以早期进度表判断剩余实现量。共享全量构建与既有 CPU/GPU 回归已执行；
+最近改动另有针对性回归。静态引擎、Application 测试及头文件闭包已验证，不表示全部静态宿主均验收。
 停止阶段保留文档用于卸载清理，但资产编辑入口与统一内容修改入口拒绝新请求。
 
 ### 已完成验证
@@ -451,8 +451,13 @@ Windows Clang Debug Runtime、Editor 与流程测试构建通过。回归验证�
 Windows Clang Debug Editor 与文档动作目标构建通过；document-actions、scene-loader 两项回归通过，
 覆盖关闭工程的取消、保存失败后重试与丢弃。Editor 30 帧环境回退 smoke 退出 0。
 首次 smoke 错把项目文件作为 --project 参数返回 65，改为项目目录后通过；这不是代码缺陷。
-实际菜单关闭后选择另一工程的完整交互仍待验收，不能以普通 smoke 或文档重开测试代替。
-最终服务装配协议及静态/完整验证矩阵仍未完成。
+实际菜单切换已补验：使用 examples/editor_demo 的两个临时副本和独立 LOCALAPPDATA，
+启动工程 A，经 File → Close Project 返回项目管理器，从 Recent 打开工程 B，然后关闭 B。
+同一进程的窗口标题依次为 PLAN126 project-a - Gneiss Editor、Gneiss Project Manager、
+PLAN126 project-b - Gneiss Editor。A/B 均有执行帧记录，两个 Editor 会话退出日志均为结果 0，
+最后进程退出。跨工具调用未取得进程 ExitCode，因此不将日志结果等同于 OS 退出码断言。
+本地日志：build/plan126-reopen-check/stderr-3.log。窗口消息仅发送给测试进程；未修改用户近期工程配置。
+此项验证菜单和生命周期闭环，不替代图像质量验收；隐藏 Vulkan 窗口截图不可用。
 
 ### Application 头文件依赖清理
 
@@ -521,16 +526,15 @@ Editor 4、Runtime 7 退出并完成关闭。静态矩阵及跨工程完整 UI �
 
 - 已实现：Application 类型与配置统一到 gneiss::app：application、configuration；不保留旧名称别名。
   系统适配辅助函数收进 detail，公共声明与私有实现声明分组整理。
-- 调度协议已实现，宿主接入待完成：启动等待采用步骤完成协议，支持 start_progress::pending/complete；不增加生命周期边的任意 bool
+- 调度协议及 Runtime/scene_viewer 接入已实现：启动等待采用步骤完成协议，支持 start_progress::pending/complete；不增加生命周期边的任意 bool
   判断函数表。pending 继续分发事件和完成，完成步骤不重放，失败/退出走统一停止。
   宿主负责保存请求，等待步骤不得反复提交同一任务。
 - 业务状态仍用 request_state；编辑器保存确认属于业务状态，确认退出后才进入 stopping。
 
 启动等待协议已接入 on_start：pending 保留当前步骤，完成分发继续，普通业务阶段和初始 Enter
 等待全部步骤完成。生命周期测试覆盖等待成功、失败及等待中主动退出，验证已完成步骤不重放。
-目前是调度协议阶段成果；真实宿主异步等待还需连同 IPC/停止请求的响应职责一起接入，
-不能直接将 Runtime update 中的输入等待搬入启动步骤而停止其 IPC 与停止文件处理。
-完整宿主接入及最终矩阵仍待完成。
+Runtime 已将 IPC/停止文件处理放到 completions，再将输入等待接入启动步骤；scene_viewer
+也已接入一次提交与启动等待。剩余是最终审计和验证归档，不能因启动等待而停止控制消息分发。
 
 启动等待协议的 Windows Clang Debug 引擎及两项 Application 测试目标构建通过，
 native-application 与 native-application-flow 均通过，git diff --check 通过。
