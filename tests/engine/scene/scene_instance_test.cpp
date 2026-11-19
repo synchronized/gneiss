@@ -47,14 +47,18 @@ int main() try {
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
   const auto application = create_application(asset_root);
   const auto second_application = create_application(asset_root);
+  auto primary_world = gneiss::create_native();
+  auto secondary_world = gneiss::create_native();
+  if (!primary_world || !secondary_world)
+    return 1;
   std::vector<gneiss::scene_object_binding> scene_objects;
   gneiss::scene_instance scene = {};
   gneiss::entity_id triangle;
   gneiss::entity_id camera_node;
   if (application == nullptr || second_application == nullptr ||
-      gneiss::test_support::load_scene(*application, scene_uri, &scene, nullptr, false,
-                                       &scene_objects) != gneiss::error::success ||
-      !scene.is_valid() || application->native_world()->entity_count() != 2U)
+      gneiss::test_support::load_scene(*application, **primary_world, scene_uri, &scene, nullptr,
+                                       false, &scene_objects) != gneiss::error::success ||
+      !scene.is_valid() || (*primary_world)->entity_count() != 2U)
     return 1;
   for (const auto& binding : scene_objects) {
     if (binding.source)
@@ -64,7 +68,7 @@ int main() try {
     if (binding.object == camera_uuid)
       camera_node = binding.entity;
   }
-  auto& owner = *application->native_world();
+  auto& owner = **primary_world;
   const auto original_camera = owner.object(camera_node);
   const auto original_triangle = owner.object(triangle);
   if (!original_camera || !original_triangle)
@@ -72,7 +76,7 @@ int main() try {
   // 通用应用不依赖编辑器或 Prefab 状态，空基线创建，后续更新保持存活实体。
   {
     namespace e = gneiss;
-    auto& world = *application->native_world();
+    auto& world = **primary_world;
     auto empty = world.create_scene();
     if (!empty)
       return 100;
@@ -116,7 +120,7 @@ int main() try {
     worker.join();
     if (threaded != e::error::invalid_state)
       return 105;
-    auto foreign_scene = second_application->native_world()->create_scene();
+    auto foreign_scene = (*secondary_world)->create_scene();
     if (!foreign_scene)
       return 106;
     applied = e::apply_scene(*foreign_scene, bindings, next, next, {});
@@ -155,18 +159,18 @@ int main() try {
       !original_triangle->name().empty() || !mesh_description ||
       mesh_description->mesh_uri != mesh_uri || mesh_description->material_uri != material_uri)
     return 2;
-  if (gneiss::scene_instance::borrow(*second_application->native_world(), scene.id()).error() !=
+  if (gneiss::scene_instance::borrow(**secondary_world, scene.id()).error() !=
           gneiss::error::invalid_handle ||
       gneiss::scene_instance::borrow(owner, {}).error() != gneiss::error::invalid_handle)
     return 3;
   // 失败的资源选择不提交；检查实际引用和组件，而不是将 World 编码成文件。
-  const auto triangle_object = application->native_world()->find(triangle);
+  const auto triangle_object = (*primary_world)->find(triangle);
   const auto* accepted = triangle_object.try_component<gneiss::mesh_component>();
   if (!accepted)
     return 30;
   const auto accepted_binding = *accepted;
-  if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
-                                        triangle, missing_mesh_uri, material_uri)
+  if (gneiss::test_support::assign_mesh(**primary_world, application->assets(), scene, triangle,
+                                        missing_mesh_uri, material_uri)
           .ok())
     return 30;
   const auto* after_binding = triangle_object.try_component<gneiss::mesh_component>();
@@ -174,32 +178,31 @@ int main() try {
       after_binding->material != accepted_binding.material)
     return 30;
   // 场景入口创建子对象，归属必须与父对象一致。
-  auto temporary_scene = gneiss::scene_instance::borrow(*application->native_world(), (scene).id());
+  auto temporary_scene = gneiss::scene_instance::borrow(**primary_world, (scene).id());
   if (!temporary_scene)
     return 31;
   auto temporary = temporary_scene->create_object(
-      {"Temporary", {}}, application->native_world()->find(gneiss::entity_id{camera_node.get()}));
+      {"Temporary", {}}, (*primary_world)->find(gneiss::entity_id{camera_node.get()}));
   if (!temporary || scene.size() != 3U)
     return 31;
-  if (application->native_world()
+  if (primary_world->get()
           ->find(gneiss::entity_id{(triangle).get()})
-          .reparent(application->native_world()->find(temporary->entity()))
+          .reparent((*primary_world)->find(temporary->entity()))
           .failed() ||
-      application->native_world()
+      primary_world->get()
           ->find(gneiss::entity_id{(triangle).get()})
-          .reparent(application->native_world()->find(gneiss::entity_id{(camera_node).get()}))
+          .reparent((*primary_world)->find(gneiss::entity_id{(camera_node).get()}))
           .failed())
     return 34;
   temporary->destroy();
   // 同一来源的另一个 World 可以独立修改，原 World 的身份不受影响。
-  auto camera_before =
-      application->native_world()->find(gneiss::entity_id{(camera_node).get()}).name();
+  auto camera_before = (*primary_world)->find(gneiss::entity_id{(camera_node).get()}).name();
   const std::string camera_name{camera_before};
   std::vector<gneiss::scene_object_binding> play_objects;
   gneiss::scene_instance play_scene;
   gneiss::entity_id play_camera;
-  if (gneiss::test_support::load_scene(*second_application, scene_uri, &play_scene, nullptr, false,
-                                       &play_objects)
+  if (gneiss::test_support::load_scene(*second_application, **secondary_world, scene_uri,
+                                       &play_scene, nullptr, false, &play_objects)
           .failed())
     return 35;
   const auto play_binding = std::ranges::find_if(play_objects, [&](const auto& binding) {
@@ -208,7 +211,7 @@ int main() try {
   if (play_binding == play_objects.end())
     return 35;
   play_camera = play_binding->entity;
-  second_application->native_world()->find(play_camera).set_name("Play Camera");
+  (*secondary_world)->find(play_camera).set_name("Play Camera");
   if (owner.find(camera_node).name() != camera_name)
     return 35;
   play_scene.unload();
@@ -219,10 +222,10 @@ int main() try {
   create_desc.mesh_uri = mesh_uri;
   create_desc.material_uri = material_uri;
   gneiss::entity_id created_node;
-  if (gneiss::test_support::take_value(
-          gneiss::test_support::spawn_mesh(*application->native_world(), application->assets(),
-                                           scene, create_desc),
-          created_node) != gneiss::error::success ||
+  if (gneiss::test_support::take_value(gneiss::test_support::spawn_mesh(**primary_world,
+                                                                        application->assets(),
+                                                                        scene, create_desc),
+                                       created_node) != gneiss::error::success ||
       created_node == gneiss::null_entity_id || scene.size() != 3U || owner.entity_count() != 3U)
     return 4;
   const auto created_object = owner.find(created_node);
@@ -230,7 +233,7 @@ int main() try {
     return 4;
   // 直接修改 ECS 后，场景绑定查询必须立即反映组件状态，不能读取实例列表副本。
   {
-    auto renderer = application->native_world()
+    auto renderer = primary_world->get()
                         ->find(gneiss::entity_id{(created_node).get()})
                         .try_component<gneiss::mesh_component>();
     if (!renderer)
@@ -239,14 +242,11 @@ int main() try {
     gneiss::entity_id entity;
     if (!renderer ||
         gneiss::test_support::assign_value(
-            application->native_world()->object(gneiss::entity_id{(created_node).get()}), entity)
+            (*primary_world)->object(gneiss::entity_id{(created_node).get()}), entity)
             .failed() ||
-        application->native_world()
-            ->find(entity)
-            .remove_component<gneiss::mesh_component>()
-            .failed() ||
-        application->native_world()->find(entity).try_component<gneiss::mesh_component>() ||
-        application->native_world()
+        primary_world->get()->find(entity).remove_component<gneiss::mesh_component>().failed() ||
+        (*primary_world)->find(entity).try_component<gneiss::mesh_component>() ||
+        primary_world->get()
             ->find(entity)
             .add_component<gneiss::mesh_component>(saved_renderer)
             .failed())
@@ -256,26 +256,25 @@ int main() try {
           .add_component<gneiss::camera_component>(
               gneiss::camera_component{{1.04719755F, 0.2F, 1000.0F}, false})
           .failed() ||
-      application->native_world()
+      primary_world->get()
               ->find(gneiss::entity_id{created_node.get()})
               .remove_component<gneiss::camera_component>() != gneiss::error::success ||
-      application->native_world()
+      primary_world->get()
               ->find(gneiss::entity_id{created_node.get()})
               .remove_component<gneiss::camera_component>() != gneiss::error::not_found ||
-      application->native_world()
+      primary_world->get()
               ->find(gneiss::entity_id{created_node.get()})
               .remove_component<gneiss::mesh_component>() != gneiss::error::success ||
-      application->native_world()
+      primary_world->get()
               ->find(gneiss::entity_id{created_node.get()})
               .remove_component<gneiss::mesh_component>() != gneiss::error::not_found) {
     return 27;
   }
-  if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
-                                        created_node, mesh_uri,
-                                        material_uri) != gneiss::error::success) {
+  if (gneiss::test_support::assign_mesh(**primary_world, application->assets(), scene, created_node,
+                                        mesh_uri, material_uri) != gneiss::error::success) {
     return 28;
   }
-  auto destination = gneiss::scene_instance::borrow(*application->native_world(), (scene).id());
+  auto destination = gneiss::scene_instance::borrow(**primary_world, (scene).id());
   if (!destination)
     return 13;
   gneiss::math::transform generic_transform;
@@ -284,7 +283,7 @@ int main() try {
   if (gneiss::test_support::assign_value(destination->create_object({"Empty", generic_transform}),
                                          generic_node) != gneiss::error::success)
     return 13;
-  application->native_world()->find(generic_node).set_name("Group");
+  (*primary_world)->find(generic_node).set_name("Group");
   const auto group = owner.find(generic_node);
   if (owner.find(triangle).reparent(group).failed() ||
       group.reparent(owner.find(triangle)) != gneiss::error::invalid_argument ||
@@ -297,31 +296,31 @@ int main() try {
   if (owner.find(generic_node).reparent(owner.find(camera_node)).failed())
     return 29;
   const auto* retained_component =
-      application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
+      (*primary_world)->find(triangle).try_component<gneiss::mesh_component>();
   if (!retained_component)
     return 15;
   const auto retained = *retained_component;
   const auto old_generic_node = generic_node;
   const auto old_triangle_node = triangle;
   owner.find(generic_node).destroy();
-  if (application->native_world()->object(gneiss::entity_id{old_generic_node.get()}) ||
-      application->native_world()->object(gneiss::entity_id{old_triangle_node.get()}))
+  if ((*primary_world)->object(gneiss::entity_id{old_generic_node.get()}) ||
+      (*primary_world)->object(gneiss::entity_id{old_triangle_node.get()}))
     return 17;
-  auto recreated = destination->create_object({"Group", generic_transform},
-                                              application->native_world()->find(camera_node));
+  auto recreated =
+      destination->create_object({"Group", generic_transform}, (*primary_world)->find(camera_node));
   if (!recreated || recreated->entity() == old_generic_node)
     return 18;
   generic_node = recreated->entity();
   auto child_desc = create_desc;
   child_desc.name = "Triangle";
   child_desc.parent = generic_node;
-  auto rebuilt = gneiss::test_support::spawn_mesh(
-      *application->native_world(), application->assets(), scene, child_desc, &retained);
+  auto rebuilt = gneiss::test_support::spawn_mesh(**primary_world, application->assets(), scene,
+                                                  child_desc, &retained);
   if (!rebuilt || *rebuilt == old_triangle_node)
     return 20;
   triangle = *rebuilt;
   const auto* rebuilt_binding =
-      application->native_world()->find(triangle).try_component<gneiss::mesh_component>();
+      (*primary_world)->find(triangle).try_component<gneiss::mesh_component>();
   if (!rebuilt_binding || rebuilt_binding->mesh != retained.mesh ||
       rebuilt_binding->material != retained.material)
     return 21;
@@ -329,17 +328,17 @@ int main() try {
     return 24;
   }
   // 同名运行对象可以重复创建，身份由实体 ID 区分。
-  auto duplicate = gneiss::test_support::spawn_mesh(*application->native_world(),
-                                                    application->assets(), scene, create_desc);
+  auto duplicate =
+      gneiss::test_support::spawn_mesh(**primary_world, application->assets(), scene, create_desc);
   if (!duplicate || *duplicate == created_node)
     return 5;
-  application->native_world()->find(*duplicate).destroy();
-  if (gneiss::test_support::assign_mesh(*application->native_world(), application->assets(), scene,
-                                        created_node, missing_mesh_uri,
+  (*primary_world)->find(*duplicate).destroy();
+  if (gneiss::test_support::assign_mesh(**primary_world, application->assets(), scene, created_node,
+                                        missing_mesh_uri,
                                         material_uri) != gneiss::error::not_found) {
     return 6;
   }
-  auto world = application->native_world();
+  auto world = primary_world->get();
   auto camera_state = world->object(gneiss::entity_id{(camera_node).get()});
   if (!camera_state) {
     return 7;
@@ -359,10 +358,8 @@ int main() try {
   }
   camera_object.set_name("Runtime Camera");
   const auto runtime_camera = gneiss::capture_components(owner, camera_node);
-  auto runtime_mesh =
-      application->native_world()->find(gneiss::entity_id{(created_node).get()}).name();
-  auto runtime_group =
-      application->native_world()->find(gneiss::entity_id{(generic_node).get()}).name();
+  auto runtime_mesh = (*primary_world)->find(gneiss::entity_id{(created_node).get()}).name();
+  auto runtime_group = (*primary_world)->find(gneiss::entity_id{(generic_node).get()}).name();
   if (!runtime_camera || camera_object.name() != "Runtime Camera" ||
       camera_object.local_transform().translation.x != 5.0F ||
       !runtime_camera->get<gneiss::camera_description>() ||
@@ -473,22 +470,24 @@ int main() try {
   }
 
   const auto failing_application = create_application(failure_root);
+  auto failure_world = gneiss::create_native();
+  if (!failure_world)
+    return 12;
   scene = gneiss::scene_instance{};
   if (failing_application == nullptr ||
-      gneiss::test_support::load_scene(*failing_application, missing_uri, &scene) !=
-          gneiss::error::not_found ||
+      gneiss::test_support::load_scene(*failing_application, **failure_world, missing_uri,
+                                       &scene) != gneiss::error::not_found ||
       scene != gneiss::scene_instance{} ||
-      gneiss::test_support::load_scene(*failing_application, corrupt_uri, &scene) !=
-          gneiss::error::invalid_argument ||
+      gneiss::test_support::load_scene(*failing_application, **failure_world, corrupt_uri,
+                                       &scene) != gneiss::error::invalid_argument ||
       scene != gneiss::scene_instance{}) {
     return 12;
   }
-  auto recovered = failing_application->native_world()->create_scene();
+  auto recovered = (*failure_world)->create_scene();
   if (!recovered)
     return 12;
   recovered->unload();
-  if (failing_application->native_world()->entity_count() != 0U ||
-      failing_application->shutdown().failed())
+  if ((*failure_world)->entity_count() != 0U || failing_application->shutdown().failed())
     return 12;
   return 0;
 } catch (...) {

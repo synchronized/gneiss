@@ -120,13 +120,16 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   until([&] { return request->status() != gneiss::error::not_ready; });
   auto content = request->snapshot();
   check(bool(content));
-  auto activated = test_support::activate_scene(*app, *content);
+  auto created_world = create_native();
+  check(bool(created_world));
+  auto* world = created_world->get();
+  auto activated = test_support::activate_scene(*app, *world, *content);
   check(bool(activated));
   const auto& completion = activated->instance;
   check(completion.objects.size() == 1);
   const auto& source = completion.objects.front();
   check(source.object == *guid::parse("00000000-0000-4000-8000-000000000002") && !source.source);
-  const auto object = app->native_world()->find(source.entity);
+  const auto object = world->find(source.entity);
   check(bool(object));
   const auto* component = object.try_component<mesh_component>();
   check(component && component->mesh && component->material);
@@ -210,7 +213,9 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   check(bool(created));
   auto app = *created;
 
-  auto* world = app->native_world();
+  auto created_world = create_native();
+  check(bool(created_world));
+  auto* world = created_world->get();
   auto original = world->create_scene();
   check(bool(original));
   auto object = original->create_object();
@@ -238,14 +243,14 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   check(original->is_valid() && object->is_valid());
   check(world->entity_count() == 1);
   std::ofstream(files.root / "scene.json") << "broken";
-  auto activated = gneiss::test_support::activate_scene(*app, *content);
+  auto activated = gneiss::test_support::activate_scene(*app, *world, *content);
   check(bool(activated));
   await([&] { return !activated->visuals || activated->visuals.ready(); });
   if (activated->visuals) {
     auto completed = activated->visuals.take();
     check(completed && completed->result.ok());
   }
-  check(app->native_world() == world && object->is_valid());
+  check(activated->instance.instance.owner() == world && object->is_valid());
   auto current = e::scene_instance::borrow(*world, (activated->instance.instance).id());
   check(current && current->size() == content->description->objects.size());
   original->unload();
@@ -258,7 +263,7 @@ void scene_content_boundary(gneiss::tasks::execution_mode mode) {
   // 空内容可以实例化为空归属组，不影响既有场景。
   e::scene_content empty;
   empty.description = e::make_ref<e::scene_description>();
-  auto empty_scene = gneiss::test_support::activate_scene(*app, empty);
+  auto empty_scene = gneiss::test_support::activate_scene(*app, *world, empty);
   check(bool(empty_scene) && !empty_scene->visuals);
   auto empty_instance = e::scene_instance::borrow(*world, (empty_scene->instance.instance).id());
   check(empty_instance && empty_instance->size() == 0 && current->is_valid());
@@ -274,10 +279,13 @@ void shared_scene_assets(gneiss::tasks::execution_mode mode) {
   auto created = application::create(config);
   check(bool(created));
   auto app = *created;
+  auto created_world = create_native();
+  check(bool(created_world));
+  auto* world = created_world->get();
   auto load = [&] {
     scene_instance id;
-    check(test_support::load_scene(*app, "asset://scene.json", &id, &scheduler).ok());
-    auto scene = gneiss::scene_instance::borrow(*app->native_world(), (id).id());
+    check(test_support::load_scene(*app, *world, "asset://scene.json", &id, &scheduler).ok());
+    auto scene = gneiss::scene_instance::borrow(*world, (id).id());
     check(bool(scene));
     return *scene;
   };
@@ -338,8 +346,11 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::assign_value(application::create(desc), app) ==
         gneiss::error::success);
 
+  auto created_world = create_native();
+  check(bool(created_world));
+  auto* world = created_world->get();
   scene_instance scene_id;
-  check(test_support::load_scene(*app, "asset://scene.json", &scene_id, &scheduler).ok());
+  check(test_support::load_scene(*app, *world, "asset://scene.json", &scene_id, &scheduler).ok());
   auto first = app->assets().find<gneiss::material>("asset://material.json");
   auto second = app->assets().find<gneiss::material>("asset://other.json");
   check(first && second);
@@ -356,7 +367,7 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
   check(gneiss::resource_cast<gneiss::texture>(assets.assets.front()) == texture);
   check((*first)->textures()[0] == texture && (*second)->textures()[0] == texture);
   std::ofstream(files.root / "image.ktx2", std::ios::trunc) << "broken";
-  check(test_support::load_scene(*app, "asset://scene.json", &scene_id, &scheduler).ok());
+  check(test_support::load_scene(*app, *world, "asset://scene.json", &scene_id, &scheduler).ok());
   check(*app->assets().find<gneiss::texture>("asset://texture.json") == texture);
 }
 

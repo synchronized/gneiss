@@ -19,6 +19,7 @@ struct scene_activation {
   gneiss::asset_batch_request visuals;
 };
 inline gneiss::result<scene_activation> activate_scene(runtime::application& app,
+                                                       gneiss::world& world,
                                                        const gneiss::scene_content& content) {
   auto composed = compose(content);
   if (!composed)
@@ -40,7 +41,7 @@ inline gneiss::result<scene_activation> activate_scene(runtime::application& app
       return request.error();
     bindings.emplace(dependency.uri, request->resource());
   }
-  auto destination = app.native_world()->create_scene();
+  auto destination = world.create_scene();
   if (!destination)
     return destination.error();
   auto built = gneiss::instantiate(*destination, *composed, bindings);
@@ -55,7 +56,7 @@ inline gneiss::result<scene_activation> activate_scene(runtime::application& app
       camera = built->objects[i].entity;
   }
   if (camera) {
-    auto selected = gneiss::set_active_camera(*app.native_world(), camera);
+    auto selected = gneiss::set_active_camera(world, camera);
     if (selected.failed()) {
       destination->unload();
       return selected;
@@ -149,8 +150,8 @@ inline gneiss::error prepare_scene(runtime::application& app, std::string_view u
   }
   return gneiss::error::success;
 }
-inline gneiss::error load_scene(runtime::application& app, std::string_view uri,
-                                scene_instance* output,
+inline gneiss::error load_scene(runtime::application& app, gneiss::world& world,
+                                std::string_view uri, scene_instance* output,
                                 gneiss::tasks::task_scheduler* tasks = nullptr, bool reload = false,
                                 std::vector<gneiss::scene_object_binding>* objects = nullptr) {
   if (!output)
@@ -161,7 +162,7 @@ inline gneiss::error load_scene(runtime::application& app, std::string_view uri,
   auto status = prepare_scene(app, uri, prepared, bindings, tasks, nullptr, reload);
   if (status.failed())
     return status;
-  auto receipt = scene_fixture::instantiate_scene(*app.native_world(), prepared, bindings);
+  auto receipt = scene_fixture::instantiate_scene(world, prepared, bindings);
   if (!receipt)
     return receipt.error();
   *output = receipt->instance;

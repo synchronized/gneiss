@@ -117,7 +117,7 @@ gneiss::error advance_scene(gneiss::runtime::application& app, response_context&
       return loaded.error().error;
     if (!content)
       return error::invalid_state;
-    auto activated = gneiss::test_support::activate_scene(app, *content);
+    auto activated = gneiss::test_support::activate_scene(app, *app.native_world(), *content);
     if (!activated)
       return activated.error();
     state.nodes = activated->instance.node_count;

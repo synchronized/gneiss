@@ -233,7 +233,7 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
         (void)scheduler.run_ready();
       std::this_thread::yield();
     }
-    check(app->native_world() == nullptr && closed == 1);
+    check(closed == 1);
     check(!assets_request);
     if (request)
       check(request.status() != gneiss::error::not_ready);
@@ -335,12 +335,6 @@ int main() try {
   std::thread worker([&] { other_thread = app->run(1U); });
   worker.join();
   check(other_thread == gneiss::error::invalid_state && state.frames == 3U);
-  // Application 持有的 World 不授予调用方销毁权。
-  const auto borrowed_world = app->native_world();
-  check(borrowed_world != nullptr);
-  auto owned_scene = app->native_world()->create_scene();
-  check(owned_scene.has_value());
-  check(owned_scene->create_object().has_value());
   check(state.shutdowns == 0U);
   // 失败创建不替换原对象；失败初始化的部分资源必须恰好清理一次。
   auto previous = app;
@@ -351,8 +345,6 @@ int main() try {
   previous.reset();
   check(app->run(1U) == gneiss::error::success && state.frames == 4U);
   check(app->shutdown() == gneiss::error::success);
-  // 关闭后借用失效，不再解引用旧指针。
-  check(app->native_world() == nullptr);
   check(app->run(1U) == gneiss::error::invalid_state);
   app.reset();
   check(state.shutdowns == 2U);

@@ -238,3 +238,9 @@ Windows Clang Debug 构建、单视图 smoke 与双视图两组尺寸/图像差�
 Runtime 检查/加载/启动、Scene/Prefab 结构重载、相机选择、保存及灯廊工作流回归通过。
 相机测试首次因缺少内置注册而创建场景失败，补上显式 initialize_meta 后重跑通过。
 任务响应基准仅完成编译，未执行性能测量；本批未验证其他平台或静态构建。
+
+加载测试辅助 activate_scene/load_scene 现在显式接收 World，不再从 Application 选择装配目标。
+场景实例、共享资产、视觉失败隔离、导入产物和保存重开测试迁移到自有 World，相关五项回归通过。
+Application 测试删除“默认拥有 World、关闭后 native_world 为空”的旧契约断言，保留生命周期、
+失败清理及异步停止验证。GPU 验收与测量程序暂时显式传入默认 World，需连同帧提交/截图一起迁移；
+这些工具已完成签名适配并编译通过，本批不宣称已移除生产实现的默认 World。

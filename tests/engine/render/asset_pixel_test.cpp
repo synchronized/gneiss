@@ -127,8 +127,8 @@ void run_asset_reload() {
   };
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-        gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
+                                                       &scheduler)} == gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
@@ -192,7 +192,7 @@ void run_pending_resources() {
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
+  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene)} ==
         gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
@@ -406,7 +406,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     }
     auto content = request->snapshot();
     check(bool(request->take()) && bool(content));
-    auto activated = test_support::activate_scene(*app, *content);
+    auto activated = test_support::activate_scene(*app, *app->native_world(), *content);
     check(bool(activated));
     scene = activated->instance.instance;
     // CPU 场景先实例化，随后分发视觉加载；两帧图像必须体现资源就绪后的变化。
@@ -424,8 +424,8 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(app->capture_frame(128U, 128U, loaded).ok());
     check(initial.pixels != loaded.pixels);
   } else {
-    check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-          gneiss::error::success);
+    check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
+                                                         &scheduler)} == gneiss::error::success);
     // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
     bool selected_camera{};
     for (auto object : scene.objects()) {
@@ -517,7 +517,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
+  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene)} ==
         gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
@@ -649,7 +649,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
                                                          app)} == gneiss::error::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene)} ==
+  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene)} ==
         gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
@@ -737,8 +737,8 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
 
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
-  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-        gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
+                                                       &scheduler)} == gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
@@ -878,8 +878,8 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
 
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, uri, &scene, &scheduler)} ==
-        gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
+                                                       &scheduler)} == gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
@@ -930,7 +930,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
     } else {
       auto content = request->snapshot();
       check(bool(request->take()) && bool(content));
-      auto activated = test_support::activate_scene(*app, *content);
+      auto activated = test_support::activate_scene(*app, *app->native_world(), *content);
       check(bool(activated));
       old_scene.unload();
       scene = activated->instance.instance;

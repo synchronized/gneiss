@@ -164,14 +164,12 @@ void host_shutdown() {
   auto application = std::move(*created);
   auto* borrowed = application.get();
   application->on_stop("release", [&] {
-    check(borrowed->native_world() != nullptr);
     check(borrowed->run(1) == error::invalid_state);
     check(borrowed->request_shutdown() == error::invalid_state);
     order += 'a';
     return error::io;
   });
   application->on_stop("release_remaining", [&]() -> result<void> {
-    check(borrowed->native_world() != nullptr);
     order += 'b';
     return {};
   });
@@ -180,7 +178,6 @@ void host_shutdown() {
   check(application->run(1) == error::invalid_state);
   check(application->request_shutdown().ok() && order == "ab");
   check(application->advance_shutdown() == error::io && order == "abs");
-  check(application->native_world() == nullptr);
   check(application->advance_shutdown() == error::io);
   application.reset();
   check(order == "abs");
@@ -213,7 +210,6 @@ void complete_lifecycle() {
   });
   application->on_stop("pending", [&] {
     ++waits;
-    check(application->native_world() != nullptr);
     return finished ? app::stop_progress::complete : app::stop_progress::pending;
   });
   application->on_stop("release", [&] { ++releases; });
@@ -226,7 +222,6 @@ void complete_lifecycle() {
   finished = true;
   status = application->step();
   check(status && *status == app::lifecycle::stopped && releases == 1);
-  check(application->native_world() == nullptr);
   status = application->step();
   check(status && *status == app::lifecycle::stopped && releases == 1);
 
@@ -236,7 +231,7 @@ void complete_lifecycle() {
   application->add_system(app::stage::update, "failure", [] { return error::io; });
   application->on_stop("cleanup", [&] { ++releases; });
   check(application->run().error() == error::io);
-  check(releases == 2 && application->native_world() == nullptr);
+  check(releases == 2);
 }
 void stopping_completions() {
   auto created = runtime::application::create({});

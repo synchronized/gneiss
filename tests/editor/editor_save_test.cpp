@@ -75,10 +75,12 @@ int main() try {
   }
 
   std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::world_owner world_owner;
   gneiss::world* world = nullptr;
   gneiss::editor::scene_edit_session session;
   if (create_application(root, application) != gneiss::error::success ||
-      (world = application->native_world()) == nullptr ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world = world_owner.get()) == nullptr ||
       gneiss::test_support::open_document(session, *application, world, scene_uri) !=
           gneiss::error::success ||
       session.select(gneiss::test_support::scene_query(session).nodes[0].node) !=
@@ -139,7 +141,7 @@ int main() try {
   }
   created_node = session.find_node(created_uuid)->node;
   // 运行时名称变化不得进入文档子树快照。
-  application->native_world()->find(created_node).set_name("Live snapshot");
+  world->find(created_node).set_name("Live snapshot");
   gneiss::editor::scene_subtree_snapshot snapshot;
   if (session.destroy_subtree(created_node, snapshot) != gneiss::error::success ||
       snapshot.description()->objects.size() != 1U ||
@@ -202,11 +204,14 @@ int main() try {
   application.reset();
 
   std::shared_ptr<gneiss::runtime::application> reloaded_application;
+  gneiss::world_owner reloaded_world;
   std::vector<gneiss::scene_object_binding> reloaded_objects;
   gneiss::scene_instance reloaded_scene{};
   if (create_application(root, reloaded_application) != gneiss::error::success ||
-      gneiss::test_support::load_scene(*reloaded_application, scene_uri, &reloaded_scene, nullptr,
-                                       false, &reloaded_objects) != gneiss::error::success) {
+      gneiss::test_support::assign_value(gneiss::create_native(), reloaded_world).failed() ||
+      gneiss::test_support::load_scene(*reloaded_application, *reloaded_world, scene_uri,
+                                       &reloaded_scene, nullptr, false,
+                                       &reloaded_objects) != gneiss::error::success) {
     return 11;
   }
   const auto camera_binding = std::ranges::find_if(reloaded_objects, [&](const auto& binding) {
@@ -217,8 +222,8 @@ int main() try {
   });
   if (camera_binding == reloaded_objects.end() || created_binding == reloaded_objects.end())
     return 12;
-  const auto camera = reloaded_application->native_world()->object(camera_binding->entity);
-  const auto created = reloaded_application->native_world()->object(created_binding->entity);
+  const auto camera = reloaded_world->object(camera_binding->entity);
+  const auto created = reloaded_world->object(created_binding->entity);
   if (!camera || !created || std::abs(camera->local_transform().translation[0] - 7.0F) > 0.0001F)
     return 12;
   reloaded_scene.unload();

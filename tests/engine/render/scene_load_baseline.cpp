@@ -91,7 +91,7 @@ gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>&
         return loaded.error().error;
       if (!content)
         return gneiss::error::invalid_state;
-      auto built = gneiss::test_support::activate_scene(*app, *content);
+      auto built = gneiss::test_support::activate_scene(*app, *app->native_world(), *content);
       if (!built)
         return built.error();
       scene = built->instance.instance;
@@ -372,7 +372,8 @@ int main(int argc, char** argv) try {
           if (!content)
             return gneiss::error::invalid_state;
           const auto activation_start = clock_type::now();
-          auto built = gneiss::test_support::activate_scene(*handle, *content);
+          auto built =
+              gneiss::test_support::activate_scene(*handle, *handle->native_world(), *content);
           if (!built)
             return built.error();
           if (previous_scene.id()) {

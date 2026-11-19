@@ -183,8 +183,8 @@ int main(int argc, char** argv) try {
     return 1;
   }
   constexpr std::string_view scene = "asset://scenes/test.scene.json";
-  if (gneiss::error{gneiss::test_support::load_scene(*app, scene, &state.scene, &scheduler)} !=
-      gneiss::error::success) {
+  if (gneiss::error{gneiss::test_support::load_scene(
+          *app, *app->native_world(), scene, &state.scene, &scheduler)} != gneiss::error::success) {
     return 2;
   }
   for (auto object : state.scene.objects()) {
