@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/scene/detail/system_scheduler.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <algorithm>
 #include <new>

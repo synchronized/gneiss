@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include <cstdlib>
-#include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/logging/service.hpp>
 #include <iostream>

@@ -3,7 +3,7 @@
 
 #include <gneiss/protocol/domains.hpp>
 #include "runtime/ipc/editor_ipc_router.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <utility>
 

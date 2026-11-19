@@ -5,7 +5,7 @@
 
 #include <gneiss/engine/function/ipc/envelope.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <cstddef>
 #include <cstdint>

@@ -10,7 +10,7 @@
 #include <gneiss/engine/function/diagnostics/diagnostic.hpp>
 #include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <string_view>
 
 namespace gneiss::runtime {

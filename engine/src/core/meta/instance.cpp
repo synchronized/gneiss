@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <algorithm>
-#include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>

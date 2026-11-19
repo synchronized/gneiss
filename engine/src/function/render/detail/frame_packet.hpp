@@ -5,7 +5,7 @@
 #define GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
 
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/render/camera.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>

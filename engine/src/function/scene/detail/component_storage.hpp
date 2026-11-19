@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "function/scene/detail/world_component_access.hpp"
-#include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/function/scene/game_object.hpp>
 #include <type_traits>
 #include <utility>

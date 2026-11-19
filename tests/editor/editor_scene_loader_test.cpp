@@ -5,7 +5,7 @@
 #include "../support/value_result.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>

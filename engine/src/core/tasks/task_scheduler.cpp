@@ -5,7 +5,7 @@
 #include <gneiss/engine/core/diagnostics/profiling.hpp>
 #include <gneiss/engine/core/diagnostics/timing.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <algorithm>
 #include <deque>

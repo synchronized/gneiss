@@ -3,7 +3,7 @@
 
 #include "documents/editor_scene_loader.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>

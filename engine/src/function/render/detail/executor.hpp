@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 #define GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
 #include "function/render/detail/frame_packet.hpp"
 #include <gneiss/engine/function/render/frame_result.hpp>

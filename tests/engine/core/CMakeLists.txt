@@ -204,7 +204,7 @@ if(NOT EMSCRIPTEN)
     "${PROJECT_SOURCE_DIR}/engine/src/core/data/value.cpp"
     "${PROJECT_SOURCE_DIR}/engine/src/core/data/value_edit.cpp")
   target_link_libraries(gneiss_value_allocation_test PRIVATE gneiss_math gneiss_base)
-  target_compile_definitions(gneiss_value_allocation_test PRIVATE GNEISS_STATIC_DEFINE GNEISS_DATA_STATIC_DEFINE)
+  target_compile_definitions(gneiss_value_allocation_test PRIVATE GNEISS_DATA_STATIC_DEFINE)
   target_compile_features(gneiss_value_allocation_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_value_allocation_test)
   gneiss_target_output_directories(gneiss_value_allocation_test)

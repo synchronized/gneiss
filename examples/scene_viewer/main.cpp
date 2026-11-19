@@ -4,7 +4,7 @@
 #include "../support/scene_activation.hpp"
 #include "../support/scope_exit.hpp"
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>

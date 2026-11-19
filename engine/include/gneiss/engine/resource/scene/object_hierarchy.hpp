@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
 #include <functional>
 #include <limits>

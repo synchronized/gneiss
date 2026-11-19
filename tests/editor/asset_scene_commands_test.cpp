@@ -8,7 +8,7 @@
 #include "documents/commands/editor_asset_edit.hpp"
 #include "documents/commands/editor_prefab_edit.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>

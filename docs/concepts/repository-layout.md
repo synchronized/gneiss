@@ -55,6 +55,12 @@ Data 的属性路径保留 meta 命名空间，但仅定义地址数据；反射
 ## 所有权与部署
 
 共享构建中 Base 的身份表、Meta 默认注册表、Logging 默认服务各由一个动态库持有。
+错误、结果和断言契约归属 `core/base/error.hpp`、`result.hpp`、`assert.hpp`。
+断言头是 libassert 的内部适配，使用方显式声明依赖，不由 Base 自动传播。
+`engine/export.hpp` 仅定义 Engine 的 `GNEISS_ENGINE_API`，Base 使用自己的 `GNEISS_BASE_API`；
+使用导出宏的头显式包含所属模块的导出头，不通过错误类型间接引入。
+静态配置也由各模块独立传播，Base 不传播 Engine 的编译定义。
+
 每个模块使用自己的导出宏。复制实现进宿主会破坏这种唯一性，普通测试必须链接生产目标。
 需要注入静态 libassert 处理器的死亡测试单独使用同模块夹具，并在 CMake 中说明原因。
 

@@ -4,7 +4,7 @@
 #include "function/render/detail/service_impl.hpp"
 #include <algorithm>
 #include <cmath>
-#include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <limits>
 namespace gneiss::render {

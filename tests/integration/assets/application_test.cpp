@@ -7,7 +7,7 @@
 #include <fstream>
 #include <future>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #ifdef GNEISS_TEST_NATIVE_WINDOW
 #define WIN32_LEAN_AND_MEAN

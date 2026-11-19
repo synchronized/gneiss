@@ -7,7 +7,7 @@
 #include <gneiss/engine/core/math/types.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/ref.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <algorithm>
 #include <array>

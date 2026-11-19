@@ -143,8 +143,8 @@ target_include_directories(
 )
 target_compile_definitions(
   gneiss_engine
-  PRIVATE GNEISS_BUILDING_LIBRARY
-  PUBLIC $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_STATIC_DEFINE>
+  PRIVATE GNEISS_BUILDING_ENGINE
+  PUBLIC $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_ENGINE_STATIC_DEFINE>
 )
 set_target_properties(
   gneiss_engine

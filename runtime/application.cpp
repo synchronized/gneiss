@@ -3,7 +3,7 @@
 
 #include <gneiss/protocol/domains.hpp>
 #include "application.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
@@ -11,7 +11,7 @@
 #include <deque>
 
 #include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/project/project_description.hpp>
 

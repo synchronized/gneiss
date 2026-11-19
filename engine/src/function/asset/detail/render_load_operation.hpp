@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_data.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>
@@ -13,7 +14,7 @@ namespace detail {
 struct render_load_operation final : load_operation {
   render_resource_source source;
   bool reload{}, started{};
-  GNEISS_API void advance(asset_manager&);
+  GNEISS_ENGINE_API void advance(asset_manager&);
   std::variant<asset_request<mesh_data>, asset_request<texture_data>,
                asset_request<material_description>>
       cpu;

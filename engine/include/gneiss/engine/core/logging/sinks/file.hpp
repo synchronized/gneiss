@@ -3,7 +3,7 @@
 #pragma once
 #include <filesystem>
 #include <gneiss/engine/core/logging/sink.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <memory>
 
 namespace gneiss::logging {

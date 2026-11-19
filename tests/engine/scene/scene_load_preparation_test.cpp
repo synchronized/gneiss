@@ -6,7 +6,7 @@
 #include "../../support/memory_file_fixture.hpp"
 #include "../../support/scene_application.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>

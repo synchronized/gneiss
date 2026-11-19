@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/function/asset/asset_loading.hpp>
 #include <gneiss/engine/function/asset/render_resource.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>

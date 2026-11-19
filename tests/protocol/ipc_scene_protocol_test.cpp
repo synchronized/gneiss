@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/protocol/ipc_protocol_domains.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
 

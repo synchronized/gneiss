@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/scene.hpp>
@@ -14,7 +15,7 @@ struct scene_object_association {
  * 来源未改变的变换保留运行值；名称、组件及父关系以新来源为准。
  * previous/next 是调用方的临时组合结果；失败后应丢弃，不保证恢复其输入值。
  * 仅 World 所属线程使用，地址关联在调用期间借用。 */
-[[nodiscard]] GNEISS_API result<void>
+[[nodiscard]] GNEISS_ENGINE_API result<void>
 rebase_scene_update(world&, const std::map<object_address, scene_object_association>& associations,
                     composed_scene& previous, composed_scene& next);
 /** 可选的已有组件更新准备；不保存回调，不得在回调中修改 World。 */
@@ -25,7 +26,7 @@ using scene_component_preparer = std::function<result<component_description>(
  * false 表示基线不再匹配，且尚未开始修改；错误不保证回滚，调用方必须使同步状态失效。
  * 只允许 World 所在线程；关联及资源仅在调用期间借用。
  */
-[[nodiscard]] GNEISS_API result<bool>
+[[nodiscard]] GNEISS_ENGINE_API result<bool>
 apply_scene(scene_instance, std::map<object_address, scene_object_association>& associations,
             const composed_scene& previous, const composed_scene& next,
             const scene_resource_bindings& assets, const scene_component_preparer& prepare = {});

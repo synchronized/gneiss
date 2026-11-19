@@ -6,7 +6,7 @@
 #include <gneiss/engine/core/math/export.hpp>
 
 #include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 namespace gneiss::math {
 /** 透视投影参数；是否作为活动相机由应用选择。 */

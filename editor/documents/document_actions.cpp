@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/document_actions.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <utility>
 namespace gneiss::editor {
 document_action document_actions::request(document_action action, bool dirty) {

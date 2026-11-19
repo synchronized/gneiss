@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_OUTBOUND_RUNTIME_IPC_OUTBOUND_H_
 #define GNEISS_APPS_RUNTIME_IPC_OUTBOUND_RUNTIME_IPC_OUTBOUND_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/protocol/ipc_asset_protocol.hpp>
 
 #include <gneiss/protocol/ipc_control_protocol.hpp>

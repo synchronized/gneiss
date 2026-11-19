@@ -5,7 +5,7 @@
 #include "../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/editor_prefab_edit.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/base/rid.hpp>

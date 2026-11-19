@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_request.hpp>
 #include <gneiss/engine/function/scene/scene_update.hpp>

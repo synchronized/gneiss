@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/function/asset/asset_batch_types.hpp>
 #include <memory>
 #include <optional>
@@ -11,17 +12,17 @@ class resource_load_group;
 class asset_batch_request final {
 public:
   asset_batch_request() = default;
-  GNEISS_API ~asset_batch_request();
-  GNEISS_API asset_batch_request(asset_batch_request&&) noexcept;
-  GNEISS_API asset_batch_request& operator=(asset_batch_request&&) noexcept;
+  GNEISS_ENGINE_API ~asset_batch_request();
+  GNEISS_ENGINE_API asset_batch_request(asset_batch_request&&) noexcept;
+  GNEISS_ENGINE_API asset_batch_request& operator=(asset_batch_request&&) noexcept;
   asset_batch_request(const asset_batch_request&) = delete;
   asset_batch_request& operator=(const asset_batch_request&) = delete;
-  [[nodiscard]] GNEISS_API explicit operator bool() const noexcept;
-  [[nodiscard]] GNEISS_API bool ready() const;
-  [[nodiscard]] GNEISS_API std::optional<asset_load_progress> progress() const;
-  [[nodiscard]] GNEISS_API gneiss::result<asset_load_completion> take();
-  [[nodiscard]] GNEISS_API gneiss::error cancel();
-  GNEISS_API void reset() noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API explicit operator bool() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API bool ready() const;
+  [[nodiscard]] GNEISS_ENGINE_API std::optional<asset_load_progress> progress() const;
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::result<asset_load_completion> take();
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error cancel();
+  GNEISS_ENGINE_API void reset() noexcept;
 
 private:
   friend class resource_load_group;

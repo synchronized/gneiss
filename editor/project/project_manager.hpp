@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_PROJECT_MANAGER_H_
 
 #include "project/editor_project.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 namespace gneiss::host {
 

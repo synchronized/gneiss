@@ -12,8 +12,8 @@
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/ref.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 #include <concepts>
 #include <cstdint>

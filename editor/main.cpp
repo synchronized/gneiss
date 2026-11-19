@@ -4,7 +4,7 @@
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/protocol/registration.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include "application.hpp"
 

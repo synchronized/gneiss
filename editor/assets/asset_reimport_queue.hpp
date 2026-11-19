@@ -5,7 +5,7 @@
 
 #include "assets/asset_import_controller.hpp"
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <chrono>
 #include <cstddef>

@@ -6,7 +6,7 @@
 
 #include "function/scene/detail/world_component_access.hpp"
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <cstdint>
 #include <vector>

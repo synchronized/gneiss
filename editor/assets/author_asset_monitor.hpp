@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_AUTHOR_ASSET_MONITOR_H_
 #define GNEISS_APPS_EDITOR_AUTHOR_ASSET_MONITOR_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <cstdint>
 #include <filesystem>

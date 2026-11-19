@@ -6,7 +6,7 @@
 
 #include <gneiss/protocol/message.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <cstdint>
 #include <span>

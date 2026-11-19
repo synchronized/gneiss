@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include "ipc/runtime_command_context.hpp"
 
 #include <gneiss/protocol/ipc_inspection_protocol.hpp>

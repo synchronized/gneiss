@@ -5,7 +5,7 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/components/component_registration.hpp"
 #include "documents/scene_projection.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>

@@ -5,7 +5,7 @@
 #define GNEISS_ASSET_ASSET_URI_HPP_
 
 #include <gneiss/engine/resource/export.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <string_view>
 

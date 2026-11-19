@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 namespace gneiss::protocol {
 /** 由宿主通过 initialize_meta 回调在冻结前注册；编解码不隐式注册。 */

@@ -10,7 +10,7 @@
 #include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/base/utf8.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/input/service.hpp>

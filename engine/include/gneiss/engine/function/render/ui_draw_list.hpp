@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/render/draw_types.hpp>
 
 #include <span>

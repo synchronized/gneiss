@@ -8,10 +8,10 @@
 #include <gneiss/engine/platform/window/surface_state.hpp>
 
 #include <gneiss/engine/platform/window/input.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/platform/window/configuration.hpp>
 
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 #include <functional>
 #include <memory>

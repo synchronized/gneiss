@@ -75,7 +75,7 @@ add_executable(gneiss_asset_material_test material_description_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/texture_decoder.cpp")
 set_target_properties(gneiss_asset_material_test PROPERTIES FOLDER "Tests")
-target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_asset_material_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_include_directories(gneiss_asset_material_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_link_libraries(gneiss_asset_material_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)
 

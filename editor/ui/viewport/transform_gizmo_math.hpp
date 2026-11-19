@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 #define GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 
 #include <array>

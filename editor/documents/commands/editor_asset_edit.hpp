@@ -4,7 +4,7 @@
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>

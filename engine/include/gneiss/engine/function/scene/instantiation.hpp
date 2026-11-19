@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/scene.hpp>
@@ -17,7 +18,7 @@ struct scene_instantiation_result {
 /** 向既有场景追加完整组合结果；parent 为空时创建场景根。
  * 不执行 IO，不修改已有对象；失败只销毁本次创建的对象。全部访问限 World 所属线程。
  * 回执地址只在本次调用内唯一，多次实例化使用各自的回执。 */
-GNEISS_API result<scene_instantiation_result> instantiate(scene_instance destination,
+GNEISS_ENGINE_API result<scene_instantiation_result> instantiate(scene_instance destination,
                                                           const composed_scene&,
                                                           const scene_resource_bindings&,
                                                           game_object parent = {});

@@ -123,3 +123,18 @@ Meta 的路径解析头改为 resolve_path.hpp。资源覆盖数据和编辑器�
 实际使用 resolve_path 的实现显式包含 Meta 头；全部代码消费者迁移，不保留旧别名或转发头。
 值编辑操作、路径标签、字段编号及持久化格式不变，容错重放注释改为通用语义。
 Clang Debug 完整构建和 214/214 CPU 测试通过，git diff --check 通过；本次收尾未重跑其他平台矩阵。
+
+### 基础错误契约与导出归属收尾
+
+2026-11-19：error/result/assert 头迁至 core/base，全部消费者改用新路径，不保留转发头。
+error 不再间接包含 Engine 导出头；Engine 声明显式包含 engine/export.hpp，使用
+GNEISS_ENGINE_API/GNEISS_ENGINE_LOCAL，构建配置统一为 GNEISS_BUILDING_ENGINE 和
+GNEISS_ENGINE_STATIC_DEFINE。Base 只传播自身静态宏，纯基础/资源测试删除多余 Engine 配置。
+断言仍由使用目标显式依赖 libassert；本次未更改错误码、result 或断言的行为。
+
+Clang Debug 共享全量构建、静态 Engine 构建及类型身份/渲染相机测试通过。
+共享安装 Runtime、普通与 Shipping 发布包验收通过。静态安装树的 Base/Engine 独立消费者
+均配置、编译、链接并运行通过，同时校验 Base 头不泄漏 Engine 导出宏，以及各自静态宏的归属。
+CPU 全量回归 213/214 首次通过；Lantern 导入目录重命名收到 Windows 拒绝访问，未修改代码或
+测试，单独复跑该项通过。未确定首次文件访问失败的具体占用来源。
+基础头格式检查及 git diff --check 通过。本次未重跑 MSVC、Web、Linux、macOS 矩阵。

@@ -7,7 +7,7 @@
 #include <gneiss/engine/resource/scene/component_description.hpp>
 #include "inspection/runtime_object_id.hpp"
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/base/rid.hpp>

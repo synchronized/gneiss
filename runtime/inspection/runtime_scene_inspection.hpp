@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>

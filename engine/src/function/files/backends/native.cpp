@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <charconv>
 #include <fcntl.h>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <limits>
 #include <gneiss/engine/core/base/path.hpp>
 #include <stdexcept>

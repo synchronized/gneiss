@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/core/events/signal.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
 #include <gneiss/engine/function/scene/object_change.hpp>
@@ -17,16 +18,16 @@ class service;
  * 不改变 World 的所有权，不负责窗口、相机或帧提交。 */
 class world_render_binding final {
 public:
-  [[nodiscard]] static GNEISS_API result<std::unique_ptr<world_render_binding>>
+  [[nodiscard]] static GNEISS_ENGINE_API result<std::unique_ptr<world_render_binding>>
   create(world&, gneiss::render::service&);
-  GNEISS_API ~world_render_binding();
+  GNEISS_ENGINE_API ~world_render_binding();
   world_render_binding(const world_render_binding&) = delete;
   world_render_binding& operator=(const world_render_binding&) = delete;
   /** 借用场景 RID；由绑定销毁，调用方不得自行销毁或提交实例修改命令。 */
-  [[nodiscard]] GNEISS_API rid scene() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API rid scene() const noexcept;
   /** 创建时枚举已有网格对象；后续须由宿主先 flush_changes，再同步。失败保留待同步状态，可重试。
    * 缺失 mesh/material 的对象暂不创建实例，资源换绑通知后重新判断。 */
-  [[nodiscard]] GNEISS_API result<void> synchronize();
+  [[nodiscard]] GNEISS_ENGINE_API result<void> synchronize();
 
 private:
   world_render_binding(world&, render::service&);

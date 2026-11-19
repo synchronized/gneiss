@@ -4,7 +4,7 @@
 #pragma once
 
 #include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/ipc/envelope.hpp>
 #include <gneiss/protocol/domains.hpp>
 

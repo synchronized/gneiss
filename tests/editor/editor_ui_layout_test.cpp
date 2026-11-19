@@ -4,7 +4,7 @@
 #include "../support/value_result.hpp"
 #include "ui/editor_ui.hpp"
 #include <chrono>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <thread>
 

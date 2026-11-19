@@ -5,7 +5,7 @@
 #define GNEISS_INPUT_INPUT_SERVICE_HPP_
 
 #include <gneiss/engine/platform/window/input.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/input/action.hpp>
 
 #include <gneiss/engine/resource/input/action_map.hpp>

@@ -3,7 +3,7 @@
 
 #pragma once
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>
 #include <memory>
 #include <span>

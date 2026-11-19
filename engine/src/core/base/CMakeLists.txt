@@ -9,8 +9,7 @@ target_include_directories(gneiss_base PUBLIC
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../include>")
 target_compile_features(gneiss_base PUBLIC cxx_std_20)
 target_compile_definitions(gneiss_base PRIVATE GNEISS_BUILDING_BASE
-  PUBLIC $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_BASE_STATIC_DEFINE>
-         $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_STATIC_DEFINE>)
+  PUBLIC $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_BASE_STATIC_DEFINE>)
 set_target_properties(gneiss_base PROPERTIES EXPORT_NAME base POSITION_INDEPENDENT_CODE ON
   CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
 gneiss_target_compile_warnings(gneiss_base)

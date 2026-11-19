@@ -4,7 +4,7 @@
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include <gneiss/protocol/registration.hpp>
 

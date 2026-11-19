@@ -8,7 +8,7 @@
 #include "../../support/scene_application.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>

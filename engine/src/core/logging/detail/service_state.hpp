@@ -4,7 +4,7 @@
 #include "async_queue.hpp"
 #include <algorithm>
 #include <atomic>
-#include <gneiss/engine/assert.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/logging/service.hpp>
 #include <mutex>
 #include <vector>

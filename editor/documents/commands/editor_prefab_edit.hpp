@@ -3,7 +3,7 @@
 #pragma once
 #include "documents/commands/editor_command_history.hpp"
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <memory>
 namespace gneiss::editor {

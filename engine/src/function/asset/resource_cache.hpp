@@ -5,7 +5,7 @@
 #define GNEISS_ASSET_RESOURCE_CACHE_HPP_
 
 #include "function/asset/detail/asset_entry.hpp"
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/resource/asset.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 

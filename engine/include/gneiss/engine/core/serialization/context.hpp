@@ -7,7 +7,7 @@
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
 #include <gneiss/engine/core/base/ref.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 #include <string_view>
 

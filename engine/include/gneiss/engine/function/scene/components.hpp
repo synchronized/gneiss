@@ -7,7 +7,7 @@
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/resource/material.hpp>
 #include <gneiss/engine/resource/mesh.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 namespace gneiss {
 /** 相机参数为普通数据；调用方使用 settings.valid() 校验，修改后显式通知对象。

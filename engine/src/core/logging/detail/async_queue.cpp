@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "async_queue.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <chrono>
 #include <functional>

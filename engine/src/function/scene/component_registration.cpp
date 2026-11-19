@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include <gneiss/engine/export.hpp>
 #include "function/scene/detail/world_component_access.hpp"
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
@@ -519,16 +520,16 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
 }
 
 namespace gneiss {
-template GNEISS_API camera_component* game_object::try_component<camera_component>() const;
-template GNEISS_API mesh_component* game_object::try_component<mesh_component>() const;
-template GNEISS_API error game_object::insert_component<camera_component>(camera_component) const;
-template GNEISS_API error game_object::insert_component<mesh_component>(mesh_component) const;
+template GNEISS_ENGINE_API camera_component* game_object::try_component<camera_component>() const;
+template GNEISS_ENGINE_API mesh_component* game_object::try_component<mesh_component>() const;
+template GNEISS_ENGINE_API error game_object::insert_component<camera_component>(camera_component) const;
+template GNEISS_ENGINE_API error game_object::insert_component<mesh_component>(mesh_component) const;
 
-template GNEISS_API error game_object::remove_component<camera_component>() const;
-template GNEISS_API error game_object::remove_component<mesh_component>() const;
+template GNEISS_ENGINE_API error game_object::remove_component<camera_component>() const;
+template GNEISS_ENGINE_API error game_object::remove_component<mesh_component>() const;
 }
 
 namespace gneiss {
-template GNEISS_API error game_object::notify_component_modified<camera_component>() const;
-template GNEISS_API error game_object::notify_component_modified<mesh_component>() const;
+template GNEISS_ENGINE_API error game_object::notify_component_modified<camera_component>() const;
+template GNEISS_ENGINE_API error game_object::notify_component_modified<mesh_component>() const;
 }

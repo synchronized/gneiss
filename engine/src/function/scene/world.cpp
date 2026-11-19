@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/assert.hpp>
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include "function/scene/detail/world_component_access.hpp"

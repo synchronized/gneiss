@@ -10,7 +10,7 @@
 
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <cstdint>
 #include <span>

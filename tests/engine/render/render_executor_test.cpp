@@ -5,7 +5,7 @@
 #include "function/application/main_loop_wakeup.hpp"
 #include "function/render/detail/executor.hpp"
 #include "function/render/detail/resource_identity.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <atomic>
 #include <condition_variable>

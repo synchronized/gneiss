@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/protocol/ipc_property_protocol.hpp>
 #include "inspection/runtime_scene_inspection.hpp"

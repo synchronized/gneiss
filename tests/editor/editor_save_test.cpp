@@ -7,7 +7,7 @@
 #include "../support/scene_query.hpp"
 #include "../support/value_result.hpp"
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>

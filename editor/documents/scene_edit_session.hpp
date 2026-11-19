@@ -8,7 +8,7 @@
 #include "documents/scene_document.hpp"
 #include "documents/scene_projection.hpp"
 #include <gneiss/engine/function/scene/entity_id.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/base/rid.hpp>

@@ -5,7 +5,7 @@
 #include <gneiss/engine/core/meta/ops/ops_fwd.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/base/ref.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 #include <cstddef>
 #include <type_traits>

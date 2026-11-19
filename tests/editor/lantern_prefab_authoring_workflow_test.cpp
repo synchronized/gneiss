@@ -5,13 +5,13 @@
 #include "../support/async_editor_save.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/prefab_authoring.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 
 #include <array>

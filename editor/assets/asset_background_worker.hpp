@@ -5,7 +5,7 @@
 
 #include "assets/asset_browser_model.hpp"
 #include "assets/asset_reimport_queue.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <memory>
 #include <string>

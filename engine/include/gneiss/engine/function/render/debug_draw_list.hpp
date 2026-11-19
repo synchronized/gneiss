@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_DEBUG_DRAW_LIST_HPP_
 #define GNEISS_RENDER_DEBUG_DRAW_LIST_HPP_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/render/draw_types.hpp>
 
 #include <span>

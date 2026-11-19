@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/tooling/import/asset_import_sdk.hpp>
 
 #include <filesystem>

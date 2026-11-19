@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "ui/dialogs/native_dialog.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN

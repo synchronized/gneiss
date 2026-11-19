@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_LOG_IPC_LOG_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_LOG_IPC_LOG_PROTOCOL_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/protocol/message.hpp>
 #include <gneiss/protocol/runtime_log_protocol.hpp>
 

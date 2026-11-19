@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 
 #include <cstddef>

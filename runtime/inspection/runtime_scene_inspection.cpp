@@ -3,7 +3,7 @@
 
 #include "inspection/runtime_scene_inspection.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>

@@ -7,8 +7,8 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/error.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
@@ -18,7 +18,7 @@
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 

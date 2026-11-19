@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_SCENE_MIRROR_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_SCENE_MIRROR_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include "inspection/runtime_scene_data.hpp"
 
 #include <cstdint>

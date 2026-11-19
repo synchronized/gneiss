@@ -7,7 +7,7 @@
 #include <cstring>
 #include <emscripten/fetch.h>
 #include <emscripten/threading.h>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <limits>
 #include <memory>
 #include <gneiss/engine/core/base/path.hpp>

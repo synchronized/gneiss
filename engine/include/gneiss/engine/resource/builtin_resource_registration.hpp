@@ -3,7 +3,7 @@
 #pragma once
 #include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 namespace gneiss {
 /** 内置资源注册的场景子步骤；由 register_builtin_resource_types 按依赖顺序调用。 */
 [[nodiscard]] error register_component_descriptions();

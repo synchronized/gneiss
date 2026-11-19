@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/asset/asset_loader.hpp>
 #include <gneiss/engine/resource/asset_decoder.hpp>
 #include <gneiss/engine/resource/input/action_map.hpp>
@@ -8,16 +9,16 @@
 #include <gneiss/engine/resource/prefab.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 namespace gneiss::detail {
-GNEISS_API std::shared_ptr<asset_loader> make_mesh_loader(std::string uri);
-GNEISS_API std::shared_ptr<asset_loader> make_texture_loader(std::string uri,
+GNEISS_ENGINE_API std::shared_ptr<asset_loader> make_mesh_loader(std::string uri);
+GNEISS_ENGINE_API std::shared_ptr<asset_loader> make_texture_loader(std::string uri,
                                                              const asset_load_options& options);
-GNEISS_API std::shared_ptr<asset_loader>
+GNEISS_ENGINE_API std::shared_ptr<asset_loader>
 make_object_loader(std::string uri, std::shared_ptr<const asset_decoder> decoder);
 
-GNEISS_API std::shared_ptr<asset_loader>
+GNEISS_ENGINE_API std::shared_ptr<asset_loader>
     make_action_map_loader(asset_identity, std::shared_ptr<const asset_decoder>);
 
-GNEISS_API std::shared_ptr<asset_loader> make_scene_loader(asset_identity, bool prefab,
+GNEISS_ENGINE_API std::shared_ptr<asset_loader> make_scene_loader(asset_identity, bool prefab,
                                                            bool reload);
 
 template <class Resolve>

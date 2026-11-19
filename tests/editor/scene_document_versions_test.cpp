@@ -3,7 +3,7 @@
 #include "documents/document_patch.hpp"
 #include "documents/scene_document.hpp"
 #include "documents/scene_projection.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include "resource/scene/detail/scene_asset_access.hpp"

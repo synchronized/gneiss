@@ -60,7 +60,7 @@ clang-format -i <files...>
 | --- | --- | --- |
 | 文件和目录 | 小写下划线 | `service.cpp` |
 | C 函数和类型 | `gneiss_` 前缀、小写下划线 | `gneiss_world_create` |
-| C 宏 | `GNEISS_` 前缀、大写下划线 | `GNEISS_API` |
+| C 宏 | `GNEISS_` 前缀、大写下划线 | `GNEISS_ENGINE_API` |
 | C++ 命名空间 | 小写 | `gneiss` |
 | C++ 类型 | 小写下划线 | `render::service` |
 | 函数和变量 | 小写下划线 | `create_entity`、`entity_count` |
@@ -129,7 +129,7 @@ typedef enum gneiss_result_t {
   GNEISS_RESULT_INVALID_ARGUMENT = 1
 } gneiss_result_t;
 
-GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
+GNEISS_ENGINE_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 
 #ifdef __cplusplus
 }

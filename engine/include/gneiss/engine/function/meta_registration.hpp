@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 namespace gneiss {
 /** 启动时依次注册内置类型、项目类型，再冻结默认注册表。
@@ -9,5 +10,5 @@ namespace gneiss {
  * 失败结果保留至进程退出，不冻结半成品。初始化期间不得并行注册或手动冻结默认表。
  * 独立 registry 不受影响；应用关闭不会清空默认表。 */
 using meta_registration_callback = error (*)();
-[[nodiscard]] GNEISS_API error initialize_meta(meta_registration_callback callback = nullptr);
+[[nodiscard]] GNEISS_ENGINE_API error initialize_meta(meta_registration_callback callback = nullptr);
 }

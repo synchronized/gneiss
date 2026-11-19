@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime/ipc/editor_ipc_session.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/protocol/domains.hpp>
 
 #include "runtime/ipc/editor_ipc_router.hpp"

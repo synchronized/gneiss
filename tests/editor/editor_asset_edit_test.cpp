@@ -6,7 +6,7 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include "documents/commands/editor_asset_edit.hpp"
 #include "documents/scene_document_snapshot.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>

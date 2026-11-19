@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/resource/asset_diagnostic.hpp>
 #include <gneiss/engine/resource/mesh/mesh_data.hpp>
 namespace gneiss::detail {

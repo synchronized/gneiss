@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/value_result.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include "ui/imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "assets/asset_background_worker.hpp"

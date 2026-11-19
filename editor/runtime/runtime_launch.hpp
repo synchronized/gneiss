@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_RUNTIME_LAUNCH_H_
 
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <filesystem>
 

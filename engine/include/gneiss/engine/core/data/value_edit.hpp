@@ -4,7 +4,7 @@
 #include <gneiss/engine/core/data/export.hpp>
 #include <gneiss/engine/core/data/property_path.hpp>
 #include <gneiss/engine/core/data/value.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 namespace gneiss {
 struct set_value_operation {

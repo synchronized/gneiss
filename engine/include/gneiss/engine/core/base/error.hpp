@@ -4,7 +4,6 @@
 #pragma once
 
 #include <gneiss/engine/core/base/export.hpp>
-#include <gneiss/engine/export.hpp>
 
 #include <cstdint>
 #include <string_view>

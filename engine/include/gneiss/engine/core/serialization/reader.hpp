@@ -4,7 +4,7 @@
 
 #include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 
 namespace gneiss::serialization {
 /** 节点与键名借用后端；游标只在所属 reader 和输入数据存活期间有效。 */

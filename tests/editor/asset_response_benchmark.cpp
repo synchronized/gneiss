@@ -3,7 +3,7 @@
 
 #include "assets/asset_background_worker.hpp"
 #include "assets/asset_reimport_queue.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/tooling/import/asset_index.hpp>
 
 #include <algorithm>

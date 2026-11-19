@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/resource/prefab.hpp>

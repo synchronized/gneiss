@@ -3,7 +3,7 @@
 
 #include "documents/commands/runtime_author_apply.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <new>
 #include <string>

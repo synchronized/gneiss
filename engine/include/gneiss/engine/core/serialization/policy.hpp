@@ -7,7 +7,7 @@
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <functional>
 #include <optional>

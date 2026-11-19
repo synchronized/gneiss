@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_ROTATION_MATH_H_
 #define GNEISS_APPS_EDITOR_EDITOR_ROTATION_MATH_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 
 #include <array>

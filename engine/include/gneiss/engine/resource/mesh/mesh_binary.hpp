@@ -7,7 +7,7 @@
 #include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/core/math/aabb3.hpp>
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <span>

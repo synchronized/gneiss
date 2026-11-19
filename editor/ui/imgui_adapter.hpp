@@ -7,7 +7,7 @@
 #include <gneiss/engine/platform/window/input.hpp>
 #include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/render/draw_types.hpp>
 
 #include <imgui.h>

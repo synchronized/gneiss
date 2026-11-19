@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_CORE_IPC_ROUTER_H_
 #define GNEISS_APPS_COMMON_IPC_CORE_IPC_ROUTER_H_
 
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/protocol/ipc_protocol_domains.hpp>
 
 #include <algorithm>

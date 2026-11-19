@@ -3,7 +3,7 @@
 
 #include "ui/viewport/transform_gizmo_drag.hpp"
 #include "documents/scene_document_edit.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <algorithm>
 #include <iterator>

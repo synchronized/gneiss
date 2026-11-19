@@ -12,13 +12,13 @@
 
 ## 错误状态与值结果
 
-`gneiss::error`（`engine/include/gneiss/engine/error.hpp`）保存一个 32 位状态码，提供
+`gneiss::error`（`engine/include/gneiss/engine/core/base/error.hpp`）保存一个 32 位状态码，提供
 `ok()`、`failed()`、`code()`、`message()`，不提供布尔或隐式整数转换。
 默认构造产生 unknown；非负值成功，负值失败。无返回值的操作直接返回 error。
 `message()` 返回静态英文文本，未知数值返回 `unrecognized result`。
 整数仅在协议等边界显式构造或通过 `code()` 读取，旧状态类型 result 不再保留。
 
-`gneiss::result<T, E = error>`（`engine/include/gneiss/engine/result.hpp`）互斥持有成功值或失败原因：
+`gneiss::result<T, E = error>`（`engine/include/gneiss/engine/core/base/result.hpp`）互斥持有成功值或失败原因：
 
 ```cpp
 auto loaded = resources.load<texture>(uri);

@@ -8,7 +8,7 @@
 
 #include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 
 #include <array>
 #include <chrono>

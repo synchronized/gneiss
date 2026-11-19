@@ -4,7 +4,7 @@
 
 #pragma once
 #include "asset_loading.hpp"
-#include <gneiss/engine/result.hpp>
+#include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/resource/asset_diagnostic.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>

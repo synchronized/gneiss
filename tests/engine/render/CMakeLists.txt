@@ -14,7 +14,7 @@ add_executable(
   gneiss_render_resource_service_test
   render_resource_service_test.cpp
 )
-target_compile_definitions(gneiss_render_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_render_resource_service_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_render_resource_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_resource_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_resource_service_test)
@@ -27,7 +27,7 @@ add_executable(
   gneiss_pbr_material_resource_test
   pbr_material_resource_test.cpp
 )
-target_compile_definitions(gneiss_pbr_material_resource_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_pbr_material_resource_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_pbr_material_resource_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_pbr_material_resource_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_pbr_material_resource_test)
@@ -42,7 +42,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/ui_draw_list.cpp"
 )
 target_include_directories(gneiss_ui_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_ui_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_ui_draw_list_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_ui_draw_list_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_ui_draw_list_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_ui_draw_list_test)
@@ -56,7 +56,7 @@ add_executable(
   debug_draw_list_test.cpp
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/debug_draw_list.cpp"
 )
-target_compile_definitions(gneiss_debug_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_debug_draw_list_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_debug_draw_list_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_debug_draw_list_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_debug_draw_list_test)
@@ -72,7 +72,7 @@ add_executable(
 )
 target_include_directories(gneiss_render_executor_test PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_executor_test)
@@ -89,7 +89,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/frame_packet.cpp"
 )
 target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_render_frame_packet_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_render_frame_packet_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_frame_packet_test)
@@ -168,7 +168,7 @@ add_executable(
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(
   gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
 )
@@ -191,7 +191,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/detail/asset_decode.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(
   gneiss_texture_load_service_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit
 )
@@ -273,7 +273,7 @@ add_executable(gneiss_render_scene_test
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/executor.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp")
 target_include_directories(gneiss_render_scene_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_ENGINE)
 target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_base)
 gneiss_target_compile_warnings(gneiss_render_scene_test)
 gneiss_target_output_directories(gneiss_render_scene_test)

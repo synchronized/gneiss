@@ -3,7 +3,7 @@
 
 #include "../support/value_result.hpp"
 #include "assets/author_asset_service.hpp"
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/files/backend.hpp>
 

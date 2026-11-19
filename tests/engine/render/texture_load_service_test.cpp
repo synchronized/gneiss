@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/error.hpp>
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
