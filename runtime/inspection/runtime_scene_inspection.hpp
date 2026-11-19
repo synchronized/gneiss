@@ -6,9 +6,9 @@
 
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/math/camera.hpp>
 #include <gneiss/engine/core/math/transform.hpp>
-#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/scene/component_description.hpp>
 #include <gneiss/protocol/ipc_inspection_protocol.hpp>
@@ -22,9 +22,6 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::runtime {
-class application;
-}
 namespace gneiss::host {
 
 inline constexpr std::size_t runtime_inspection_max_nodes = 4096U;
@@ -54,12 +51,11 @@ public:
   explicit runtime_scene_inspection(std::uint64_t session_id) noexcept;
 
   [[nodiscard]] gneiss::error capture(std::span<const runtime_scene_source_node> nodes,
-                                              bool force_full, runtime_scene_snapshot& output);
-  [[nodiscard]] gneiss::error capture_scene(::gneiss::runtime::application& application,
-                                            gneiss::scene_instance scene, bool force_full,
+                                      bool force_full, runtime_scene_snapshot& output);
+  [[nodiscard]] gneiss::error capture_scene(gneiss::scene_instance scene, bool force_full,
                                             runtime_scene_snapshot& output);
   [[nodiscard]] gneiss::error resolve_entity(ipc_runtime_object_id object,
-                                                     std::uint64_t& output) const noexcept;
+                                             std::uint64_t& output) const noexcept;
   /** 接收加载/重载协调方的地址回执；只保存身份，不从运行节点反推 Prefab 来源。 */
   [[nodiscard]] gneiss::error set_source_bindings(std::span<const gneiss::scene_object_binding>);
   void reset(std::uint64_t session_id) noexcept;

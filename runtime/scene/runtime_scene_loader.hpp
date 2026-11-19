@@ -39,11 +39,11 @@ struct scene_reload_result {
   std::vector<gneiss::scene_object_binding> objects;
 };
 
-/** 宿主所属线程协调场景加载与模块安全点；调度、资源和 World 仍由 Application 管理。 */
+/** 宿主所属线程协调场景加载与模块安全点；借用 Application 服务与宿主指定的 World。 */
 class runtime_scene_loader {
 public:
-  explicit runtime_scene_loader(::gneiss::runtime::application& application)
-      : application_(application) {}
+  runtime_scene_loader(::gneiss::runtime::application& application, gneiss::world& world)
+      : application_(application), world_(world) {}
   [[nodiscard]] gneiss::error request(ipc_scene_request source, std::uint32_t request_id);
   [[nodiscard]] gneiss::error cancel(const ipc_scene_request& source);
   [[nodiscard]] gneiss::error advance();
@@ -72,8 +72,9 @@ private:
     std::optional<scene_reload_result> completion;
   };
   std::optional<reload_task> reload_;
-  // 借用宿主对象；协调器必须先于 Application 析构。
+  // 借用宿主对象；协调器必须先于 Application 和 World 析构。
   ::gneiss::runtime::application& application_;
+  gneiss::world& world_;
   gneiss::asset_request<gneiss::scene> request_;
   std::shared_ptr<std::atomic<bool>> ready_;
   gneiss::asset_batch_request visuals_;

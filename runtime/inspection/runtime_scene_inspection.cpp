@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "inspection/runtime_scene_inspection.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
@@ -76,9 +75,8 @@ gneiss::error runtime_scene_inspection::set_source_bindings(
   return gneiss::error::success;
 }
 
-gneiss::error
-runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
-                                  runtime_scene_snapshot& output) {
+gneiss::error runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nodes,
+                                                bool force_full, runtime_scene_snapshot& output) {
   if (session_id_ == 0U || nodes.size() > runtime_inspection_max_nodes) {
     return gneiss::error::invalid_argument;
   }
@@ -205,15 +203,12 @@ runtime_scene_inspection::capture(std::span<const runtime_scene_source_node> nod
   }
 }
 
-gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::application& application,
-                                                      gneiss::scene_instance scene, bool force_full,
+gneiss::error runtime_scene_inspection::capture_scene(gneiss::scene_instance scene, bool force_full,
                                                       runtime_scene_snapshot& output) {
-  if (!application.is_owner_thread() || !application.accepts_requests())
-    return gneiss::error::invalid_state;
   if (!scene.id())
     return gneiss::error::invalid_argument;
-  if (scene.owner() != application.native_world())
-    return gneiss::error::invalid_handle;
+  if (!scene.owner() || !scene.owner()->is_owner_thread())
+    return gneiss::error::invalid_state;
   if (!scene.is_valid())
     return gneiss::error::invalid_handle;
   const auto count = scene.size();
@@ -251,9 +246,8 @@ gneiss::error runtime_scene_inspection::capture_scene(::gneiss::runtime::applica
   return capture(nodes, force_full, output);
 }
 
-gneiss::error
-runtime_scene_inspection::resolve_entity(ipc_runtime_object_id object,
-                                         std::uint64_t& output) const noexcept {
+gneiss::error runtime_scene_inspection::resolve_entity(ipc_runtime_object_id object,
+                                                       std::uint64_t& output) const noexcept {
   if (!object.is_valid()) {
     return gneiss::error::invalid_argument;
   }

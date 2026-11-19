@@ -396,7 +396,7 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::host::runtime_scene_snapshot snapshot;
     const auto captured = context.scene_inspection->capture_scene(
-        *context.application, context.scene, context.force_full_inspection, snapshot);
+        context.scene, context.force_full_inspection, snapshot);
     if (captured == gneiss::error::success) {
       const auto sent = context.ipc_session->notify_scene_snapshot(snapshot);
       if (sent == gneiss::error::success) {
@@ -575,7 +575,7 @@ private:
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
   gneiss::ref<gneiss::host::scene_reload_state> scene_source;
-  gneiss::host::runtime_scene_loader scene_loader(*application);
+  gneiss::host::runtime_scene_loader scene_loader(*application, *application->native_world());
   context.scene_loader = &scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
       [&, native_application = application](const gneiss::host::ipc_asset_reload_request& request) {

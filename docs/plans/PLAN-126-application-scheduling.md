@@ -169,7 +169,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 生命周期 | run/step 共用推进，pending/complete 停止，停止时完成分发 | 删除测试中的 run(n) 与分步关闭旧入口 |
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除 | 默认 World、视口、绑定移交 Session |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景 | Session 接管 World、输入加载、暂停、渲染绑定 |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | Session 接管 World、输入加载、暂停、渲染绑定 |
 | Editor | completions/update、取消/等待/释放三段停止，删除手动服务关闭循环 | World/视口归属及旧业务转发清理 |
 | 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | scene_viewer 的 World/视口归属迁移 |
 
@@ -179,6 +179,9 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 停止阶段保留文档用于卸载清理，但资产编辑入口与统一内容修改入口拒绝新请求。
 
 ### 已完成验证
+
+- Runtime 加载器使用独立 World 验证加载、Prefab 重载、相机选择与卸载，默认 World 保持空；
+  Runtime、加载器及检查器构建通过，场景加载/检查与 Scene/Prefab 结构重载四项回归通过。
 
 - Windows Clang Debug 全量构建通过。213 项 CPU 回归首次 211 项通过；资产编辑关闭边界
   修复后回归通过。预制体编辑独跑通过（约 42 秒），原 45 秒上限缺少并行调度余量，

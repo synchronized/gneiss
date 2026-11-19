@@ -52,7 +52,10 @@ void run() {
   check(bool(created));
   auto app = *created;
 
-  host::runtime_scene_loader loader(*app);
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto world = std::move(*created_world);
+  host::runtime_scene_loader loader(*app, *world);
   gneiss::ref<host::scene_reload_state> source;
   loader.after_activate = [&](const auto& completion) {
     source = completion.reload_state;
@@ -75,6 +78,8 @@ void run() {
   check(loader.request({.session = 1, .revision = 1, .uri = uri}, 1).ok());
   drain();
   check(source && loader.last_result().ok());
+  check(source->instance.owner() == world.get());
+  check(app->native_world()->entity_count() == 0U);
   const auto reload = [&](std::string_view target, bool prefab) {
     check(loader.reload(source, target, prefab).ok());
     check(loader.reload(source, target, prefab) == gneiss::error::not_ready);
@@ -99,7 +104,7 @@ void run() {
   save(files.root / "scenes/prefab.scene.json", description);
   check(reload(uri, false).ok());
   check(source->objects.at(address).entity == entity);
-  check(app->native_world()->object(entity)->name() == "Updated scene");
+  check(world->object(entity)->name() == "Updated scene");
   const auto& dependency = *source->content->prefabs.begin();
   const auto prefab_uri = dependency.first;
   auto prefab = *dependency.second.description;
@@ -119,7 +124,7 @@ void run() {
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
   check(source->objects.at(prefab_address).entity == prefab_entity);
-  check(app->native_world()->object(prefab_entity)->name() == "Updated prefab");
+  check(world->object(prefab_entity)->name() == "Updated prefab");
   // 对照来源 UUID 保留身份：新增、删除、换根均不要求运行对象保存 Prefab 状态。
   const auto find_source = [&](gneiss::guid id) {
     auto found = std::ranges::find_if(source->objects,
@@ -138,19 +143,19 @@ void run() {
   const auto extra_entity = find_source(extra.uuid);
   gneiss::math::transform moved;
   moved.translation.x = 7;
-  check(app->native_world()->find(extra_entity).set_local_transform(moved).ok());
+  check(world->find(extra_entity).set_local_transform(moved).ok());
   prefab.objects.back().name = "Renamed extra";
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
   check(find_source(extra.uuid) == extra_entity);
-  check(app->native_world()->find(extra_entity).name() == "Renamed extra");
-  check(app->native_world()->find(extra_entity).local_transform().translation.x == 7);
+  check(world->find(extra_entity).name() == "Renamed extra");
+  check(world->find(extra_entity).local_transform().translation.x == 7);
 
   // 删除新增的叶子，旧句柄必须失效；用另一个新对象验证换根时现存身份不变。
   prefab.objects.pop_back();
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
-  check(!app->native_world()->object(extra_entity));
+  check(!world->object(extra_entity));
   extra.uuid = gneiss::guid::generate();
   extra.parent = {};
   prefab.objects.push_back(extra);
@@ -162,7 +167,7 @@ void run() {
   check(reload(prefab_uri, true).ok());
   const auto replacement_root = find_source(extra.uuid);
   check(find_source(original_root) == root_entity);
-  auto parent = app->native_world()->find(root_entity).parent();
+  auto parent = world->find(root_entity).parent();
   check(parent && parent.entity() == replacement_root);
   std::ofstream(files.root / prefab_uri.substr(8)) << "broken";
   check(reload(prefab_uri, true).failed());
@@ -173,16 +178,16 @@ void run() {
   check(source->synchronized && source->objects.at(address).entity == entity);
   check(loader.reload({}, uri, false) == gneiss::error::invalid_state);
   entity_id camera;
-  check(gneiss::get_active_camera(*app->native_world(), camera) == gneiss::error::not_ready);
+  check(gneiss::get_active_camera(*world, camera) == gneiss::error::not_ready);
   prefab.objects.back().components.set(gneiss::camera_description{{1.0F, 0.1F, 100.0F}, true});
   save(files.root / prefab_uri.substr(8), prefab);
   check(reload(prefab_uri, true).ok());
   check(loader.request({.session = 1, .revision = 2, .uri = uri}, 2).ok());
   drain();
   check(loader.last_result().ok());
-  check(gneiss::get_active_camera(*app->native_world(), camera).ok());
+  check(gneiss::get_active_camera(*world, camera).ok());
   check(camera == find_source(extra.uuid));
-  auto instance = gneiss::scene_instance::borrow(*app->native_world(), (source->instance).id());
+  auto instance = gneiss::scene_instance::borrow(*world, (source->instance).id());
   check(instance.has_value());
   instance->unload();
   check(loader.reload(source, uri, false).failed());

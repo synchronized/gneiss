@@ -106,7 +106,7 @@ gneiss::error runtime_scene_loader::activate(::gneiss::host::scene_open_result& 
       return loaded.error();
     bindings.emplace(dependency.uri, loaded->resource());
   }
-  auto next = application_.native_world()->create_scene();
+  auto next = world_.create_scene();
   if (!next)
     return next.error();
   auto built = gneiss::instantiate(*next, *composed, bindings);
@@ -121,7 +121,7 @@ gneiss::error runtime_scene_loader::activate(::gneiss::host::scene_open_result& 
       camera = built->objects[i].entity;
   }
   if (camera.get()) {
-    auto selected = gneiss::set_active_camera(*application_.native_world(), camera);
+    auto selected = gneiss::set_active_camera(world_, camera);
     if (selected.failed()) {
       next->unload();
       return selected;
@@ -201,8 +201,8 @@ gneiss::error runtime_scene_loader::reload(gneiss::ref<scene_reload_state> sourc
                                            std::string_view uri, bool prefab) {
   if (!application_.is_owner_thread() || !application_.accepts_requests())
     return gneiss::error::invalid_state;
-  if (!source || source->instance.owner() != application_.native_world() || !source->synchronized ||
-      !source->content || !source->content->description)
+  if (!source || source->instance.owner() != &world_ || !source->synchronized || !source->content ||
+      !source->content->description)
     return gneiss::error::invalid_state;
   if (!source->instance.is_valid())
     return gneiss::error::invalid_handle;
@@ -250,8 +250,7 @@ gneiss::error runtime_scene_loader::apply_source(scene_reload_state& source,
     return previous.error();
   if (!next)
     return next.error();
-  auto rebased =
-      gneiss::rebase_scene_update(*application_.native_world(), source.objects, *previous, *next);
+  auto rebased = gneiss::rebase_scene_update(world_, source.objects, *previous, *next);
   if (!rebased)
     return rebased.error();
   auto dependencies = gneiss::scene_dependencies(*next);
@@ -291,7 +290,7 @@ void runtime_scene_loader::advance_reload() {
         if (!loaded)
           return loaded.error().error;
         auto& source = *task.source;
-        if (!source.synchronized || source.instance.owner() != application_.native_world())
+        if (!source.synchronized || source.instance.owner() != &world_)
           return gneiss::error::invalid_state;
         if (!source.instance.is_valid())
           return gneiss::error::invalid_handle;

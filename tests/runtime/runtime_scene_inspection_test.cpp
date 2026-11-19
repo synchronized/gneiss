@@ -210,7 +210,7 @@ bool test_capture_prefab_scene() {
   if (inspection.set_source_bindings(invalid) != gneiss::error::invalid_argument)
     return false;
   gneiss::host::runtime_scene_snapshot snapshot;
-  const auto capture = inspection.capture_scene(*application, scene, false, snapshot);
+  const auto capture = inspection.capture_scene(scene, false, snapshot);
   const bool valid = capture == gneiss::error::success && snapshot.changes.size() == 3U &&
                      snapshot.changes[1].node.prefab_instance_uuid ==
                          *gneiss::guid::parse("30000000-0000-4000-8000-000000000012") &&
@@ -219,10 +219,9 @@ bool test_capture_prefab_scene() {
                      snapshot.changes[2].node.prefab_source_node_uuid ==
                          *gneiss::guid::parse("30000000-0000-4000-8000-000000000002") &&
                      snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
-  auto native = application;
   auto foreign = gneiss::error::success;
   const auto changes = snapshot.changes.size();
-  std::thread worker([&] { foreign = inspection.capture_scene(*native, scene, true, snapshot); });
+  std::thread worker([&] { foreign = inspection.capture_scene(scene, true, snapshot); });
   worker.join();
   if (foreign != gneiss::error::invalid_state || snapshot.changes.size() != changes)
     return false;

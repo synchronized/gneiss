@@ -98,13 +98,13 @@ int main() try {
           .failed() ||
       !loaded.reload_state || !second.reload_state || loaded.reload_state == second.reload_state)
     return 21;
-  gneiss::host::runtime_scene_loader reloader(*application);
+  gneiss::host::runtime_scene_loader reloader(*application, *application->native_world());
   if (reloader.reload({}, uri, false) != gneiss::error::invalid_state)
     return 22;
   auto other = gneiss::runtime::application::create(config);
   if (!other)
     return 23;
-  gneiss::host::runtime_scene_loader other_loader(**other);
+  gneiss::host::runtime_scene_loader other_loader(**other, *(*other)->native_world());
   if (other_loader.reload(loaded.reload_state, uri, false) != gneiss::error::invalid_state)
     return 23;
 
