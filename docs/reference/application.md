@@ -68,9 +68,11 @@ Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的�
 
 ## 宿主启动
 
-`on_start(name, function)` 在首次运行前注册无参数启动步骤，支持 void、error 或 result<void>。
-服务就绪后按注册顺序执行一次，随后进入业务初始状态；文件服务仍在初始化时只分发事件与完成通知。
-异步业务在启动步骤提交请求，后续由业务状态和 update 观察完成，不能阻塞启动线程。
+`on_start(name, function)` 在首次运行前注册无参数启动步骤，支持 void、error、result<void>，
+以及 start_progress 或 result<start_progress>。服务就绪后按注册顺序执行；pending 保持 starting，
+下一轮继续当前步骤，complete 后不重放。等待期间仍泵送窗口事件、完成通知和资源任务，
+不执行 input/update/synchronize/present 或业务初始 Enter。请求应由前一个步骤提交一次，
+等待步骤只检查结果，不阻塞线程。需要加载界面持续更新的业务仍应使用 loading 状态。
 失败保留步骤名称与错误码，跳过后续启动和业务系统，进入同一停止流程。
 提前 request_exit 不执行启动步骤，仍执行 on_stop；停止逻辑必须能处理未启动或部分启动的会话。
 

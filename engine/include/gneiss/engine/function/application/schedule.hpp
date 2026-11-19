@@ -50,6 +50,39 @@ template <class F> system_function make_system(F function) {
     }
   };
 }
+/** 启动步骤等待既有请求，完成后不再执行。 */
+enum class start_progress { pending, complete };
+using start_function = std::function<result<start_progress>(const frame_time&)>;
+template <class F> start_function make_start_system(F function) {
+  return
+      [function = std::move(function)](const frame_time& time) mutable -> result<start_progress> {
+        auto invoke = [&]() -> decltype(auto) {
+          if constexpr (std::is_invocable_v<F&, const frame_time&>)
+            return std::invoke(function, time);
+          else
+            return std::invoke(function);
+        };
+        using R = decltype(invoke());
+        if constexpr (std::is_void_v<R>) {
+          invoke();
+          return start_progress::complete;
+        } else if constexpr (std::is_same_v<R, start_progress> ||
+                             std::is_same_v<R, result<start_progress>>) {
+          return invoke();
+        } else if constexpr (std::is_same_v<R, error>) {
+          auto status = invoke();
+          if (status.failed())
+            return status;
+          return start_progress::complete;
+        } else {
+          static_assert(std::is_same_v<R, result<void>>);
+          auto status = invoke();
+          if (!status)
+            return status.error();
+          return start_progress::complete;
+        }
+      };
+}
 /** 停止步骤可等待既有任务完成；pending 不表示错误。 */
 enum class stop_progress { pending, complete };
 using stop_function = std::function<result<stop_progress>()>;

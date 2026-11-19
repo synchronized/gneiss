@@ -245,6 +245,50 @@ void simulation_pause() {
   application->request_exit();
   check(application->run().ok());
 }
+void starting_completions() {
+  // 等待期间继续分发完成；成功、失败和主动退出都不得重放已完成步骤。
+  for (unsigned mode = 0; mode < 3; ++mode) {
+    auto created = runtime::application::create({});
+    check(created.ok());
+    auto application = std::move(*created);
+    unsigned requests{}, polls{}, completions{}, updates{}, cleanup{}, entered{};
+    application->on_start("request", [&] { ++requests; });
+    application->on_start("wait", [&]() -> result<app::start_progress> {
+      ++polls;
+      if (completions < 3)
+        return app::start_progress::pending;
+      if (mode == 1)
+        return error::not_found;
+      return app::start_progress::complete;
+    });
+    application->on_start("ready", [&] { ++entered; });
+    application->add_system(app::stage::completions, "completion", [&] { ++completions; });
+    application->add_system(app::stage::update, "update", [&] { ++updates; });
+    application->on_stop("cleanup", [&] { ++cleanup; });
+    auto first = application->step();
+    check(first && *first == app::lifecycle::starting);
+    check(requests == 1 && polls == 1 && updates == 0 && entered == 0);
+    if (mode == 2) {
+      application->request_exit();
+    } else {
+      auto second = application->step();
+      check(second && *second == app::lifecycle::starting);
+      auto third = application->step();
+      if (mode == 0) {
+        check(third && *third == app::lifecycle::running);
+        check(entered == 1 && updates == 1);
+        application->request_exit();
+      }
+    }
+    auto stopped = application->run();
+    check(mode == 1 ? !stopped && stopped.error() == error::not_found : stopped.ok());
+    check(requests == 1 && cleanup == 1);
+    check(polls == (mode == 2 ? 1U : 3U));
+    if (mode != 0)
+      check(entered == 0 && updates == 0);
+  }
+}
+
 void stopping_completions() {
   auto created = runtime::application::create({});
   check(created.ok());
@@ -322,6 +366,7 @@ int main() try {
   state_systems();
   host_shutdown();
   complete_lifecycle();
+  starting_completions();
   stopping_completions();
   simulation_pause();
   action_maps();

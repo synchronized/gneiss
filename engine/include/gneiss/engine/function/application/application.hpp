@@ -75,12 +75,13 @@ public:
     register_state_system(app::detail::state_event::exit, app::detail::key(state), std::move(name),
                           app::make_system(std::move(function)));
   }
-  /** 注册一次性宿主启动；服务就绪后、初始状态 Enter 前按注册顺序执行。
-   * 无参数，返回 void/result<void>/error。异步业务只在这里提交请求，不阻塞等待。
+  /** 注册宿主启动步骤；服务就绪后、初始状态 Enter 前按注册顺序执行。
+   * 无参数；同步返回 void/result<void>/error，等待返回 start_progress 或其 result。
+   * pending 下轮继续当前步骤，完成后不重放；等待期间仍分发事件和完成通知。
    * 失败进入停止；on_stop 必须能够清理未启动或部分启动的会话。 */
   template <class F> void on_start(std::string name, F function) {
     static_assert(std::is_invocable_v<F&>);
-    register_start_system(std::move(name), app::make_system(std::move(function)));
+    register_start_system(std::move(name), app::make_start_system(std::move(function)));
   }
   /** 首次运行前注册宿主清理；停止时按注册顺序执行，服务仍可借用。
    * 无参数；同步返回 void/result<void>/error，异步返回 stop_progress 或其 result。
@@ -138,7 +139,7 @@ private:
                                                std::string, app::system_function);
   GNEISS_ENGINE_API result<void> request_state_change(app::detail::state_key);
   GNEISS_ENGINE_API std::uint64_t current_state(type_id) const;
-  GNEISS_ENGINE_API void register_start_system(std::string, app::system_function);
+  GNEISS_ENGINE_API void register_start_system(std::string, app::start_function);
   GNEISS_ENGINE_API void register_stop_system(std::string, app::stop_function);
   bool stop_host();
   error shutdown();

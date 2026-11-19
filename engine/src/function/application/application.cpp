@@ -71,21 +71,26 @@ public:
     entries_.push_back({phase, std::move(name), std::move(function), condition});
   }
 
-  void add_start(std::string name, system_function function) {
+  void add_start(std::string name, start_function function) {
     GNEISS_ASSERT(function, "启动系统不能为空");
     check_registration(name);
     starts_.push_back({std::move(name), std::move(function)});
   }
-  result<void, system_failure> start(const frame_time& time, const bool& stopping) {
+  result<start_progress, system_failure> start(const frame_time& time, const bool& stopping) {
     GNEISS_ASSERT(frozen_, "运行前必须冻结调度表");
     while (next_start_ < starts_.size() && !stopping) {
       const auto& item = starts_[next_start_++];
       const auto status = item.function(time);
-      if (status.failed())
-        return system_failure{status, item.name};
+      if (!status)
+        return system_failure{status.error(), item.name};
+      if (*status == start_progress::pending) {
+        --next_start_;
+        return start_progress::pending;
+      }
     }
-    return {};
+    return start_progress::complete;
   }
+  bool started() const noexcept { return next_start_ == starts_.size(); }
   void add_stop(std::string name, stop_function function) {
     GNEISS_ASSERT(function, "停止系统不能为空");
     check_registration(name);
@@ -236,7 +241,7 @@ private:
   std::vector<entry> entries_;
   struct start_entry {
     std::string name;
-    system_function function;
+    start_function function;
   };
   std::vector<start_entry> starts_;
   std::size_t next_start_{};
@@ -387,7 +392,7 @@ void application::register_system(app::stage phase, std::string name,
   storage_->systems_.add(phase, std::move(name), std::move(function));
 }
 
-void application::register_start_system(std::string name, app::system_function function) {
+void application::register_start_system(std::string name, app::start_function function) {
   GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
                 "启动系统仅允许所属线程在运行前注册");
   storage_->systems_.add_start(std::move(name), std::move(function));
@@ -637,7 +642,7 @@ error application::advance_frame() try {
       log_error("application", started.error().code, started.error().name, "宿主启动系统失败");
       return started.error().code;
     }
-    if (storage_->should_exit_)
+    if (storage_->should_exit_ || *started == app::start_progress::pending)
       return error::success;
     const auto transitioned = storage_->systems_.transition(time, storage_->should_exit_);
     if (!transitioned) {
@@ -729,8 +734,9 @@ result<app::lifecycle> application::step() {
       storage_->should_exit_ = true;
     }
     if (!storage_->should_exit_) {
-      storage_->lifecycle_ =
-          storage_->files_initialization_ ? app::lifecycle::running : app::lifecycle::starting;
+      storage_->lifecycle_ = storage_->files_initialization_ && storage_->systems_.started()
+                                 ? app::lifecycle::running
+                                 : app::lifecycle::starting;
       return storage_->lifecycle_;
     }
     storage_->lifecycle_ = app::lifecycle::stopping;
