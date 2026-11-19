@@ -171,7 +171,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
 | Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入加载、暂停与旧业务转发清理 |
 | Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发与 Application 默认 World 清理 |
-| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | scene_viewer 的 World/视口归属迁移 |
+| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 删除 Application 旧示例转发入口 |
 
 当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
 不能把多个宿主使用新 run 等同于整体所有权迁移完成。旧 attach_task_executor 已从源码删除，
@@ -218,3 +218,8 @@ UI 适配器返回借用绘制数据，由宿主复制到帧请求。项目管�
 
 本批验证：Runtime、Editor、原生窗口交互目标构建通过；Runtime 普通及协作 smoke、
 Editor editor_demo smoke、原生窗口交互测试均退出 0。未以此代替双视图示例迁移验收。
+
+scene_viewer 已自有 World、渲染绑定、双视图目标及 UI 帧数据；场景装配辅助显式接收 World。
+截图在同步阶段之后直接向 Render 提交本帧请求，关闭时先释放目标，再卸载场景、释放绑定与 World。
+Windows Clang Debug 构建、单视图 smoke 与双视图两组尺寸/图像差异回读均通过。
+生产宿主迁移完成不等于旧默认 World 已删除：测试仍使用 native_world()，下一步迁移这些消费者。

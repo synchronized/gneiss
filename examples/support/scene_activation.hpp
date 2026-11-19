@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <cstdio>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <cstdio>
 namespace example {
 /** 示例持有的装配回执与视觉批次；场景由 World 拥有，调用方决定何时卸载。 */
 struct scene_activation {
@@ -13,8 +13,9 @@ struct scene_activation {
   gneiss::asset_batch_request visuals;
 };
 /** 内容已完成异步加载后调用；只做内存组合、实例化及提交视觉请求，不等待 I/O。 */
-inline gneiss::result<scene_activation>
-activate_scene(gneiss::runtime::application& app, const gneiss::scene_content& content) {
+inline gneiss::result<scene_activation> activate_scene(gneiss::runtime::application& app,
+                                                       gneiss::world& world,
+                                                       const gneiss::scene_content& content) {
   using namespace gneiss;
   if (!content.description)
     return error::invalid_argument;
@@ -41,7 +42,7 @@ activate_scene(gneiss::runtime::application& app, const gneiss::scene_content& c
       return loaded.error();
     bindings.emplace(dependency.uri, loaded->resource());
   }
-  auto destination = app.native_world()->create_scene();
+  auto destination = world.create_scene();
   if (!destination)
     return destination.error();
   auto built = instantiate(*destination, *composed, bindings);
@@ -56,7 +57,7 @@ activate_scene(gneiss::runtime::application& app, const gneiss::scene_content& c
       camera = built->objects[i].entity;
   }
   if (camera) {
-    auto selected = set_active_camera(*app.native_world(), camera);
+    auto selected = set_active_camera(world, camera);
     if (selected.failed()) {
       destination->unload();
       return selected;

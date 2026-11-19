@@ -7,6 +7,8 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/rendering/render_camera.hpp>
+#include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/platform/window/service.hpp>
@@ -28,6 +30,7 @@ constexpr std::uint64_t measure_warmup_frames = 60U;
 constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
+  gneiss::world* world{};
   gneiss::entity_id camera_node;
   gneiss::input::action_id orbit;
   gneiss::input::action_id quit;
@@ -95,24 +98,15 @@ gneiss::error update_sample(gneiss::runtime::application& application,
   transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
   transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
   transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  return application.native_world()
-      ->find(gneiss::entity_id{(state->camera_node).get()})
+  return state->world->find(gneiss::entity_id{(state->camera_node).get()})
       .set_local_transform(transform);
 }
 
-// 两个视图共享应用的 World；右侧固定独立相机，左侧继续使用场景主相机。
+// 两个视图共享宿主 World，UI 引用宿主持有的离屏目标。
 gneiss::result<void> configure_dual_view(gneiss::runtime::application& application,
-                                         const std::array<gneiss::rid, 2>& targets) {
+                                         const std::array<gneiss::rid, 2>& targets,
+                                         gneiss::ui_draw_list& ui) {
   using namespace gneiss;
-  view_camera camera;
-  camera.transform.translation = {0.0F, 3.0F, 9.0F};
-  const float half_pitch = std::atan2(-3.0F, 9.0F) * 0.5F;
-  camera.transform.rotation = math::quaternion{std::cos(half_pitch), std::sin(half_pitch), 0, 0};
-  const std::array views{runtime::application_view{.target = targets[0]},
-                         runtime::application_view{.target = targets[1], .camera = camera}};
-  auto status = application.set_views(views);
-  if (!status)
-    return status;
   const auto surface = application.window()->surface();
   const float w = static_cast<float>(surface.width), h = static_cast<float>(surface.height);
   const std::array vertices{
@@ -127,11 +121,12 @@ gneiss::result<void> configure_dual_view(gneiss::runtime::application& applicati
                       .clip_max = {w, h},
                       .first_index = 6,
                       .index_count = 6}};
-  auto drawn = application.submit_ui_draw_list({.display_width = w,
-                                                .display_height = h,
-                                                .vertices = vertices,
-                                                .indices = indices,
-                                                .commands = commands});
+  auto drawn = ui.replace({.display_width = w,
+                           .display_height = h,
+                           .vertices = vertices,
+                           .indices = indices,
+                           .commands = commands},
+                          application.render());
   return drawn.failed() ? result<void>{drawn} : result<void>{};
 }
 
@@ -210,6 +205,16 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     report_failure("创建 Application", created.error());
     return 1;
   }
+  auto world_result = gneiss::create_native();
+  if (!world_result)
+    return 1;
+  auto world_owner = std::move(*world_result);
+  state.world = world_owner.get();
+  auto binding_result = gneiss::world_render_binding::create(*state.world, (*created)->render());
+  if (!binding_result)
+    return 1;
+  auto binding = std::move(*binding_result);
+  gneiss::ui_draw_list ui;
   const auto application_ready = clock::now();
   auto* native_application = created->get();
   auto release_targets = [&]() -> gneiss::result<void> {
@@ -218,12 +223,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     auto finished = native_application->render().finish_frames();
     if (finished.failed())
       return finished;
-    // 停止阶段不再提交帧；只有运行中切换目标需要先移除视图。
-    if (native_application->accepts_requests()) {
-      auto cleared = native_application->set_views({});
-      if (!cleared)
-        return cleared;
-    }
+    ui.clear();
     for (auto& target : state.targets) {
       if (!target)
         continue;
@@ -251,6 +251,74 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   auto* app = native_application;
   auto owner = std::move(*created);
   app->add_system(gneiss::app::stage::completions, "tasks", [&] { (void)scheduler.run_ready(); });
+  app->add_system(gneiss::app::stage::synchronize, "scene.synchronize", [&] {
+    state.world->flush_changes();
+    return binding->synchronize();
+  });
+  app->add_system(gneiss::app::stage::present, "scene.present", [&]() -> gneiss::result<void> {
+    using namespace gneiss;
+    const auto surface = app->window()->surface();
+    if (!surface.width || !surface.height)
+      return {};
+    render::frame_request frame;
+    frame.surface = surface;
+    const bool dual = bool(state.targets[0]) && bool(state.targets[1]);
+    for (std::size_t i = 0; i < (dual ? 2U : 1U); ++i) {
+      auto width = surface.width, height = surface.height;
+      const auto target = dual ? state.targets[i] : rid{};
+      if (target) {
+        auto description = app->render().describe_target(target);
+        if (!description)
+          return description.error();
+        width = description->width;
+        height = description->height;
+      }
+      view_camera right;
+      right.transform.translation = {0.0F, 3.0F, 9.0F};
+      const float pitch = std::atan2(-3.0F, 9.0F) * 0.5F;
+      right.transform.rotation = math::quaternion{std::cos(pitch), std::sin(pitch), 0, 0};
+      auto camera = select_render_camera(*state.world, width, height, i == 1 ? &right : nullptr);
+      if (!camera)
+        return camera.error();
+      if (*camera) {
+        const auto& selected = **camera;
+        frame.views.push_back({.scene = binding->scene(),
+                               .target = target,
+                               .view_matrix = selected.view,
+                               .projection_matrix = selected.projection,
+                               .camera_position = selected.transform.translation});
+      } else if (!dual) {
+        frame.views.push_back({});
+      }
+    }
+    if (dual) {
+      frame.views.push_back({});
+      frame.ui = std::move(ui);
+    }
+    // 同步后回读本帧，验证两组尺寸和独立相机。
+    if (dual && smoke && !state.captured_dual) {
+      auto image = std::make_shared<render::frame_image>();
+      auto submitted = app->render().request_capture(std::move(frame), image, {512, 256});
+      if (!submitted)
+        return submitted.error() == error::not_ready ? result<void>{} : submitted.error();
+      auto finished = app->render().finish_frames();
+      if (finished.failed())
+        return finished;
+      auto completed = app->render().try_take_required_completion();
+      if (!completed)
+        return completed.error();
+      if (!*completed || (*completed)->sequence != *submitted)
+        return error::internal;
+      if ((*completed)->status.failed())
+        return (*completed)->status;
+      if (!has_distinct_views(*image))
+        return error::internal;
+      state.captured_dual = true;
+      return {};
+    }
+    auto submitted = app->render().render(std::move(frame));
+    return !submitted && submitted.error() != error::not_ready ? submitted : result<void>{};
+  });
   app->init_state(mode::loading);
   app->on_enter(mode::loading, "load_scene", [&]() -> gneiss::result<void> {
     auto input = app->begin_action_map(input_map_uri);
@@ -273,7 +341,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       auto loaded = scene_request.take();
       if (!loaded || !content)
         return gneiss::error::invalid_state;
-      auto activated = example::activate_scene(*app, *content);
+      auto activated = example::activate_scene(*app, *state.world, *content);
       if (!activated)
         return activated.error();
       completion = std::move(*activated);
@@ -295,7 +363,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     status = app->find_action("quit", state.quit);
     if (status.failed())
       return status;
-    status = gneiss::get_active_camera(*app->native_world(), state.camera_node);
+    status = gneiss::get_active_camera(*state.world, state.camera_node);
     if (status.failed())
       return status;
     auto targets = create_targets();
@@ -330,20 +398,9 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
                    ++rendered_updates;
                    if (!dual_view)
                      return {};
-                   auto configured = configure_dual_view(*app, state.targets);
+                   auto configured = configure_dual_view(*app, state.targets, ui);
                    if (!configured)
                      return configured;
-                   if (smoke && !state.captured_dual) {
-                     gneiss::render::frame_image image;
-                     auto captured = app->capture_frame(512, 256, image);
-                     if (captured == gneiss::error::not_ready)
-                       return {};
-                     if (captured.failed())
-                       return captured;
-                     if (!has_distinct_views(image))
-                       return gneiss::error::internal;
-                     state.captured_dual = true;
-                   }
                    return {};
                  });
   app->on_stop("release_targets", release_targets);
@@ -354,6 +411,9 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     if (scene.is_valid())
       scene.unload();
     scene = {};
+    binding.reset();
+    world_owner.reset();
+    state.world = nullptr;
     scene_unloaded = clock::now();
   });
   auto result = app->run();
