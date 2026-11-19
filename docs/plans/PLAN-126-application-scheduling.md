@@ -215,3 +215,8 @@ starting_completions、host_shutdown、complete_lifecycle、state_systems 和 st
   退出码 0。无修改文档不会误弹“未保存”确认。
 - 未手工穷举脏文档保存失败与各类后台任务并发关闭组合；文档保存/取消规则由既有
   document-actions 测试覆盖，业务状态关闭由真实窗口测试覆盖。本次未做跨平台验收。
+
+## 后续独立计划
+
+World 自有系统注册与更新由 [PLAN-127](PLAN-127-world-system-scheduling.md) 承接，
+方向已确认但尚未实施；不改变本计划已完成的 Application 生命周期范围。

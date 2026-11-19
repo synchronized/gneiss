@@ -715,3 +715,6 @@
 
 - [PLAN-126：Application 生命周期、调度与宿主状态组合](plans/PLAN-126-application-scheduling.md)
 - [ADR-129：Application 调度与宿主状态组合](decisions/ADR-129-application-scheduling.md)
+
+- [PLAN-127：World 自有系统调度与宿主组合](plans/PLAN-127-world-system-scheduling.md)
+- [ADR-130：World 提供系统注册与更新入口](decisions/ADR-130-world-system-scheduling.md)

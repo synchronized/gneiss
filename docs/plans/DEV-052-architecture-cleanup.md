@@ -471,6 +471,7 @@ PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建�
 | A52-03 | 原生保留接口 | PLAN-126 已收敛：宿主使用 Render 的 request_capture；Application 的关闭推进为私有实现，统一由 run/step 驱动；环境由宿主资产请求加载。旧接口审计项退出，见 PLAN-126 |
 | A52-04 | PLAN-115 | asset-pixel 与 pbr-negative-scale 共享/静态均通过，见[像素复测](../records/2026-11-18-asset-pixel-async-fixture.md)。当前 Clang Debug GPU 全集 20/20 通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)。真实后端预算拒绝/重试、带帧关闭零存活计数及当前双视图回读已验证，见[压力验收](../records/2026-11-19-render-pressure-acceptance.md)。剩余设备失败路径、上传压力与代表性预算测量；小场景数据不作为通用预算依据 |
 | A52-05 | 构建与交付验收 | 共享/静态 Clang Debug 仓内完整构建与安装已通过；静态包独立消费者及共享/静态已安装 Runtime 也已通过；MSVC Release 完整构建、CPU 213/213 与 GPU 20/20 已通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)；Linux GCC/Clang、Web 和 MSVC Static 仍未验证 |
+| A52-07 | PLAN-127 | World 自有系统注册与更新方向已确认，待实施；接口、宿主迁移和多 World 验收见 [PLAN-127](PLAN-127-world-system-scheduling.md) |
 | A52-06 | 文档与版本收尾 | 完成以上范围后同步版本交付说明与限制，检查当前 Guide/Reference 的过时路径和行为；当前不推送、创建 PR 或发布 |
 
 本轮验证只关闭已取得证据的验证缺口，不自动完成上述代码审计和 GPU 工作。

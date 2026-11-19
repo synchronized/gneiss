@@ -26,6 +26,7 @@
 0.52 架构整理仍在实施；当前跨计划剩余工作以
 [DEV-052 收尾清单](plans/DEV-052-architecture-cleanup.md#收尾审计后的明确待办) 为唯一来源。
 
+- [PLAN-127](plans/PLAN-127-world-system-scheduling.md)：待开始；World 自有系统注册与更新，Application 继续管理共享服务与应用阶段。
 - [PLAN-119](plans/PLAN-119-engine-build-test-layout.md)：模块目录与多轮目标/测试迁移已落地，依赖闭包、标签及完整验收仍在收尾。
 - [PLAN-118](plans/PLAN-118-error-contracts.md)：P0–P4 本地实施与验收已完成；跨平台和完整版本矩阵继续归 DEV-052。
 - [PLAN-115](plans/PLAN-115-persistent-render-scene.md)：命令同步与双视图已接入，GPU 压力、回收、预算及基线问题未完成。
