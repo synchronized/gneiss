@@ -53,17 +53,28 @@ Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的�
 `run()` 通过同一 `step()` 驱动启动、正常帧和关闭，直到进入终态。
 有限帧运行或外部事件循环直接调用 `step()`；需要确认 GPU 已执行完成时显式调用
 `render().finish_frames()`，不把 GPU 等待隐含在单步推进中。
-系统可接收帧时间或不带参数，关闭请求回调不带参数；宿主状态由可调用项捕获。
+系统可接收帧时间或不带参数；events 系统还可接收 const event_context&，宿主状态由可调用项捕获。
 系统失败记录系统名称、执行阶段（含 start/stop/enter/exit）及原始错误码。
 运行失败通过结果返回，并写入 logging；Application 不提供 report 或独立诊断回调。
 重入或跨线程调用返回 `invalid_state`；终态不能重启，重复观察返回同一停止结果。
 
-`request_exit()` 请求在回调返回后退出。窗口关闭请求默认直接退出；首次运行前注册
-`on_close_request(handler)` 后，由唯一宿主处理器执行保存确认等操作，确认后调用 request_exit，
-取消则继续运行。request_exit 不再次触发关闭确认。Application 时间不受宿主模拟暂停影响；宿主通过
+`request_exit()` 请求在回调返回后退出。窗口关闭意图通过 events 系统的
+event_context::close_requested() 观察；宿主注册一个退出决策者，未处理时不自动退出。
+简单宿主直接调用 request_exit；Editor 使用独立 close_phase 业务状态复用文档保存/取消流程，
+确认后调用 request_exit，取消则继续运行。request_exit 不再次触发关闭确认。Application 时间不受宿主模拟暂停影响；宿主通过
 业务状态选择是否运行模拟系统，窗口、完成队列、UI 与呈现继续执行。
 回调返回失败时保留原生错误结果；意外异常向执行边界传播，自有宿主输出致命诊断后终止。
 正常退出仍执行资源清理；致命终止不承诺完整析构。
+
+简单宿主的关闭处理：
+
+```cpp
+application->add_system(app::stage::events, "window.close",
+    [&application](const app::event_context& events) {
+      if (events.close_requested())
+        application->request_exit();
+    });
+```
 
 渲染统计直接调用 `render().query_performance_stats()`，Application 不保存或转发统计快照。
 
@@ -85,8 +96,9 @@ auto result = application->run();
 
 ## 具名系统与业务状态
 
-首次 run 前通过 add_system 注册 completions、input、update、synchronize、present 系统。同阶段按注册顺序执行，
-名称在该 Application 内唯一；首轮运行冻结注册。completions 在正常帧和停止排空期间执行，
+首次 run 前通过 add_system 注册 events、completions、input、update、synchronize、present 系统。同阶段按注册顺序执行，
+名称在该 Application 内唯一；首轮运行冻结注册。events 在平台事件采集后、completions 前执行，
+启动等待期间也执行，停止排空期间不执行；event_context 只在本次调用中借用。completions 在正常帧和停止排空期间执行，
 用于协作任务与宿主完成分发，不受业务状态和退出标志过滤；input 在状态转换后、update 前执行。
 update 后执行 synchronize、present；World 变化刷新、渲染绑定同步与帧提交由宿主注册的系统负责。更新统一通过具名系统注册，不再提供 callbacks.update。
 

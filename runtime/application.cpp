@@ -565,6 +565,11 @@ private:
   }
   application = created->get();
   context.application = application;
+  application->add_system(gneiss::app::stage::events, "window.close",
+                          [&](const gneiss::app::event_context& events) {
+                            if (events.close_requested())
+                              application->request_exit();
+                          });
   application->on_start("runtime.load_environment", [&context, &project]() -> gneiss::error {
     if (!project.environment.asset.empty()) {
       auto requested =

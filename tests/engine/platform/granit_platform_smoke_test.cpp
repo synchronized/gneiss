@@ -312,7 +312,21 @@ int main() {
   if (!created)
     return 18;
   next = *created;
-  next->on_close_request([&] { ++close_requests; });
+  enum class close_phase { idle, confirming };
+  next->init_state(close_phase::idle);
+  next->on_update(close_phase::confirming, "close.confirm", [&] {
+    if (close_requests == 1)
+      return next->request_state(close_phase::idle);
+    next->request_exit();
+    return result<void>{};
+  });
+  next->add_system(app::stage::events, "window.close", [&](const app::event_context& events) {
+    if (events.close_requested()) {
+      ++close_requests;
+      return next->request_state(close_phase::confirming);
+    }
+    return result<void>{};
+  });
   next->add_system(gneiss::app::stage::update, "smoke.input", [&](const native::frame_time&) {
     input::event event;
     while (next->input().poll(event) == error::success) {
@@ -328,14 +342,16 @@ int main() {
       !PostMessageW(next_window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) ||
       next->step().failed() || next->step().failed() || !next_id || next_id == context.window_id)
     return 19;
-  // 宿主接管关闭后，窗口请求不直接停止；显式退出不再次询问宿主。
+  // 首次关闭由业务状态取消，第二次确认退出；停止期间不再发出关闭事件。
   if (!PostMessageW(next_window, WM_CLOSE, 0, 0))
     return 20;
   auto close_step = next->step();
   if (!close_step || *close_step != app::lifecycle::running || close_requests != 1)
     return 20;
-  next->request_exit();
-  if (!next->run() || close_requests != 1)
+  if (!next->step() || next->state<close_phase>() != close_phase::idle ||
+      !PostMessageW(next_window, WM_CLOSE, 0, 0))
+    return 20;
+  if (!next->run() || close_requests != 2)
     return 19;
 #endif
   return 0;

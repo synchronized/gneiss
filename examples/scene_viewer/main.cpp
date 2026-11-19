@@ -247,6 +247,11 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
   // 清理函数及其捕获先于应用所有者建立，异常展开时仍可调用。
   auto* app = native_application;
   auto owner = std::move(*created);
+  app->add_system(gneiss::app::stage::events, "window.close",
+                  [&](const gneiss::app::event_context& events) {
+                    if (events.close_requested())
+                      app->request_exit();
+                  });
   app->on_start("create_world", [&]() -> gneiss::result<void> {
     auto world = gneiss::create_native();
     if (!world)

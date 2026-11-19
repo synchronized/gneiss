@@ -13,7 +13,16 @@
 namespace gneiss::app {
 /** 当前接入业务阶段；平台事件与完成分发仍由 Application 固定驱动。 */
 enum class lifecycle { starting, running, stopping, stopped };
-enum class stage { completions, input, update, synchronize, present };
+enum class stage { events, completions, input, update, synchronize, present };
+/** 当前轮平台事件的只读输入；仅 events 系统调用期间有效，不保存确认流程。 */
+class event_context {
+public:
+  explicit event_context(bool close = false) : close_(close) {}
+  bool close_requested() const noexcept { return close_; }
+
+private:
+  bool close_{};
+};
 namespace detail {
 enum class state_event { enter, update, exit };
 struct state_key {
@@ -27,14 +36,17 @@ state_key key(T state) {
   return {runtime_type_of<T>(), static_cast<std::uint64_t>(state)};
 }
 }
-using system_function = std::function<error(const frame_time&)>;
+using system_function = std::function<error(const frame_time&, const event_context&)>;
 namespace detail {
-/** 同步适配，无参数或 frame_time 参数；保留意外异常的传播语义。 */
+/** 同步适配，无参数、frame_time 或 event_context 参数；保留意外异常的传播语义。 */
 template <class F> system_function make_system(F function) {
-  return [function = std::move(function)](const frame_time& time) mutable -> error {
+  return [function = std::move(function)](const frame_time& time,
+                                          const event_context& events) mutable -> error {
     auto invoke = [&]() -> decltype(auto) {
       if constexpr (std::is_invocable_v<F&, const frame_time&>)
         return std::invoke(function, time);
+      else if constexpr (std::is_invocable_v<F&, const event_context&>)
+        return std::invoke(function, events);
       else
         return std::invoke(function);
     };

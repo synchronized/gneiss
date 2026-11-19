@@ -262,6 +262,11 @@ void starting_completions() {
       return app::start_progress::complete;
     });
     application->on_start("ready", [&] { ++entered; });
+    unsigned events{};
+    application->add_system(app::stage::events, "events", [&](const app::event_context& input) {
+      check(!input.close_requested());
+      ++events;
+    });
     application->add_system(app::stage::completions, "completion", [&] { ++completions; });
     application->add_system(app::stage::update, "update", [&] { ++updates; });
     application->on_stop("cleanup", [&] { ++cleanup; });
@@ -280,6 +285,7 @@ void starting_completions() {
         application->request_exit();
       }
     }
+    check(events > 0);
     auto stopped = application->run();
     check(mode == 1 ? !stopped && stopped.error() == error::not_found : stopped.ok());
     check(requests == 1 && cleanup == 1);

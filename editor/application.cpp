@@ -88,6 +88,8 @@
 
 namespace {
 
+enum class close_phase { idle, confirming };
+
 enum class hierarchy_action { none, rename, duplicate, remove };
 using gizmo_operation = gneiss::editor::transform_gizmo_operation;
 enum class author_selection_kind : std::uint8_t { none, scene_node, prefab_root, prefab_source };
@@ -182,7 +184,6 @@ struct editor_state {
   bool show_imgui_demo = false;
   gneiss::editor::editor_panel_visibility panel_visibility;
   gneiss::editor::editor_layout layout;
-  bool closing{};
   bool return_to_project_manager{};
   bool layout_save_started{};
   bool layout_initialized{};
@@ -931,25 +932,15 @@ void request_runtime_launch(editor_state& state) {
   state.runtime_attempted = true;
 }
 
-void begin_editor_exit(editor_state& state) {
+bool begin_editor_exit(editor_state& state) {
   state.material_editor.advance();
   if (state.material_editor.saving() || state.material_editor.is_dirty()) {
     state.material_editor_visible = true;
     state.material_edit_status = gneiss::error::invalid_state;
-    return;
+    return false;
   }
-  if (state.closing)
-    return;
-  state.closing = true;
-  if (state.runtime.is_running())
-    state.runtime_result = state.runtime.request_stop();
-  state.editing.cancel(*state.application);
-  if (state.scene_loader.active())
-    (void)state.scene_loader.cancel(*state.application);
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-  state.asset_reimports.request_stop();
-  state.author_assets.request_stop();
-#endif
+  state.application->request_exit();
+  return true;
 }
 
 gneiss::error perform_document_action(editor_state& state, gneiss::editor::document_action action) {
@@ -971,8 +962,7 @@ gneiss::error perform_document_action(editor_state& state, gneiss::editor::docum
     break;
   }
   case gneiss::editor::document_action::close_project:
-    begin_editor_exit(state);
-    if (state.closing)
+    if (begin_editor_exit(state))
       state.return_to_project_manager = true;
     break;
   case gneiss::editor::document_action::exit_editor:
@@ -988,6 +978,16 @@ gneiss::error perform_document_action(editor_state& state, gneiss::editor::docum
 }
 
 void request_document_action(editor_state& state, gneiss::editor::document_action action) {
+  if (action == gneiss::editor::document_action::close_project ||
+      action == gneiss::editor::document_action::exit_editor) {
+    if (state.application->state<close_phase>() != close_phase::idle ||
+        state.document_actions.pending())
+      return;
+    state.document_actions.defer(action);
+    const auto changed = state.application->request_state(close_phase::confirming);
+    state.history_error = changed ? gneiss::error::success : changed.error();
+    return;
+  }
   if (state.pending_file_operation)
     return;
   const auto ready = state.document_actions.request(action, state.editing.document().is_dirty());
@@ -1709,34 +1709,6 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     if (loading != gneiss::error::success) {
       return loading;
     }
-    if (state.closing) {
-      state.editing.advance_cleanup(*state.application);
-      state.package_process.update();
-      bool stopped = !state.editing.active() && !state.scene_loader.active() &&
-                     !state.runtime.is_running() && !state.package_process.is_running();
-#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-      std::vector<std::filesystem::path> ignored;
-      (void)state.author_assets.poll_rescan(ignored);
-      (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
-      stopped = stopped && state.asset_reimports.status().stopped && state.author_assets.stopped();
-#endif
-      if (!state.layout_save_started) {
-        state.layout_save_started = true;
-        state.layout_status =
-            state.smoke ? gneiss::error::success : state.layout.save(state.panel_visibility);
-      }
-      if (!state.smoke && !state.layout.saving() && state.layout_status.ok())
-        state.layout_status = state.layout.save_result();
-      if (stopped && !state.layout.saving())
-        state.application->request_exit();
-      const auto begun = state.ui.begin_frame(*state.application, *time);
-      if (begun.failed())
-        return begun;
-      ImGui::Begin("Closing Editor");
-      ImGui::TextUnformatted("正在保存布局并收尾后台任务……");
-      ImGui::End();
-      return submit_editor_ui(state);
-    }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     if (state.author_reload_uri && !state.scene_loader.active()) {
       auto operation = state.scene_loader.operation();
@@ -2295,23 +2267,25 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
       ImGui::EndPopup();
     }
-    gneiss::editor::draw_document_action_panel(
-        state.document_actions,
-        {
-            .context = &state,
-            .save =
-                [](void* context) {
-                  auto& editor = *static_cast<editor_state*>(context);
-                  editor.save_result = save_document(editor);
-                  editor.save_attempted = editor.save_result != gneiss::error::not_ready;
-                  return editor.save_result;
-                },
-            .perform =
-                [](void* context, gneiss::editor::document_action action) {
-                  auto& editor = *static_cast<editor_state*>(context);
-                  editor.history_error = perform_document_action(editor, action);
-                },
-        });
+    if (!state.pending_file_operation && !state.editing.active() && !state.scene_loader.active() &&
+        state.editing.document().is_dirty())
+      gneiss::editor::draw_document_action_panel(
+          state.document_actions,
+          {
+              .context = &state,
+              .save =
+                  [](void* context) {
+                    auto& editor = *static_cast<editor_state*>(context);
+                    editor.save_result = save_document(editor);
+                    editor.save_attempted = editor.save_result != gneiss::error::not_ready;
+                    return editor.save_result;
+                  },
+              .perform =
+                  [](void* context, gneiss::editor::document_action action) {
+                    auto& editor = *static_cast<editor_state*>(context);
+                    editor.history_error = perform_document_action(editor, action);
+                  },
+          });
     if (state.pending_file_operation)
       return submit_editor_ui(state);
     if (!material_focus && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
@@ -2869,44 +2843,36 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
   }
 }
 
-uint8_t handle_close_requested(void* user_data) noexcept try {
-  if (!user_data) {
-    return 1U;
+void advance_close_confirmation(editor_state& state) {
+  // 文档动作负责保存/重试/取消，业务状态仅决定何时推进关闭确认。
+  if (!state.document_actions.pending()) {
+    const auto changed = state.application->request_state(close_phase::idle);
+    state.history_error = changed ? gneiss::error::success : changed.error();
+    return;
   }
-  auto& state = *static_cast<editor_state*>(user_data);
-  if (state.closing)
-    return 0U;
   state.material_editor.advance();
   if (state.material_editor.is_dirty() || state.material_editor.saving()) {
     state.material_editor_visible = true;
     state.material_edit_status = gneiss::error::invalid_state;
-    return 0U;
+    state.document_actions.cancel();
+    const auto changed = state.application->request_state(close_phase::idle);
+    state.history_error = changed ? gneiss::error::success : changed.error();
+    return;
   }
-  if (state.pending_file_operation) {
-    state.document_actions.defer(gneiss::editor::document_action::exit_editor);
-    return 0U;
-  }
+  if (state.pending_file_operation)
+    return;
   if (state.scene_loader.active()) {
     (void)state.scene_loader.cancel(*state.application);
-    begin_editor_exit(state);
-    return 0U;
+    return;
   }
   if (state.editing.active()) {
     state.editing.cancel(*state.application);
-    state.document_actions.defer(gneiss::editor::document_action::exit_editor);
-    return 0U;
+    state.editing.advance_cleanup(*state.application);
+    return;
   }
-  state.editing.prefabs().dismiss();
-  state.editing.assets().dismiss();
-  state.scene_loader.dismiss();
   if (!state.editing.document().is_dirty()) {
-    begin_editor_exit(state);
-    return 0U;
+    state.history_error = perform_document_action(state, state.document_actions.discard());
   }
-  state.document_actions.defer(gneiss::editor::document_action::exit_editor);
-  return 0U;
-} catch (...) {
-  gneiss::fatal_current_exception();
 }
 
 int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
@@ -2985,10 +2951,20 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   }
   application = std::move(*created);
   state.application = application.get();
-  application->on_close_request([&state] {
-    if (handle_close_requested(&state) != 0U)
-      state.application->request_exit();
-  });
+  application->init_state(close_phase::idle);
+  application->add_system(gneiss::app::stage::events, "editor.close_request",
+                          [&state](const gneiss::app::event_context& events) {
+                            if (!events.close_requested())
+                              return;
+                            // 启动尚未建立文档，不需要等待业务状态进入或弹出确认框。
+                            if (!state.world)
+                              state.application->request_exit();
+                            else
+                              request_document_action(state,
+                                                      gneiss::editor::document_action::exit_editor);
+                          });
+  application->on_update(close_phase::confirming, "editor.confirm_close",
+                         [&state] { advance_close_confirmation(state); });
   application->on_start("editor.load_environment", [&state, &project]() -> gneiss::error {
     if (!project.environment.asset.empty()) {
       auto requested =
@@ -3031,7 +3007,6 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   application->on_stop("editor.begin_stop", [&state, smoke = options.smoke] {
     state.pending_file_operation = {};
     // 停止已获批准（或主循环失败），这里不再走未保存内容的交互拦截。
-    state.closing = true;
     if (state.runtime.is_running())
       state.runtime_result = state.runtime.request_stop();
     state.editing.cancel(*state.application);

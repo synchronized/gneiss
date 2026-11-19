@@ -40,7 +40,6 @@ struct project_manager_state final {
   gneiss::tasks::scheduler scheduler{{.workers = 1U}};
   gneiss::tasks::scope scope{scheduler.make_scope()};
   std::shared_ptr<project_job_result> pending;
-  bool closing{};
   app::application* application{};
   gneiss::editor::imgui_adapter ui;
   gneiss::render::frame_request frame;
@@ -84,7 +83,7 @@ gneiss::error select_project(project_manager_state& state, editor_project projec
 // 桌面工程任务拥有输入和结果，不借用 UI 或输出对象；只在主线程采用完成结果。
 gneiss::error begin_project_job(project_manager_state& state, std::filesystem::path root,
                                 std::string name = {}) {
-  if (state.pending || state.closing)
+  if (state.pending)
     return gneiss::error::not_ready;
   auto pending = std::make_shared<project_job_result>();
   gneiss::tasks::handle task;
@@ -118,12 +117,10 @@ gneiss::error update_project_manager(project_manager_state& state, const gneiss:
         state.operation = completed.front().outcome.state == gneiss::tasks::state::succeeded
                               ? pending->status
                               : gneiss::error::internal;
-        if (!state.closing && state.operation.ok())
+        if (state.operation.ok())
           (void)select_project(state, std::move(pending->project));
       }
     }
-    if (state.closing && !state.pending)
-      state.application->request_exit();
     auto operation = state.ui.begin_frame(*state.application, time);
     if (operation != gneiss::error::success) {
       return operation;
@@ -140,7 +137,7 @@ gneiss::error update_project_manager(project_manager_state& state, const gneiss:
     ImGui::SameLine();
     ImGui::TextUnformatted("Project Manager");
     ImGui::Spacing();
-    ImGui::BeginDisabled(state.pending != nullptr || state.closing);
+    ImGui::BeginDisabled(state.pending != nullptr);
     if (ImGui::BeginTabBar("ProjectActions")) {
       if (ImGui::BeginTabItem("Recent")) {
         if (state.recent_projects.empty()) {
@@ -208,7 +205,7 @@ gneiss::error update_project_manager(project_manager_state& state, const gneiss:
     }
     ImGui::EndDisabled();
     if (state.pending)
-      ImGui::TextUnformatted(state.closing ? "正在等待工程任务收尾……" : "正在处理工程……");
+      ImGui::TextUnformatted("正在处理工程……");
     if (operation != gneiss::error::success) {
       ImGui::EndChild();
       ImGui::End();
@@ -262,11 +259,11 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     }
     application = std::move(*created);
     state.application = application.get();
-    application->on_close_request([&state] {
-      state.closing = true;
-      if (!state.pending)
-        state.application->request_exit();
-    });
+    application->add_system(gneiss::app::stage::events, "project_manager.close",
+                            [&](const gneiss::app::event_context& events) {
+                              if (events.close_requested())
+                                application->request_exit();
+                            });
     application->init_state(project_phase::selecting);
     application->on_enter(project_phase::selecting, "project_manager.initialize_ui",
                           [&] { return state.ui.initialize(*application); });

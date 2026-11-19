@@ -65,6 +65,8 @@ struct system_failure {
 namespace {
 std::string_view phase_name(stage phase) {
   switch (phase) {
+  case stage::events:
+    return "events";
   case stage::completions:
     return "completions";
   case stage::input:
@@ -190,8 +192,8 @@ public:
     }
     return {};
   }
-  result<void, system_failure> run(stage phase, const frame_time& time,
-                                   const bool& stopping) const {
+  result<void, system_failure> run(stage phase, const frame_time& time, const bool& stopping,
+                                   const event_context& events = event_context{}) const {
     GNEISS_ASSERT(frozen_, "运行前必须冻结调度表");
     for (const auto& item : entries_) {
       if (stopping)
@@ -199,7 +201,7 @@ public:
       if (item.phase != phase ||
           (item.condition && find(item.condition->type).current != *item.condition))
         continue;
-      auto status = item.function(time);
+      auto status = item.function(time, events);
       if (status.failed())
         return system_failure{status, item.name, phase_name(phase)};
     }
@@ -251,7 +253,7 @@ private:
         break;
       if (item.event != event || item.key != key)
         continue;
-      auto status = item.function(time);
+      auto status = item.function(time, event_context{});
       if (status.failed()) {
         // 转换不是事务；失败后不能在再次 run 时重放已产生副作用的 Enter/Exit。
         transition_failure_ = system_failure{
@@ -328,7 +330,6 @@ struct application::storage {
   error lifecycle_result_{error::success};
   bool step_started_{};
   bool step_active_{};
-  std::function<void()> close_request_;
   bool is_running_ = false;
   bool should_exit_ = false;
   gneiss::input::service input_;
@@ -625,14 +626,16 @@ error application::advance_frame() try {
       storage_->is_running_ = false;
       return poll_result;
     }
-    if (should_close) {
-      if (storage_->close_request_)
-        storage_->close_request_();
-      else
-        request_exit();
-      if (storage_->should_exit_)
-        return error::success;
+    const auto events = storage_->systems_.run(
+        app::stage::events,
+        {.frame_index = storage_->frame_index_, .elapsed_ns = storage_->elapsed_ns_},
+        storage_->should_exit_, event_context{should_close});
+    if (!events) {
+      report_system_failure(events.error());
+      return events.error().code;
     }
+    if (storage_->should_exit_)
+      return error::success;
 
     const auto dispatched = dispatch_completion_systems();
     if (dispatched.failed())
@@ -967,12 +970,6 @@ gneiss::asset_manager& application::assets() noexcept { return *storage_->asset_
 gneiss::input::service& application::input() noexcept {
   GNEISS_ASSERT(is_owner_thread() && accepts_requests(), "输入服务只在所属线程和有效期内借用");
   return storage_->input_;
-}
-
-void application::on_close_request(std::function<void()> handler) {
-  GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->step_started_,
-                "关闭请求处理器只在所属线程首次运行前注册");
-  storage_->close_request_ = std::move(handler);
 }
 
 void application::request_exit() noexcept { storage_->should_exit_ = true; }

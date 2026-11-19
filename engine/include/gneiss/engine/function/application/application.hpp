@@ -117,9 +117,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::input::service& input() noexcept;
   /** 借用只读窗口服务；无窗口或关闭后为空，不允许宿主重复泵送平台事件。 */
   [[nodiscard]] GNEISS_ENGINE_API const gneiss::window::service* window() const noexcept;
-  /** 注册唯一窗口关闭请求处理器，首次运行前调用。未注册时直接退出。
-   * 已注册时由宿主确认并调用 request_exit；回调捕获须存活至关闭结束。 */
-  GNEISS_ENGINE_API void on_close_request(std::function<void()> handler);
   GNEISS_ENGINE_API void request_exit() noexcept;
 
 private:

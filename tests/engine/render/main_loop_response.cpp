@@ -320,10 +320,11 @@ int main(int argc, char** argv) try {
   if (gneiss::test_support::assign_value(gneiss::app::application::create(desc), app).failed()) {
     return 1;
   }
-  app->on_close_request([&] {
-    if (close_requested(state))
-      app->request_exit();
-  });
+  app->add_system(gneiss::app::stage::events, "window.close",
+                  [&](const gneiss::app::event_context& events) {
+                    if (events.close_requested() && close_requested(state))
+                      app->request_exit();
+                  });
   app->add_system(gneiss::app::stage::update, "response.update",
                   [&](const auto&) { return native_update(*app, state); });
   auto world = gneiss::create_native();
