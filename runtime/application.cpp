@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/protocol/domains.hpp>
 #include "application.hpp"
+#include <deque>
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
-#include <deque>
+#include <gneiss/protocol/domains.hpp>
 
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/project/project_description.hpp>
 
-#include <gneiss/engine/core/logging/sinks/file.hpp>
 #include "assets/runtime_asset_reloader.hpp"
-#include "ipc/runtime_ipc_session.hpp"
-#include "runtime_logging.hpp"
 #include "inspection/runtime_property_editor.hpp"
 #include "inspection/runtime_scene_inspection.hpp"
+#include "ipc/runtime_ipc_session.hpp"
+#include "runtime_logging.hpp"
 #include "scene/runtime_scene_loader.hpp"
+#include <gneiss/engine/core/logging/sinks/file.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -164,9 +164,6 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
     context.application->request_exit();
     return gneiss::error::success;
   };
-  if (context.tasks && context.tasks->mode() == gneiss::tasks::execution_mode::cooperative) {
-    (void)context.tasks->run_ready();
-  }
   if (context.ipc_session != nullptr) {
     gneiss::host::runtime_ipc_actions actions;
     const auto ipc_result =
@@ -502,9 +499,6 @@ private:
     std::filesystem::remove(context.stop_file, error);
   }
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&context](const gneiss::frame_time& time) {
-    return update_runtime(&time, &context);
-  };
   desc.enable_window = true;
   desc.window.title = project.name;
   desc.window.visible =
@@ -522,7 +516,7 @@ private:
       {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
                                          : gneiss::tasks::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
-  std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::runtime::application* application{};
   auto created = gneiss::runtime::application::create(desc);
   auto operation = created ? gneiss::error{gneiss::error::success} : created.error();
   if (operation != gneiss::error::success) {
@@ -532,8 +526,15 @@ private:
                .result = static_cast<gneiss::error>(operation)});
     return 3;
   }
-  application = std::move(*created);
-  context.application = application.get();
+  application = created->get();
+  context.application = application;
+  application->add_system(gneiss::app::stage::completions, "runtime.tasks", [&task_scheduler] {
+    if (task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
+      (void)task_scheduler.run_ready();
+  });
+  application->add_system(
+      gneiss::app::stage::update, "runtime.update",
+      [&context](const gneiss::frame_time& time) { return update_runtime(&time, &context); });
   log.write({.severity = gneiss::logging::level::info,
              .category = "application_create",
              .message = "Application 创建完成",
@@ -579,8 +580,7 @@ private:
   gneiss::host::runtime_scene_loader scene_loader(*application);
   context.scene_loader = &scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
-      [&, native_application =
-              application.get()](const gneiss::host::ipc_asset_reload_request& request) {
+      [&, native_application = application](const gneiss::host::ipc_asset_reload_request& request) {
         const auto& first = request.assets.front();
         if (first.type == gneiss::host::ipc_asset_type::scene ||
             first.type == gneiss::host::ipc_asset_type::prefab) {
@@ -613,8 +613,7 @@ private:
         context.asset_request = std::move(*submitted);
         return gneiss::error{gneiss::error::success};
       },
-      [&, native_application = application.get()](
-          gneiss::error& result, std::vector<gneiss::host::ipc_asset_item_result>& items,
+      [&](gneiss::error& result, std::vector<gneiss::host::ipc_asset_item_result>& items,
           bool& ready) {
         try {
           if (structural_reload) {
@@ -793,7 +792,20 @@ private:
       scene_loader.request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
   if (native_result != gneiss::error::success)
     return 4;
-  operation = application->run(0U);
+  // 运行所有者后创建先销毁，停止回调借用的会话局部对象覆盖关闭及异常展开。
+  auto application_owner = std::move(*created);
+  application->on_stop("runtime.release_session", [&] {
+    scene_loader.stop();
+    context.asset_request.reset();
+    property_editor.reset();
+    scene_source.reset();
+    context.scene = {};
+    if (scene.is_valid())
+      scene.unload();
+    scene = {};
+  });
+  auto ran = application->run();
+  operation = ran ? gneiss::error::success : ran.error();
   const auto task_stats = task_scheduler.stats();
   log.write({.severity = gneiss::logging::level::info,
              .category = "task_statistics",
@@ -818,21 +830,6 @@ private:
   if (ipc_session) {
     (void)ipc_session->stop();
   }
-  auto shutdown_result = application->request_shutdown();
-  if (shutdown_result.ok()) {
-    do {
-      if (task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
-        (void)task_scheduler.run_ready();
-      shutdown_result = application->advance_shutdown();
-      if (shutdown_result == gneiss::error::not_ready)
-        std::this_thread::yield();
-    } while (shutdown_result == gneiss::error::not_ready);
-  }
-  if (shutdown_result.failed())
-    log.write({.severity = gneiss::logging::level::error,
-               .category = "shutdown",
-               .message = "Runtime 关闭失败",
-               .result = shutdown_result});
   if (operation != gneiss::error::success) {
     log.write({.severity = gneiss::logging::level::error,
                .category = "run",
@@ -850,8 +847,6 @@ private:
     return 11;
   }
 
-  if (shutdown_result.failed())
-    return 10;
   if (context.scene_failed && options.smoke)
     return 4;
   log.write({.severity = gneiss::logging::level::info,

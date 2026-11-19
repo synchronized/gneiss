@@ -119,7 +119,7 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 error::not_ready 仍是错误，不代替 pending。同步 shutdown/析构可等待，外部循环应使用 step 排空。
 意外异常保持传播，析构时按既有 noexcept/致命异常策略处理，不承诺异常后所有清理完成。
 
-项目选择界面和 Editor 已用 on_stop 非阻塞排空任务、会话并释放 UI，由 run() 统一完成服务关闭。
+项目选择界面、Editor 和 Runtime 已用 on_stop 非阻塞排空任务、会话并释放 UI，由 run() 统一完成服务关闭。
 
 ## 平台与窗口
 

@@ -236,3 +236,13 @@ Editor 更新已进入具名系统；协作任务放入 completions，在普通�
 验证：两项 Application 回归通过；Editor editor_demo 普通与 cooperative-tasks smoke 均退出 0，
 分别执行 11 和 10 个 GPU 帧，无资源关闭错误。A126-04 仍未完成：World/视口归属与其他旧入口
 尚未迁移，多 World/重新打开工程尚待相应变更后验收。
+
+### Runtime 停止迁移
+
+Runtime 已使用 completions/update 系统与完整 run()，删除手动服务关闭循环。
+停止回调放弃场景/重载请求、解除属性编辑绑定、卸载场景；运行所有者在会话对象之后建立，
+保证异常展开期间停止回调的借用仍有效。IPC 终止通知保留在 run 返回之后，仍能报告最终结果。
+
+验证：Runtime 普通及 cooperative-tasks 的 editor_demo smoke 均退出 0，分别执行 5、4 个 GPU 帧，
+任务统计 submitted=completed=3、retained=0，无资源关闭错误；scene-loader 回归通过。
+World/视口归属和业务转发尚未迁移，A126-03 仍未完成。

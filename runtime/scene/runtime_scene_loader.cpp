@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "scene/runtime_scene_loader.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/logging/logger.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
@@ -32,8 +32,7 @@ const char* phase_message(ipc_scene_phase phase) {
 }
 
 }
-gneiss::error runtime_scene_loader::request(ipc_scene_request source,
-                                                    std::uint32_t request_id) {
+gneiss::error runtime_scene_loader::request(ipc_scene_request source, std::uint32_t request_id) {
   if (active_ || reload_) {
     return gneiss::error::not_ready;
   }
@@ -55,6 +54,17 @@ gneiss::error runtime_scene_loader::request(ipc_scene_request source,
   active_ = true;
   return gneiss::error::success;
 }
+void runtime_scene_loader::stop() {
+  request_.cancel();
+  ready_.reset();
+  visuals_.reset();
+  reload_.reset();
+  current_ = {};
+  active_ = false;
+  before_activate = {};
+  after_activate = {};
+}
+
 gneiss::error runtime_scene_loader::cancel(const ipc_scene_request& source) {
   if (!active_ || source.session != progress_.source.session ||
       source.revision != progress_.source.revision || source.uri != progress_.source.uri) {
@@ -70,8 +80,7 @@ gneiss::error runtime_scene_loader::cancel(const ipc_scene_request& source) {
   progress_.budget = ipc_scene_budget{.cleanup_complete = true};
   return gneiss::error::success;
 }
-gneiss::error
-runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
+gneiss::error runtime_scene_loader::activate(::gneiss::host::scene_open_result& completion) {
   if (before_activate) {
     const auto stopped = before_activate();
     if (stopped != gneiss::error::success) {

@@ -3,13 +3,13 @@
 
 #pragma once
 
+#include <atomic>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_request.hpp>
 #include <gneiss/engine/function/scene/scene_update.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <gneiss/protocol/ipc_scene_protocol.hpp>
-#include <atomic>
 
 #include <functional>
 #include <optional>
@@ -47,6 +47,8 @@ public:
   [[nodiscard]] gneiss::error request(ipc_scene_request source, std::uint32_t request_id);
   [[nodiscard]] gneiss::error cancel(const ipc_scene_request& source);
   [[nodiscard]] gneiss::error advance();
+  /** 停止宿主时放弃全部加载/重载观察者，并解除业务回调。 */
+  void stop();
   [[nodiscard]] gneiss::error reload(gneiss::ref<scene_reload_state>, std::string_view uri,
                                      bool prefab);
   [[nodiscard]] gneiss::result<scene_reload_result> take_reload();
