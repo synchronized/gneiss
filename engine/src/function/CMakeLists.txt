@@ -3,8 +3,6 @@
 # Engine 为运行领域的部署产物；基础模块和 CPU Resource 各有独立目标。
 # 场景、资产装配、输入和渲染保留同一运行库，源文件由所属 Function 层维护。
 target_sources(gneiss_engine PRIVATE
-  "${PROJECT_SOURCE_DIR}/engine/src/function/application/detail/service_registry.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/application/detail/service_registry.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/identifier_conversion.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/mesh_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/loaders/texture_decoder.cpp"

@@ -27,7 +27,7 @@ struct application_callbacks final {
   std::function<bool()> close_requested;
 };
 
-/** 原生创建配置；字符串仅在 initialize 期间借用。 */
+/** 原生创建配置；字符串仅在 create 期间借用，Application 复制后用于异步启动。 */
 struct application_configuration final {
   application_callbacks callbacks;
   bool enable_window = false;

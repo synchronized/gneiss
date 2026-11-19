@@ -217,3 +217,12 @@ gneiss.native-application-flow、gneiss.native-application 均通过。覆盖清
 
 验证：Windows Clang Debug 编辑器及两项 Application 测试构建、运行通过；新增非阻塞停止、
 共享循环失败清理、重入拒绝和终态幂等验证。未执行真实窗口/GPU 验收。
+
+### 装配审计与旧实现清理
+
+已确认旧 service_registry 只有自身测试调用，无生产消费者；删除实现、头文件、测试和目标，
+不把其虚拟 Service 层扩展为新调度器。Application 复制窗口标题、资产根、用户根与环境 URI，
+异步回调不再借用调用方配置字符串。相关构建及两项 Application 回归通过。
+
+项目选择界面实际 --smoke 启动/关闭退出码为 0，无资源关闭错误；渲染统计实际执行帧为 0，
+因此仅记为生命周期验收，不记为画面/GPU 渲染验收。

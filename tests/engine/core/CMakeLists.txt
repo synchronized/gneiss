@@ -75,20 +75,6 @@ set_target_properties(gneiss_rid_table_test PROPERTIES FOLDER "Tests")
 add_test(NAME gneiss.rid_table COMMAND gneiss_rid_table_test)
 set_tests_properties(gneiss.rid_table PROPERTIES LABELS "cpu;unit")
 
-add_executable(
-  gneiss_service_registry_test
-  service_registry_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/function/application/detail/service_registry.cpp"
-)
-target_include_directories(gneiss_service_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
-target_link_libraries(gneiss_service_registry_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_service_registry_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_service_registry_test)
-gneiss_target_output_directories(gneiss_service_registry_test)
-set_target_properties(gneiss_service_registry_test PROPERTIES FOLDER "Tests")
-add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
-set_tests_properties(gneiss.service_registry PROPERTIES LABELS "cpu;integration")
-
 add_executable(gneiss_version_test version_test.cpp)
 target_link_libraries(gneiss_version_test PRIVATE gneiss::engine)
 gneiss_target_compile_warnings(gneiss_version_test)

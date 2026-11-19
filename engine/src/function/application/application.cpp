@@ -227,9 +227,21 @@ private:
 namespace gneiss::runtime {
 struct application::storage {
   explicit storage(const runtime::application_configuration& config)
-      : config_(config), owner_thread_(std::this_thread::get_id()) {}
+      : config_(config), window_title_(config.window.title), asset_root_(config.asset_root),
+        user_root_(config.user_root), environment_asset_(config.environment_asset),
+        owner_thread_(std::this_thread::get_id()) {
+    config_.window.title = window_title_;
+    config_.asset_root = asset_root_;
+    config_.user_root = user_root_;
+    config_.environment_asset = environment_asset_;
+  }
   std::shared_ptr<gneiss::wakeup_signal> loop_wakeup_;
   runtime::application_configuration config_;
+  // Application 跨帧保存配置；后端或完成回调不能借用调用方的临时字符串。
+  std::string window_title_;
+  std::string asset_root_;
+  std::string user_root_;
+  std::string environment_asset_;
   std::unique_ptr<gneiss::render::service> render_service_ =
       std::make_unique<gneiss::render::service>();
   app::schedule systems_;
