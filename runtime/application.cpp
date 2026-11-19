@@ -650,7 +650,7 @@ private:
                           : asset.type == gneiss::host::ipc_asset_type::material ? type::material
                                                                                  : type::mesh});
         }
-        auto submitted = native_application->load_assets(assets, true);
+        auto submitted = native_application->assets().load_batch(assets, true);
         if (!submitted)
           return submitted.error();
         context.asset_request = std::move(*submitted);

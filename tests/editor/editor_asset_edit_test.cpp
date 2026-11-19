@@ -168,7 +168,7 @@ void run(gneiss::tasks::execution_mode mode) {
   edit.cancel(*app);
   const gneiss::render_resource_source replacement{"asset://other-missing.json",
                                                    gneiss::render_resource_kind::material};
-  auto other = app->load_assets({&replacement, 1});
+  auto other = app->assets().load_batch({&replacement, 1});
   check(other && bool(*other));
   edit.cancel(*app);
   check(bool(*other)); // 重复取消旧命令不能取消新请求。

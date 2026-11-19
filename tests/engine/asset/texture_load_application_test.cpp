@@ -67,12 +67,11 @@ void run(gneiss::tasks::execution_mode mode) {
         gneiss::error::success);
   gneiss::asset_batch_request empty;
   check(empty.cancel() == gneiss::error::invalid_state);
-  check(app->can_load_assets());
 
   const std::array uris{gneiss::render_resource_source{
       .uri = "asset://a.texture.json", .type = gneiss::render_resource_kind::texture}};
   gneiss::asset_batch_request assets_request;
-  check(gneiss::test_support::take_value(app->load_assets(uris, false), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, false), assets_request) ==
         gneiss::error::success);
   check(!empty && !empty.progress());
   check(!empty.take() && empty.take().error() == gneiss::error::invalid_state);
@@ -134,7 +133,7 @@ void run(gneiss::tasks::execution_mode mode) {
   const auto initial = capture(0);
   check(initial.material == capture(1).material);
   write_material(true);
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   wait();
   // 只请求纹理不重读材质，场景使用者保持稳定资源引用。
@@ -147,7 +146,7 @@ void run(gneiss::tasks::execution_mode mode) {
                                        selected_before) == gneiss::error::success);
   // 缓存命中立即返回；混合请求只加载缺失项，缓存资源仍保持同一引用。
   {
-    auto cached = app->load_assets({&material_source, 1});
+    auto cached = app->assets().load_batch({&material_source, 1});
     check(cached && cached->ready());
     auto cached_value = cached->take();
     check(cached_value && cached_value->assets.size() == 1 &&
@@ -176,7 +175,7 @@ void run(gneiss::tasks::execution_mode mode) {
     check(completion.result.ok() && completion.assets.size() == 2);
   }
   write_material(false);
-  auto preparation = app->load_assets({&material_source, 1}, true);
+  auto preparation = app->assets().load_batch({&material_source, 1}, true);
   check(bool(preparation));
   assets_request = std::move(*preparation);
   wait();
@@ -190,7 +189,7 @@ void run(gneiss::tasks::execution_mode mode) {
   write_material(true);
   const auto updated = capture(0);
   check(updated.material == capture(1).material && updated.material == initial.material);
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   wait();
   check(completion.result == gneiss::error::success);
@@ -207,26 +206,26 @@ void run(gneiss::tasks::execution_mode mode) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   wait();
   check(completion.result == gneiss::error::success);
   const auto textured = capture(0);
   check(textured.material == capture(1).material && textured.material == updated.material);
   std::ofstream(files.root / "m.material") << "broken";
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   wait();
   check(completion.result == gneiss::error::success && completion.assets.size() == 1U);
   check(capture(0).material == textured.material && capture(1).material == textured.material);
   write_material(false);
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   check(assets_request.cancel().ok());
   wait();
   check(completion.state == gneiss::asset_load_state::cancelled && completion.assets.empty());
   // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   gneiss::mesh_component external;
   const std::array<gneiss::mesh_vertex, 3> vertices{
@@ -248,17 +247,18 @@ void run(gneiss::tasks::execution_mode mode) {
   check(!scene.is_valid() && !objects.front().is_valid());
   check(gneiss::error{gneiss::test_support::load_scene(*app, **world, scene_uri, &scene,
                                                        &scheduler)} == gneiss::error::success);
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   wait();
   check(completion.result == gneiss::error::success);
   completion = {}; // 所有租约必须先于 Application 销毁。
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request) ==
         gneiss::error::success);
   check(assets_request.cancel().ok());
   auto discarded = std::move(assets_request);
   discarded.reset();
-  check(gneiss::test_support::take_value(app->load_assets(uris, true), assets_request).ok());
+  check(
+      gneiss::test_support::take_value(app->assets().load_batch(uris, true), assets_request).ok());
   check(!discarded && discarded.cancel() == gneiss::error::invalid_state);
   wait();
   check(completion.request != 0 && completion.result.ok());

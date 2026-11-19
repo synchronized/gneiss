@@ -7,17 +7,16 @@
 #include "../../support/prepare_render.hpp"
 #include "../../support/value_result.hpp"
 #include "function/asset/detail/asset_construction.hpp"
-#include "function/asset/detail/resource_load_group.hpp"
 #include "function/asset/resource_cache.hpp"
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/asset/asset_reference_context.hpp>
+#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/material/material_description.hpp>
 #include <gneiss/engine/resource/mesh/mesh_binary.hpp>
@@ -51,8 +50,7 @@ gneiss::error reload_assets_for_test(gneiss::asset_manager& loader,
   auto status = loader.configure(scheduler);
   if (status.failed())
     return status;
-  gneiss::resource_load_group group{loader};
-  auto request = group.begin(sources, true);
+  auto request = loader.load_batch(sources, true);
   if (!request)
     return request.error();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -60,11 +58,12 @@ gneiss::error reload_assets_for_test(gneiss::asset_manager& loader,
     (void)scheduler.run_ready();
     (void)loader.async_files()->dispatch_completions(64);
     loader.advance();
-    group.advance();
-    gneiss::asset_load_completion completion;
-    if (group.take(completion)) {
-      diagnostic = {completion.result, 0, {}, std::move(completion.message)};
-      return completion.result;
+    if (request->ready()) {
+      auto completion = request->take();
+      if (!completion)
+        return completion.error();
+      diagnostic = {completion->result, 0, {}, std::move(completion->message)};
+      return completion->result;
     }
     if (std::chrono::steady_clock::now() > deadline)
       throw std::runtime_error("异步重载测试超时");

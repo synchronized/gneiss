@@ -16,7 +16,6 @@
 #include <gneiss/engine/core/logging/record.hpp>
 #include <gneiss/engine/function/application/configuration.hpp>
 #include <gneiss/engine/function/application/schedule.hpp>
-#include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_batch_types.hpp>
 #include <gneiss/engine/function/render/camera.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
@@ -47,9 +46,7 @@ namespace gneiss {
 class world;
 }
 
-namespace gneiss {
-class resource_load_group;
-}
+namespace gneiss {}
 
 namespace gneiss::runtime {
 
@@ -109,16 +106,8 @@ public:
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
   create(const application_configuration& config);
-  [[nodiscard]] GNEISS_ENGINE_API bool has_asset_loading_service() const noexcept;
-  /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::result<gneiss::asset_batch_request>
-  load_assets(std::span<const gneiss::render_resource_source> sources, bool reload = false);
-  /** 所属线程查询共享资产批次是否可提交；场景切换策略由宿主维护。 */
-  [[nodiscard]] GNEISS_ENGINE_API bool can_load_assets() const noexcept;
 
 private:
-  [[nodiscard]] gneiss::error advance_loading();
-  gneiss::resource_load_group* loading_assets() noexcept;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error advance_resource_io();
   explicit GNEISS_ENGINE_API application(const runtime::application_configuration& config);
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error initialize(std::weak_ptr<application> self);

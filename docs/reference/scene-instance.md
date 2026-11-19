@@ -348,7 +348,7 @@ Prefab 覆盖捕获、恢复及有效描述准备共用此查询，相机身份�
 
 ### 编辑资源准备
 
-普通网格资源选择与 Prefab 操作统一调用 `application::load_assets`，持有 asset_batch_request。
+普通网格资源选择与 Prefab 操作统一调用 `asset_manager::load_batch`，持有 asset_batch_request。
 宿主私有 resource_load_group 直接请求 asset_manager；场景视觉加载使用独立请求组，
 两组共享同一资产缓存，不共享回执槽位。场景服务不提供通用资源转发入口。
 

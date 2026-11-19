@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "function/asset/detail/resource_load_group.hpp"
 #include <atomic>
 #include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/base/error.hpp>
@@ -254,7 +253,6 @@ struct application::storage {
   };
   std::shared_ptr<environment_read> environment_;
   std::unique_ptr<gneiss::asset_manager> asset_manager_;
-  std::unique_ptr<gneiss::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
@@ -428,8 +426,6 @@ std::uint64_t application::current_state(type_id type) const {
 }
 
 error application::configure_executor(tasks::task_executor& executor) {
-  if (storage_->asset_loading_.get())
-    return error::invalid_state;
   {
     gneiss::texture_prepare_profile profile;
     if (storage_->window_service_)
@@ -442,8 +438,6 @@ error application::configure_executor(tasks::task_executor& executor) {
       (void)executor.close_scope(scope);
       return configured;
     }
-    auto group = std::make_unique<gneiss::resource_load_group>(*storage_->asset_manager_);
-    storage_->asset_loading_ = std::move(group);
     return gneiss::error::success;
   }
 }
@@ -692,7 +686,7 @@ error application::advance_frame() try {
     const auto dispatched = dispatch_completion_systems();
     if (dispatched.failed())
       return dispatched;
-    const auto advanced = advance_loading();
+    const auto advanced = advance_resource_io();
     if (advanced == error::not_ready && !storage_->files_initialization_) {
       // 启动尚未完成，仍允许下一轮窗口事件与文件完成分发，不执行业务更新。
       return error::success;
@@ -894,8 +888,6 @@ error application::begin_service_shutdown() {
   storage_->closing_files_ = std::move(files);
   storage_->shutdown_requested_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
-  if (storage_->asset_loading_)
-    storage_->asset_loading_->request_stop();
   if (storage_->asset_manager_)
     storage_->asset_manager_->request_stop();
   return gneiss::error::success;
@@ -961,7 +953,6 @@ gneiss::error application::shutdown() {
   }
   storage_->shutting_down_ = true;
   auto shutdown_result = storage_->host_stop_result_;
-  storage_->asset_loading_.reset();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();
   storage_->asset_manager_.reset();
@@ -1069,23 +1060,6 @@ gneiss::error application::shutdown() {
   return shutdown_result;
 }
 
-bool application::has_asset_loading_service() const noexcept {
-  return storage_->asset_loading_.get() != nullptr;
-}
-
-gneiss::resource_load_group* application::loading_assets() noexcept {
-  return storage_->asset_loading_.get();
-}
-
-gneiss::result<gneiss::asset_batch_request>
-application::load_assets(std::span<const gneiss::render_resource_source> sources, bool reload) {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  auto* group = loading_assets();
-  if (!group)
-    return gneiss::error::not_ready;
-  return group->begin(sources, reload);
-}
 gneiss::error application::advance_resource_io() {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::error::invalid_state;
@@ -1116,18 +1090,6 @@ gneiss::error application::advance_resource_io() {
       return submitted;
   }
   return gneiss::error::success;
-}
-
-gneiss::error application::advance_loading() {
-  if (const auto status = advance_resource_io(); status.failed())
-    return status;
-  if (auto* assets = loading_assets())
-    assets->advance();
-  return gneiss::error::success;
-}
-
-bool application::can_load_assets() const noexcept {
-  return accepts_requests() && storage_->asset_loading_ && !storage_->asset_loading_->busy();
 }
 
 bool application::accepts_requests() const noexcept {

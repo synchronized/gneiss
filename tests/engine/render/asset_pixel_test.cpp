@@ -114,7 +114,7 @@ void run_asset_reload() {
   const auto reload = [&](std::span<const gneiss::render_resource_source> requests) {
     gneiss::asset_batch_request assets_request;
     auto status =
-        gneiss::test_support::take_value(app->load_assets(requests, true), assets_request);
+        gneiss::test_support::take_value(app->assets().load_batch(requests, true), assets_request);
     if (status.failed())
       return status;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -830,8 +830,8 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
               : std::vector<gneiss::render_resource_source>{
                     {"asset://t.texture.json", type::texture}};
     gneiss::asset_batch_request assets_request;
-    check(gneiss::test_support::take_value(app->load_assets(assets, true), assets_request) ==
-          gneiss::error::success);
+    check(gneiss::test_support::take_value(app->assets().load_batch(assets, true),
+                                           assets_request) == gneiss::error::success);
     gneiss::asset_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);

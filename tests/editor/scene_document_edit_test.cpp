@@ -191,7 +191,7 @@ void run(scenario mode) {
   }
   const e::render_resource_source source_asset{"asset://material.json",
                                                e::render_resource_kind::material};
-  auto retry = editing.application->load_assets({&source_asset, 1}, true);
+  auto retry = editing.application->assets().load_batch({&source_asset, 1}, true);
   check(retry && bool(*retry));
   retry->reset();
   editing.document.close();

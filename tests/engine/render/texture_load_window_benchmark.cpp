@@ -110,7 +110,8 @@ gneiss::error native_update(runtime::application& app, context& state) {
     const std::array uris{
         gneiss::render_resource_source{.uri = "asset://textures/test.texture.json",
                                        .type = gneiss::render_resource_kind::texture}};
-    auto result = state.model ? app.load_assets(state.assets, true) : app.load_assets(uris, true);
+    auto result = state.model ? app.assets().load_batch(state.assets, true)
+                              : app.assets().load_batch(uris, true);
     if (!result)
       return result.error();
     state.request = std::move(*result);

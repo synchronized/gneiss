@@ -169,9 +169,9 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 生命周期 | run/step 共用推进；已删除 run(n)，分步关闭为私有实现；pending/complete 停止时分发完成 | 公开 shutdown 已移除；最终启动协议继续收敛 |
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发；宿主拥有 World/绑定/视图，默认实现已删除 | 多 World 与关闭重开验收 |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终启动协议对齐 |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入加载与旧业务转发清理；应用级暂停开关已删除 |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入请求和批次已归宿主；剩余环境加载、诊断转发清理 |
 | Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发清理与多 World/关闭重开验收 |
-| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载与批次转发清理 |
+| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载和批次已迁移；最终启动协议对齐 |
 
 当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
 不能把多个宿主使用新 run 等同于整体所有权迁移完成。旧 attach_task_executor 已从源码删除，
@@ -359,3 +359,17 @@ Windows Clang Debug 相关目标构建通过；texture-load-application 覆盖�
 多批次并存、取消隔离、独立领取，native-application 覆盖移动、取消与管理器关闭后的失效。
 两项 CPU 回归通过；Runtime 协作模式、Editor editor_demo 与 scene_viewer 双视图 smoke 均退出 0。
 未重复完整矩阵，静态及其他平台未验证。
+
+### 删除 Application 批次槽位与转发
+
+剩余编辑命令、Runtime 资源重载、测试和测量工具全部改用 assets().load_batch()。
+删除 Application 的 load_assets、can_load_assets、has_asset_loading_service、批次成员与
+advance_loading 转发；基础循环只推进资产管理器。场景/编辑操作独立持有请求，不再协调全局槽位。
+渲染资产测试辅助也改用正式批次入口，删除私有 resource_load_group 的直接创建和手动推进。
+关闭回归验证请求失效，而非调用已经删除的 Application 转发函数。
+旧头文件边界测试禁止包含 Input 服务，与当前 input() 原生借用契约冲突；调整为验证借用类型，
+继续保留后端与私有实现不可见检查。
+
+Windows Clang Debug 完整构建与全部 213 项 CPU 测试通过，包含编辑器、Prefab、场景重载、
+模块边界和停止生命周期。静态构建及其他平台仍留待最终验收。
+像素渲染测试、Runtime 协作调度 editor_demo、Editor editor_demo 和 scene_viewer 双视图 smoke 均退出 0。

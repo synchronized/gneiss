@@ -3,9 +3,8 @@
 
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
-// 只包含 Application 不应引入具体 Scene 服务或输入服务。
-#if defined(GNEISS_SCENE_SCENE_INSTANCES_HPP_) || defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) ||      \
-    defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
+// Application 可提供 Input 原生契约，但不得引入旧 Scene 服务或渲染执行器。
+#if defined(GNEISS_SCENE_SCENE_INSTANCES_HPP_) || defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
 #error "Application 重新传递包含了具体服务"
 #endif
 #include "documents/commands/author_property_edit.hpp"
@@ -56,6 +55,8 @@
 #endif
 #include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <type_traits>
+static_assert(std::is_same_v<decltype(std::declval<gneiss::runtime::application&>().input()),
+                             gneiss::input::service&>);
 static_assert(!std::is_convertible_v<gneiss::scene_instance_id, gneiss::entity_id>);
 static_assert(!std::is_convertible_v<std::uint64_t, gneiss::entity_id>);
 template <typename T>

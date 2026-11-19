@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/commands/editor_prefab_edit.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/scene_document_edit.hpp"
+#include <algorithm>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/composition.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
-#include <algorithm>
 
 namespace gneiss::editor {
 namespace {
@@ -159,7 +159,7 @@ struct editor_prefab_edit::state {
       }
     }
     if (status.ok() && !cancelled) {
-      auto submitted = application.load_assets(requested, refreshing);
+      auto submitted = application.assets().load_batch(requested, refreshing);
       if (!submitted)
         status = submitted.error();
       else {
@@ -221,11 +221,10 @@ void editor_prefab_edit::dismiss() noexcept {
   }
 }
 gneiss::error editor_prefab_edit::request(runtime::application& application,
-                                                  gneiss::tasks::task_executor& executor,
-                                                  scene_edit_session& session,
-                                                  editor_command_history& history,
-                                                  std::string_view name, std::string_view uri,
-                                                  entity_id parent) {
+                                          gneiss::tasks::task_executor& executor,
+                                          scene_edit_session& session,
+                                          editor_command_history& history, std::string_view name,
+                                          std::string_view uri, entity_id parent) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::error::not_ready;
   }
@@ -270,9 +269,8 @@ gneiss::error editor_prefab_edit::request(runtime::application& application,
   return gneiss::error::success;
 }
 gneiss::error editor_prefab_edit::request_remove(runtime::application& application,
-                                                         scene_edit_session& session,
-                                                         editor_command_history& history,
-                                                         entity_id root) {
+                                                 scene_edit_session& session,
+                                                 editor_command_history& history, entity_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::error::not_ready;
   }
@@ -297,10 +295,9 @@ gneiss::error editor_prefab_edit::request_remove(runtime::application& applicati
 }
 
 gneiss::error editor_prefab_edit::request_refresh(runtime::application& application,
-                                                          gneiss::tasks::task_executor& executor,
-                                                          scene_edit_session& session,
-                                                          editor_command_history& history,
-                                                          entity_id root) {
+                                                  gneiss::tasks::task_executor& executor,
+                                                  scene_edit_session& session,
+                                                  editor_command_history& history, entity_id root) {
   if (active() || history.is_pending() || !session.is_open()) {
     return gneiss::error::not_ready;
   }

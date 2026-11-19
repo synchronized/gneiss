@@ -286,7 +286,7 @@ gneiss::error editor_asset_edit::request_impl(runtime::application& application,
   gneiss::asset_load_completion prepared;
   prepared.state = gneiss::asset_load_state::completed;
   if (!sources.empty()) {
-    auto result = application.load_assets(sources);
+    auto result = application.assets().load_batch(sources);
     if (!result)
       operation_ = result.error();
     else {

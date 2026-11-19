@@ -122,21 +122,15 @@ void test_asset_request_boundaries() {
         gneiss::error::success);
   gneiss::asset_batch_request empty_assets;
   check(!empty_assets.progress() && empty_assets.cancel() == gneiss::error::invalid_state);
-  const auto rejected = [&] {
-    check(app->step().error() == gneiss::error::invalid_state);
-    auto assets = app->load_assets({});
-    return !assets && assets.error() == gneiss::error::invalid_state;
-  };
   bool rejected_on_worker{};
-  std::thread worker([&] { rejected_on_worker = rejected(); });
+  std::thread worker([&] { rejected_on_worker = app->step().error() == error::invalid_state; });
   worker.join();
   check(rejected_on_worker);
   app->request_exit();
   check(app->run().ok());
   const auto stopped = app->step();
   check(stopped && *stopped == app::lifecycle::stopped);
-  auto stopped_request = app->load_assets({});
-  check(!stopped_request && stopped_request.error() == error::invalid_state);
+  check(!app->accepts_requests());
 }
 
 void test_loading_request_lifetime() {
@@ -212,7 +206,9 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     } else if (stage == 2) {
       const std::array sources{gneiss::render_resource_source{"asset://models/triangle.mesh.json",
                                                               gneiss::render_resource_kind::mesh}};
-      check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
+      check(
+          gneiss::test_support::take_value(app->assets().load_batch(sources, true), assets_request)
+              .ok());
       gneiss::asset_load_completion completion;
       bool ready{};
       check(app->step().ok());
@@ -223,8 +219,7 @@ void asynchronous_shutdown(gneiss::tasks::execution_mode mode) {
     check(stopping && *stopping == gneiss::app::lifecycle::stopping);
     check(!app->accepts_requests() && closed == 0);
     app->request_exit();
-    auto rejected = app->load_assets({});
-    check(!rejected && rejected.error() == gneiss::error::invalid_state);
+    check(!assets_request);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       const auto status = app->step();

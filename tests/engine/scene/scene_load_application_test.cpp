@@ -162,7 +162,7 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   const std::array sources{gneiss::render_resource_source{"asset://material.json",
                                                           gneiss::render_resource_kind::material}};
   gneiss::asset_batch_request assets_request;
-  check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request) ==
+  check(gneiss::test_support::take_value(app->assets().load_batch(sources, true), assets_request) ==
         gneiss::error::success);
   gneiss::asset_load_completion loaded;
   until([&] {
@@ -180,7 +180,8 @@ void visual_failure(gneiss::tasks::execution_mode mode, bool missing_texture = f
   const auto old_data = app->render().share_material(gneiss::resource_handle(material));
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,0,1,1]},"texture_uris":["asset://missing-update.ktx2","","","",""]})";
-  check(gneiss::test_support::take_value(app->load_assets(sources, true), assets_request).ok());
+  check(gneiss::test_support::take_value(app->assets().load_batch(sources, true), assets_request)
+            .ok());
   until([&] {
     bool finished{};
     check(app->step().ok());
@@ -359,8 +360,8 @@ void shared_texture_versions(gneiss::tasks::execution_mode mode) {
   const std::array textures{gneiss::render_resource_source{
       .uri = "asset://texture.json", .type = gneiss::render_resource_kind::texture}};
   gneiss::asset_batch_request assets_request;
-  check(gneiss::test_support::take_value(app->load_assets(textures, true), assets_request) ==
-        gneiss::error::success);
+  check(gneiss::test_support::take_value(app->assets().load_batch(textures, true),
+                                         assets_request) == gneiss::error::success);
   auto assets = drain_visuals(app, scheduler, mode, assets_request);
   // 显式重载更新同一纹理身份，两份材质无需重建引用。
   check(assets.result.ok() && assets.assets.size() == 1);
