@@ -59,7 +59,7 @@ int main() try {
   wait([&] { return loader.active() || loader.visual_loading(); },
        [&] {
          bool changed{};
-         if (loader.advance(*app, editing, world, camera, changed).failed())
+         if (loader.advance(*app, editing, *world, camera, changed).failed())
            throw std::runtime_error("场景加载失败");
        });
   if (loader.operation().failed())

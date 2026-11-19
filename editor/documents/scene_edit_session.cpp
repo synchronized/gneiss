@@ -158,10 +158,10 @@ gneiss::error make_asset_uri(const std::filesystem::path& asset_root,
 }
 
 bool scene_edit_session::is_open() const noexcept {
-  if (!application_ || !scene_.id() || !application_->is_owner_thread() ||
-      application_->native_world() != world_)
+  if (!application_ || !scene_.id() || !application_->is_owner_thread() || !world_ ||
+      !world_->is_owner_thread())
     return false;
-  // World 地址可能复用，必须同时校验实例 ID 的所属域及代次。
+  // World 必须仍然存活；实例校验拒绝已卸载或槽位复用的场景。
   return document_ && bool(document_->current()) && scene_.is_valid();
 }
 
@@ -189,7 +189,7 @@ gneiss::error scene_edit_session::adopt(runtime::application& application,
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::error::invalid_state;
   auto* world = scene.owner();
-  if (!world || world != application.native_world() || initial.uri.empty() || !scene.id())
+  if (!world || !world->is_owner_thread() || initial.uri.empty() || !scene.id())
     return gneiss::error::invalid_argument;
   {
     if (!scene.is_valid())
@@ -228,7 +228,7 @@ gneiss::error scene_edit_session::create_empty(runtime::application& application
                                                gneiss::world* world, gneiss::guid scene_uuid) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::error::invalid_state;
-  if (!world || world != application.native_world() || scene_uuid.is_nil())
+  if (!world || !world->is_owner_thread() || scene_uuid.is_nil())
     return gneiss::error::invalid_argument;
   auto created = world->create_scene();
   if (!created)

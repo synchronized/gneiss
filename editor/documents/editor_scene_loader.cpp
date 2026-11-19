@@ -43,7 +43,7 @@ gneiss::error editor_scene_loader::cancel(runtime::application& application) {
 }
 
 gneiss::error editor_scene_loader::advance(runtime::application& application,
-                                           document_editing& editing, gneiss::world*& world,
+                                           document_editing& editing, gneiss::world& world,
                                            editor_camera& camera, bool& changed) {
   changed = false;
   if (visuals_ && visuals_.ready()) {
@@ -112,7 +112,7 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
       return fail(resource.error());
     initial->assets.emplace(dependency.uri, resource->resource());
   }
-  auto next = application.native_world()->create_scene();
+  auto next = world.create_scene();
   if (!next)
     return fail(next.error());
   auto built = gneiss::instantiate(*next, *composed, initial->assets);
@@ -128,7 +128,7 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
       primary_camera = built->objects[i].entity;
   }
   if (primary_camera.get()) {
-    auto selected = gneiss::set_active_camera(*application.native_world(), primary_camera);
+    auto selected = gneiss::set_active_camera(world, primary_camera);
     if (selected.failed()) {
       next->unload();
       return fail(selected);
@@ -140,7 +140,6 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
     return closed;
   }
   camera.shutdown();
-  world = application.native_world();
   auto operation = editing.document().adopt(application, *next, *initial, built->objects);
   if (operation.failed())
     next->unload();

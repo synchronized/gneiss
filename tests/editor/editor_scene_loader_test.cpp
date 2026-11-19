@@ -40,12 +40,15 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss::test_support::assign_value(runtime::application::create(desc), app) ==
         gneiss::error::success);
 
+  auto created_world = gneiss::create_native();
+  check(bool(created_world));
+  auto owner = std::move(*created_world);
   editor::document_editing editing;
   auto& session = editing.document();
   editor::editor_camera camera;
   auto& history = editing.history();
   editor::editor_scene_loader loader;
-  auto world = app->native_world();
+  auto world = owner.get();
   check(session.create_empty(*app, world) == gneiss::error::success);
   check(camera.initialize() == gneiss::error::success);
   check(loader.state() == editor::scene_open_state::idle);
@@ -57,7 +60,7 @@ void run(gneiss::tasks::execution_mode mode) {
       (void)scheduler.run_ready();
     check(gneiss::error{app->run(1U)} == gneiss::error::success);
     bool changed{};
-    check(loader.advance(*app, editing, world, camera, changed) == gneiss::error::success);
+    check(loader.advance(*app, editing, *world, camera, changed) == gneiss::error::success);
     std::this_thread::yield();
   };
   auto drain = [&] {
@@ -82,6 +85,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(!loader.visible() && loader.operation() == gneiss::error::success && world == original);
   check(loader.state() == editor::scene_open_state::opened);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
+  check(session.scene_handle().owner() == world && app->native_world()->entity_count() == 0U);
   check(!gneiss::scene_instance::borrow(*world, (initial_scene).id()));
   check(gneiss::test_support::scene_query(session).nodes.size() == 2U && camera.is_valid());
   const auto current = world;
@@ -153,7 +157,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(prepared && prepared->missing.empty());
   auto after = std::move(prepared->snapshot);
   check(editor::restore_scene_document(*app, session, after).ok());
-  check(app->native_world() == world &&
+  check(session.scene_handle().owner() == world &&
         gneiss::test_support::scene_query(session).nodes.front().display_name == "Snapshot edit" &&
         gneiss::test_support::scene_query(session).prefab_nodes.size() == 2U);
   check(editor::restore_scene_document(*app, session, before).ok());
@@ -171,7 +175,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(session.scene_handle() == stable_scene &&
         after.description()->objects.front().name == "Snapshot edit");
   // 外部 ID 借用失败不影响活动场景。
-  auto invalid_scene = gneiss::scene_instance::borrow(*app->native_world(), {});
+  auto invalid_scene = gneiss::scene_instance::borrow(*world, {});
   check(!invalid_scene && invalid_scene.error() == gneiss::error::invalid_handle);
   check(session.scene_handle().is_valid());
   camera.shutdown();

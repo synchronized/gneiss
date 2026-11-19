@@ -3,17 +3,17 @@
 
 #include "../support/async_editor_save.hpp"
 #include "../support/value_result.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
+#include <fstream>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
 #include <gneiss/engine/resource/builtin_resource_registration.hpp>
-#include <fstream>
 #include <iterator>
 
 namespace {
@@ -91,8 +91,7 @@ public:
   explicit pending_operation(bool& cancelled) : cancelled_(cancelled) {}
   gneiss::error advance(bool& complete) noexcept override {
     complete = ++steps_ == 2;
-    return complete && cancelled_ ? gneiss::error::invalid_state
-                                  : gneiss::error::success;
+    return complete && cancelled_ ? gneiss::error::invalid_state : gneiss::error::success;
   }
   void cancel() noexcept override { cancelled_ = true; }
 
@@ -146,18 +145,16 @@ int main() try {
       editing.history().undo() != gneiss::error::not_ready || !editing.active())
     return 3;
   // 拒绝关闭不能提前释放历史或场景；取消后仍需排空异步操作。
-  if (editing.close() != gneiss::error::not_ready ||
-      editing.document().scene_handle() != scene || editing.history().size() != 1 ||
-      released_while_open)
+  if (editing.close() != gneiss::error::not_ready || editing.document().scene_handle() != scene ||
+      editing.history().size() != 1 || released_while_open)
     return 4;
   gneiss::editor::editor_scene_loader loader;
   gneiss::editor::editor_camera camera;
   auto world = application->native_world();
   bool changed = true;
   if (editing.create_empty(*application, world) != gneiss::error::not_ready ||
-      loader.request(*application, editing, "asset://scene.json") !=
-          gneiss::error::not_ready ||
-      loader.active() || loader.advance(*application, editing, world, camera, changed).failed() ||
+      loader.request(*application, editing, "asset://scene.json") != gneiss::error::not_ready ||
+      loader.active() || loader.advance(*application, editing, *world, camera, changed).failed() ||
       changed || editing.document().scene_handle() != scene)
     return 8;
   editing.cancel(*application);
@@ -165,8 +162,8 @@ int main() try {
   if (!cancelled || !editing.active() || editing.close() != gneiss::error::not_ready)
     return 5;
   editing.advance_cleanup(*application);
-  if (editing.active() || editing.close() != gneiss::error::success ||
-      !released_while_open || editing.document().is_open() || editing.history().size() != 0 ||
+  if (editing.active() || editing.close() != gneiss::error::success || !released_while_open ||
+      editing.document().is_open() || editing.history().size() != 0 ||
       editing.close() != gneiss::error::success)
     return 6;
   // 新建失败不能丢失可撤销历史；成功后先释放旧命令，再替换文档。

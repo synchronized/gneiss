@@ -170,7 +170,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除 | 默认 World、视口、绑定移交 Session |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
 | Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | Session 接管 World、输入加载、暂停、渲染绑定 |
-| Editor | completions/update、取消/等待/释放三段停止，删除手动服务关闭循环 | World/视口归属及旧业务转发清理 |
+| Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | World/视口归属及旧业务转发清理 |
 | 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | scene_viewer 的 World/视口归属迁移 |
 
 当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
@@ -179,6 +179,9 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 停止阶段保留文档用于卸载清理，但资产编辑入口与统一内容修改入口拒绝新请求。
 
 ### 已完成验证
+
+- Editor 及五项文档/加载/资产编辑回归构建通过；独立 World 下打开文档、取消、错误保留、
+  快照恢复与撤销重做通过。文档须先于借用的 Application 和 World 关闭。
 
 - Runtime 加载器使用独立 World 验证加载、Prefab 重载、相机选择与卸载，默认 World 保持空；
   Runtime、加载器及检查器构建通过，场景加载/检查与 Scene/Prefab 结构重载四项回归通过。

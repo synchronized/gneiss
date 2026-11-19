@@ -4,13 +4,13 @@
 #pragma once
 
 #include "documents/document_editing.hpp"
+#include "ui/viewport/editor_camera.hpp"
+#include <atomic>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_request.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include "ui/viewport/editor_camera.hpp"
-#include <atomic>
 
 namespace gneiss::editor {
 
@@ -21,10 +21,9 @@ enum class scene_open_state { idle, loading, opened, failed, cancelled };
 class editor_scene_loader final {
 public:
   gneiss::error request(runtime::application& application, const document_editing& editing,
-                                std::string_view uri);
+                        std::string_view uri);
   gneiss::error advance(runtime::application& application, document_editing& editing,
-                                gneiss::world*& world, editor_camera& camera,
-                                bool& changed);
+                        gneiss::world& world, editor_camera& camera, bool& changed);
   gneiss::error cancel(runtime::application& application);
   void dismiss() noexcept {
     if (!active()) {

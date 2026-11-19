@@ -7,16 +7,16 @@
 #include "documents/document_patch.hpp"
 #include "documents/scene_document.hpp"
 #include "documents/scene_projection.hpp"
-#include <gneiss/engine/function/scene/entity_id.hpp>
+#include <functional>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/math/transform.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/function/files/service.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/function/files/service.hpp>
 #include <gneiss/engine/resource/scene/scene_description.hpp>
-#include <functional>
 namespace gneiss::runtime {
 class application;
 }
@@ -41,8 +41,7 @@ struct prefab_component_state {
 
 /** 将资产根内的本地路径转换为规范 asset URI；路径越界时拒绝。 */
 [[nodiscard]] gneiss::error make_asset_uri(const std::filesystem::path& asset_root,
-                                                   const std::filesystem::path& path,
-                                                   std::string& output);
+                                           const std::filesystem::path& path, std::string& output);
 
 /** 生成符合场景 Schema 的随机 UUID。 */
 [[nodiscard]] gneiss::error make_editor_uuid(gneiss::guid& output);
@@ -102,7 +101,7 @@ struct mesh_node_creation final {
 /** 场景编辑会话：装配纯文档、运行投影、选择及保存协调。
  * 借用 Application，绑定一个运行时场景实例；close 负责卸载该实例。
  * 文档版本持有编辑内容；World 是投影，保存不读取运行时属性。
- * 不拥有 World 或第二棵运行时场景树；须先于 Application 关闭。
+ * 不拥有 World 或第二棵运行时场景树；须先于 Application 和所属 World 关闭。
  * 撤销命令由宿主持有的 editor_command_history 管理，并在文档切换时清理。
  */
 class scene_edit_session final {
@@ -119,8 +118,7 @@ public:
                                     std::span<const gneiss::scene_object_binding> objects);
   [[nodiscard]] gneiss::error create_empty(runtime::application& application, gneiss::world* world,
                                            gneiss::guid scene_uuid);
-  [[nodiscard]] gneiss::error create_empty(runtime::application& application,
-                                                   gneiss::world* world);
+  [[nodiscard]] gneiss::error create_empty(runtime::application& application, gneiss::world* world);
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept;
@@ -153,29 +151,26 @@ public:
   /** 清除失效选择并返回成功；文档或应用已失效时返回错误。 */
   [[nodiscard]] gneiss::error validate_selection();
   [[nodiscard]] gneiss::error create_node(std::string_view name, entity_id parent,
-                                                  entity_id& out_node);
+                                          entity_id& out_node);
   [[nodiscard]] gneiss::error rename_node(entity_id node, std::string_view name);
   [[nodiscard]] gneiss::error reparent_node(entity_id node, entity_id parent);
-  [[nodiscard]] gneiss::error
-  get_world_transform(entity_id node, gneiss::math::transform& output) const;
+  [[nodiscard]] gneiss::error get_world_transform(entity_id node,
+                                                  gneiss::math::transform& output) const;
   /** 设置节点局部 TRS；成功后标记场景已修改。 */
-  [[nodiscard]] gneiss::error
-  set_local_transform(entity_id node, const gneiss::math::transform& value);
+  [[nodiscard]] gneiss::error set_local_transform(entity_id node,
+                                                  const gneiss::math::transform& value);
   /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */
-  [[nodiscard]] gneiss::error
-  restore_prefab_transform_field(entity_id node, std::uint32_t field_id,
-                                 gneiss::math::transform& out_previous);
+  [[nodiscard]] gneiss::error restore_prefab_transform_field(entity_id node, std::uint32_t field_id,
+                                                             gneiss::math::transform& out_previous);
   /** 恢复 Prefab 来源节点的全部 Transform 字段；返回操作前的有效值。 */
-  [[nodiscard]] gneiss::error
-  restore_prefab_transform(entity_id node, gneiss::math::transform& out_previous);
-  [[nodiscard]] gneiss::error destroy_subtree(entity_id node,
-                                                      scene_subtree_snapshot& out_snapshot);
+  [[nodiscard]] gneiss::error restore_prefab_transform(entity_id node,
+                                                       gneiss::math::transform& out_previous);
+  [[nodiscard]] gneiss::error destroy_subtree(entity_id node, scene_subtree_snapshot& out_snapshot);
   [[nodiscard]] gneiss::error restore_subtree(const scene_subtree_snapshot& snapshot,
-                                                      entity_id& out_node);
+                                              entity_id& out_node);
   [[nodiscard]] gneiss::error duplicate_subtree(entity_id node, entity_id parent,
-                                                        entity_id& out_node);
-  [[nodiscard]] gneiss::error set_camera(entity_id node,
-                                                 const gneiss::camera_description& desc);
+                                                entity_id& out_node);
+  [[nodiscard]] gneiss::error set_camera(entity_id node, const gneiss::camera_description& desc);
   [[nodiscard]] gneiss::error remove_camera(entity_id node);
   [[nodiscard]] gneiss::error remove_mesh_component(entity_id node);
   [[nodiscard]] gneiss::error set_mesh_component(entity_id node, std::string_view mesh_uri,
@@ -190,8 +185,7 @@ public:
     bool complete{};
   };
   /** 提交当前内容的单文件安全保存；不阻塞、不修改 URI 或脏状态。 */
-  [[nodiscard]] gneiss::error begin_save(gneiss::files::service& files,
-                                         std::string_view uri,
+  [[nodiscard]] gneiss::error begin_save(gneiss::files::service& files, std::string_view uri,
                                          gneiss::files::write_mode mode,
                                          std::shared_ptr<save_receipt>& output);
   /** 接收成功保存；场景实例不匹配时拒绝，保存期间的新修改保持 dirty。 */

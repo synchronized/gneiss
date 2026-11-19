@@ -1519,7 +1519,7 @@ gneiss::error update_editor_camera(editor_state& state, const gneiss::frame_time
       selected_node = prefab->node;
     }
     if (selected_node.is_valid()) {
-      auto target = state.application->native_world()->object(selected_node);
+      auto target = state.world->object(selected_node);
       if (!target)
         return target.error();
       return state.camera.focus(target->world_transform());
@@ -1688,7 +1688,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       return submit_editor_ui(state);
     }
     bool scene_changed{};
-    const auto loading = state.scene_loader.advance(*state.application, state.editing, state.world,
+    const auto loading = state.scene_loader.advance(*state.application, state.editing, *state.world,
                                                     state.camera, scene_changed);
     if (loading != gneiss::error::success) {
       return loading;
