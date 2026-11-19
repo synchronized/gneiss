@@ -63,11 +63,6 @@ void loop() {
 void scheduled_systems() {
   runtime::application_configuration config;
   std::string calls;
-  unsigned diagnostics{};
-  config.callbacks.diagnostic = [&](const diagnostic_view& event) {
-    if (event.result == error::not_found)
-      ++diagnostics;
-  };
   auto created = runtime::application::create(config);
   check(created.ok());
   auto application = *created;
@@ -88,13 +83,13 @@ void scheduled_systems() {
   fail = true;
   calls.clear();
   check(application->run().error() == error::not_found);
-  check(calls == "ab" && diagnostics == 1);
-  // 失败进入终态，保留首次错误；不能重新执行系统或重复发送诊断。
+  check(calls == "ab");
+  // 失败进入终态，保留首次错误；不能重新执行系统。
   fail = false;
   calls.clear();
   check(application->step().error() == error::not_found);
   check(application->run().error() == error::not_found);
-  check(calls.empty() && diagnostics == 1);
+  check(calls.empty());
 }
 enum class flow { loading, playing, paused };
 enum class overlay { hidden, visible };
@@ -311,19 +306,12 @@ void creation_failures() {
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
   runtime::application_configuration config;
   std::shared_ptr<runtime::application> app;
-  unsigned diagnostics{};
-  gneiss::error reported;
-  config.callbacks.diagnostic = [&](const gneiss::diagnostic_view& event) {
-    check(!event.message.empty());
-    ++diagnostics;
-    reported = event.result;
-  };
   config.enable_window = true;
   config.window.width = 0;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::error::invalid_argument);
-  // 配置校验在创建对象前返回结果，不经过运行期诊断回调。
-  check(!app && diagnostics == 0);
+  // 配置校验在创建对象前返回结果。
+  check(!app);
   config.enable_window = false;
   config.window.width = 1280;
   config.asset_root = "gneiss-test-directory-does-not-exist";
@@ -335,10 +323,9 @@ void creation_failures() {
   app.reset();
   config.asset_root = {};
   config.callbacks.initialize = [] { return gneiss::error::not_found; };
-  diagnostics = 0;
   check(gneiss::test_support::assign_value(runtime::application::create(config), app) ==
         gneiss::error::not_found);
-  check(!app && diagnostics == 1 && reported == gneiss::error::not_found);
+  check(!app);
 }
 }
 int main() try {

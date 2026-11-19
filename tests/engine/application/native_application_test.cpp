@@ -94,24 +94,6 @@ void test_loop_callback_exceptions() {
   app->request_exit();
   check(app->run().ok());
   app.reset();
-  unsigned delivered_diagnostics{};
-  bool valid_diagnostic{};
-  config = {};
-  config.callbacks.initialize = [] { return gneiss::error::initialization_failed; };
-  config.callbacks.diagnostic = [&](const gneiss::diagnostic_view& event) {
-    ++delivered_diagnostics;
-    valid_diagnostic =
-        event.result == gneiss::error::initialization_failed && !event.message.empty();
-    throw std::runtime_error("诊断失败");
-  };
-  bool diagnostic_threw = false;
-  try {
-    (void)runtime::application::create(config);
-  } catch (const std::runtime_error&) {
-    diagnostic_threw = true;
-  }
-  check(diagnostic_threw);
-  check(delivered_diagnostics == 1U && valid_diagnostic && !app);
 }
 
 void test_asset_request_boundaries() {

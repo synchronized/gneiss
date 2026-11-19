@@ -3,14 +3,12 @@
 
 #pragma once
 
-#include <gneiss/engine/core/logging/record.hpp>
 #include <gneiss/engine/platform/window/configuration.hpp>
 
 #include <functional>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/frame_time.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include <gneiss/engine/function/diagnostics/diagnostic.hpp>
 #include <string_view>
 
 namespace gneiss::tasks {
@@ -19,7 +17,7 @@ class task_executor;
 
 namespace gneiss::runtime {
 
-/** 原生平台和诊断回调由配置复制；捕获的借用对象须存活至关闭结束。
+/** 原生平台回调由配置复制；捕获的借用对象须存活至关闭结束。
  * 宿主通过捕获绑定需要的状态，不传递 Application 句柄。 */
 struct application_callbacks final {
   std::function<gneiss::error()> initialize;
@@ -27,7 +25,6 @@ struct application_callbacks final {
   std::function<std::uint64_t()> now_ns;
   std::function<gneiss::error(const gneiss::frame_time&)> update;
   std::function<void()> shutdown;
-  std::function<void(const gneiss::diagnostic_view&)> diagnostic;
   std::function<bool()> close_requested;
 };
 

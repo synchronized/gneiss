@@ -136,9 +136,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::input::service& input() noexcept;
   /** 借用只读窗口服务；无窗口或关闭后为空，不允许宿主重复泵送平台事件。 */
   [[nodiscard]] GNEISS_ENGINE_API const gneiss::window::service* window() const noexcept;
-  GNEISS_ENGINE_API void report(gneiss::severity severity, gneiss::category category,
-                                gneiss::error result, std::string_view module,
-                                std::string_view message);
   GNEISS_ENGINE_API void request_exit() noexcept;
 
 private:

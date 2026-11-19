@@ -3,11 +3,99 @@
 
 #include "function/render/detail/service_impl.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdio>
 #include <gneiss/engine/core/base/assert.hpp>
+#include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <limits>
 namespace gneiss::render {
+namespace {
+void log_shutdown(const queue_stats& render_stats, const device_stats& stats,
+                  error shutdown_result) {
+  std::array<char, 768> performance_message{};
+  const auto performance_written = std::snprintf(
+      performance_message.data(), performance_message.size(),
+      "渲染线程统计：提交帧=%llu，执行帧=%llu，替换帧=%llu，提交命令=%llu，执行命令=%llu，"
+      "拒绝命令=%llu，跳过构造=%llu，队列高水位=%zu，最近构造=%.3f ms，复制=%zu bytes，"
+      "最近排队=%.3f ms，最大排队=%.3f ms，GPU计时=%s，GPU样本=%llu，GPU暂不可用=%llu，"
+      "最近GPU样本=%llu/%.3f ms（阴影=%.3f，不透明=%.3f，色调映射=%.3f），"
+      "环境=%s，强度=%.3f，旋转=%.3f rad",
+      static_cast<unsigned long long>(render_stats.submitted_frames),
+      static_cast<unsigned long long>(render_stats.executed_frames),
+      static_cast<unsigned long long>(render_stats.replaced_frames),
+      static_cast<unsigned long long>(render_stats.submitted_commands),
+      static_cast<unsigned long long>(render_stats.executed_commands),
+      static_cast<unsigned long long>(render_stats.rejected_commands),
+      static_cast<unsigned long long>(render_stats.skipped_frame_builds),
+      render_stats.pending_high_watermark, render_stats.latest_frame_capture_ms,
+      render_stats.latest_copied_payload_bytes, render_stats.latest_frame_queue_wait_ms,
+      render_stats.maximum_frame_queue_wait_ms,
+      render_stats.gpu_timing_supported ? "支持" : "不可用",
+      static_cast<unsigned long long>(render_stats.gpu_timing_sample_count),
+      static_cast<unsigned long long>(render_stats.gpu_timing_unavailable_count),
+      static_cast<unsigned long long>(render_stats.latest_gpu_timing_sample_sequence),
+      render_stats.latest_gpu_timing_valid ? render_stats.latest_gpu_frame_ms : 0.0F,
+      render_stats.latest_gpu_shadow_ms, render_stats.latest_gpu_opaque_ms,
+      render_stats.latest_gpu_tone_mapping_ms,
+      render_stats.environment_fallback
+          ? "资产失败后回退"
+          : (render_stats.environment_asset_requested ? "工程资产" : "内建"),
+      render_stats.environment_intensity, render_stats.environment_rotation_radians);
+  const auto performance_length =
+      performance_written > 0 ? std::min<std::size_t>(static_cast<std::size_t>(performance_written),
+                                                      performance_message.size() - 1U)
+                              : 0U;
+  logging::logger{"render"}.write(
+      {.severity = logging::level::info,
+       .source = "granit.render.performance",
+       .category = "backend",
+       .message = std::string_view(performance_message.data(), performance_length)});
+  if (shutdown_result != gneiss::error::success) {
+    std::array<char, 768> message{};
+    const auto written =
+        stats.total_live_count == 0U
+            ? std::snprintf(message.data(), message.size(),
+                            "Granit GPU 逻辑资源退出检查失败，无法取得资源统计")
+            : std::snprintf(
+                  message.data(), message.size(),
+                  "Granit 关闭前仍有 GPU 逻辑资源：总数=%llu，Buffer=%llu，Texture=%llu，"
+                  "TextureView=%llu，Sampler=%llu，Shader=%llu，BindGroupLayout=%llu，"
+                  "BindGroup=%llu，PipelineLayout=%llu，GraphicsPipeline=%llu，"
+                  "ComputePipeline=%llu，Surface=%llu，Swapchain=%llu，CommandRecorder=%llu，"
+                  "FrameContext=%llu，Frame=%llu，TimestampQueryPool=%llu，UploadBatch=%llu；"
+                  "后端待回收=%llu",
+                  static_cast<unsigned long long>(stats.total_live_count),
+                  static_cast<unsigned long long>(stats.buffer_count),
+                  static_cast<unsigned long long>(stats.texture_count),
+                  static_cast<unsigned long long>(stats.texture_view_count),
+                  static_cast<unsigned long long>(stats.sampler_count),
+                  static_cast<unsigned long long>(stats.shader_count),
+                  static_cast<unsigned long long>(stats.bind_group_layout_count),
+                  static_cast<unsigned long long>(stats.bind_group_count),
+                  static_cast<unsigned long long>(stats.pipeline_layout_count),
+                  static_cast<unsigned long long>(stats.graphics_pipeline_count),
+                  static_cast<unsigned long long>(stats.compute_pipeline_count),
+                  static_cast<unsigned long long>(stats.surface_count),
+                  static_cast<unsigned long long>(stats.swapchain_count),
+                  static_cast<unsigned long long>(stats.command_recorder_count),
+                  static_cast<unsigned long long>(stats.frame_context_count),
+                  static_cast<unsigned long long>(stats.frame_count),
+                  static_cast<unsigned long long>(stats.timestamp_query_pool_count),
+                  static_cast<unsigned long long>(stats.upload_batch_count),
+                  static_cast<unsigned long long>(stats.pending_retirement_count));
+    const auto length =
+        written > 0 ? std::min<std::size_t>(static_cast<std::size_t>(written), message.size() - 1U)
+                    : 0U;
+    logging::logger{"render"}.write({.severity = logging::level::error,
+                                     .source = "granit.render.resources",
+                                     .category = "backend",
+                                     .message = std::string_view(message.data(), length),
+                                     .result = shutdown_result});
+  }
+}
+}
 gneiss::error service::implementation::initialize(const gneiss::window::native_handle& window,
                                                   window::surface_state surface,
                                                   std::span<const std::byte> environment_asset,
@@ -178,8 +266,10 @@ gneiss::error service::implementation::shutdown(device_stats& stats) {
     GNEISS_ASSERT(completion.has_value(), "关闭命令缺少完成回执");
     GNEISS_ASSERT(completion->sequence == *submit_result, "关闭命令回执身份不匹配");
   }
+  const auto render_stats = query_performance_stats();
   executor_.stop();
   required_frame_completions_.clear();
+  log_shutdown(render_stats, stats, completion ? completion->status : submit_result.error());
   if (frame_result != gneiss::error::success) {
     return frame_result;
   }

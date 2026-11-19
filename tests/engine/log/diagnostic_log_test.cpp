@@ -15,7 +15,6 @@
 namespace {
 
 struct capture_state final {
-  std::uint32_t diagnostic_count = 0U;
   std::uint32_t log_count = 0U;
   std::mutex mutex;
   std::condition_variable changed;
@@ -29,12 +28,6 @@ struct capture_state final {
 int main() {
   capture_state state;
   gneiss::runtime::application_configuration config;
-  config.callbacks.update = [](const auto&) { return gneiss::error::internal; };
-  config.callbacks.diagnostic = [&](const gneiss::diagnostic_view& diagnostic) {
-    if (diagnostic.result == gneiss::error::internal) {
-      ++state.diagnostic_count;
-    }
-  };
   gneiss::test_support::log_capture logs{[&](const gneiss::logging::record_view& event) {
     {
       const std::scoped_lock lock(state.mutex);
@@ -47,15 +40,18 @@ int main() {
   }};
   std::shared_ptr<gneiss::runtime::application> application;
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), application)
-          .failed() ||
-      application->run().error() != gneiss::error::internal || state.diagnostic_count != 1U) {
+          .failed()) {
     return 1;
   }
+  application->add_system(gneiss::app::stage::update, "test.failure",
+                          [] { return gneiss::error::internal; });
+  if (application->run().error() != gneiss::error::internal)
+    return 1;
   {
     std::unique_lock lock(state.mutex);
     if (!state.changed.wait_for(lock, std::chrono::seconds(2),
                                 [&state] { return state.log_count == 1U; }) ||
-        state.source != "application" || state.category != "application" ||
+        state.source != "test.failure" || state.category != "application" ||
         state.result != gneiss::error::internal) {
       return 2;
     }
@@ -63,5 +59,7 @@ int main() {
   if (application->step().error() != gneiss::error::internal) {
     return 3;
   }
-  return 0;
+  logs.service.flush();
+  const std::scoped_lock lock(state.mutex);
+  return state.log_count == 1U ? 0 : 4;
 }

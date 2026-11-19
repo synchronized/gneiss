@@ -169,7 +169,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 生命周期 | run/step 共用推进；已删除 run(n)，分步关闭为私有实现；pending/complete 停止时分发完成 | 公开 shutdown 已移除；最终启动协议继续收敛 |
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发；宿主拥有 World/绑定/视图，默认实现已删除 | 多 World 与关闭重开验收 |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终启动协议对齐 |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入、批次和环境请求已归宿主；剩余诊断转发清理 |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入、批次和环境请求已归宿主；诊断转发已删除；最终启动协议对齐 |
 | Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发清理与多 World/关闭重开验收 |
 | 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载和批次已迁移；最终启动协议对齐 |
 
@@ -386,3 +386,15 @@ Windows Clang Debug 宿主与相关测试目标构建通过；资产、Applicati
 回归通过，覆盖缓存重载、旧快照稳定、空包/超限失败及参数校验。原生窗口加载途中关闭退出 0。
 Runtime 内建环境及坏包回退、Editor 30 帧坏包回退 smoke 均退出 0；实际渲染日志确认强度 0.6、
 旋转 0.524 rad 生效。本批未验证有效环境包的视觉效果、静态链接或其他平台，也未重跑完整矩阵。
+
+### 日志归属与诊断转发清理
+
+删除 Application::report、diagnostic 回调和仅供该路径使用的 diagnostic_view/severity/category。
+Application 运行失败直接提交 logging，具名系统名称与错误码保留；宿主通过日志服务订阅。
+Render 在排空工作后输出最终统计和关闭资源诊断，直接使用 Render 的调用者也使用相同路径。
+生命周期测试保留错误传播与停止行为，日志集成测试集中验证系统名称、错误码及终态不重复记录；
+删除专属旧诊断回调的异常测试。
+
+Windows Clang Debug 完整构建及七项日志、Application、资产、Render 生命周期回归通过；
+Runtime 协作模式与 Editor 30 帧 smoke 退出 0，关闭日志仍含队列统计和环境参数。
+本批未重复完整 CPU 矩阵，静态与其他平台尚未验证。
