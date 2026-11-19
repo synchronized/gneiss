@@ -8,12 +8,12 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <gneiss/engine/core/meta/resolve.hpp>
 
 struct reflected_object {};
 struct other_object {};
@@ -202,9 +202,8 @@ bool freeze_exception_contract() {
                                       .schema_version = 1,
                                       .name = "freeze_failure",
                                       .properties = {&field, 1}};
-  const m::property_binding binding{.object_type = access.id,
-                                    .object_getter = [](const void* p) { return p; },
-                                    .access = &access};
+  const m::property_ops binding{.access = &access,
+                                .borrow = [](void*, const void* p) { return p; }};
   if (m::register_type(registry, definition, {&binding, 1}).failed())
     return false;
   if (!gneiss::test_support::throws<std::runtime_error>([&] { (void)m::freeze(registry); }))
@@ -267,20 +266,20 @@ int main() {
   gneiss::meta::type_definition scalar{scalar_type, {}, 1, "Scalar", {}};
   auto registry = gneiss::meta::create_registry();
   std::int64_t stored = 2;
-  const gneiss::meta::property_binding binding{
-      .kind = gneiss::value_kind::int64,
-      .getter = [](void*, const void* object, gneiss::value& output) -> error {
-        output.payload = *static_cast<const std::int64_t*>(object);
+  const gneiss::meta::property_ops binding{
+      .access = &gneiss::meta::detail::ops_of<std::int64_t>(),
+      .read_construct = [](void*, const void* object, void* output) -> error {
+        std::construct_at(static_cast<std::int64_t*>(output),
+                          *static_cast<const std::int64_t*>(object));
         return error::success;
       },
-      .setter = [](void*, void* object, const gneiss::value& value) -> error {
-        const auto next = std::get<std::int64_t>(value.payload);
+      .write = [](void*, void* object, const void* value) -> error {
+        const auto next = *static_cast<const std::int64_t*>(value);
         if (next < -10 || next > 10)
           return error::invalid_argument;
         *static_cast<std::int64_t*>(object) = next;
         return error::success;
-      },
-      .user_data = nullptr};
+      }};
 
   if (gneiss::meta::is_frozen(registry) ||
       gneiss::meta::registered_types(registry).error() != error::not_ready ||

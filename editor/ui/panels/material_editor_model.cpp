@@ -53,6 +53,10 @@ error material_editor_model::apply(const property_path& path, const value* input
   auto target = meta::resolve_path(root, path);
   if (!target)
     return target.error();
+  // 对象替换是编辑器操作约束，不能依赖通用实例赋值拒绝其他类型。
+  if (source && (target->type().kind() != meta::type_kind::object ||
+                 source->type().kind() != meta::type_kind::object))
+    return error::unsupported;
   auto status = source ? target->assign(*source) : target->assign(*input);
   if (status.failed())
     return status;

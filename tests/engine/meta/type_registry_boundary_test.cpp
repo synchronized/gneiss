@@ -3,9 +3,9 @@
 
 #include "../../support/throws.hpp"
 #include "../../support/value_result.hpp"
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <array>
@@ -14,18 +14,17 @@
 #include <thread>
 
 namespace {
-gneiss::error set_object(void*, void* target, const gneiss::value& value) {
-  if (std::get<float>(value.payload) < 0) {
+gneiss::error set_object(void*, void* target, const void* value) {
+  if (*static_cast<const float*>(value) < 0) {
     return gneiss::error::invalid_argument;
   }
-  if (std::get<float>(value.payload) == 99) {
+  if (*static_cast<const float*>(value) == 99) {
     throw std::runtime_error("对象校验异常");
   }
-  *static_cast<float*>(target) = std::get<float>(value.payload);
+  *static_cast<float*>(target) = *static_cast<const float*>(value);
   return gneiss::error::success;
 }
-gneiss::error throwing_getter(void* /*context*/, const void* /*object*/,
-                                      gneiss::value& /*output*/) {
+gneiss::error throwing_getter(void* /*context*/, const void* /*object*/, void* /*output*/) {
   throw std::runtime_error("test callback failure");
 }
 } // namespace
@@ -42,21 +41,19 @@ bool native_values() {
                                         .access = gneiss::meta::property_access::read_write,
                                         .name = "text"}};
   std::string text = "初始文本";
-  const gneiss::meta::property_binding binding{
-      .kind = gneiss::value_kind::string,
-      .getter =
-          [](void*, const void* object, gneiss::value& output) {
+  const gneiss::meta::property_ops binding{
+      .access = &gneiss::meta::detail::ops_of<std::string>(),
+      .read_construct =
+          [](void*, const void* object, void* output) {
             const auto& value = *static_cast<const std::string*>(object);
-            output = gneiss::value{};
-            output.payload = value;
+            std::construct_at(static_cast<std::string*>(output), value);
             return gneiss::error::success;
           },
-      .setter =
-          [](void*, void* object, const gneiss::value& value) {
-            static_cast<std::string*>(object)->assign(std::get<std::string>(value.payload));
+      .write =
+          [](void*, void* object, const void* value) {
+            static_cast<std::string*>(object)->assign(*static_cast<const std::string*>(value));
             return gneiss::error::success;
-          },
-      .user_data = nullptr};
+          }};
   if (gneiss::meta::register_type(
           registry, {.guid = id, .schema_version = 1, .name = "sample", .properties = fields},
           {&binding, 1}) != gneiss::error::success) {
@@ -161,8 +158,7 @@ int main() try {
       gneiss::meta::freeze(native).failed() || !gneiss::meta::registered_types(native)->empty())
     return 21;
   native.reset();
-  if (!native_lifetime.expired() ||
-      gneiss::meta::freeze(native) != gneiss::error::invalid_handle) {
+  if (!native_lifetime.expired() || gneiss::meta::freeze(native) != gneiss::error::invalid_handle) {
     return 22;
   }
   auto state = gneiss::meta::create_registry();
@@ -186,17 +182,15 @@ int main() try {
       .name = name,
       .properties = fields,
   };
-  const gneiss::meta::property_binding candidate_binding{
-      .kind = gneiss::value_kind::float32,
-      .getter = {},
-      .setter = set_object,
-      .user_data = {}};
+  const gneiss::meta::property_ops candidate_binding{
+      .access = &gneiss::meta::detail::ops_of<float>(), .read_construct = {}, .write = set_object};
   float candidate = 1;
   gneiss::value proposed = gneiss::value{};
   proposed.payload = 2.0F;
-  const std::array bindings{gneiss::meta::property_binding{.kind = gneiss::value_kind::float32,
-                                                           .getter = throwing_getter},
-                            candidate_binding};
+  const std::array bindings{
+      gneiss::meta::property_ops{.access = &gneiss::meta::detail::ops_of<float>(),
+                                 .read_construct = throwing_getter},
+      candidate_binding};
   if (gneiss::meta::register_type(state, definition, bindings).failed() ||
       gneiss::meta::resolve(state, type_id))
     return 11;

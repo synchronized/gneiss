@@ -23,7 +23,7 @@ namespace gneiss::meta {
                                                   const type_definition& desc);
 /** 同时登记全部字段绑定；bindings 与 properties 顺序对应，失败不登记类型。 */
 [[nodiscard]] GNEISS_META_API error register_type(const registry_ref&, const type_definition&,
-                                                  std::span<const property_binding>);
+                                                  std::span<const property_ops>);
 inline error register_enum(const enum_definition& definition) {
   return register_enum(default_registry(), definition);
 }
@@ -33,7 +33,7 @@ inline error register_enum(const enum_definition& definition) {
   return register_type(default_registry(), desc);
 }
 [[nodiscard]] inline error register_type(const type_definition& desc,
-                                         std::span<const property_binding> bindings) {
+                                         std::span<const property_ops> bindings) {
   return register_type(default_registry(), desc, bindings);
 }
 
@@ -63,14 +63,14 @@ template <class T, class Definition> error complete_identity(Definition& definit
 /** 从规范化 C++ 类型提取身份；显式身份与 traits 冲突时拒绝注册。 */
 template <class T>
 [[nodiscard]] error register_type(const registry_ref& registry, type_definition definition,
-                                  std::span<const property_binding> bindings = {}) {
+                                  std::span<const property_ops> bindings = {}) {
   auto status = detail::complete_identity<T>(definition);
   return status.failed() ? status : register_type(registry, definition, bindings);
 }
 
 template <class T>
 [[nodiscard]] error register_type(type_definition definition,
-                                  std::span<const property_binding> bindings = {}) {
+                                  std::span<const property_ops> bindings = {}) {
   return register_type<T>(default_registry(), definition, bindings);
 }
 namespace detail {
@@ -166,7 +166,7 @@ template <class T> class type_builder {
     std::string name;
     gneiss::guid guid;
     property_access access;
-    property_binding binding;
+    property_ops binding;
     meta::metadata extensions{};
   };
 
@@ -237,104 +237,41 @@ public:
   property_builder property(property_id id, std::string_view name,
                             property_access access = property_access::read_write) {
     static_assert(std::is_member_object_pointer_v<decltype(Member)>);
-    using property_type = std::remove_cvref_t<std::invoke_result_t<decltype(Member), object_type&>>;
-    if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
-      static_assert(std::is_class_v<property_type> && std::is_move_assignable_v<property_type>,
-                    "Nested properties must be assignable value objects");
-      return add<property_type>(
-          id, name, access,
-          {.object_type = runtime_type_of<property_type>(),
-           .object_getter = [](const void* object) -> const void* {
-             return std::addressof(std::invoke(Member, *static_cast<const object_type*>(object)));
-           },
-           .object_mutator = [](void* object) -> void* {
-             return std::addressof(std::invoke(Member, *static_cast<object_type*>(object)));
-           },
-           .object_assign =
-               [](void* object, void* value) {
-                 std::invoke(Member, *static_cast<object_type*>(object)) =
-                     std::move(*static_cast<property_type*>(value));
-               },
-           .access = &detail::ops_of<property_type>()});
-    } else
-      return add<property_type>(id, name, access,
-                                {.kind = detail::reflected_value_kind<property_type>(),
-                                 .getter = [](void*, const void* object, value& output) -> error {
-                                   output = detail::scalar_value(std::invoke(
-                                       Member, *static_cast<const object_type*>(object)));
-                                   return error::success;
-                                 },
-                                 .setter = [](void*, void* object, const value& input) -> error {
-                                   auto decoded = detail::scalar_cast<property_type>(input);
-                                   if (!decoded)
-                                     return decoded.error();
-                                   std::invoke(Member, *static_cast<object_type*>(object)) =
-                                       std::move(*decoded);
-                                   return error::success;
-                                 }});
+    using returned = std::invoke_result_t<decltype(Member), object_type&>;
+    using property_type = std::remove_cvref_t<returned>;
+    property_ops ops;
+    ops.borrow = [](void*, const void* owner) -> const void* {
+      return std::addressof(std::invoke(Member, *static_cast<const object_type*>(owner)));
+    };
+    if constexpr (!std::is_const_v<std::remove_reference_t<returned>>)
+      ops.borrow_mut = [](void*, void* owner) -> void* {
+        return std::addressof(std::invoke(Member, *static_cast<object_type*>(owner)));
+      };
+    return add<property_type>(id, name, access, ops);
   }
   template <auto Getter, auto Setter>
   property_builder property(property_id id, std::string_view name,
                             property_access access = property_access::read_write) {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
-    if constexpr (detail::reflected_value_kind<property_type>() == value_kind::invalid) {
-      using returned = std::invoke_result_t<decltype(Getter), const object_type&>;
-      static_assert(std::is_lvalue_reference_v<returned> &&
-                        std::is_const_v<std::remove_reference_t<returned>>,
-                    "Object getters must borrow a const lvalue, not a temporary");
-      static_assert(std::is_default_constructible_v<property_type>);
-      return add<property_type>(
-          id, name, access,
-          {.object_type = runtime_type_of<property_type>(),
-           .object_getter = [](const void* object) -> const void* {
-             return std::addressof(std::invoke(Getter, *static_cast<const object_type*>(object)));
-           },
-           .object_setter = [](void* object, const void* value) -> error {
-             if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
-                                                               const property_type&>>) {
-               std::invoke(Setter, *static_cast<object_type*>(object),
-                           *static_cast<const property_type*>(value));
-               return error::success;
-             } else {
-               return std::invoke(Setter, *static_cast<object_type*>(object),
-                                  *static_cast<const property_type*>(value));
-             }
-           },
-           .object_construct = []() -> ref<void> { return make_ref<property_type>(); },
-           .access = &detail::ops_of<property_type>()});
-    } else
-      return add<property_type>(
-          id, name, access,
-          {.kind = detail::reflected_value_kind<property_type>(),
-           .getter = [](void*, const void* object, value& output) -> error {
-             output = detail::scalar_value(
-                 std::invoke(Getter, *static_cast<const object_type*>(object)));
-             return error::success;
-           },
-           .setter = [](void*, void* object, const value& input) -> error {
-             auto decoded = detail::scalar_cast<property_type>(input);
-             if (!decoded)
-               return decoded.error();
-             if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
-                                                               const property_type&>>) {
-               std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
-               return error::success;
-             } else {
-               return std::invoke(Setter, *static_cast<object_type*>(object), *decoded);
-             }
-           }});
+    auto ops = getter_ops<Getter>();
+    ops.write = [](void*, void* owner, const void* input) -> error {
+      if constexpr (std::is_void_v<std::invoke_result_t<decltype(Setter), object_type&,
+                                                        const property_type&>>) {
+        std::invoke(Setter, *static_cast<object_type*>(owner),
+                    *static_cast<const property_type*>(input));
+        return error::success;
+      } else {
+        return std::invoke(Setter, *static_cast<object_type*>(owner),
+                           *static_cast<const property_type*>(input));
+      }
+    };
+    return add<property_type>(id, name, access, ops);
   }
   template <auto Getter> property_builder readonly(property_id id, std::string_view name) {
     using property_type =
         std::remove_cvref_t<std::invoke_result_t<decltype(Getter), const object_type&>>;
-    return add<property_type>(id, name, property_access::read_only,
-                              {.kind = detail::reflected_value_kind<property_type>(),
-                               .getter = [](void*, const void* object, value& output) -> error {
-                                 output = detail::scalar_value(
-                                     std::invoke(Getter, *static_cast<const object_type*>(object)));
-                                 return error::success;
-                               }});
+    return add<property_type>(id, name, property_access::read_only, getter_ops<Getter>());
   }
   /** 注册唯一直接基类；继承属性参与遍历，冻结时拒绝属性 ID 或名称冲突。 */
   template <class Base> type_builder& base() {
@@ -367,7 +304,7 @@ public:
     if (status_.failed())
       return status_;
     std::vector<property_definition> properties;
-    std::vector<property_binding> bindings;
+    std::vector<property_ops> bindings;
     properties.reserve(entries_.size());
     bindings.reserve(entries_.size());
     for (const auto& item : entries_) {
@@ -389,6 +326,22 @@ public:
   }
 
 private:
+  template <auto Getter> static property_ops getter_ops() {
+    using returned = std::invoke_result_t<decltype(Getter), const object_type&>;
+    using property_type = std::remove_cvref_t<returned>;
+    property_ops ops;
+    if constexpr (std::is_lvalue_reference_v<returned>)
+      ops.borrow = [](void*, const void* owner) -> const void* {
+        return std::addressof(std::invoke(Getter, *static_cast<const object_type*>(owner)));
+      };
+    if constexpr (std::is_constructible_v<property_type, returned>)
+      ops.read_construct = [](void*, const void* owner, void* destination) -> error {
+        std::construct_at(static_cast<property_type*>(destination),
+                          std::invoke(Getter, *static_cast<const object_type*>(owner)));
+        return error::success;
+      };
+    return ops;
+  }
   template <class Extension> void add_extension(std::size_t index, Extension value) {
     if (committed_ || status_.failed())
       return;
@@ -400,18 +353,15 @@ private:
   }
   template <class Property>
   property_builder add(property_id id, std::string_view name, property_access access,
-                       property_binding binding) {
+                       property_ops binding) {
     const auto index = entries_.size();
     if (committed_ || status_.failed())
       return {*this, index};
 
     binding.access = &detail::ops_of<Property>();
-    if constexpr (std::is_enum_v<Property>)
-      binding.enum_type = runtime_type_of<Property>();
     if (access == property_access::read_only) {
-      binding.setter = nullptr;
-      binding.object_mutator = nullptr;
-      binding.object_assign = nullptr;
+      binding.write = nullptr;
+      binding.borrow_mut = nullptr;
     }
     entries_.push_back({id, std::string(name),
                         type_identity<detail::scalar_storage<Property>>::guid(), access, binding});

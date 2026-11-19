@@ -43,6 +43,13 @@ public:
   /** 要求有效实例及存活借用；不支持的类型返回 unsupported，非法标量内容返回
    * invalid_argument；getter 的可恢复失败原样返回。空对象强引用是合法值。 */
   [[nodiscard]] GNEISS_META_API result<value> read_value() const;
+  /** 同步访问实际值；计算属性临时值仅在回调期间有效，不得保存派生借用。 */
+  [[nodiscard]] GNEISS_META_API error
+  visit_value(const std::function<error(const const_instance&)>&) const;
+  /** 复制当前属性后修改候选，成功后调用 setter；不支持复制时返回 unsupported。 */
+  [[nodiscard]] GNEISS_META_API error edit(const std::function<error(const instance&)>&) const
+    requires(Mutable);
+
   [[nodiscard]] GNEISS_META_API result<pointer> object_data() const noexcept;
   /** 查询能力并绑定本实例；返回类型保留当前只读/可写属性。 */
   template <class Capability> [[nodiscard]] auto capability() const {
@@ -57,7 +64,7 @@ public:
   [[nodiscard]] bool requires_replacement() const noexcept
     requires(Mutable)
   {
-    return parent_ && !writable_ && type().kind() != type_kind::scalar;
+    return parent_ && !writable_;
   }
   /** 在独立候选上初始化，成功后交给 setter；初始化失败不调用 setter。要求有效实例。 */
   [[nodiscard]] GNEISS_META_API error replace(const std::function<error(const instance&)>&) const
@@ -107,7 +114,7 @@ private:
   meta::type type_;
   const void* data_{};
   const void* parent_{};
-  const property_binding* binding_{};
+  const property_ops* binding_{};
   bool writable_ = Mutable;
 };
 

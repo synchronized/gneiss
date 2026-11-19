@@ -5,15 +5,15 @@
 #include <gneiss/engine/core/data/property_id.hpp>
 #include <gneiss/engine/core/meta/export.hpp>
 
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/ref.hpp>
+#include <gneiss/engine/core/base/result.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/core/data/value.hpp>
 #include <gneiss/engine/core/meta/metadata.hpp>
 #include <gneiss/engine/core/meta/registry_fwd.hpp>
 #include <gneiss/engine/core/meta/type_types.hpp>
-#include <gneiss/engine/core/base/guid.hpp>
-#include <gneiss/engine/core/base/ref.hpp>
-#include <gneiss/engine/core/base/type_id.hpp>
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/base/result.hpp>
 
 #include <concepts>
 #include <cstdint>
@@ -52,7 +52,7 @@ template <property_flag_type T> constexpr T& operator&=(T& left, T right) noexce
 template <property_flag_type T> [[nodiscard]] constexpr bool has_flags(T value, T flags) noexcept {
   return (value & flags) == flags;
 }
-struct property_binding;
+struct property_ops;
 } // namespace gneiss::meta
 
 namespace gneiss::meta {
@@ -85,7 +85,7 @@ private:
   friend class property_range;
   friend class cap::object;
   template <bool> friend class basic_object_view;
-  [[nodiscard]] GNEISS_META_API const property_binding* binding() const noexcept;
+  [[nodiscard]] GNEISS_META_API const property_ops* binding() const noexcept;
   property(registry_ref registry, const detail::property_record* record)
       : registry_(std::move(registry)), record_(record) {}
   registry_ref registry_;

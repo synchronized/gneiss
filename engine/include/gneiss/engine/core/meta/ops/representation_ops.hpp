@@ -64,7 +64,6 @@ struct representation_ops {
   using visitor = std::function<error(void*, const type_ops&)>;
   error (*encode)(const void*, const const_visitor&);
   error (*decode)(const visitor& read, const visitor& consume);
-  error (*encode_value)(const value&, const const_visitor&){};
 };
 namespace detail {
 // 精确区分普通值与结果包装；optional 等可空表示本身不是错误状态。
@@ -100,16 +99,6 @@ template <class T> const representation_ops& representation_ops_of() {
       auto decoded = A::decode(std::as_const(representation));
       return visit_representation<T>(decoded, consume);
     };
-    if constexpr (reflected_value_kind<T>() != value_kind::invalid) {
-      output.encode_value = [](const value& source,
-                               const representation_ops::const_visitor& visit) -> error {
-        auto native = scalar_cast<T>(source);
-        if (!native)
-          return native.error();
-        auto encoded = A::encode(*native);
-        return visit_representation<R>(encoded, visit);
-      };
-    }
     return output;
   }();
   return ops;

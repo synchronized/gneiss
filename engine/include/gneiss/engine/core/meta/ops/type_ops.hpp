@@ -13,6 +13,8 @@
 #include <gneiss/engine/core/meta/ops/variant_ops.hpp>
 #include <gneiss/engine/core/traits/type_identity.hpp>
 
+#include <cstddef>
+#include <memory>
 #include <variant>
 
 namespace gneiss::meta {
@@ -26,6 +28,11 @@ struct type_ops {
   bool empty = false;
   gneiss::type_id id{};
   gneiss::guid guid{};
+  std::size_t size{};
+  std::size_t alignment{};
+  void (*destroy)(void*) noexcept {};
+  void (*default_construct)(void*){};
+  void (*copy_construct)(void*, const void*){};
   void (*move_assign)(void*, void*){};
   void (*copy_assign)(void*, const void*){};
   const value_ops* values{};
@@ -111,6 +118,17 @@ template <class T> const type_ops& ops_of() {
     type_ops ops;
     ops.empty = std::is_same_v<T, std::monostate>;
     ops.id = runtime_type_of<T>();
+    if constexpr (!std::is_void_v<T> && std::is_destructible_v<T>) {
+      ops.size = sizeof(T);
+      ops.alignment = alignof(T);
+      ops.destroy = [](void* p) noexcept { std::destroy_at(static_cast<T*>(p)); };
+      if constexpr (std::is_default_constructible_v<T>)
+        ops.default_construct = [](void* p) { std::construct_at(static_cast<T*>(p)); };
+      if constexpr (std::is_copy_constructible_v<T>)
+        ops.copy_construct = [](void* p, const void* source) {
+          std::construct_at(static_cast<T*>(p), *static_cast<const T*>(source));
+        };
+    }
     ops.guid = type_identity<scalar_storage<T>>::guid();
     ops.enumeration = std::is_enum_v<T>;
     if constexpr (representation_traits<T>::enabled)

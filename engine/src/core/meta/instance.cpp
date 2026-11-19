@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "temporary_value.hpp"
 #include <algorithm>
 #include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/representation.hpp>
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
-#include <gneiss/engine/core/meta/type_definition.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/core/meta/type_definition.hpp>
 
 namespace gneiss::meta {
 cap::representation::representation(meta::type target)
@@ -37,12 +38,8 @@ error cap::representation::encode(
     auto view = const_instance::from_access(type_.registry_, representation, p);
     return consume(view);
   };
-  if (source.data_)
-    return ops->encode(source.data_, visit);
-  if (!ops->encode_value)
-    return error::unsupported;
-  auto value = source.read_value();
-  return value ? ops->encode_value(*value, visit) : value.error();
+  return source.visit_value(
+      [&](const const_instance& concrete) { return ops->encode(concrete.data_, visit); });
 }
 bool cap::sequence::is_fixed_size() const noexcept {
   GNEISS_ASSERT(*this, "序列类型查询要求有效视图");
@@ -165,25 +162,23 @@ basic_object_view<Mutable>::bind_field(const property& field) const {
   output.type_ = field.type();
   output.parent_ = target_.data_;
   output.binding_ = field.binding();
-  if (output.type().kind() == type_kind::scalar) {
-    if (output.type().scalar_kind() == value_kind::invalid)
-      return error::unsupported;
-    return output;
-  }
   const auto* binding = output.binding_;
-  if (!binding->object_getter)
+  if (!binding || (!binding->borrow && !binding->read_construct && !binding->write))
     return error::unsupported;
-  output.data_ = binding->object_getter(target_.data_);
+  if (binding->borrow) {
+    output.data_ = binding->borrow(binding->state, target_.data_);
+    GNEISS_ASSERT(output.data_, "借用访问器必须返回有效地址");
+  }
   if constexpr (Mutable) {
-    if (binding->object_setter)
+    if (binding->write)
       output.writable_ = false;
     else {
-      if (!binding->object_mutator)
+      if (!binding->borrow_mut)
         return error::unsupported;
-      output.data_ = binding->object_mutator(target_.mutable_data());
+      output.data_ = binding->borrow_mut(binding->state, target_.mutable_data());
+      GNEISS_ASSERT(output.data_, "可写借用访问器必须返回有效地址");
     }
   }
-  GNEISS_ASSERT(output.data_, "已绑定成员访问器必须返回有效成员地址");
   return output;
 }
 template <bool Mutable>
@@ -197,11 +192,40 @@ basic_instance<Mutable>::object_data() const noexcept {
     if (!mutable_data())
       return error::unsupported;
     return mutable_data();
-  } else
+  } else {
+    if (!data_)
+      return error::unsupported;
     return data_;
+  }
 }
+template <bool Mutable>
+error basic_instance<Mutable>::visit_value(
+    const std::function<error(const const_instance&)>& consume) const {
+  GNEISS_ASSERT(type_ && consume, "值访问要求有效实例与回调");
+  if (data_)
+    return consume(as_const());
+  if (!binding_ || !binding_->read_construct || !access())
+    return error::unsupported;
+  detail::temporary_value storage{*access()};
+  auto status = storage.construct([&](void* destination) {
+    return binding_->read_construct(binding_->state, parent_, destination);
+  });
+  if (status.failed())
+    return status;
+  auto temporary = const_instance::from_access(registry(), *access(), storage.data());
+  return consume(temporary);
+}
+
 template <bool Mutable> result<value> basic_instance<Mutable>::read_value() const {
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "读取值要求有效的借用实例");
+  if (!data_) {
+    result<value> output = error::unsupported;
+    auto status = visit_value([&](const const_instance& source) {
+      output = source.read_value();
+      return output ? error::success : output.error();
+    });
+    return status.failed() ? result<value>{status} : output;
+  }
   if (type().kind() == type_kind::variant && type().id() == runtime_type_of<value>() && data_)
     return *static_cast<const value*>(data_);
   if (type().kind() == type_kind::reference && access()) {
@@ -220,22 +244,17 @@ template <bool Mutable> result<value> basic_instance<Mutable>::read_value() cons
       return output;
     }
   }
-  if (type().kind() != type_kind::scalar || !binding_ || !binding_->getter)
-    return error::unsupported;
-  value output;
-  auto status = binding_->getter(binding_->user_data, parent_, output);
-  if (status.failed())
-    return status;
-  GNEISS_ASSERT(output.kind() == type().scalar_kind(), "getter 成功时必须返回登记的值类型");
-  if (!valid_scalar(output))
-    return error::invalid_argument;
-  return output;
+  return error::unsupported;
 }
 template <bool Mutable>
 error basic_instance<Mutable>::assign(const value& input) const
   requires(Mutable)
 {
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
+  if (requires_replacement())
+    return replace(
+        [input_ptr = &input](const instance& candidate) { return candidate.assign(*input_ptr); });
+
   if (type().kind() == type_kind::variant && type().id() == runtime_type_of<value>() &&
       mutable_data()) {
     *static_cast<value*>(mutable_data()) = input;
@@ -253,19 +272,11 @@ error basic_instance<Mutable>::assign(const value& input) const
       if (type().kind() == type_kind::scalar &&
           (input.kind() != type().scalar_kind() || !valid_scalar(input)))
         return error::invalid_argument;
-      if (requires_replacement())
-        return replace([input_ptr = &input](const instance& candidate) {
-          return candidate.assign(*input_ptr);
-        });
       if (mutable_data())
         return ops->write(mutable_data(), input);
     }
   }
-  if (type().kind() != type_kind::scalar || !binding_ || !binding_->setter || !writable_)
-    return error::unsupported;
-  if (input.kind() != type().scalar_kind() || !valid_scalar(input))
-    return error::invalid_argument;
-  return binding_->setter(binding_->user_data, mutable_parent(), input);
+  return error::unsupported;
 }
 template <bool Mutable>
 error basic_instance<Mutable>::assign(const const_instance& source) const
@@ -273,22 +284,17 @@ error basic_instance<Mutable>::assign(const const_instance& source) const
 {
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "写入要求有效的目标实例");
   GNEISS_ASSERT(source.type().kind() != type_kind::invalid, "复制要求有效的来源实例");
-  if (requires_replacement()) {
-    if (type().id() != source.type().id())
-      return error::invalid_argument;
-    const auto* binding = binding_;
-    return binding->object_setter(mutable_parent(), source.data_);
-  }
-  if ((type().kind() != type_kind::object && type().kind() != type_kind::reference) ||
-      source.type().kind() != type().kind())
-    return error::unsupported;
   if (type().id() != source.type().id())
     return error::invalid_argument;
-  if (!access() || !access()->copy_assign)
-    return error::unsupported;
-  if (mutable_data() != source.data_)
-    access()->copy_assign(mutable_data(), source.data_);
-  return error::success;
+  return source.visit_value([&](const const_instance& concrete) {
+    if (requires_replacement())
+      return binding_->write(binding_->state, mutable_parent(), concrete.data_);
+    if (!mutable_data() || !access() || !access()->copy_assign)
+      return error::unsupported;
+    if (mutable_data() != concrete.data_)
+      access()->copy_assign(mutable_data(), concrete.data_);
+    return error::success;
+  });
 }
 template <bool Mutable>
 error basic_instance<Mutable>::move_from(const instance& source_view) const
@@ -303,7 +309,7 @@ error basic_instance<Mutable>::move_from(const instance& source_view) const
     return error::unsupported;
   if (requires_replacement()) {
     const auto* binding = binding_;
-    return binding->object_setter(mutable_parent(), source);
+    return binding->write(binding->state, mutable_parent(), source);
   }
   if (type().kind() != type_kind::object)
     return error::unsupported;
@@ -313,15 +319,7 @@ error basic_instance<Mutable>::move_from(const instance& source_view) const
     access()->move_assign(mutable_data(), source);
     return error::success;
   }
-  if (!mutable_parent())
-    return error::unsupported;
-  const auto* binding = binding_;
-  if (!binding)
-    return error::unsupported;
-  if (!binding->object_assign)
-    return error::unsupported;
-  binding->object_assign(mutable_parent(), source);
-  return error::success;
+  return error::unsupported;
 }
 
 template <bool Mutable>
@@ -330,16 +328,40 @@ error basic_instance<Mutable>::replace(
   requires(Mutable)
 {
   GNEISS_ASSERT(type().kind() != type_kind::invalid, "替换要求有效的目标实例");
-  const auto& target = *this;
   if (!requires_replacement() || !initialize)
     return error::invalid_argument;
-  const auto* binding = target.binding_;
-  auto storage = binding->object_construct();
-  GNEISS_ASSERT(storage, "属性构造器必须返回有效候选对象，分配失败通过异常传播");
-  auto temporary = instance::from_access(target.registry(), *binding->access, storage.get());
-  auto status = initialize(temporary);
-  return status.failed() ? status : binding->object_setter(target.mutable_parent(), storage.get());
+  detail::temporary_value storage{*access()};
+  auto status = storage.construct_default();
+  if (status.failed())
+    return status;
+  auto temporary = instance::from_access(registry(), *access(), storage.data());
+  status = initialize(temporary);
+  return status.failed() ? status
+                         : binding_->write(binding_->state, mutable_parent(), storage.data());
 }
+
+template <bool Mutable>
+error basic_instance<Mutable>::edit(const std::function<error(const instance&)>& modify) const
+  requires(Mutable)
+{
+  GNEISS_ASSERT(type_ && modify, "属性编辑要求有效实例与回调");
+  if (!requires_replacement() || !access() || !access()->copy_construct)
+    return error::unsupported;
+  return visit_value([&](const const_instance& current) {
+    detail::temporary_value storage{*access()};
+    auto status = storage.construct([&](void* destination) {
+      access()->copy_construct(destination, current.data_);
+      return error::success;
+    });
+    if (status.failed())
+      return status;
+    auto candidate = instance::from_access(registry(), *access(), storage.data());
+    status = modify(candidate);
+    return status.failed() ? status
+                           : binding_->write(binding_->state, mutable_parent(), storage.data());
+  });
+}
+
 template <type_kind Kind, template <bool> class View>
 template <bool Mutable>
 result<View<Mutable>>

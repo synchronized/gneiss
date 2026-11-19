@@ -10,12 +10,12 @@
 #include <cstdlib>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <limits>
 #include <new>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <gneiss/engine/core/meta/resolve.hpp>
 
 namespace {
 using gneiss::error;
@@ -27,28 +27,23 @@ struct camera_fixture {
   float field_of_view = 60.0F;
   std::string_view label = "主相机";
   error read_error = error::success;
-  bool wrong_kind = false;
   bool fail_get = false;
   bool fail_allocate = false;
   bool fail_set = false;
 };
-error get_field_of_view(void*, const void* object, gneiss::value& output) {
+error get_field_of_view(void*, const void* object, void* output) {
   const auto& camera = *static_cast<const camera_fixture*>(object);
   if (camera.read_error.failed())
     return camera.read_error;
-  if (camera.wrong_kind) {
-    output = gneiss::value{true};
-    return error::success;
-  }
   if (camera.fail_allocate)
     throw std::bad_alloc{};
   if (camera.fail_get)
     throw std::runtime_error("getter probe");
-  output.payload = camera.field_of_view;
+  std::construct_at(static_cast<float*>(output), camera.field_of_view);
   return error::success;
 }
-error set_field_of_view(void*, void* object, const gneiss::value& input) {
-  const auto value = std::get<float>(input.payload);
+error set_field_of_view(void*, void* object, const void* input) {
+  const auto value = *static_cast<const float*>(input);
   if (value < 1 || value > 179)
     return error::invalid_argument;
   auto& camera = *static_cast<camera_fixture*>(object);
@@ -59,12 +54,13 @@ error set_field_of_view(void*, void* object, const gneiss::value& input) {
   camera.field_of_view = value;
   return error::success;
 }
-error get_label(void*, const void* object, gneiss::value& output) {
-  output.payload = std::string{static_cast<const camera_fixture*>(object)->label};
+error get_label(void*, const void* object, void* output) {
+  std::construct_at(static_cast<std::string*>(output),
+                    static_cast<const camera_fixture*>(object)->label);
   return error::success;
 }
-error get_malformed(void*, const void*, gneiss::value& output) {
-  output.payload = std::numeric_limits<float>::infinity();
+error get_malformed(void*, const void*, void* output) {
+  std::construct_at(static_cast<float*>(output), std::numeric_limits<float>::infinity());
   return error::success;
 }
 }
@@ -95,19 +91,16 @@ int main(int argc, char** argv) try {
       gneiss::meta::property_definition{gneiss::property_id{4}, float_type,
                                         gneiss::meta::property_access::read_write, "malformed"}};
   auto registry = gneiss::meta::create_registry();
-  const gneiss::meta::property_binding field_of_view{
-      .kind = gneiss::value_kind::float32,
-      .getter = get_field_of_view,
-      .setter = set_field_of_view,
-      .user_data = nullptr};
-  const gneiss::meta::property_binding label{.kind = gneiss::value_kind::string,
-                                                     .getter = get_label,
-                                                     .setter = {},
-                                                     .user_data = nullptr};
-  std::array bindings{
-      field_of_view, label,
-      gneiss::meta::property_binding{.kind = gneiss::value_kind::float32, .getter = get_malformed}};
-  bindings[1].setter = set_field_of_view;
+  const gneiss::meta::property_ops field_of_view{.access = &gneiss::meta::detail::ops_of<float>(),
+                                                 .read_construct = get_field_of_view,
+                                                 .write = set_field_of_view};
+  const gneiss::meta::property_ops label{.access = &gneiss::meta::detail::ops_of<std::string>(),
+                                         .read_construct = get_label,
+                                         .write = {}};
+  std::array bindings{field_of_view, label,
+                      gneiss::meta::property_ops{.access = &gneiss::meta::detail::ops_of<float>(),
+                                                 .read_construct = get_malformed}};
+  bindings[1].write = set_field_of_view;
   if (gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields}, bindings) !=
       error::invalid_argument)
     return 2;
@@ -122,8 +115,8 @@ int main(int argc, char** argv) try {
   const std::weak_ptr lifetime = registry;
   gneiss::value snapshot;
   {
-    auto root = gneiss::meta::instance::from_object(gneiss::meta::resolve(registry, camera_type),
-                                                    &fixture);
+    auto root =
+        gneiss::meta::instance::from_object(gneiss::meta::resolve(registry, camera_type), &fixture);
     if (!root)
       return 3;
     auto object = root->capability<gneiss::meta::cap::object>();
@@ -137,11 +130,6 @@ int main(int argc, char** argv) try {
       return 5;
     if (mode == "empty-source") {
       (void)fov->assign(gneiss::meta::const_instance{});
-      return 90;
-    }
-    if (mode == "wrong-kind") {
-      fixture.wrong_kind = true;
-      (void)fov->read_value();
       return 90;
     }
     if (gneiss::meta::instance::from_object(root->type(), nullptr).error() !=

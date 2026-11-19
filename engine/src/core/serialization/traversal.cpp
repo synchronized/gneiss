@@ -6,8 +6,8 @@
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/capabilities/representation.hpp>
-#include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/core/serialization/policy.hpp>
 namespace gneiss::serialization::detail {
 using namespace meta;
 std::string field_path(std::string_view name) {
@@ -34,6 +34,11 @@ serialization::diagnostic prefix(serialization::diagnostic diagnostic, const std
 /** 静态转换仅处理内存；路径、预算和候选校验仍由序列化持有。 */
 result<writer::node, diagnostic>
 encode_representation(const write_context& ctx, const const_instance& source, writer& output) {
+  if (source.type().kind() == type_kind::scalar) {
+    auto scalar = source.read_value();
+    if (!scalar)
+      return failure(scalar.error());
+  }
   if (context_access::depth(ctx) >= ctx.maximum_depth())
     return failure(error::invalid_argument);
   result<writer::node, diagnostic> encoded = failure(error::unsupported);
@@ -166,9 +171,10 @@ result<writer::node, serialization::diagnostic>
 encode_nonobject(const write_context&, const registry_ref&, const const_instance&, writer*,
                  std::size_t, const reference_policy*);
 /** 对象递归使用轻量栈帧，不携带各容器分支的临时状态。 */
-result<writer::node, serialization::diagnostic>
-encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
-            writer* doc, std::size_t depth, const reference_policy* override) {
+static result<writer::node, serialization::diagnostic>
+encode_view_storage(const write_context& ctx, const registry_ref& registry,
+                    const const_instance& view, writer* doc, std::size_t depth,
+                    const reference_policy* override) {
   depth_scope scope{ctx, depth};
   if (view.type().capability<gneiss::meta::cap::representation>() && !view.type().registered()) {
     if (depth > ctx.maximum_depth())
@@ -391,9 +397,8 @@ result<writer::node, serialization::diagnostic> encode_members(const write_conte
     auto policy = policy_of(property);
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
-    if (!policy->save ||
-        !gneiss::meta::has_flags(property.capabilities(),
-                                         gneiss::meta::property_capabilities::writable))
+    if (!policy->save || !gneiss::meta::has_flags(property.capabilities(),
+                                                  gneiss::meta::property_capabilities::writable))
       continue;
     const auto path = field_path(property.name());
     auto child = property.get(*view);
@@ -412,8 +417,12 @@ result<writer::node, serialization::diagnostic> encode_members(const write_conte
 }
 serialization::diagnostic validate_defaults(const read_context& ctx, const registry_ref&, type_id,
                                             const void*, std::size_t);
-serialization::diagnostic validate_view(const read_context& ctx, const registry_ref& registry,
-                                        const const_instance& view, std::size_t depth) {
+serialization::diagnostic validate_view(const read_context&, const registry_ref&,
+                                        const const_instance&, std::size_t);
+static serialization::diagnostic validate_view_storage(const read_context& ctx,
+                                                       const registry_ref& registry,
+                                                       const const_instance& view,
+                                                       std::size_t depth) {
   depth_scope scope{ctx, depth};
   const auto value_type = view.type();
   if (value_type.kind() == type_kind::empty)
@@ -536,7 +545,7 @@ serialization::diagnostic validate_defaults(const read_context& ctx, const regis
       return failure(policy.error(), field_path(property.name()));
     if (!policy->save || property.type().kind() == type_kind::scalar ||
         !gneiss::meta::has_flags(property.capabilities(),
-                                         gneiss::meta::property_capabilities::writable))
+                                 gneiss::meta::property_capabilities::writable))
       continue;
     auto child = property.get(*view);
     if (!child)
@@ -887,9 +896,8 @@ serialization::diagnostic decode_members(const read_context& ctx, const registry
     auto policy = policy_of(property);
     if (!policy)
       return failure(policy.error(), field_path(property.name()), "字段序列化策略与访问能力不兼容");
-    if (!policy->save ||
-        !gneiss::meta::has_flags(property.capabilities(),
-                                         gneiss::meta::property_capabilities::writable))
+    if (!policy->save || !gneiss::meta::has_flags(property.capabilities(),
+                                                  gneiss::meta::property_capabilities::writable))
       continue;
     auto* input = context_access::input(ctx)->member(root, property.name());
     const auto path = field_path(property.name());
@@ -920,4 +928,29 @@ serialization::diagnostic decode_members(const read_context& ctx, const registry
   return {};
 }
 
+}
+
+namespace gneiss::serialization::detail {
+result<writer::node, serialization::diagnostic>
+encode_view(const write_context& ctx, const registry_ref& registry, const const_instance& view,
+            writer* doc, std::size_t depth, const reference_policy* override) {
+  result<writer::node, serialization::diagnostic> output = failure(error::unsupported);
+  auto status = view.visit_value([&](const const_instance& concrete) {
+    output = encode_view_storage(ctx, registry, concrete, doc, depth, override);
+    return error::success;
+  });
+  return status.failed() ? failure(status) : output;
+}
+}
+
+namespace gneiss::serialization::detail {
+serialization::diagnostic validate_view(const read_context& ctx, const registry_ref& registry,
+                                        const const_instance& view, std::size_t depth) {
+  serialization::diagnostic output;
+  auto status = view.visit_value([&](const const_instance& concrete) {
+    output = validate_view_storage(ctx, registry, concrete, depth);
+    return error::success;
+  });
+  return status.failed() ? failure(status) : output;
+}
 }

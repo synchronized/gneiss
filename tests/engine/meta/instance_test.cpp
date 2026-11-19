@@ -7,10 +7,12 @@
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>
-#include <gneiss/engine/core/meta/resolve.hpp>
+#include <gneiss/engine/core/serialization/value.hpp>
+#include <stdexcept>
 namespace e = gneiss;
 namespace m = e::meta;
 struct object_padding {
@@ -428,8 +430,8 @@ bool type_queries() {
     return false;
   static_assert(std::same_as<decltype(source_view.as_const().capability<m::cap::object>()),
                              e::result<m::const_object_view>>);
-  static_assert(std::same_as<decltype(source_view.capability<m::cap::object>()),
-                             e::result<m::object_view>>);
+  static_assert(
+      std::same_as<decltype(source_view.capability<m::cap::object>()), e::result<m::object_view>>);
   // 类型视图保活注册表，但不要求对象实例存活。
   std::weak_ptr<m::type_registry_state> weak = registry;
   registry.reset();
@@ -988,7 +990,111 @@ bool move_instances() {
     return false;
   return to.move_from(to).ok() && target.payload && *target.payload == 42;
 }
+// 按值 getter 的临时对象必须在递归读取期间存活，并在失败路径释放。
+struct alignas(128) computed_record {
+  static constexpr std::string_view type_name = "computed_record";
+  static constexpr e::guid type_guid = e::guid::from_bytes({95, 31});
+  static inline int live = 0;
+  int first = 1;
+  int second = 2;
+  computed_record() { ++live; }
+  computed_record(const computed_record& other) : first(other.first), second(other.second) {
+    ++live;
+  }
+  computed_record& operator=(const computed_record&) = default;
+  ~computed_record() { --live; }
+};
+struct computed_owner {
+  static constexpr std::string_view type_name = "computed_owner";
+  static constexpr e::guid type_guid = e::guid::from_bytes({95, 32});
+  computed_record data;
+  std::vector<int> numbers{3, 4};
+  int writes = 0;
+  computed_record get_data() const { return data; }
+  e::error set_data(const computed_record& next) {
+    if (next.first < 0)
+      return e::error::invalid_argument;
+    data = next;
+    ++writes;
+    return e::error::success;
+  }
+  std::vector<int> get_numbers() const { return numbers; }
+  move_probe get_move() const { return {std::make_unique<int>(11)}; }
+  void set_move(const move_probe&) {}
+  void set_numbers(const std::vector<int>& next) { numbers = next; }
+};
+bool computed_properties() {
+  auto registry = m::create_registry();
+  if (m::registration::type<move_probe>(registry).name("move_probe").commit().failed())
+    return false;
+  if (m::registration::type<computed_record>(registry)
+          .property<&computed_record::first>(e::property_id{1}, "first")
+          .property<&computed_record::second>(e::property_id{2}, "second")
+          .commit()
+          .failed() ||
+      m::registration::type<computed_owner>(registry)
+          .property<&computed_owner::get_data, &computed_owner::set_data>(e::property_id{1}, "data")
+          .property<&computed_owner::get_numbers, &computed_owner::set_numbers>(e::property_id{2},
+                                                                                "numbers")
+          .property<&computed_owner::get_move, &computed_owner::set_move>(
+              e::property_id{3}, "move")(e::serialization::field_policy{.save = false})
+          .commit()
+          .failed() ||
+      m::freeze(registry).failed())
+    return false;
+  computed_owner owner;
+  owner.data.second = 42;
+  auto root = m::view(registry, owner);
+  auto field = root.capability<m::cap::object>()->member("data");
+  auto move_only = root.capability<m::cap::object>()->member("move");
+  if (!move_only || move_only->edit([](const m::instance&) { return e::error::success; }) !=
+                        e::error::unsupported)
+    return false;
+  if (!field || !field->requires_replacement() ||
+      field->capability<m::cap::object>().error() != e::error::unsupported)
+    return false;
+  auto change = [](int next) {
+    return [next](const m::instance& candidate) {
+      return candidate.capability<m::cap::object>()->member("first")->assign(
+          e::value{std::int64_t{next}});
+    };
+  };
+  if (field->edit(change(7)).failed() || owner.data.first != 7 || owner.data.second != 42 ||
+      owner.writes != 1 || computed_record::live != 1)
+    return false;
+  if (field->edit(change(-1)) != e::error::invalid_argument || owner.data.first != 7 ||
+      owner.writes != 1 || computed_record::live != 1)
+    return false;
+  try {
+    (void)field->edit([](const m::instance&) -> e::error { throw std::runtime_error{"probe"}; });
+    return false;
+  } catch (const std::runtime_error&) {
+  }
+  if (computed_record::live != 1 || owner.writes != 1)
+    return false;
+  auto bytes =
+      e::serialization::json::encode_bytes(e::serialization::write_context{registry}, owner);
+  auto snapshot = e::serialization::capture_value(e::serialization::write_context{registry}, owner);
+  if (!bytes || !snapshot || computed_record::live != 1)
+    return false;
+  auto restored_snapshot = e::serialization::restore_value<computed_owner>(
+      e::serialization::read_context{registry}, *snapshot);
+  if (!restored_snapshot || restored_snapshot->data.first != 7 ||
+      restored_snapshot->data.second != 42 || restored_snapshot->numbers != owner.numbers)
+    return false;
+  auto restored = e::serialization::json::decode<computed_owner>(
+      e::serialization::read_context{registry}, *bytes);
+  if (!restored || restored->data.first != 7 || restored->data.second != 42 ||
+      restored->numbers != owner.numbers)
+    return false;
+  if (field->replace(change(8)).failed() || owner.data.second != 2 || owner.data.first != 8)
+    return false;
+  return true;
+}
+
 int main() try {
+  if (!computed_properties() || computed_record::live != 0)
+    return 50;
   if (!move_instances())
     return 95;
   if (!capability_binding())
@@ -1098,7 +1204,7 @@ int main() try {
     auto borrowed = m::view(registry, std::as_const(other));
     if (editable_config->assign(borrowed).failed() || source.config.speed != 7 ||
         other.speed != 7 || editable_config->assign(root) != e::error::invalid_argument ||
-        editable_speed->assign(borrowed) != e::error::unsupported)
+        editable_speed->assign(borrowed) != e::error::invalid_argument)
       return 25;
     object copy;
     auto destination = m::view(registry, copy);

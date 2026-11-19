@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
-foreach(mode IN ITEMS empty-instance wrong-kind empty-write empty-source)
+foreach(mode IN ITEMS empty-instance empty-write empty-source)
   execute_process(COMMAND "${PROGRAM}" "${mode}" RESULT_VARIABLE status
     ERROR_VARIABLE diagnostic TIMEOUT 10)
   if(mode STREQUAL "empty-instance" OR mode STREQUAL "empty-write")

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <gneiss/engine/core/meta/capabilities/container.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/views/associative_view.hpp>
 #include <gneiss/engine/core/meta/views/optional_view.hpp>
 #include <gneiss/engine/core/meta/views/reference_view.hpp>
@@ -13,7 +14,6 @@
 #include <gneiss/engine/core/serialization/policy.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <unordered_set>
-#include <gneiss/engine/core/meta/resolve.hpp>
 namespace gneiss::serialization {
 namespace {
 using namespace meta;
@@ -33,7 +33,13 @@ struct capture_state {
   diagnostic failure;
   result<gneiss::value> read(const const_instance& source, std::size_t depth,
                              const reference_policy* override = nullptr) {
-    auto result = read_impl(source, depth, override);
+    result<gneiss::value> result = error::unsupported;
+    auto status = source.visit_value([&](const const_instance& concrete) {
+      result = read_impl(concrete, depth, override);
+      return error::success;
+    });
+    if (status.failed())
+      result = status;
     if (!result && failure.error.ok())
       failure = {.path = std::string(ctx.property_path()), .error = result.error()};
     return result;

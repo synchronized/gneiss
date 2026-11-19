@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/core/base/assert.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/string_name.hpp>
+#include <gneiss/engine/core/base/utf8.hpp>
 #include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/ops/type_ops.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/base/string_name.hpp>
-#include <gneiss/engine/core/base/utf8.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <algorithm>
@@ -36,7 +36,7 @@ struct property_record {
   gneiss::guid type_guid{};
   property_access access = property_access::read_write;
   string_name name;
-  property_binding accessor{};
+  property_ops accessor{};
   gneiss::guid declaring_type{};
   gneiss::type_id declaring_id{};
   meta::metadata extensions{};
@@ -76,10 +76,6 @@ using detail::type_record;
   return text.find('\0') == std::string_view::npos && utf8::is_valid(text);
 }
 
-[[nodiscard]] bool is_valid_property_kind(value_kind kind) noexcept {
-  return is_scalar_value_kind(kind);
-}
-
 [[nodiscard]] bool is_valid_property_value(const value& value) noexcept {
   if (!is_scalar_value_kind(value.kind()))
     return false;
@@ -110,24 +106,11 @@ using detail::type_record;
       value.payload);
 }
 
-bool valid_binding(const property_binding& binding) noexcept {
-  if (binding.enum_type && binding.kind != value_kind::int64 && binding.kind != value_kind::uint64)
-    return false;
-  if (binding.object_type)
-    return binding.kind == value_kind::invalid && !binding.getter && !binding.setter &&
-           binding.object_getter &&
-           (static_cast<bool>(binding.object_mutator) ==
-            static_cast<bool>(binding.object_assign)) &&
-           (static_cast<bool>(binding.object_setter) ==
-            static_cast<bool>(binding.object_construct)) &&
-           (!binding.object_setter || (!binding.object_mutator && binding.access));
-  return is_valid_property_kind(binding.kind) && (binding.getter || binding.setter) &&
-         !binding.object_getter && !binding.object_mutator && !binding.object_assign &&
-         !binding.object_setter && !binding.object_construct &&
-         (!binding.access || (binding.access->kind() == type_kind::scalar &&
-                              binding.access->scalar_kind() == binding.kind &&
-                              binding.access->enumeration == bool(binding.enum_type) &&
-                              (!binding.enum_type || binding.access->id == binding.enum_type)));
+bool valid_binding(const property_ops& ops) noexcept {
+  return ops.access && (ops.borrow || ops.read_construct || ops.write) &&
+         (!ops.borrow_mut || ops.borrow) && !(ops.borrow_mut && ops.write) &&
+         (!ops.read_construct ||
+          (ops.access->size && ops.access->alignment && ops.access->destroy));
 }
 
 [[nodiscard]] bool validate_property(const property_definition& property) noexcept {
@@ -161,36 +144,17 @@ bool valid_binding(const property_binding& binding) noexcept {
   return true;
 }
 [[nodiscard]] property_capabilities record_capabilities(const property_record& property) noexcept {
-  return ((property.accessor.getter || property.accessor.object_getter)
-              ? property_capabilities::readable
-              : property_capabilities::none) |
-         ((property.accessor.setter || property.accessor.object_mutator ||
-           property.accessor.object_setter)
-              ? property_capabilities::writable
-              : property_capabilities::none);
+  const auto& ops = property.accessor;
+  return ((ops.borrow || ops.read_construct) ? property_capabilities::readable
+                                             : property_capabilities::none) |
+         ((ops.write || ops.borrow_mut) ? property_capabilities::writable
+                                        : property_capabilities::none);
 }
 [[nodiscard]] meta::type record_type(const registry_ref& registry,
                                      const property_record& property) {
-  if (property.accessor.access) {
+  if (property.accessor.access)
     return detail::resolve_type(registry, *property.accessor.access);
-  }
-  const auto id =
-      property.accessor.enum_type ? property.accessor.enum_type : property.accessor.object_type;
-  if (id) {
-    return resolve(registry, id);
-  }
-  meta::type output;
-  [&]<std::size_t... I>(std::index_sequence<I...>) {
-    (([&] {
-       if constexpr (is_scalar_value_kind(value::kind_index[I + 1])) {
-         if (property.accessor.kind == value::kind_index[I + 1])
-           output = detail::type_factory::make(
-               registry, &detail::ops_of<std::variant_alternative_t<I + 1, value::storage_type>>());
-       }
-     }()),
-     ...);
-  }(std::make_index_sequence<std::variant_size_v<value::storage_type> - 1>{});
-  return output;
+  return resolve(registry, property.type_guid);
 }
 
 } // namespace
@@ -241,7 +205,7 @@ public:
   }
 
   [[nodiscard]] error register_type(const type_definition& desc,
-                                    std::span<const property_binding> bindings = {}) {
+                                    std::span<const property_ops> bindings = {}) {
     if (!validate_type(desc)) {
       return error::invalid_argument;
     }
@@ -261,9 +225,8 @@ public:
         return error::invalid_argument;
       for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
-        if (!valid_binding(binding) ||
-            (desc.properties[i].access == property_access::read_only &&
-             (binding.setter || binding.object_mutator || binding.object_setter)))
+        if (!valid_binding(binding) || (desc.properties[i].access == property_access::read_only &&
+                                        (binding.write || binding.borrow_mut)))
           return error::invalid_argument;
       }
     }
@@ -337,38 +300,27 @@ public:
       }
       inherited.push_back(std::move(properties));
       for (const auto& property : type->properties) {
-        if (!property.accessor.object_type)
+        const auto* access = property.accessor.access;
+        if (!access)
           continue;
-        if (property.accessor.access) {
-          const auto* access = property.accessor.access;
-          if (access->id != property.accessor.object_type || access->guid != property.type_guid)
-            return error::invalid_argument;
-          auto status = detail::visit_type_leaves(*access, [&](const type_ops& leaf) {
-            if (leaf.kind() != type_kind::object)
-              return error::success;
-            const auto found = by_cpp_type_.find(leaf.id);
-            if (found == by_cpp_type_.end())
-              return leaf.representation ? error::success : error::not_found;
-            return found->second->guid == leaf.guid ? error::success : error::invalid_argument;
-          });
-          if (status.failed())
-            return status;
-          continue;
-        }
-        const auto found = by_cpp_type_.find(property.accessor.object_type);
-        if (found == by_cpp_type_.end())
-          return error::not_found;
-        if (found->second->guid != property.type_guid)
+        if (access->kind() != type_kind::scalar && access->guid != property.type_guid)
           return error::invalid_argument;
-      }
-    }
-    for (auto& type : types_) {
-      for (auto& property : type->properties) {
-        const auto found = enums_.find(property.accessor.enum_type);
-        if (found == enums_.end())
-          continue;
-        if (found->second.scalar != property.accessor.kind)
-          return error::invalid_argument;
+        auto status = detail::visit_type_leaves(*access, [&](const type_ops& leaf) {
+          if (leaf.enumeration) {
+            const auto found = enums_.find(leaf.id);
+            return found == enums_.end() || found->second.scalar == leaf.scalar_kind()
+                       ? error::success
+                       : error::invalid_argument;
+          }
+          if (leaf.kind() != type_kind::object)
+            return error::success;
+          const auto found = by_cpp_type_.find(leaf.id);
+          if (found == by_cpp_type_.end())
+            return leaf.representation ? error::success : error::not_found;
+          return found->second->guid == leaf.guid ? error::success : error::invalid_argument;
+        });
+        if (status.failed())
+          return status;
       }
     }
     // 名称索引使用排序后的槽位；所有分配均在提交冻结状态前完成。
@@ -555,7 +507,7 @@ std::span<const enum_entry> cap::enumeration::entries() const noexcept {
   return type_.record_ ? std::span<const enum_entry>{type_.record_->entries}
                        : std::span<const enum_entry>{};
 }
-const property_binding* property::binding() const noexcept {
+const property_ops* property::binding() const noexcept {
   return record_ ? &record_->accessor : nullptr;
 }
 property cap::object::find_property(property_id property) const noexcept {
@@ -633,7 +585,7 @@ error register_type(const registry_ref& state, const type_definition& desc) {
   return state ? state->register_type(desc) : error::invalid_handle;
 }
 error register_type(const registry_ref& state, const type_definition& desc,
-                    std::span<const property_binding> bindings) {
+                    std::span<const property_ops> bindings) {
   return state ? state->register_type(desc, bindings) : error::invalid_handle;
 }
 

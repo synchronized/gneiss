@@ -103,11 +103,10 @@ bool enum_getter_failure_contract() {
     return false;
   const m::property_definition field{gneiss::property_id{1}, enum_guid,
                                      m::property_access::read_write, "named", std::move(policy)};
-  const m::property_binding binding{
-      .kind = e::value_kind::int64,
-      .getter = [](void*, const void*, e::value&) { return e::error::not_ready; },
-      .setter = [](void*, void*, const e::value&) { return e::error::success; },
-      .enum_type = e::runtime_type_of<named_number>()};
+  const m::property_ops binding{
+      .access = &m::detail::ops_of<named_number>(),
+      .read_construct = [](void*, const void*, void*) { return e::error::not_ready; },
+      .write = [](void*, void*, const void*) { return e::error::success; }};
   if (m::register_type(registry,
                        {enum_sample::type_guid,
                         e::runtime_type_of<enum_sample>(),
@@ -401,8 +400,8 @@ int main() try {
   auto registry = created;
   if (register_sample(registry).failed())
     return 2;
-  if (gneiss::serialization::json::encode_bytes(
-          gneiss::serialization::write_context{registry}, sample{})
+  if (gneiss::serialization::json::encode_bytes(gneiss::serialization::write_context{registry},
+                                                sample{})
           .error()
           .error != e::error::not_ready)
     return 3;
@@ -547,8 +546,8 @@ int main() try {
     return static_cast<bool>(gneiss::serialization::json::decode<sample>(
         gneiss::serialization::read_context{registry}, *encoded));
   });
-  if (!gneiss::serialization::json::decode<sample>(
-          gneiss::serialization::read_context{registry}, *encoded) ||
+  if (!gneiss::serialization::json::decode<sample>(gneiss::serialization::read_context{registry},
+                                                   *encoded) ||
       !task.get())
     return 18;
   auto custom = m::create_registry();

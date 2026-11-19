@@ -125,16 +125,16 @@ return gneiss::meta::registration::type<math::transform>()
 
 - `property<&T::member>(id, name)` 自动推导值类别和 GUID，生成直接读写回调。
 - `property<Getter, Setter>(id, name)` 接受成员函数或有类型自由函数；getter 接收 const 对象，
-  返回 value 可表达的值；setter 接收可变对象和值，返回 result 或 void。
+  返回原生值或稳定 const 左值引用；setter 接收可变对象和 const 值引用，返回 error 或 void。
 - `readonly<Getter>(id, name)` 接受数据成员或 getter，只注册读取能力。
 - 默认 schema_version 为 1；字段名称、非零字段 ID 显式提供，不能依赖注册顺序。
-- builder 拥有字段名称，成员指针编译进回调，不保存对象和 user_data；需外部同步。
+- builder 拥有字段名称，成员指针编译进回调，不保存业务对象；需外部同步。
 - commit 一次性登记类型及绑定，重复字段、身份冲突、冻结返回错误，不留下该类型。
 - 注册写入、metadata 和 builder 的分配/扩展回调异常向调用方传播，不再转换为 out_of_memory/internal；
   显式注册应由宿主执行边界覆盖。纯身份设置、句柄构造等不分配操作仍保留 noexcept。
   builder 只允许提交一次；多个类型的注册不组成整体事务。
 - 直接成员适用于无需额外约束的属性；带约束的 setter 必须先校验再修改。
-  不支持的 value 类型在模板实例化时报错，不引入任意对象或偏移量访问。
+  任意原生属性通过类型能力访问；只有 read_value/assign(value) 依赖 value 的表达范围。
 
 底层 `register_type(registry, definition, bindings)` 的非空 bindings 必须与 properties 等长、顺序对应。
 空 bindings 仅登记描述，不允许后续追加绑定；需要访问实例时随类型一起提交完整绑定。
@@ -149,7 +149,7 @@ return gneiss::meta::registration::type<math::transform>()
 模板去除顶层 cv/ref；注册 `void` 或传入不匹配的非空 `type_id` 返回 `invalid_argument`。
 不对应 C++ 类型的描述保留空 `type_id`，仍可按 GUID 查询。运行期 ID 不进入文件或 IPC。
 `property_definition` 的编号和内存访问约束分别使用 `property_id` 与 `property_access`。
-注册描述与 property_binding 位于 type_definition.hpp，提交入口位于 registration.hpp；
+注册描述位于 type_definition.hpp，统一访问表 property_ops 位于 ops/property_ops.hpp，提交入口位于 registration.hpp；
 property.hpp 保留只读属性句柄、身份、权限和遍历范围。
 resolve(id/guid)/find_property 返回可判空句柄，resolve<T> 提供未注册原生类型能力；枚举数量和按索引查询
 仍返回 result，未冻结为 not_ready，越界为 not_found。属性范围不复制字段数组，
@@ -159,19 +159,27 @@ resolve(id/guid)/find_property 返回可判空句柄，resolve<T> 提供未注�
 浮点与数学值必须有限，字符串必须为无内嵌空字符的合法 UTF-8，GUID 值允许 nil；类型或对象身份是否允许 nil，由对应注册/业务规则校验。
 字段专属范围和四元数归一化由 setter 校验，失败不得留下部分修改。
 
-回调、read/write 及组件接口统一使用 [gneiss::value](value.md)。
-getter 输出 `value&`，字符串复制进值；setter 接收 `const value&`，不保留输入引用。
-不再存在借用值和拥有值之间的转换。`instance::read_value()` 返回 `result<value>`，成功快照拥有数据，失败不交付部分值；
-`instance::assign(value)` 直接传递同一份 const 值。
+属性访问表统一借用原生类型存储，value 转换由 type_ops 的值能力负责。
+instance::read_value() 返回 result<value>；instance::assign(value) 先转换为属性原生类型，
+受约束属性再调用 setter。value 不承载任意 C++ 对象。
 
-未绑定字段或缺少对应方向的访问器返回 `unsupported`。getter 成功时必须返回登记的值类别，违反此约定触发断言；数值非有限或文本非法返回
-`invalid_argument`，`instance::read_value()` 不交付属性快照。getter 显式失败保留原始错误码。getter/setter 抛出的异常（包括 bad_alloc）直接传播，
-由执行边界按致命异常策略处理，不转换为普通属性错误。
+property_ops 包含静态 type_ops 指针、借用上下文 state，以及 borrow、borrow_mut、
+read_construct、write 四个可选回调。注册表复制访问表；上下文、类型表与模块代码须覆盖使用期。
+直接成员提供借用；getter 返回稳定左值时提供只读借用，返回值时在临时存储构造结果。
+read_construct 成功必须构造正确类型，失败或抛异常不得留下活对象；这是类型擦除适配器契约，
+不能通过运行期检查任意 void* 自动验证。write 不得保存输入引用。
+
+未绑定字段或缺少对应方向能力返回 unsupported。数值非有限或文本非法返回 invalid_argument；
+getter 显式失败保留原始错误码。访问器异常（包括 bad_alloc）沿执行边界传播，不转换为普通属性错误。
+instance::visit_value(callback) 在回调期间提供实际只读存储，适用于按值返回的对象和容器；
+临时值支持过度对齐，正常、错误及异常退出均释放。回调内取得的实例和子视图不得逃逸。
+按值 getter 无稳定借用时，直接获取 object/container view 返回 unsupported，使用 visit_value 遍历。
+
 基础 getter 接收 `const void* object`，setter 接收 `void* object`。对象仅在调用期间借用，Registry
 不复制、不持有对象，也不解释 World/Entity 标识。调用方必须保证对象实际类型、寿命及线程访问合法。
 空对象返回 `invalid_argument`；不支持运行期校验任意 void* 的实际类型。
 setter 应先校验再修改，Core 不回滚第三方回调已经产生的副作用。Prefab 临时数据使用同一 setter，
-不再提供独立的候选访问接口；跨字段联合校验由提交数据的调用方负责。
+跨字段联合校验由提交数据的调用方负责。
 
 ## 内建组件与生命周期
 
@@ -567,7 +575,7 @@ const_reference_view::get 对空引用返回 not_found。引用不是标量；�
 空引用对应空强引用，非空结果显式保活目标；`actual_type()` 查询实际运行类型。
 可写视图的 `assign_owner(type, owner)` 接收声明目标类型句柄，调用方须保证擦除指针与类型匹配；比较运行身份，不要求注册表相同。
 修改目标会被所有共享拥有者观察到，不提供写时复制。
-实例的 `registry()` 返回所持有的注册表；受 setter 约束的复合属性通过
+实例的 `registry()` 返回所持有的注册表；受 setter 约束的属性通过
 `requires_replacement()` 判断整体替换要求，`replace(initialize)` 在独立候选上初始化，
 成功后才调用 setter。普通成员继续使用 `assign`，序列化不访问 Meta 私有状态。
 
@@ -626,7 +634,7 @@ Texture 描述注册 source、color_space、usage 三个必填字段；后两者
 ### 非标量 getter/setter 属性
 
 `registration::type<T>().property<Getter, Setter>(id, name)` 支持嵌套对象、序列、关联容器和引用。
-非标量 getter 必须返回稳定的 const U&，不接受临时值；setter 接收完整 const U&，返回 error
+非标量 getter 可返回 U 或稳定的 const U&；setter 接收完整 const U&，返回 error
 或 void，负责先校验再修改，失败须保持旧属性。未知 U 仍需按原规则注册。
 
 此绑定的 instance 支持 assign/move_from 整项替换，但不提供可写对象地址、
@@ -856,3 +864,17 @@ if (object) {
 `assign(const_instance)` 复制来源，`move_from(instance)` 允许移动可直接写入的来源对象。
 自移动不改变对象；来源类型不匹配返回 invalid_argument，缺少直接可写存储返回 unsupported。
 受约束目标仍通过 setter 完成替换，因此 move_from 不保证消耗来源。
+
+## 统一属性候选操作
+
+type_ops 保存 size/alignment、destroy、default_construct、copy_construct 和赋值能力。
+它只负责原生类型，不知道属性宿主或 setter；property_ops 负责宿主访问。缺少默认构造或复制
+能力时，对应候选操作返回 unsupported，不要求所有类型具备全部能力。
+
+- replace(initialize)：默认构造候选，初始化成功后写回；用于完整反序列化，缺失字段遵循默认值。
+- edit(modify)：复制当前属性作为候选，修改成功后写回；保留未修改字段。
+- assign(instance)：同类型复制或调用 setter；move_from(instance) 保留显式移动语义。
+- 受 setter 约束的属性不提供可写借用，不能通过对象/容器视图绕过 setter。
+
+候选遵循原生 C++ 复制语义，ref 仍共享对象，不是递归深拷贝，也不承诺跨属性事务。
+序列化与 value 快照通过 visit_value 同步读取计算属性，不保存临时地址，不改变持久化格式。
