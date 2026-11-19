@@ -62,6 +62,20 @@ Host 的 session/revision 由 IPC 协调器保存，不是资产加载 API 的�
 
 渲染统计直接调用 `render().query_performance_stats()`，Application 不保存或转发统计快照。
 
+## 宿主启动
+
+`on_start(name, function)` 在首次运行前注册无参数启动步骤，支持 void、error 或 result<void>。
+服务就绪后按注册顺序执行一次，随后进入业务初始状态；文件服务仍在初始化时只分发事件与完成通知。
+异步业务在启动步骤提交请求，后续由业务状态和 update 观察完成，不能阻塞启动线程。
+失败保留步骤名称与错误码，跳过后续启动和业务系统，进入同一停止流程。
+提前 request_exit 不执行启动步骤，仍执行 on_stop；停止逻辑必须能处理未启动或部分启动的会话。
+
+```cpp
+application->on_start("session.load", [&session] { return session.begin_loading(); });
+application->on_stop("session.release", [&session] { session.release(); });
+auto result = application->run();
+```
+
 ## 具名系统与业务状态
 
 首次 run 前通过 add_system 注册 completions、input、update、synchronize、present 系统。同阶段按注册顺序执行，

@@ -429,3 +429,15 @@ update、on_stop 系统驱动加载与清理，不在外部手动推进两个加
 Windows Clang Debug 构建及 editor.scene-loader 回归通过，覆盖线程池和协作两种调度模式。
 这是文档关闭重开与多 World 隔离的证据；编辑器关闭工程后回到项目选择并打开另一工程的 UI 流程
 仍需单独核对，不以本测试代替完整项目生命周期验收。
+
+### 一次性宿主启动步骤
+
+新增 on_start(name, function)，服务完成初始化后、初始业务状态 Enter 前按序执行一次；
+返回错误跳过其余启动与业务系统，走统一停止。提前退出不执行启动，但仍执行已注册清理。
+同步启动支持 void/error/result<void>；异步业务仅提交请求，继续由会话 update/状态观察。
+Runtime、Editor 的环境请求已从 create 后的提前加载迁入真实 on_start，停止回调仍负责取消。
+本批不改变底层平台服务在 create 中的装配，最终服务装配协议仍待收敛。
+
+Windows Clang Debug Runtime、Editor 与流程测试构建通过。回归验证启动顺序、初始 Enter、
+多帧不重放、启动失败清理与提前退出；Runtime 协作 smoke、Editor 30 帧环境回退均退出 0，
+日志确认环境强度 0.6、旋转 0.524 rad 保持。静态与完整验证矩阵尚未执行。

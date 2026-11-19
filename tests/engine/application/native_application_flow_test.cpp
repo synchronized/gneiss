@@ -63,6 +63,37 @@ void loop() {
   app.reset();
   check(shutdowns == 3);
 }
+void startup_systems() {
+  for (unsigned scenario = 0; scenario != 3; ++scenario) {
+    auto created = runtime::application::create({});
+    check(created.ok());
+    auto application = std::move(*created);
+    std::string order;
+    enum class state { ready };
+    application->init_state(state::ready);
+    application->on_start("first", [&] { order += 'a'; });
+    application->on_start("second", [&]() -> error {
+      order += 'b';
+      return scenario == 1 ? error::io : error::success;
+    });
+    application->on_enter(state::ready, "enter", [&] { order += 'e'; });
+    application->add_system(app::stage::update, "update", [&] {
+      order += 'u';
+      if (order == "abeuu")
+        application->request_exit();
+    });
+    application->on_stop("release", [&] { order += 's'; });
+    if (scenario == 2)
+      application->request_exit();
+    auto ran = application->run();
+    check(scenario == 1 ? ran.error() == error::io : ran.ok());
+    check(order == (scenario == 0 ? "abeuus" : scenario == 1 ? "abs" : "s"));
+    // 终态观察不重放启动或清理。
+    (void)application->step();
+    check(order == (scenario == 0 ? "abeuus" : scenario == 1 ? "abs" : "s"));
+  }
+}
+
 void scheduled_systems() {
   runtime::application_configuration config;
   std::string calls;
@@ -333,6 +364,7 @@ void creation_failures() {
 }
 int main() try {
   loop();
+  startup_systems();
   scheduled_systems();
   state_systems();
   host_shutdown();

@@ -534,12 +534,16 @@ private:
   }
   application = created->get();
   context.application = application;
-  if (!project.environment.asset.empty()) {
-    auto requested = application->assets().load<gneiss::environment>(project.environment.asset);
-    if (!requested)
-      return 4;
-    context.environment_request = std::move(*requested);
-  }
+  application->on_start("runtime.load_environment", [&context, &project]() -> gneiss::error {
+    if (!project.environment.asset.empty()) {
+      auto requested =
+          context.application->assets().load<gneiss::environment>(project.environment.asset);
+      if (!requested)
+        return requested.error();
+      context.environment_request = std::move(*requested);
+    }
+    return gneiss::error::success;
+  });
   application->add_system(gneiss::app::stage::update, "runtime.environment",
                           [&context, &project]() -> gneiss::error {
                             if (!context.environment_pending)

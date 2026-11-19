@@ -2978,12 +2978,16 @@ int run_editor(int argc, char** argv) {
   }
   application = std::move(*created);
   state.application = application.get();
-  if (!project.environment.asset.empty()) {
-    auto requested = application->assets().load<gneiss::environment>(project.environment.asset);
-    if (!requested)
-      return 1;
-    state.environment_request = std::move(*requested);
-  }
+  application->on_start("editor.load_environment", [&state, &project]() -> gneiss::error {
+    if (!project.environment.asset.empty()) {
+      auto requested =
+          state.application->assets().load<gneiss::environment>(project.environment.asset);
+      if (!requested)
+        return requested.error();
+      state.environment_request = std::move(*requested);
+    }
+    return gneiss::error::success;
+  });
   application->add_system(gneiss::app::stage::update, "editor.environment",
                           [&state, &project]() -> gneiss::error {
                             if (!state.environment_pending)
