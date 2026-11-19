@@ -7,7 +7,6 @@
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/policy.hpp>

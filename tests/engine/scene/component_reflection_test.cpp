@@ -4,7 +4,6 @@
 #include <cmath>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/builtin_registration.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>

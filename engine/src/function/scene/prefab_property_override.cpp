@@ -8,7 +8,6 @@
 #include <gneiss/engine/core/meta/capabilities/sequence.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/resolve_path.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
 #include <gneiss/engine/function/scene/prefab_property_override.hpp>

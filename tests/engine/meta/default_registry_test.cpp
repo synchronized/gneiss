@@ -3,7 +3,6 @@
 #include <array>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>

@@ -6,14 +6,13 @@
 #include "documents/components/component_registration.hpp"
 #include "documents/scene_projection.hpp"
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
-
-#include <gneiss/engine/core/meta/transform_properties.hpp>
 
 #include <gneiss/engine/resource/asset_uri.hpp>
 
@@ -556,19 +555,21 @@ scene_edit_session::restore_prefab_transform_field(entity_id node, std::uint32_t
     return gneiss::error::invalid_argument;
   }
   auto restored = found->local_transform;
-  switch (field_id) {
-  case gneiss::meta::transform_translation_field.get():
-    restored.translation = found->source_local_transform.translation;
-    break;
-  case gneiss::meta::transform_rotation_field.get():
-    restored.rotation = found->source_local_transform.rotation;
-    break;
-  case gneiss::meta::transform_scale_field.get():
-    restored.scale = found->source_local_transform.scale;
-    break;
-  default:
+  const auto source = gneiss::meta::view(found->source_local_transform);
+  const auto target = gneiss::meta::view(restored);
+  const auto property = target.type().capability<gneiss::meta::cap::object>().find_property(
+      gneiss::property_id{field_id});
+  if (!property)
     return gneiss::error::invalid_argument;
-  }
+  auto source_field = property.get(source);
+  if (!source_field)
+    return source_field.error();
+  auto target_field = property.get(target);
+  if (!target_field)
+    return target_field.error();
+  const auto assigned = target_field->assign(source_field->as_const());
+  if (assigned.failed())
+    return assigned;
   const auto previous = found->local_transform;
   const auto operation = set_local_transform(node, restored);
   if (operation == gneiss::error::success) {

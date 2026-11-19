@@ -194,30 +194,34 @@ int main() try {
   }
   auto source_moved = session.selected_prefab_node()->local_transform;
   source_moved.translation[1] = 5.0F;
-  if (session.set_local_transform(session.selection(), source_moved) !=
-          gneiss::error::success ||
+  source_moved.scale[0] = 2.0F;
+  if (session.set_local_transform(session.selection(), source_moved) != gneiss::error::success ||
       session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[1] != 5.0F ||
-      !session.selected_prefab_node()->has_override(
-          gneiss::math::transform::type_guid,
-          gneiss::meta::transform_translation_field)) {
+      !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
+                                                    gneiss::meta::transform_translation_field)) {
     return 7;
   }
   gneiss::math::transform previous_source{};
-  if (session.restore_prefab_transform_field(
-          session.selection(), gneiss::meta::transform_translation_field.get(),
-          previous_source) != gneiss::error::success ||
+  previous_source.translation[0] = 42.0F;
+  if (session.restore_prefab_transform_field(session.selection(), 0U, previous_source) !=
+          gneiss::error::invalid_argument ||
+      previous_source.translation[0] != 42.0F ||
+      session.selected_prefab_node()->local_transform.translation[1] != 5.0F) {
+    return 8;
+  }
+  if (session.restore_prefab_transform_field(session.selection(),
+                                             gneiss::meta::transform_translation_field.get(),
+                                             previous_source) != gneiss::error::success ||
       previous_source.translation[1] != 5.0F || session.selected_prefab_node().failed() ||
       session.selected_prefab_node()->local_transform.translation[0] != 1.0F ||
       session.selected_prefab_node()->local_transform.translation[1] != 0.0F ||
-      session.selected_prefab_node()->has_override(
-          gneiss::math::transform::type_guid,
-          gneiss::meta::transform_translation_field) ||
-      session.set_local_transform(session.selection(), previous_source) !=
-          gneiss::error::success ||
-      !session.selected_prefab_node()->has_override(
-          gneiss::math::transform::type_guid,
-          gneiss::meta::transform_translation_field) ||
+      session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
+      session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
+                                                   gneiss::meta::transform_translation_field) ||
+      session.set_local_transform(session.selection(), previous_source) != gneiss::error::success ||
+      !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
+                                                    gneiss::meta::transform_translation_field) ||
       session.restore_prefab_transform(session.selection(), previous_source) !=
           gneiss::error::success ||
       session.selected_prefab_node()->has_overrides(gneiss::math::transform::type_guid)) {
@@ -233,8 +237,7 @@ int main() try {
   runtime_source.local_transform = prefab_source->local_transform;
   runtime_source.local_transform.scale[0] = 2.0F;
   gneiss::editor::editor_command_history history;
-  if (apply_temporary_transform(session, history, runtime_source) !=
-          gneiss::error::success ||
+  if (apply_temporary_transform(session, history, runtime_source) != gneiss::error::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
       !session.selected_prefab_node()->has_override(gneiss::math::transform::type_guid,
                                                     gneiss::meta::transform_scale_field) ||
