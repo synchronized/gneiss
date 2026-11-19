@@ -313,7 +313,7 @@ int main(int argc, char** argv) try {
         phase_maximum = std::max(phase_maximum, interval);
       }
       previous = clock_type::now();
-      const auto render_stats = handle->render_statistics();
+      const auto render_stats = handle->render().query_performance_stats();
       if (sampled_frame != render_stats.presented_frames) {
         render_samples.push_back({milliseconds(start), render_stats.presented_frames,
                                   render_stats.latest_frame_interval_ms, currently_minimized});
@@ -528,7 +528,7 @@ int main(int argc, char** argv) try {
   if (app->render().finish_frames().failed())
     return 6;
   const auto render_ms = milliseconds(rendering_start);
-  const auto stats = app->render_statistics();
+  const auto stats = app->render().query_performance_stats();
   const auto capture_start = clock_type::now();
   gneiss::render::frame_image image;
   if (gneiss::test_support::capture_scene(*app, **world, **binding, 1024U, 768U, image) !=

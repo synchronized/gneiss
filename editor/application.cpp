@@ -1546,7 +1546,7 @@ gneiss::error advance_editor_smoke(editor_state& state) {
     ++state.smoke_frames;
     if (state.smoke_frames == 1U || state.smoke_frames % 120U == 0U ||
         state.smoke_frames == state.smoke_frame_limit) {
-      const auto stats = state.application->render_statistics();
+      const auto stats = state.application->render().query_performance_stats();
       const auto now = std::chrono::steady_clock::now();
       if (state.smoke_frames == 1U) {
         state.smoke_scene_started = now;

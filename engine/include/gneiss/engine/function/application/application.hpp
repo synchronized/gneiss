@@ -110,7 +110,6 @@ public:
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
   create(const application_configuration& config);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::render::queue_stats render_statistics() const;
   [[nodiscard]] GNEISS_ENGINE_API bool has_asset_loading_service() const noexcept;
   /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::result<gneiss::asset_batch_request>
@@ -167,7 +166,6 @@ public:
                                 gneiss::error result, std::string_view module,
                                 std::string_view message);
   GNEISS_ENGINE_API void request_exit() noexcept;
-  GNEISS_ENGINE_API void set_paused(bool value) noexcept;
 
 private:
   [[nodiscard]] GNEISS_ENGINE_API std::uint64_t now_ns() const;

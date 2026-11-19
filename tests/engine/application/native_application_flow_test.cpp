@@ -230,6 +230,39 @@ void complete_lifecycle() {
   check(application->run().error() == error::io);
   check(releases == 2);
 }
+void simulation_pause() {
+  enum class mode { playing, paused };
+  std::uint64_t clock{}, simulated{}, observed{};
+  unsigned completions{}, updates{}, presented{};
+  runtime::application_configuration config;
+  config.callbacks.now_ns = [&] { return clock += 10; };
+  auto created = runtime::application::create(config);
+  check(created.ok());
+  auto application = std::move(*created);
+  application->init_state(mode::playing);
+  application->add_system(app::stage::completions, "tasks", [&] { ++completions; });
+  application->on_update(mode::playing, "simulation",
+                         [&](const frame_time& time) { simulated += time.delta_ns; });
+  application->add_system(app::stage::update, "editor", [&](const frame_time& time) {
+    ++updates;
+    check(time.delta_ns == 10);
+    check(time.elapsed_ns == observed + time.delta_ns);
+    observed = time.elapsed_ns;
+  });
+  application->add_system(app::stage::present, "view", [&] { ++presented; });
+  check(application->step().ok());
+  const auto before_pause = simulated;
+  check(application->request_state(mode::paused).ok());
+  check(application->step().ok());
+  check(application->step().ok());
+  check(simulated == before_pause && updates == 3 && presented == 3 && completions == 3);
+  check(application->request_state(mode::playing).ok());
+  check(application->step().ok());
+  // 恢复仅消费本帧时间，不补算暂停期间的应用时间。
+  check(simulated == before_pause + 10 && observed == 40);
+  application->request_exit();
+  check(application->run().ok());
+}
 void stopping_completions() {
   auto created = runtime::application::create({});
   check(created.ok());
@@ -315,6 +348,7 @@ int main() try {
   host_shutdown();
   complete_lifecycle();
   stopping_completions();
+  simulation_pause();
   action_maps();
   creation_failures();
   return 0;

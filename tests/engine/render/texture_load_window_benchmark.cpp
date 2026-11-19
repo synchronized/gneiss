@@ -70,7 +70,7 @@ gneiss::error native_update(runtime::application& app, context& state) {
   // 加载场景也会推进宿主循环；相机装配完成后才开始测量与窗口操作。
   if (!state.camera)
     return gneiss::error::success;
-  const auto stats = app.render_statistics();
+  const auto stats = app.render().query_performance_stats();
   if (stats.presented_frames != state.stats.presented_frames) {
     state.samples.push_back(
         {elapsed, stats.presented_frames, stats.latest_frame_interval_ms, interval});

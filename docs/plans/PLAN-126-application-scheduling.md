@@ -169,7 +169,7 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 生命周期 | run/step 共用推进；已删除 run(n)，分步关闭为私有实现；pending/complete 停止时分发完成 | 公开 shutdown 已移除；最终启动协议继续收敛 |
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发；宿主拥有 World/绑定/视图，默认实现已删除 | 多 World 与关闭重开验收 |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终启动协议对齐 |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入加载、暂停与旧业务转发清理 |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入加载与旧业务转发清理；应用级暂停开关已删除 |
 | Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发清理与多 World/关闭重开验收 |
 | 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载与批次转发清理 |
 
@@ -303,3 +303,12 @@ Application 的 shutdown 已收为私有清理实现，普通调用者统一 req
 Windows Clang Debug 18 个相关目标构建通过，17 项 CPU 回归通过；平台窗口重开 smoke 与
 资产在途请求的原生窗口关闭验收均退出 0。后者首次手动执行漏传资产目录，补齐 CTest 参数后通过。
 本批未重复完整矩阵；未验证其他平台或静态构建。
+
+### 应用时钟与渲染查询收敛
+
+删除无人使用的 set_paused 及应用暂停状态，frame_time 只表达真实应用帧间隔与累计时间。
+模拟暂停由宿主业务状态选择运行系统，不使完成分发、UI 和渲染时间归零；恢复后不补算暂停时长。
+渲染统计消费者直接使用 Render::query_performance_stats，删除 Application 转发。
+新增流程回归覆盖暂停两帧、UI/完成/呈现继续执行与恢复模拟，Windows Clang Debug 下通过。
+Editor、Runtime、项目管理器、相关测量目标构建通过；Editor editor_demo smoke 与灯廊场景
+协作加载/渲染/截图退出 0。本批未重复完整矩阵，未验证静态构建或其他平台。

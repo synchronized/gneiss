@@ -287,7 +287,6 @@ struct application::storage {
   bool step_active_{};
   bool platform_initialized_ = false;
   bool is_running_ = false;
-  bool is_paused_ = false;
   bool should_exit_ = false;
   gneiss::input::service input_;
   std::unique_ptr<gneiss::window::service> window_service_;
@@ -380,13 +379,6 @@ application::application(const runtime::application_configuration& config)
     : storage_(std::make_unique<storage>(config)) {}
 
 application::~application() noexcept { static_cast<void>(shutdown()); }
-
-gneiss::render::queue_stats application::render_statistics() const {
-  if (storage_->window_service_) {
-    return storage_->render_service_->query_performance_stats();
-  }
-  return {};
-}
 
 void application::register_system(app::stage phase, std::string name,
                                   app::system_function function) {
@@ -784,13 +776,11 @@ error application::advance_frame() try {
                                ? current_time_ns - storage_->previous_time_ns_
                                : 0U;
     storage_->previous_time_ns_ = current_time_ns;
-    const auto delta_ns = storage_->is_paused_ ? 0U : raw_delta;
-    storage_->elapsed_ns_ += delta_ns;
+    storage_->elapsed_ns_ += raw_delta;
     const gneiss::frame_time time = {
         .frame_index = storage_->frame_index_,
-        .delta_ns = delta_ns,
+        .delta_ns = raw_delta,
         .elapsed_ns = storage_->elapsed_ns_,
-        .is_paused = storage_->is_paused_,
     };
     if (storage_->should_exit_)
       return error::success;
@@ -1233,7 +1223,5 @@ const gneiss::input::pointer_state& application::pointer_state() const noexcept 
 }
 
 void application::request_exit() noexcept { storage_->should_exit_ = true; }
-
-void application::set_paused(bool value) noexcept { storage_->is_paused_ = value; }
 
 } // namespace gneiss::runtime
