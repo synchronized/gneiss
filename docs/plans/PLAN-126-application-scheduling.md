@@ -226,3 +226,13 @@ gneiss.native-application-flow、gneiss.native-application 均通过。覆盖清
 
 项目选择界面实际 --smoke 启动/关闭退出码为 0，无资源关闭错误；渲染统计实际执行帧为 0，
 因此仅记为生命周期验收，不记为画面/GPU 渲染验收。
+
+### Editor 停止迁移
+
+Editor 更新已进入具名系统；协作任务放入 completions，在普通运行和停止期间共用分发。
+停止分为开始取消/布局保存、等待会话、释放 UI/文档三个步骤，删除手动 while 关闭循环。
+取消场景加载与文档存活查询不再错误依赖 accepts_requests；新业务操作仍保留请求校验。
+
+验证：两项 Application 回归通过；Editor editor_demo 普通与 cooperative-tasks smoke 均退出 0，
+分别执行 11 和 10 个 GPU 帧，无资源关闭错误。A126-04 仍未完成：World/视口归属与其他旧入口
+尚未迁移，多 World/重新打开工程尚待相应变更后验收。

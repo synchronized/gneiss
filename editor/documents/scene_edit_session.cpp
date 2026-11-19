@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/scene_edit_session.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include "documents/components/component_registration.hpp"
 #include "documents/scene_projection.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/instance.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -127,7 +127,7 @@ gneiss::error make_editor_uuid(gneiss::guid& output) {
 }
 
 gneiss::error make_asset_uri(const std::filesystem::path& asset_root,
-                                     const std::filesystem::path& path, std::string& output) {
+                             const std::filesystem::path& path, std::string& output) {
   if (asset_root.empty() || path.empty()) {
     return gneiss::error::invalid_argument;
   }
@@ -159,7 +159,7 @@ gneiss::error make_asset_uri(const std::filesystem::path& asset_root,
 
 bool scene_edit_session::is_open() const noexcept {
   if (!application_ || !scene_.id() || !application_->is_owner_thread() ||
-      !application_->accepts_requests() || application_->native_world() != world_)
+      application_->native_world() != world_)
     return false;
   // World 地址可能复用，必须同时校验实例 ID 的所属域及代次。
   return document_ && bool(document_->current()) && scene_.is_valid();
@@ -225,8 +225,7 @@ gneiss::error scene_edit_session::adopt(runtime::application& application,
 }
 
 gneiss::error scene_edit_session::create_empty(runtime::application& application,
-                                                       gneiss::world* world,
-                                                       gneiss::guid scene_uuid) {
+                                               gneiss::world* world, gneiss::guid scene_uuid) {
   if (edit_base_ || !application.is_owner_thread() || !application.accepts_requests())
     return gneiss::error::invalid_state;
   if (!world || world != application.native_world() || scene_uuid.is_nil())
@@ -270,7 +269,7 @@ gneiss::error scene_edit_session::create_empty(runtime::application& application
 }
 
 gneiss::error scene_edit_session::create_empty(runtime::application& application,
-                                                       gneiss::world* world) {
+                                               gneiss::world* world) {
   {
     return create_empty(application, world, make_uuid_value());
   }
@@ -493,9 +492,8 @@ gneiss::result<scene_query_snapshot> scene_edit_session::capture_nodes() const {
   }
 }
 
-gneiss::error
-scene_edit_session::get_world_transform(entity_id node,
-                                        gneiss::math::transform& output) const {
+gneiss::error scene_edit_session::get_world_transform(entity_id node,
+                                                      gneiss::math::transform& output) const {
   auto snapshot = capture_nodes();
   if (!snapshot)
     return snapshot.error();
@@ -521,9 +519,8 @@ scene_edit_session::get_world_transform(entity_id node,
   }
 }
 
-gneiss::error
-scene_edit_session::set_local_transform(entity_id node,
-                                        const gneiss::math::transform& value) {
+gneiss::error scene_edit_session::set_local_transform(entity_id node,
+                                                      const gneiss::math::transform& value) {
   auto target = locate(node);
   if (!target)
     return target.error();
@@ -578,9 +575,8 @@ scene_edit_session::restore_prefab_transform_field(entity_id node, std::uint32_t
   return operation;
 }
 
-gneiss::error
-scene_edit_session::restore_prefab_transform(entity_id node,
-                                             gneiss::math::transform& out_previous) {
+gneiss::error scene_edit_session::restore_prefab_transform(entity_id node,
+                                                           gneiss::math::transform& out_previous) {
   const auto found = query_prefab_node(node);
   if (!found || found->is_instance_root) {
     return gneiss::error::invalid_argument;
@@ -594,7 +590,7 @@ scene_edit_session::restore_prefab_transform(entity_id node,
 }
 
 gneiss::error scene_edit_session::create_node(std::string_view name, entity_id parent,
-                                                      entity_id& out_node) {
+                                              entity_id& out_node) {
   out_node = {};
   auto parent_target = parent ? locate(parent) : gneiss::result<edit_target>{edit_target{}};
   if (!parent_target)
@@ -831,8 +827,8 @@ scene_edit_session::set_component_description(entity_id node,
                : gneiss::error{gneiss::error::invalid_argument};
 }
 
-gneiss::error
-scene_edit_session::set_camera(entity_id node, const gneiss::camera_description& desc) {
+gneiss::error scene_edit_session::set_camera(entity_id node,
+                                             const gneiss::camera_description& desc) {
   {
     auto current = components(node);
     if (!current)
@@ -1073,8 +1069,7 @@ gneiss::error scene_edit_session::encode_scene(std::string& output) const {
   return gneiss::error::success;
 }
 
-gneiss::error scene_edit_session::begin_save(gneiss::files::service& files,
-                                             std::string_view uri,
+gneiss::error scene_edit_session::begin_save(gneiss::files::service& files, std::string_view uri,
                                              gneiss::files::write_mode mode,
                                              std::shared_ptr<save_receipt>& output) {
   if (edit_base_)

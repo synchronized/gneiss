@@ -918,6 +918,18 @@ gneiss::error application::get_window_size(std::uint32_t& out_width,
   return gneiss::error::success;
 }
 
+error application::dispatch_completion_systems() {
+  const auto completed = storage_->systems_.run(
+      app::stage::completions,
+      {.frame_index = storage_->frame_index_, .elapsed_ns = storage_->elapsed_ns_}, false);
+  if (!completed) {
+    report(severity::error, category::application, completed.error().code, completed.error().name,
+           "完成分发系统失败");
+    return completed.error().code;
+  }
+  return error::success;
+}
+
 error application::advance_frame() try {
   storage_->is_running_ = true;
   const auto status = [&]() -> error {
@@ -936,6 +948,9 @@ error application::advance_frame() try {
       }
     }
 
+    const auto dispatched = dispatch_completion_systems();
+    if (dispatched.failed())
+      return dispatched;
     const auto advanced = advance_loading();
     if (advanced == error::not_ready && !storage_->files_initialization_) {
       // 启动尚未完成，仍允许下一轮窗口事件与文件完成分发，不执行业务更新。
@@ -981,6 +996,23 @@ error application::advance_frame() try {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
     });
+    const auto run_systems = [&](app::stage phase) {
+      auto result = storage_->systems_.run(phase, time, storage_->should_exit_);
+      if (!result) {
+        report(gneiss::severity::error, gneiss::category::application, result.error().code,
+               result.error().name, "应用系统执行失败");
+        storage_->is_running_ = false;
+        storage_->is_updating_ = false;
+        storage_->ui_draw_list_.clear();
+        storage_->debug_draw_list_.clear();
+        return result.error().code;
+      }
+      return error::success;
+    };
+    storage_->is_updating_ = true;
+    auto system_status = run_systems(app::stage::input);
+    if (system_status.failed())
+      return system_status;
     if (storage_->config_.callbacks.update != nullptr) {
       storage_->is_updating_ = true;
       const auto update_result = gneiss::measure(gneiss::loop_stage::update, [&] {
@@ -997,21 +1029,8 @@ error application::advance_frame() try {
         return update_result;
       }
     }
-    const auto run_systems = [&](app::stage phase) {
-      auto result = storage_->systems_.run(phase, time, storage_->should_exit_);
-      if (!result) {
-        report(gneiss::severity::error, gneiss::category::application, result.error().code,
-               result.error().name, "应用系统执行失败");
-        storage_->is_running_ = false;
-        storage_->is_updating_ = false;
-        storage_->ui_draw_list_.clear();
-        storage_->debug_draw_list_.clear();
-        return result.error().code;
-      }
-      return error::success;
-    };
     storage_->is_updating_ = true;
-    auto system_status = run_systems(app::stage::update);
+    system_status = run_systems(app::stage::update);
     if (system_status.failed())
       return system_status;
     storage_->world_->flush_changes();
@@ -1235,6 +1254,9 @@ gneiss::error application::advance_shutdown() {
     return gneiss::error::invalid_state;
   if (storage_->shutdown_complete_)
     return storage_->shutdown_result_;
+  const auto completed = dispatch_completion_systems();
+  if (completed.failed() && storage_->host_stop_result_.ok())
+    storage_->host_stop_result_ = completed;
   if (!storage_->file_close_) {
     if (storage_->files_) {
       auto dispatched = storage_->files_->dispatch_completions(64);
@@ -1275,6 +1297,9 @@ gneiss::error application::shutdown() {
   }
   // 桌面显式关闭及析构保底可等待；外部事件循环使用非阻塞 advance_shutdown。
   while (!stop_host()) {
+    const auto completed = dispatch_completion_systems();
+    if (completed.failed() && storage_->host_stop_result_.ok())
+      storage_->host_stop_result_ = completed;
     if (storage_->files_)
       (void)storage_->files_->dispatch_completions(64);
     if (storage_->asset_manager_)

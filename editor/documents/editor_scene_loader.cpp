@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/editor_scene_loader.hpp"
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/logging/logger.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
@@ -13,8 +13,7 @@
 namespace gneiss::editor {
 
 gneiss::error editor_scene_loader::request(runtime::application& application,
-                                                   const document_editing& editing,
-                                                   std::string_view uri) {
+                                           const document_editing& editing, std::string_view uri) {
   if (active() || editing.active()) {
     return gneiss::error::not_ready;
   }
@@ -33,7 +32,7 @@ gneiss::error editor_scene_loader::cancel(runtime::application& application) {
   if (!active()) {
     return gneiss::error::not_ready;
   }
-  if (!application.accepts_requests() || !application.is_owner_thread())
+  if (!application.is_owner_thread())
     return gneiss::error::invalid_state;
   request_.cancel();
   ready_.reset();
@@ -44,9 +43,8 @@ gneiss::error editor_scene_loader::cancel(runtime::application& application) {
 }
 
 gneiss::error editor_scene_loader::advance(runtime::application& application,
-                                                   document_editing& editing,
-                                                   gneiss::world*& world,
-                                                   editor_camera& camera, bool& changed) {
+                                           document_editing& editing, gneiss::world*& world,
+                                           editor_camera& camera, bool& changed) {
   changed = false;
   if (visuals_ && visuals_.ready()) {
     auto completed = visuals_.take();

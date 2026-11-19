@@ -239,6 +239,24 @@ void complete_lifecycle() {
   check(application->run().error() == error::io);
   check(releases == 2 && application->native_world() == nullptr);
 }
+void stopping_completions() {
+  auto created = runtime::application::create({});
+  check(created.ok());
+  auto application = std::move(*created);
+  unsigned dispatched{}, updates{}, cleanup{};
+  application->add_system(app::stage::completions, "cooperative_tasks", [&] { ++dispatched; });
+  application->add_system(app::stage::update, "request_stop", [&] {
+    ++updates;
+    application->request_exit();
+  });
+  application->on_stop("await_tasks", [&] {
+    return dispatched >= 3 ? app::stop_progress::complete : app::stop_progress::pending;
+  });
+  application->on_stop("cleanup", [&] { ++cleanup; });
+  check(application->run().ok());
+  check(dispatched == 3 && updates == 1 && cleanup == 1);
+}
+
 void action_maps() {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
@@ -303,6 +321,7 @@ int main() try {
   state_systems();
   host_shutdown();
   complete_lifecycle();
+  stopping_completions();
   action_maps();
   creation_failures();
   return 0;

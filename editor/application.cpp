@@ -5,12 +5,11 @@
 #include "documents/components/component_registration.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <gneiss/engine/core/meta/resolve.hpp>
 
-#include <gneiss/engine/platform/process/child_process.hpp>
 #include "documents/commands/author_file_save.hpp"
 #include "documents/commands/author_property_edit.hpp"
 #include "documents/commands/editor_asset_edit.hpp"
@@ -18,36 +17,37 @@
 #include "documents/commands/editor_prefab_edit.hpp"
 #include "documents/commands/prefab_authoring.hpp"
 #include "documents/commands/runtime_author_apply.hpp"
-#include "inspection/console_log_buffer.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
 #include "documents/scene_document_edit.hpp"
+#include "inspection/console_log_buffer.hpp"
 #include "project/editor_project.hpp"
+#include "project/project_manager.hpp"
+#include "project/project_workspace.hpp"
+#include "runtime/runtime_launch.hpp"
+#include "runtime/runtime_process.hpp"
+#include "ui/dialogs/native_dialog.hpp"
 #include "ui/editor_theme.hpp"
 #include "ui/editor_ui.hpp"
-#include <gneiss/engine/core/logging/default_service.hpp>
-#include <gneiss/engine/core/logging/service.hpp>
-#include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/function/scene/component_registration.hpp>
-#include <gneiss/engine/core/logging/sinks/console.hpp>
 #include "ui/imgui_adapter.hpp"
-#include "ui/dialogs/native_dialog.hpp"
 #include "ui/panels/author_hierarchy_panel.hpp"
 #include "ui/panels/console_panel.hpp"
 #include "ui/panels/document_action_panel.hpp"
 #include "ui/panels/material_editor_panel.hpp"
 #include "ui/panels/reflected_property_editor.hpp"
 #include "ui/panels/runtime_panels.hpp"
-#include "project/project_manager.hpp"
-#include "project/project_workspace.hpp"
-#include "runtime/runtime_launch.hpp"
-#include "runtime/runtime_process.hpp"
 #include "ui/viewport/editor_camera.hpp"
 #include "ui/viewport/editor_grid.hpp"
 #include "ui/viewport/editor_rotation_math.hpp"
 #include "ui/viewport/transform_gizmo_drag.hpp"
 #include "ui/viewport/transform_gizmo_math.hpp"
 #include "ui/viewport/transform_gizmo_view.hpp"
+#include <gneiss/engine/core/logging/default_service.hpp>
+#include <gneiss/engine/core/logging/service.hpp>
+#include <gneiss/engine/core/logging/sinks/console.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/component_registration.hpp>
+#include <gneiss/engine/platform/process/child_process.hpp>
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "assets/asset_background_worker.hpp"
 #include "assets/asset_browser_model.hpp"
@@ -57,8 +57,8 @@
 #include "ui/panels/asset_browser_panel.hpp"
 #endif
 
-#include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 
 #include <imgui.h>
 
@@ -1687,9 +1687,6 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       ImGui::End();
       return submit_editor_ui(state);
     }
-    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
-      (void)state.task_scheduler.run_ready();
-    }
     bool scene_changed{};
     const auto loading = state.scene_loader.advance(*state.application, state.editing, state.world,
                                                     state.camera, scene_changed);
@@ -2955,9 +2952,6 @@ int run_editor(int argc, char** argv) {
   }
   gneiss::runtime::application_configuration desc;
   desc.user_root = user_root_text;
-  desc.callbacks.update = [&state](const gneiss::frame_time& time) {
-    return update_editor(&time, &state);
-  };
   desc.callbacks.close_requested = [&state]() { return handle_close_requested(&state) != 0U; };
   desc.enable_window = true;
   desc.window.title = title;
@@ -2980,6 +2974,13 @@ int run_editor(int argc, char** argv) {
     return 1;
   }
   application = std::move(*created);
+  application->add_system(gneiss::app::stage::completions, "editor.tasks", [&state] {
+    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
+      (void)state.task_scheduler.run_ready();
+  });
+  application->add_system(
+      gneiss::app::stage::update, "editor.update",
+      [&state](const gneiss::frame_time& time) { return update_editor(&time, &state); });
   operation = application->attach_task_executor(state.task_scheduler);
   if (operation != gneiss::error::success) {
     return 2;
@@ -3033,78 +3034,61 @@ int run_editor(int argc, char** argv) {
   }
   state.editing.history().clear();
   (void)state.scene_loader.request(*application, state.editing, project.startup_scene);
-  const auto run_result = application->run(0U);
-  state.pending_file_operation = {};
-  begin_editor_exit(state);
-  if (!options.smoke && !state.layout_save_started) {
-    state.layout_save_started = true;
-    state.layout_status = state.layout.save(state.panel_visibility);
-  }
-  auto editor_cleanup_pending = [&] {
-    bool pending = state.editing.active() || state.scene_loader.active() || state.layout.saving() ||
-                   state.runtime.is_running() || state.package_process.is_running();
+  application->on_stop("editor.begin_stop", [&state, smoke = options.smoke] {
+    state.pending_file_operation = {};
+    // 停止已获批准（或主循环失败），这里不再走未保存内容的交互拦截。
+    state.closing = true;
+    if (state.runtime.is_running())
+      state.runtime_result = state.runtime.request_stop();
+    state.editing.cancel(*state.application);
+    if (state.scene_loader.active())
+      (void)state.scene_loader.cancel(*state.application);
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    pending = pending || !state.author_assets.stopped() || !state.asset_reimports.status().stopped;
+    state.asset_reimports.request_stop();
+    state.author_assets.request_stop();
 #endif
-    return pending;
-  };
-  while (editor_cleanup_pending()) {
+    if (!smoke && !state.layout_save_started) {
+      state.layout_save_started = true;
+      state.layout_status = state.layout.save(state.panel_visibility);
+    }
+  });
+  application->on_stop("editor.await_sessions", [&state] {
     state.runtime.update();
     state.package_process.update();
-    (void)application->async_files()->dispatch_completions(64);
-    bool scene_changed{};
-    (void)state.scene_loader.advance(*application, state.editing, state.world, state.camera,
-                                     scene_changed);
+    state.editing.advance_cleanup(*state.application);
+    bool pending = state.editing.active() || state.scene_loader.active() || state.layout.saving() ||
+                   state.runtime.is_running() || state.package_process.is_running();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     std::vector<std::filesystem::path> ignored;
     (void)state.author_assets.poll_rescan(ignored);
     (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
+    pending = pending || !state.author_assets.stopped() || !state.asset_reimports.status().stopped;
 #endif
-    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
-      (void)state.task_scheduler.run_ready();
+    return pending ? gneiss::app::stop_progress::pending : gneiss::app::stop_progress::complete;
+  });
+  application->on_stop("editor.release_session", [&state, smoke = options.smoke] {
+    if (!smoke) {
+      const auto status =
+          state.layout_status.failed() ? state.layout_status : state.layout.save_result();
+      if (status.failed())
+        gneiss::logging::logger{"editor"}.write({.severity = gneiss::logging::level::error,
+                                                 .category = "layout",
+                                                 .message = "布局保存失败",
+                                                 .result = status});
     }
-    state.editing.advance_cleanup(*application);
-    std::this_thread::yield();
-  }
-  if (!options.smoke) {
-    const auto status =
-        state.layout_status.failed() ? state.layout_status : state.layout.save_result();
-    if (status.failed())
-      gneiss::logging::logger{"editor"}.write({.severity = gneiss::logging::level::error,
-                                               .category = "layout",
-                                               .message = "布局保存失败",
-                                               .result = status});
-  }
-  state.ui.shutdown(*application);
+    state.ui.shutdown(*state.application);
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-  if (state.asset_watcher.is_running()) {
-    (void)state.asset_watcher.stop();
-  }
-  if (state.author_asset_watcher.is_running()) {
-    (void)state.author_asset_watcher.stop();
-  }
+    if (state.asset_watcher.is_running())
+      (void)state.asset_watcher.stop();
+    if (state.author_asset_watcher.is_running())
+      (void)state.author_asset_watcher.stop();
 #endif
-  state.editing.prefabs().dismiss();
-  state.camera.shutdown();
-  const auto closed = state.editing.close();
-  auto shutdown_result = application->request_shutdown();
-  if (shutdown_result.ok()) {
-    do {
-      if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
-        (void)state.task_scheduler.run_ready();
-      shutdown_result = application->advance_shutdown();
-      if (shutdown_result == gneiss::error::not_ready)
-        std::this_thread::yield();
-    } while (shutdown_result == gneiss::error::not_ready);
-  }
-  if (shutdown_result.failed()) {
-    report_startup_failure("Editor 异步关闭", shutdown_result);
-    return 4;
-  }
-  if (closed.failed()) {
-    report_startup_failure("Editor 文档关闭", closed);
-    return 4;
-  }
+    state.editing.prefabs().dismiss();
+    state.camera.shutdown();
+    return state.editing.close();
+  });
+  const auto ran = application->run();
+  const auto run_result = ran ? gneiss::error::success : ran.error();
   if (run_result != gneiss::error::success) {
     report_startup_failure("Editor 运行时事件循环", run_result, path_utf8(project.project_root));
   }

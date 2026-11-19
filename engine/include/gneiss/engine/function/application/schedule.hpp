@@ -13,7 +13,7 @@
 namespace gneiss::app {
 /** 当前接入业务阶段；平台事件与完成分发仍由 Application 固定驱动。 */
 enum class lifecycle { starting, running, stopping, stopped };
-enum class stage { update, synchronize, present };
+enum class stage { completions, input, update, synchronize, present };
 namespace detail {
 enum class state_event { enter, update, exit };
 struct state_key {

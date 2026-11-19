@@ -54,8 +54,10 @@ update 只接收帧时间，诊断回调只接收诊断事件，关闭请求回�
 
 ## 具名系统与业务状态
 
-首次 run 前通过 add_system 注册 update、synchronize、present 系统。同阶段按注册顺序执行，
-名称在该 Application 内唯一；首轮运行冻结注册。update 后刷新 World 变化，再执行 synchronize、
+首次 run 前通过 add_system 注册 completions、input、update、synchronize、present 系统。同阶段按注册顺序执行，
+名称在该 Application 内唯一；首轮运行冻结注册。completions 在正常帧和停止排空期间执行，
+用于协作任务与宿主完成分发，不受业务状态和退出标志过滤；input 在状态转换后、update 前执行。
+update 后刷新 World 变化，再执行 synchronize、
 present，最后通过现有 Render 路径提交。旧 callbacks.update 与具名 update 系统不能混用。
 
 业务状态使用宿主自己的枚举，不要求反射注册。每种枚举类型有独立当前值：
@@ -117,7 +119,7 @@ step() 返回 result<app::lifecycle>，starting/running/stopping 为进行中，
 error::not_ready 仍是错误，不代替 pending。同步 shutdown/析构可等待，外部循环应使用 step 排空。
 意外异常保持传播，析构时按既有 noexcept/致命异常策略处理，不承诺异常后所有清理完成。
 
-项目选择界面已用 on_stop 非阻塞排空任务并释放 UI，由 run() 统一完成服务关闭。
+项目选择界面和 Editor 已用 on_stop 非阻塞排空任务、会话并释放 UI，由 run() 统一完成服务关闭。
 
 ## 平台与窗口
 
