@@ -635,12 +635,6 @@ gneiss::error application::poll_events(bool& out_should_close) {
   }
 }
 
-gneiss::error application::poll_input(gneiss::input::event& out_event) noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  return storage_->input_.poll(out_event);
-}
-
 gneiss::error application::begin_action_map(std::string_view uri) {
   if (!is_owner_thread() || !accepts_requests())
     return gneiss::error::invalid_state;
@@ -674,20 +668,6 @@ gneiss::error application::cancel_action_map() noexcept {
   storage_->cancel_action_map();
   return gneiss::error::success;
 }
-gneiss::error application::find_action(std::string_view name,
-                                       gneiss::input::action_id& out_action) const noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  return storage_->input_.find_action(name, out_action);
-}
-
-gneiss::error application::get_action_state(gneiss::input::action_id action,
-                                            gneiss::input::action_state& out_state) const noexcept {
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  return storage_->input_.get_action_state(action, out_state);
-}
-
 void application::report(gneiss::severity severity, gneiss::category category, gneiss::error result,
                          std::string_view module, std::string_view message) {
   if (storage_->config_.callbacks.diagnostic != nullptr) {
@@ -1214,12 +1194,9 @@ std::shared_ptr<gneiss::files::service> application::async_files() const noexcep
 
 gneiss::asset_manager& application::assets() noexcept { return *storage_->asset_manager_; }
 
-const gneiss::input::keyboard_state& application::keyboard_state() const noexcept {
-  return storage_->input_.keyboard();
-}
-
-const gneiss::input::pointer_state& application::pointer_state() const noexcept {
-  return storage_->input_.pointer();
+gneiss::input::service& application::input() noexcept {
+  GNEISS_ASSERT(is_owner_thread() && accepts_requests(), "输入服务只在所属线程和有效期内借用");
+  return storage_->input_;
 }
 
 void application::request_exit() noexcept { storage_->should_exit_ = true; }

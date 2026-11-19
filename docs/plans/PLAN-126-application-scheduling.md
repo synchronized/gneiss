@@ -312,3 +312,15 @@ Windows Clang Debug 18 个相关目标构建通过，17 项 CPU 回归通过；�
 新增流程回归覆盖暂停两帧、UI/完成/呈现继续执行与恢复模拟，Windows Clang Debug 下通过。
 Editor、Runtime、项目管理器、相关测量目标构建通过；Editor editor_demo smoke 与灯廊场景
 协作加载/渲染/截图退出 0。本批未重复完整矩阵，未验证静态构建或其他平台。
+
+### Input 查询入口收敛
+
+Application 通过 input() 借用已有输入上下文，删除键鼠状态、事件消费和动作查询转发。
+Editor UI、scene_viewer 与窗口/输入回归直接使用 Input 原生接口；平台帧推进仍由 Application 唯一负责。
+借用按所属线程和有效期契约断言；不再以关闭后或跨线程调用已删除的转发接口作为错误码测试。
+动作缺失、失效 generation、跨上下文混用及映射加载失败保留旧映射仍由现有回归覆盖。
+Input 方法因真实跨目标消费者导出，测试链接生产实现，删除白盒测试重复编译 service.cpp。
+Action Map 请求所有权尚未迁出，不以查询迁移代替整条输入加载链路完成。
+本批 Windows Clang Debug 相关目标构建通过，Input 单元、输入集成、资产映射加载与 Application
+流程四项 CPU 回归通过；平台 smoke、Editor、双视图、主循环响应及编辑器原生窗口交互均退出 0。
+窗口交互覆盖 18 次缩放、3 次最小化恢复和 5 次模拟 DPI 切换。静态链接与其他平台留待最终矩阵。

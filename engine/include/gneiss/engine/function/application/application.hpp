@@ -8,7 +8,7 @@
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/input/action.hpp>
+#include <gneiss/engine/function/input/service.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <gneiss/engine/platform/window/input.hpp>
@@ -144,12 +144,8 @@ public:
   /** 共享宿主文件服务；由 Application 分发和关闭，消费者只提交/取消自己的请求。 */
   [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<gneiss::files::service>
   async_files() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API const gneiss::input::keyboard_state&
-  keyboard_state() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API const gneiss::input::pointer_state&
-  pointer_state() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  poll_input(gneiss::input::event& out_event) noexcept;
+  /** 借用输入上下文；限所属线程、服务有效期内使用，不得自行推进平台帧。 */
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::input::service& input() noexcept;
   /** 借用只读窗口服务；无窗口或关闭后为空，不允许宿主重复泵送平台事件。 */
   [[nodiscard]] GNEISS_ENGINE_API const gneiss::window::service* window() const noexcept;
   /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
@@ -157,11 +153,6 @@ public:
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error action_map_status() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error cancel_action_map() noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  find_action(std::string_view name, gneiss::input::action_id& out_action) const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  get_action_state(gneiss::input::action_id action,
-                   gneiss::input::action_state& out_state) const noexcept;
   GNEISS_ENGINE_API void report(gneiss::severity severity, gneiss::category category,
                                 gneiss::error result, std::string_view module,
                                 std::string_view message);

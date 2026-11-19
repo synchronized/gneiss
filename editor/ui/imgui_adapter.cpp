@@ -123,7 +123,7 @@ int map_mouse_button(std::uint32_t button) noexcept {
 
 gneiss::error synchronize_input_state(runtime::application& application) noexcept {
   auto& io = ImGui::GetIO();
-  const auto& keyboard = application.keyboard_state();
+  const auto& keyboard = application.input().keyboard();
   update_modifiers(io, keyboard.modifiers);
   for (std::uint32_t physical_key = 0U; physical_key < 256U; ++physical_key) {
     const auto key = map_key(physical_key);
@@ -135,7 +135,7 @@ gneiss::error synchronize_input_state(runtime::application& application) noexcep
     io.AddKeyEvent(key, is_down);
   }
 
-  const auto& pointer = application.pointer_state();
+  const auto& pointer = application.input().pointer();
   if (pointer.is_inside != 0U) {
     io.AddMousePosEvent(pointer.x, pointer.y);
   } else {
@@ -268,11 +268,11 @@ gneiss::error imgui_adapter::begin_frame(runtime::application& application,
   }
   ImGui::SetCurrentContext(context_);
   gneiss::input::event event;
-  auto poll_result = application.poll_input(event);
+  auto poll_result = application.input().poll(event);
   while (poll_result == gneiss::error::success) {
     process_input(event);
     event = {};
-    poll_result = application.poll_input(event);
+    poll_result = application.input().poll(event);
   }
   if (poll_result != gneiss::error::not_ready) {
     return poll_result;

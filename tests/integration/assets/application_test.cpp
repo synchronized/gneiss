@@ -111,7 +111,7 @@ void run(const char* assets, bool cooperative) {
     ++frames;
     if (app->action_map_status() == gneiss::error::success) {
       gneiss::input::action_id id;
-      check(app->find_action("move_horizontal", id) == gneiss::error::success,
+      check(app->input().find_action("move_horizontal", id) == gneiss::error::success,
             "ready before update");
       seen_ready = true;
     }
@@ -174,7 +174,8 @@ void run(const char* assets, bool cooperative) {
   wait();
   check(app->action_map_status() == gneiss::error::invalid_argument, "async document limit");
   gneiss::input::action_id original;
-  check(app->find_action("move_horizontal", original) == gneiss::error::success, "original action");
+  check(app->input().find_action("move_horizontal", original) == gneiss::error::success,
+        "original action");
   {
     std::ofstream invalid(file);
     invalid << "{}";
@@ -184,7 +185,7 @@ void run(const char* assets, bool cooperative) {
   wait();
   check(app->action_map_status() != gneiss::error::success, "invalid reload failed");
   gneiss::input::action_id retained;
-  check(app->find_action("move_horizontal", retained) == gneiss::error::success &&
+  check(app->input().find_action("move_horizontal", retained) == gneiss::error::success &&
             retained == original,
         "failure preserves action identity");
   check(app->begin_action_map("asset://input/missing.json") == gneiss::error::success,

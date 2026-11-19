@@ -70,11 +70,11 @@ gneiss::error update_sample(gneiss::runtime::application& application,
   }
   gneiss::input::action_state orbit{};
   gneiss::input::action_state quit{};
-  const auto orbit_result = application.get_action_state(state->orbit, orbit);
+  const auto orbit_result = application.input().get_action_state(state->orbit, orbit);
   if (orbit_result.failed()) {
     return orbit_result;
   }
-  const auto quit_result = application.get_action_state(state->quit, quit);
+  const auto quit_result = application.input().get_action_state(state->quit, quit);
   if (quit_result.failed()) {
     return quit_result;
   }
@@ -357,10 +357,10 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     return app->request_state(mode::viewing);
   });
   app->on_enter(mode::viewing, "configure_view", [&]() -> gneiss::result<void> {
-    auto status = app->find_action("move_horizontal", state.orbit);
+    auto status = app->input().find_action("move_horizontal", state.orbit);
     if (status.failed())
       return status;
-    status = app->find_action("quit", state.quit);
+    status = app->input().find_action("quit", state.quit);
     if (status.failed())
       return status;
     status = gneiss::get_active_camera(*state.world, state.camera_node);

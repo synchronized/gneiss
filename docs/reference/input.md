@@ -8,13 +8,13 @@
 完整输入 C API 与 `gneiss/engine/input.h` 已删除；仓内调用使用原生 Application，
 不再提供游戏模块动作查询协议。
 内部输入值位于 `engine/include/gneiss/engine/platform/window/input.hpp`，服务位于 `engine/include/gneiss/engine/function/input`。
-内部 Application 直接查询原生事件及动作，不再维护 C++ 输入包装或第二份输入值类型。
-`poll_input`、`find_action`、`get_action_state` 拒绝非所属线程和已关闭对象，返回 `invalid_state`；
-键盘/指针快照引用只在所属线程、Application 有效期间使用。不再安装 C++ 包装头。
+通过 `application.input()` 借用 Input 服务并直接查询事件与动作，不维护第二份输入值类型。
+借用和操作仅限所属线程及服务有效期；跨线程或关闭后借用属于程序契约错误。
+键盘/指针快照不保活 Application。不再安装 C++ 包装头。
 Application 使用 Granit 平台时，会在每次业务更新回调前完成窗口事件采集，并形成当前帧键盘和
 指针快照。核心无窗口模式下快照保持为空，事件查询返回 `error::not_ready`。
 
-原始事件通过 `application::poll_input` 顺序读取，包含逻辑窗口 ID、单调时钟时间戳以及键盘、
+原始事件通过 `application.input().poll` 顺序读取，包含逻辑窗口 ID、单调时钟时间戳以及键盘、
 UTF-8 文本或指针负载。物理键值采用 USB HID Keyboard/Keypad usage；指针坐标是窗口内容区逻辑
 坐标。文本负载最多保存 48 字节，且由后端保证不截断 UTF-8 码点。
 
@@ -26,7 +26,7 @@ UTF-8 文本或指针负载。物理键值采用 USB HID Keyboard/Keypad usage�
 - 焦点丢失会清空按键、指针按钮和窗口内状态，避免保持状态卡住。
 - 首版队列固定容纳 256 条事件；溢出时清空保持状态并令 Application 本帧返回
   `error::invalid_state`，不会静默丢弃释放事件。
-- 关闭后事件和动作查询返回 `invalid_state`；对象销毁后不得再访问借用指针。
+- 关闭后不得再借用输入服务；对象销毁后不得访问先前取得的引用。
 
 Granit 的类型、句柄和枚举只存在于 `engine/src/platform/window/service.cpp`，不属于 Gneiss 公共 ABI。版本化动作
 映射在原始快照之上提供 `pressed`、`held`、`released` 和标量值，格式与句柄规则见
@@ -34,30 +34,30 @@ Granit 的类型、句柄和枚举只存在于 `engine/src/platform/window/servi
 
 ## C++ 入口
 
-`gneiss::runtime::application` 提供 `poll_input`、`keyboard_state`、`pointer_state`、`begin_action_map`、
-`action_map_status`、`cancel_action_map`、
-`find_action` 和 `get_action_state` 成员；不需要先取出裸 Application 句柄。
-事件和状态使用 `gneiss` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
-`input_event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。
+`gneiss::runtime::application::input()` 返回借用的 `input::service&`，提供 poll、keyboard、pointer、
+find_action、get_action_state 和 replace_action_map。Application 暂保留 begin_action_map、
+action_map_status、cancel_action_map 异步加载入口。
+事件和状态使用 `gneiss::input` 中的原生值类型，不包含 `struct_size` 和 ABI 保留字段。
+`input::event::type` 指定 `data` 联合体的活动成员；只按对应事件类型访问该成员。
 文本保存在事件自身的固定数组中，`length` 指定有效字节数，不保证零终止。
 物理/逻辑键码、修饰键和按钮保留整数值及位集合语义。
 
 ```cpp
-gneiss::input_event event{};
-while (host.poll_input(event).ok()) {
-  if (event.type == gneiss::event_type::text) {
+gneiss::input::event event{};
+while (host.input().poll(event).ok()) {
+  if (event.type == gneiss::input::event_type::text) {
     consume_text(std::string_view{event.data.text.utf8, event.data.text.length});
   }
 }
 ```
 
 上例假设 `host` 是所属线程中的有效原生 Application，`consume_text` 同步消费文本。
-需要长期保存时复制文本。队列为空时 `poll_input` 清空输出并返回 `not_ready`。
+需要长期保存时复制文本。队列为空时 `poll` 清空输出并返回 `not_ready`。
 平台事件由输入服务入队时检查类型、按键动作和文本长度；没有 C 事件到另一套 C++ 事件的转换层。
 
 `action_id` 是非拥有的强类型标识，其 `value` 为零时无效。动作映射成功重载后旧 ID
 失效，加载失败保留原映射；ID 不能跨 Application 使用。`find_action` 和 `get_action_state`
-失败时保留输出，非零 ID 不保证映射仍存活。原生入口直接调用 Application 成员函数，
+查询前清空输出，失败不留下旧动作 ID 或状态；非零 ID 不保证映射仍存活。原生入口直接调用 Input 成员函数，
 不再提供接收 C Application 句柄的自由函数包装。
 
 ## 映射资源加载
@@ -73,5 +73,5 @@ while (host.poll_input(event).ok()) {
 读取、解码或采用失败保留旧映射；动作 ID 的失效规则不变。大小上限为 1 MiB，
 codec 诊断提供 JSON 字节偏移或字段路径。格式约束仍以[输入映射格式](input-map-format.md)为准。
 
-输入映射只提供异步加载：先附加任务执行器，再调用 begin_action_map；成功仅表示请求被接受。
+输入映射只提供异步加载：创建 Application 时配置任务执行器，再调用 begin_action_map；成功仅表示请求被接受。
 宿主事件循环在 update 前应用结果，通过 action_map_status 查询终态；不存在同步 load_action_map。

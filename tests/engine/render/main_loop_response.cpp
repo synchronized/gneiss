@@ -168,7 +168,7 @@ gneiss::error native_update(gneiss::runtime::application& app, response_context&
     state.stall = false;
   }
   gneiss::input::event event;
-  while (gneiss::error{app.poll_input(event)} == gneiss::error::success) {
+  while (gneiss::error{app.input().poll(event)} == gneiss::error::success) {
     if (event.type == gneiss::input::event_type::key &&
         event.data.key.physical_key == 4U /* USB HID A */ &&
         event.data.key.action == gneiss::input::key_action::pressed) {

@@ -200,3 +200,11 @@ host/runtime/runtime_scene_loader.hpp，只保存绑定检查器和来源更新�
 普通帧背压由 Render 处理，宿主处理 not_ready 并在下一帧提交最新内容。
 截图由宿主直接调用 Render::request_capture，并按序号领取必达完成回执。
 UI 与调试绘制数据由宿主装入帧请求。完成协议见 [Render](render.md)。
+
+## 输入上下文借用
+
+`input()` 返回 Application 拥有的 `input::service&`，UI 与业务直接调用 keyboard()/pointer()、
+poll()、find_action()/get_action_state()。借用不保活 Application，限所属线程与服务有效期内使用；
+跨线程或关闭后借用属于程序契约错误。旧 Application 查询转发已删除。
+平台事件泵送、begin_frame 和事件注入仍由 Application 负责，消费者不得重复推进输入帧。
+Action Map 异步加载暂仍由 Application 维护，后续按 PLAN-126 迁移至宿主请求。

@@ -69,7 +69,7 @@ gneiss::error update(const gneiss::frame_time* time, void* data) {
     return operation;
   }
   const auto& io = ImGui::GetIO();
-  const auto& pointer = value.application->pointer_state();
+  const auto& pointer = value.application->input().pointer();
   const auto aligned =
       io.DisplaySize.x == static_cast<float>(std::max(width, 1U)) &&
       io.DisplaySize.y == static_cast<float>(std::max(height, 1U)) &&

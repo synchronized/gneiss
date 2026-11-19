@@ -4,8 +4,6 @@
 add_executable(
   gneiss_input_service_test
   input_service_test.cpp
-  # input_service 未导出；白盒测试保留内部实现，不为测试扩大 DLL 接口。
-  "${PROJECT_SOURCE_DIR}/engine/src/function/input/service.cpp"
 )
 target_link_libraries(gneiss_input_service_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_input_service_test PRIVATE cxx_std_20)

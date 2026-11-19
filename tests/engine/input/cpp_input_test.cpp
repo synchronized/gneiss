@@ -6,7 +6,6 @@
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/entity_id.hpp>
-#include <thread>
 #include <type_traits>
 
 int main() {
@@ -26,55 +25,36 @@ int main() {
   gneiss::input::event event{};
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
           .failed() ||
-      action.value != 0 || app->get_action_state(action, state) != error::invalid_handle ||
-      app->poll_input(event) != error::not_ready || app->keyboard_state().modifiers != 0 ||
-      app->pointer_state().buttons != 0 ||
+      action.value != 0 || app->input().get_action_state(action, state) != error::invalid_handle ||
+      app->input().poll(event) != error::not_ready || app->input().keyboard().modifiers != 0 ||
+      app->input().pointer().buttons != 0 ||
       gneiss::test_support::load_input_for_test(*app, scheduler, uri).failed() ||
-      app->find_action("move_horizontal", action).failed() || action.value == 0 ||
-      app->get_action_state(action, state).failed() || state.held || state.value != 0.0F) {
+      app->input().find_action("move_horizontal", action).failed() || action.value == 0 ||
+      app->input().get_action_state(action, state).failed() || state.held || state.value != 0.0F) {
     return 1;
   }
   const auto original = action;
-  if (app->find_action("missing", action) != error::not_found || action.value != 0 ||
+  if (app->input().find_action("missing", action) != error::not_found || action.value != 0 ||
       gneiss::test_support::load_input_for_test(
           *app, scheduler, "asset://input/missing.input-map.json") != error::not_found ||
-      app->get_action_state(original, state).failed() ||
+      app->input().get_action_state(original, state).failed() ||
       gneiss::test_support::assign_value(gneiss::runtime::application::create(config), other)
           .failed() ||
       gneiss::test_support::load_input_for_test(*other, scheduler, uri).failed() ||
-      other->get_action_state(original, state) != error::invalid_handle) {
+      other->input().get_action_state(original, state) != error::invalid_handle) {
     return 2;
   }
   action = original;
-  error thread_result, thread_state_result, thread_event_result;
-  state.value = 7.0F;
-  event.timestamp_ns = 99;
-  std::thread worker([&] {
-    thread_result = app->find_action("move_horizontal", action);
-    thread_state_result = app->get_action_state(action, state);
-    thread_event_result = app->poll_input(event);
-  });
-  worker.join();
-  if (thread_result != error::invalid_state || thread_state_result != error::invalid_state ||
-      thread_event_result != error::invalid_state || state.value != 7.0F ||
-      event.timestamp_ns != 99 || action != original ||
-      gneiss::test_support::load_input_for_test(*app, scheduler, uri).failed() ||
-      app->get_action_state(original, state) != error::invalid_handle ||
-      app->find_action("move_horizontal", action).failed() || action == original ||
-      app->get_action_state(action, state).failed()) {
+  if (gneiss::test_support::load_input_for_test(*app, scheduler, uri).failed() ||
+      app->input().get_action_state(original, state) != error::invalid_handle ||
+      app->input().find_action("move_horizontal", action).failed() || action == original ||
+      app->input().get_action_state(action, state).failed()) {
     return 3;
   }
   // 强类型入口共享同一动作状态；默认构造无需 ABI 结构尺寸。
   app->request_exit();
-  if (app->get_action_state(action, state).failed() || app->run().failed()) {
+  if (app->input().get_action_state(action, state).failed() || app->run().failed()) {
     return 4;
-  }
-  state.value = 7.0F;
-  const auto before_failure = action;
-  if (app->find_action("move_horizontal", action) != error::invalid_state ||
-      action != before_failure || app->get_action_state(action, state) != error::invalid_state ||
-      app->poll_input(event) != error::invalid_state || state.value != 7.0F) {
-    return 6;
   }
   return 0;
 }

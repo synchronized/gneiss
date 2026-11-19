@@ -36,7 +36,7 @@ struct smoke_context final {
 
 native::error submit_ui(gneiss::runtime::application& application, smoke_context& context) {
   gneiss::input::event event;
-  while (application.poll_input(event) == native::error::success) {
+  while (application.input().poll(event) == native::error::success) {
     // USB HID 物理键编号：A 为 4。
     if (event.type == gneiss::input::event_type::key && event.data.key.physical_key == 4U &&
         event.data.key.action == gneiss::input::key_action::pressed) {
@@ -304,7 +304,7 @@ int main() {
   std::shared_ptr<gneiss::runtime::application> next;
   next_config.callbacks.update = [&](const native::frame_time&) {
     input::event event;
-    while (next->poll_input(event) == error::success) {
+    while (next->input().poll(event) == error::success) {
       if (event.type == input::event_type::key)
         next_id = event.window_id;
     }

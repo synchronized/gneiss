@@ -41,10 +41,10 @@ void loop() {
   check(gneiss::test_support::assign_value(runtime::application::create(config), app).ok());
   check(app->window() == nullptr);
   gneiss::input::event event;
-  check(app->poll_input(event) == gneiss::error::not_ready &&
+  check(app->input().poll(event) == gneiss::error::not_ready &&
         event.type == gneiss::input::event_type::none);
-  check(app->keyboard_state().modifiers == 0 && app->keyboard_state().pressed_keys[0] == 0);
-  check(app->pointer_state().buttons == 0 && !app->pointer_state().is_inside);
+  check(app->input().keyboard().modifiers == 0 && app->input().keyboard().pressed_keys[0] == 0);
+  check(app->input().pointer().buttons == 0 && !app->input().pointer().is_inside);
   check(app->run().ok() && updates == 3);
   app.reset();
   check(shutdowns == 1);
@@ -293,18 +293,18 @@ void action_maps() {
   gneiss::input::action_id action;
   gneiss::input::action_state state;
   check(gneiss::test_support::load_input_for_test(*app, scheduler, uri).ok());
-  check(app->find_action("move_horizontal", action).ok() && action.value != 0);
-  check(app->get_action_state(action, state).ok() && !state.held && state.value == 0);
+  check(app->input().find_action("move_horizontal", action).ok() && action.value != 0);
+  check(app->input().get_action_state(action, state).ok() && !state.held && state.value == 0);
   check(gneiss::test_support::load_input_for_test(
             *app, scheduler, "asset://input/missing.input-map.json") == gneiss::error::not_found);
-  check(app->get_action_state(action, state).ok());
+  check(app->input().get_action_state(action, state).ok());
   check(gneiss::test_support::load_input_for_test(*app, scheduler, uri).ok());
-  check(app->get_action_state(action, state) == gneiss::error::invalid_handle);
+  check(app->input().get_action_state(action, state) == gneiss::error::invalid_handle);
   // 使用当前仍有效的动作验证跨 Application 拒绝，避免只验证旧代次。
-  check(app->find_action("move_horizontal", action).ok());
+  check(app->input().find_action("move_horizontal", action).ok());
   check(gneiss::test_support::assign_value(runtime::application::create(config), other).ok());
   check(gneiss::test_support::load_input_for_test(*other, scheduler, uri).ok());
-  check(other->get_action_state(action, state) == gneiss::error::invalid_handle);
+  check(other->input().get_action_state(action, state) == gneiss::error::invalid_handle);
 }
 void creation_failures() {
   gneiss::tasks::task_scheduler scheduler(
