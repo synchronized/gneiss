@@ -169,8 +169,8 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | 生命周期 | run/step 共用推进，pending/complete 停止，停止时完成分发 | 删除测试中的 run(n) 与分步关闭旧入口 |
 | 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发 | 默认 World、视口、绑定移交 Session |
 | 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
-| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | Session 接管 World、输入加载、暂停、渲染绑定 |
-| Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | World/视口归属及旧业务转发清理 |
+| Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入加载、暂停与旧业务转发清理 |
+| Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发与 Application 默认 World 清理 |
 | 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | scene_viewer 的 World/视口归属迁移 |
 
 当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
@@ -204,3 +204,17 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 - scene_viewer --smoke --dual-view 退出 0，覆盖两组目标尺寸和双相机图像差异回读。
 
 尚未验证其他平台、完整浏览器宿主、多 World 视口与项目关闭后重开；这些随对应所有权迁移验收。
+
+### 宿主 World 与呈现迁移
+
+Runtime 和 Editor 已独立拥有 World 与 world_render_binding，在 synchronize 阶段同步，
+在 present 阶段直接提交 render::frame_request。Editor 独立选择视口、相机与离屏目标，
+UI 适配器返回借用绘制数据，由宿主复制到帧请求。项目管理器直接提交 UI 帧。
+停止系统先关闭文档与场景，再释放绑定及 World，最后由 Application 关闭服务。
+
+过渡边界：Application 暂时仍为未迁移示例和测试创建默认 World；注册 present 系统的宿主
+不再触发旧默认呈现，避免一轮双重提交。这不是最终协议，退出条件是 scene_viewer 和相关
+测试迁移完成，随后一并删除默认 World、默认呈现及业务转发接口。
+
+本批验证：Runtime、Editor、原生窗口交互目标构建通过；Runtime 普通及协作 smoke、
+Editor editor_demo smoke、原生窗口交互测试均退出 0。未以此代替双视图示例迁移验收。

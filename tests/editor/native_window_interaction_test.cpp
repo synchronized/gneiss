@@ -4,6 +4,7 @@
 #include "../support/value_result.hpp"
 #include "ui/imgui_adapter.hpp"
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/platform/window/service.hpp>
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "assets/asset_background_worker.hpp"
@@ -30,6 +31,7 @@ namespace {
 struct state final {
   gneiss::runtime::application* application{};
   gneiss::editor::imgui_adapter ui;
+  gneiss::render::frame_request frame;
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   gneiss::editor::asset_background_worker* assets{};
   gneiss::editor::editor_camera camera;
@@ -85,7 +87,8 @@ gneiss::error update(const gneiss::frame_time* time, void* data) {
   ImGui::Begin("Native interaction probe");
   ImGui::Text("Frame %u: %u x %u", value.frames, width, height);
   ImGui::End();
-  operation = value.ui.submit(*value.application);
+  auto draw = value.ui.render();
+  operation = draw ? value.frame.ui.replace(*draw, value.application->render()) : draw.error();
   ++value.frames;
   return aligned ? operation : gneiss::error::invalid_state;
 }
@@ -140,6 +143,17 @@ int main() {
     return 1;
   }
   value.application = application.get();
+  application->add_system(
+      gneiss::app::stage::present, "probe.present", [&]() -> gneiss::result<void> {
+        auto frame = std::exchange(value.frame, {});
+        frame.surface = application->window()->surface();
+        if (!frame.surface.width || !frame.surface.height)
+          return {};
+        frame.views.push_back({});
+        auto submitted = application->render().render(std::move(frame));
+        return !submitted && submitted.error() != gneiss::error::not_ready ? submitted
+                                                                           : gneiss::result<void>{};
+      });
   const auto native = application->window()->native();
   if (native.backend != gneiss::window::native_backend::win32)
     return 2;

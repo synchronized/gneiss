@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "project/project_manager.hpp"
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 #include <thread>
 
 #include "project/project_workspace.hpp"
@@ -41,6 +43,7 @@ struct project_manager_state final {
   bool closing{};
   runtime::application* application{};
   gneiss::editor::imgui_adapter ui;
+  gneiss::render::frame_request frame;
   editor_project* output = nullptr;
   std::array<char, 2048> project_path{};
   std::array<char, 2048> create_path{};
@@ -218,7 +221,8 @@ gneiss::error update_project_manager(project_manager_state& state, const gneiss:
     }
     ImGui::EndChild();
     ImGui::End();
-    return state.ui.submit(*state.application);
+    auto draw = state.ui.render();
+    return draw ? state.frame.ui.replace(*draw, state.application->render()) : draw.error();
   }
 }
 
@@ -271,10 +275,23 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     application->on_stop("project_manager.release_session", [&state] {
       if (!state.scheduler.try_close_scope(state.scope))
         return gneiss::app::stop_progress::pending;
+      state.frame = {};
       state.pending.reset();
       state.ui.shutdown(*state.application);
       return gneiss::app::stop_progress::complete;
     });
+    application->add_system(gneiss::app::stage::present, "project_manager.present",
+                            [&state]() -> gneiss::result<void> {
+                              auto frame = std::exchange(state.frame, {});
+                              frame.surface = state.application->window()->surface();
+                              if (!frame.surface.width || !frame.surface.height)
+                                return {};
+                              frame.views.push_back({});
+                              auto submitted = state.application->render().render(std::move(frame));
+                              return !submitted && submitted.error() != gneiss::error::not_ready
+                                         ? submitted
+                                         : gneiss::result<void>{};
+                            });
     unsigned smoke_frames{};
     if (smoke)
       application->add_system(gneiss::app::stage::present, "project_manager.smoke", [&] {

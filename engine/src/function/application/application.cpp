@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/asset/detail/resource_load_group.hpp"
-#include "function/scene/rendering/render_camera.hpp"
-#include "function/scene/rendering/world_render_binding.hpp"
 #include <atomic>
 #include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/base/error.hpp>
@@ -19,6 +17,8 @@
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
 #include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/rendering/render_camera.hpp>
+#include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
 #include <gneiss/engine/function/scene/scene_types.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <optional>
@@ -63,6 +63,9 @@ public:
     GNEISS_ASSERT(function, "系统不能为空");
     check_registration(name);
     entries_.push_back({phase, std::move(name), std::move(function), condition});
+  }
+  bool contains(stage phase) const noexcept {
+    return std::ranges::any_of(entries_, [phase](const auto& item) { return item.phase == phase; });
   }
   void add_stop(std::string name, stop_function function) {
     GNEISS_ASSERT(function, "停止系统不能为空");
@@ -885,7 +888,8 @@ gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t heig
 
 gneiss::error application::render_frame() {
   GNEISS_PROFILE_SCOPE("application.render.submit");
-  if (storage_->window_service_ == nullptr) {
+  // 迁移期间：显式 present 系统独占帧提交；旧宿主全部迁出后删除默认呈现。
+  if (storage_->systems_.contains(app::stage::present) || storage_->window_service_ == nullptr) {
     return gneiss::error::success;
   }
   const auto window = storage_->window_service_->surface();

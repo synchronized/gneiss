@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "function/asset/detail/asset_construction.hpp"
+#include <cstdio>
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
-#include "function/scene/rendering/world_render_binding.hpp"
+#include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
-#include <cstdio>
 #include <thread>
 
 struct observer {
@@ -64,8 +64,8 @@ int main() {
     return fail("消费者独立确认");
   bool called = false;
   if (child->modify_component<camera_component>([&](auto&) noexcept { called = true; }) !=
-          error::not_found || called ||
-      child->notify_component_modified<camera_component>() != error::not_found)
+          error::not_found ||
+      called || child->notify_component_modified<camera_component>() != error::not_found)
     return fail("缺失组件不得调用修改回调");
   const auto type = runtime_type_of<mesh_component>();
   if (child->remove_component<mesh_component>().failed() ||
@@ -85,8 +85,10 @@ int main() {
   auto invalid_mesh = assets.reserve_mesh();
   if (!invalid_mesh || render.destroy_mesh(resource_handle(*invalid_mesh)).failed())
     return fail("制造失效资源");
-  if (child->modify_component<mesh_component>(
-          [&](auto& component) noexcept { component.mesh = *invalid_mesh; }).failed())
+  if (child
+          ->modify_component<mesh_component>(
+              [&](auto& component) noexcept { component.mesh = *invalid_mesh; })
+          .failed())
     return fail("失效资源提交拒绝");
   (*owner)->flush_changes();
   if ((*binding)->synchronize())

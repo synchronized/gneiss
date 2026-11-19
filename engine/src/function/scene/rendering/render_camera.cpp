@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "function/scene/rendering/render_camera.hpp"
-#include <gneiss/engine/function/scene/camera_selection.hpp>
 #include "function/scene/detail/world_component_access.hpp"
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+#include <gneiss/engine/function/scene/rendering/render_camera.hpp>
 namespace gneiss {
 result<std::optional<render_camera_snapshot>> select_render_camera(world& owner,
                                                                    std::uint32_t viewport_width,

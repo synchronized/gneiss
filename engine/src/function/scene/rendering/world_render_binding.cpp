@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "function/scene/rendering/world_render_binding.hpp"
-#include <gneiss/engine/function/render/service.hpp>
 #include "function/scene/detail/world_component_access.hpp"
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
 #include <limits>
 #include <map>
 namespace gneiss {

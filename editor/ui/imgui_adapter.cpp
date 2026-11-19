@@ -341,7 +341,7 @@ void imgui_adapter::process_input(const gneiss::input::event& event) {
   }
 }
 
-gneiss::error imgui_adapter::submit(runtime::application& application) {
+gneiss::result<gneiss::ui_draw_view> imgui_adapter::render() {
   if (context_ == nullptr) {
     return gneiss::error::invalid_state;
   }
@@ -403,9 +403,7 @@ gneiss::error imgui_adapter::submit(runtime::application& application) {
   desc.vertices = vertices_;
   desc.indices = indices_;
   desc.commands = commands_;
-  if (!application.is_owner_thread())
-    return gneiss::error::invalid_state;
-  return application.submit_ui_draw_list(desc);
+  return desc;
 }
 
 } // namespace gneiss::editor

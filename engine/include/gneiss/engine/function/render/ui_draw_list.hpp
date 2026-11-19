@@ -7,6 +7,7 @@
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/render/draw_types.hpp>
 
 #include <span>
@@ -30,8 +31,9 @@ struct ui_draw_view {
 
 class ui_draw_list final {
 public:
-  [[nodiscard]] error replace(const ui_draw_view& desc, const gneiss::render::service& resources);
-  void clear() noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API error replace(const ui_draw_view& desc,
+                                                const gneiss::render::service& resources);
+  GNEISS_ENGINE_API void clear() noexcept;
 
   [[nodiscard]] float display_width() const noexcept { return display_width_; }
   [[nodiscard]] float display_height() const noexcept { return display_height_; }

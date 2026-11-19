@@ -12,7 +12,11 @@
 
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/scene/rendering/render_camera.hpp>
+#include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 #include <gneiss/project/project_description.hpp>
 
 #include "assets/runtime_asset_reloader.hpp"
@@ -87,6 +91,7 @@ struct runtime_context final {
   bool asset_waiting{};
   bool asset_cancelled{};
   std::uint64_t next_asset_progress_ns{};
+  gneiss::world* world{};
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
@@ -420,7 +425,7 @@ gneiss::error update_runtime(const gneiss::frame_time* time, void* user_data) {
       return request_exit();
     }
     const auto scene_node_count = context.scene.size();
-    const auto entity_count = context.application->native_world()->entity_count();
+    const auto entity_count = context.world->entity_count();
     const gneiss::host::ipc_runtime_statistics statistics{
         .session_id = context.inspection_session_id,
         .sequence = context.next_statistics_sequence++,
@@ -529,6 +534,44 @@ private:
   }
   application = created->get();
   context.application = application;
+  auto created_world = gneiss::create_native();
+  if (!created_world)
+    return 3;
+  auto world_owner = std::move(*created_world);
+  auto* world = world_owner.get();
+  context.world = world;
+  auto created_binding = gneiss::world_render_binding::create(*world, application->render());
+  if (!created_binding)
+    return 3;
+  auto render_binding = std::move(*created_binding);
+  application->add_system(gneiss::app::stage::synchronize, "runtime.synchronize", [&] {
+    world->flush_changes();
+    return render_binding->synchronize();
+  });
+  application->add_system(
+      gneiss::app::stage::present, "runtime.present", [&]() -> gneiss::result<void> {
+        const auto surface = application->window()->surface();
+        if (!surface.width || !surface.height)
+          return {};
+        gneiss::render::frame_request frame;
+        frame.surface = surface;
+        auto camera = gneiss::select_render_camera(*world, surface.width, surface.height);
+        if (!camera)
+          return camera.error();
+        if (*camera) {
+          const auto& selected = **camera;
+          frame.views.push_back({.scene = render_binding->scene(),
+                                 .view_matrix = selected.view,
+                                 .projection_matrix = selected.projection,
+                                 .camera_position = selected.transform.translation});
+        } else {
+          frame.views.push_back({});
+        }
+        auto submitted = application->render().render(std::move(frame));
+        // 普通显示帧允许背压丢弃，下一轮重新生成当前视图。
+        return !submitted && submitted.error() != gneiss::error::not_ready ? submitted
+                                                                           : gneiss::result<void>{};
+      });
   application->add_system(gneiss::app::stage::completions, "runtime.tasks", [&task_scheduler] {
     if (task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative)
       (void)task_scheduler.run_ready();
@@ -575,7 +618,7 @@ private:
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
   gneiss::ref<gneiss::host::scene_reload_state> scene_source;
-  gneiss::host::runtime_scene_loader scene_loader(*application, *application->native_world());
+  gneiss::host::runtime_scene_loader scene_loader(*application, *world);
   context.scene_loader = &scene_loader;
   gneiss::host::runtime_asset_reloader asset_reloader(
       [&, native_application = application](const gneiss::host::ipc_asset_reload_request& request) {
@@ -682,8 +725,6 @@ private:
       });
   context.asset_reloader = &asset_reloader;
 
-  gneiss::world* world = nullptr;
-  world = application->native_world();
   native_result = gneiss::error::success;
   gneiss::host::runtime_property_editor property_editor;
   if (native_result == gneiss::error::success) {
@@ -727,7 +768,6 @@ private:
     context.force_full_inspection = true;
     context.next_inspection_ns = 0U;
     context.next_statistics_sequence = 1U;
-    world = application->native_world();
     auto applied = gneiss::error::success;
     if (applied != gneiss::error::success)
       return applied;
@@ -801,6 +841,9 @@ private:
     if (scene.is_valid())
       scene.unload();
     scene = {};
+    render_binding.reset();
+    world_owner.reset();
+    context.world = nullptr;
   });
   auto ran = application->run();
   operation = ran ? gneiss::error::success : ran.error();

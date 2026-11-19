@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include <gneiss/engine/export.hpp>
-#include <gneiss/engine/core/events/signal.hpp>
 #include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/events/signal.hpp>
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
 #include <gneiss/engine/function/scene/object_change.hpp>
 #include <memory>

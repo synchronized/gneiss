@@ -3,7 +3,7 @@
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
-#include "function/scene/rendering/render_camera.hpp"
+#include <gneiss/engine/function/scene/rendering/render_camera.hpp>
 #include <gneiss/engine/function/scene/world.hpp>
 #include <iostream>
 #include <thread>
