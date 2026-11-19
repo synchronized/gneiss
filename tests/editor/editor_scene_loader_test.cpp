@@ -30,6 +30,82 @@ void check(bool value, std::source_location where = std::source_location::curren
     throw std::runtime_error("编辑器异步加载验证失败：" + std::to_string(where.line()));
 }
 
+// 两个文档共享基础服务，World 和加载请求始终归各自宿主所有。
+void multiple_worlds(gneiss::tasks::execution_mode mode) {
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  auto main_world = create_native();
+  auto preview_world = create_native();
+  check(main_world && preview_world);
+  editor::document_editing main_editing, preview_editing;
+  editor::editor_scene_loader main_loader, preview_loader;
+  editor::editor_camera main_camera, preview_camera;
+  check(main_camera.initialize().ok() && preview_camera.initialize().ok());
+  runtime::application_configuration config;
+  config.asset_root = GNEISS_EDITOR_TEST_ASSET_ROOT;
+  config.executor = &scheduler;
+  // Application 先析构，全部借用的会话和执行器仍存活。
+  auto created = runtime::application::create(config);
+  check(created.ok());
+  auto application = std::move(*created);
+  auto& main = main_editing.document();
+  auto& preview = preview_editing.document();
+  check(main_editing.create_empty(*application, main_world->get()).ok());
+  check(preview_editing.create_empty(*application, preview_world->get()).ok());
+  application->add_system(app::stage::completions, "test.tasks", [&] {
+    if (mode == tasks::execution_mode::cooperative)
+      (void)scheduler.run_ready();
+  });
+  application->add_system(app::stage::update, "test.documents", [&]() -> error {
+    bool changed{};
+    auto status =
+        main_loader.advance(*application, main_editing, **main_world, main_camera, changed);
+    if (status.failed())
+      return status;
+    return preview_loader.advance(*application, preview_editing, **preview_world, preview_camera,
+                                  changed);
+  });
+  application->on_stop("test.close_documents", [&] {
+    (void)main_loader.cancel(*application);
+    (void)preview_loader.cancel(*application);
+    check(main_editing.close().ok() && preview_editing.close().ok());
+    main_camera.shutdown();
+    preview_camera.shutdown();
+  });
+  constexpr auto uri = "asset://scenes/triangle.scene.json";
+  check(main_loader.request(*application, main_editing, uri).ok());
+  check(preview_loader.request(*application, preview_editing, uri).ok());
+  const auto drain = [&] {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{20};
+    while (main_loader.active() || preview_loader.active()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      check(application->step().ok());
+      std::this_thread::yield();
+    }
+    check(main_loader.operation().ok() && preview_loader.operation().ok());
+  };
+  drain();
+  check(main.scene_handle().owner() == main_world->get());
+  check(preview.scene_handle().owner() == preview_world->get());
+  check(test_support::scene_query(main).nodes.size() == 2);
+  check(test_support::scene_query(preview).nodes.size() == 2);
+  const auto old_main = main.scene_handle();
+  const auto retained_preview = preview.scene_handle();
+  const auto preview_node = test_support::scene_query(preview).nodes.front().node;
+  check(preview.rename_node(preview_node, "Independent preview").ok());
+  check(main_editing.close().ok());
+  check(!old_main.is_valid() && retained_preview.is_valid());
+  check(main_loader.request(*application, main_editing, uri).ok());
+  drain();
+  check(main.is_open() && main.scene_handle() != old_main);
+  check(preview.scene_handle() == retained_preview && preview.is_dirty());
+  check(test_support::scene_query(preview).nodes.front().display_name == "Independent preview");
+  const auto reopened = main.scene_handle();
+  application->request_exit();
+  check(application->run().ok());
+  check(!main.is_open() && !preview.is_open());
+  check(!reopened.is_valid() && !retained_preview.is_valid());
+}
+
 void run(gneiss::tasks::execution_mode mode) {
   gneiss::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   std::shared_ptr<runtime::application> app;
@@ -191,6 +267,8 @@ int main() try {
     return 99;
   run(gneiss::tasks::execution_mode::thread_pool);
   run(gneiss::tasks::execution_mode::cooperative);
+  multiple_worlds(gneiss::tasks::execution_mode::thread_pool);
+  multiple_worlds(gneiss::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

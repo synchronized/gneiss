@@ -419,3 +419,13 @@ Windows Clang Debug 引擎、资产集成、绘制提交和三项测量目标已
 回归覆盖已取得资源后抛出异常、shutdown 恰好一次、原异常保持及无残留 Application。
 Windows Clang Debug 相关目标构建及两项 Application 生命周期回归通过。
 该修复不等同于最终启动装配协议完成；多 World、关闭重开和最终验证矩阵仍待验收。
+
+### 多 World 文档隔离与重开验收
+
+editor.scene-loader 增加同一 Application 下两个独立 World/文档的集成流程；使用正式 completions、
+update、on_stop 系统驱动加载与清理，不在外部手动推进两个加载器。两者共享资产服务，同 URI
+同时加载后关闭并重开主文档，预览文档的场景身份、脏状态和对象名称保持不变。退出后两文档关闭、
+两个场景句柄失效，World 与任务执行器仍由宿主拥有。
+Windows Clang Debug 构建及 editor.scene-loader 回归通过，覆盖线程池和协作两种调度模式。
+这是文档关闭重开与多 World 隔离的证据；编辑器关闭工程后回到项目选择并打开另一工程的 UI 流程
+仍需单独核对，不以本测试代替完整项目生命周期验收。
