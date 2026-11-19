@@ -3,7 +3,7 @@
 
 # PLAN-126：Application 生命周期、调度与宿主状态组合
 
-状态：收尾验收中。生命周期、具名系统与宿主启动等待已接入；实际工程 A → 项目管理器 → 工程 B 已验证。旧路径审计已完成，仍需静态宿主验证和验收归档；当前接口以 Reference 为准。
+状态：2026-11-19 已完成本地实施与验收。三个真实宿主、示例及旧接口迁移完成；共享/静态验证通过。不包含整个版本的平台验收或远端发布。
 架构取舍见 [ADR-129](../decisions/ADR-129-application-scheduling.md)。本计划属于
 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，不包含远端发布授权。
 
@@ -131,11 +131,11 @@ application.hpp/.cpp 保存服务装配与生命周期，schedule.hpp 保存调�
   为成功启动、异步等待、失败、请求退出分别给出可编译最小用例；补充旧入口删除清单。
 - [x] A126-02：实现最小串行调度、状态转换与共享 run/step 生命周期；先接入无 World 的项目选择界面。
   验证真实窗口/UI、初始化失败与关闭；单独调度测试通过不算本阶段闭环。
-- [ ] A126-03：迁移 Runtime 与 minimal/scene_viewer 示例。Session 接管 World、加载、暂停与渲染绑定；
+- [x] A126-03：迁移 Runtime 与 minimal/scene_viewer 示例。Session 接管 World、加载、暂停与渲染绑定；
   完成请求驱动状态转换，移除相应 Application 专用接口。
 - [x] A126-04：迁移 Editor。文档、预览、IPC 和视口使用同一调度基础；移除手动关闭推进与重复转发。
   验证多 World 使用和项目关闭后再次打开，保持撤销重做与文档权威边界。
-- [ ] A126-05：删除全部旧路径、无用配置/状态/测试；更新当前 Reference、示例和构建依赖。
+- [x] A126-05：删除全部旧路径、无用配置/状态/测试；更新当前 Reference、示例和构建依赖。
   审核最终调用复杂度、失败收尾与跨宿主测试，不以对象数量减少作为验收。
 
 ## 验证策略
@@ -168,21 +168,26 @@ application.hpp/.cpp 保存服务装配与生命周期，schedule.hpp 保存调�
 starting_completions、host_shutdown、complete_lifecycle、state_systems 和 stopping_completions。
 日志阶段及错误身份由 application_log_test.cpp 验证。
 
-## 当前进度与剩余工作
+## 最终验收
 
-| 范围 | 已实现 | 尚未完成 |
-| --- | --- | --- |
-| 调度与状态 | 固定阶段、枚举状态、延迟转换、冲突拒绝、具名错误；类型统一到 app 命名空间 | 已审计，无旧入口 |
-| 生命周期 | run/step 共用推进；基础服务延迟到启动；启动 pending/complete；停止分发完成；旧 run(n)、公开 shutdown 和平台回调已删除 | 已核对；等待静态宿主验证 |
-| 所有权 | 宿主拥有 World/绑定/视图；多 World 文档隔离回归通过；真实关闭工程再开另一工程通过 | 静态宿主验证进行中 |
-| 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 已审计，无手动 Application 关闭推进 |
-| Runtime | IPC/停止文件在 completions；输入请求由 on_start 等待；资产/场景/报告分离；统一停止清理 | 静态宿主验证进行中；未单独注入输入 pending 瞬间的 IPC 退出 |
-| Editor | 会话 on_start；取消/等待/释放三段停止；实际 A → Manager → B 会话切换通过 | 已审计，无旧 Application 业务转发 |
-| 示例 | minimal 自有 World；scene_viewer 一次提交输入/场景，启动等待输入；单/双视图验证通过 | 静态宿主验证进行中 |
+| 条目 | 实现与证据 |
+| --- | --- |
+| A126-01：接口、生命周期与旧路径 | application.hpp/configuration.hpp/schedule.hpp 为定稿入口；Reference 明确所有权、失败、借用及终态；旧平台回调、默认 World、资源业务转发、attach 与公开关闭推进接口已删除 |
+| A126-02：调度和无 World 宿主 | Application 流程测试覆盖顺序、延迟转换/冲突、初始 Enter、退出优先、启动等待/失败、停止排空、异常传播；项目管理器使用 selecting 状态和统一 run，真实窗口 smoke 通过 |
+| A126-03：Runtime 与示例 | Runtime 控制分发在 completions，输入在 on_start 等待，场景和资源由宿主拥有；minimal 与 viewer 使用统一启动/停止；启动、停止协议和单/双视图在共享/静态均通过 |
+| A126-04：Editor | UI/文档启动和任务取消/等待/释放进入具名步骤；多 World 关闭重开不影响预览文档；真实 A → Close Project → Manager → B 成功，两个会话正常关闭 |
+| A126-05：退出旧路径和验证 | 源码消费者审计无旧 Application 业务入口；共享构建和针对性 17 项回归、静态宿主构建和 12 项回归通过；头文件边界通过；阶段记录已从计划归档 |
 
-当前接口契约以 [Application Reference](../reference/application.md) 为准。阶段复选框按实际证据更新；
-A126-03/05 等待静态宿主构建与最终归档。共享全量构建与既有 CPU/GPU 回归已执行；
-最近改动另有针对性回归。静态引擎、Application 测试及头文件闭包已验证，不表示全部静态宿主均验收。
-停止阶段保留文档用于卸载清理，但资产编辑入口与统一内容修改入口拒绝新请求。
+实际运行命令、源码证据与验证限制见[迁移记录](../records/2026-11-19-application-scheduling-migration.md#最终旧路径审计与共享回归)。
+当前接口只在 [Application Reference](../reference/application.md) 维护。
 
-阶段实施与验证历史见[迁移记录](../records/2026-11-19-application-scheduling-migration.md)。
+## 验证范围与限制
+
+- 当前本地验收平台为 Windows Clang Debug，共享与静态；未据此声称 Linux/macOS/Web 已验收。
+- 多 World 隔离由两种任务执行模式的 Editor 场景测试验证；跨工程切换另用真实菜单和窗口身份验证。
+  隐藏 Vulkan 窗口截图不可用，因此不将菜单验证等同于图像质量检查。
+- 启动 pending 时继续控制分发有流程测试和源码接入证据；真实 Runtime 测试覆盖异步输入与停止，
+  未通过延迟注入单独锁定“输入 pending 瞬间收到 IPC 退出”的时序。
+- Runtime 当前没有游戏模块模拟入口；暂停调度语义由现有流程测试证明，不恢复已撤销游戏模块。
+- 最终 IPC 关闭通知需包含服务停止结果，保留在 Runtime run 返回后；不构成第二套应用关闭协议。
+- 0.52 的其他计划和跨平台发布不在本计划的完成声明内；本次仅本地提交。

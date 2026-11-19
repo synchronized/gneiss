@@ -427,4 +427,25 @@ Windows Clang Debug Runtime 构建通过；首轮 11 项 IPC/启动/生命周期
   恢复只消费当前帧时间。当前 Runtime 无游戏模块模拟入口，本计划不恢复已撤销的游戏模块，
   也不为展示 paused 状态虚构实际模拟系统。
 
-静态真实宿主构建仍在进行，未以静态引擎/局部测试结果代替完整宿主链接验证。
+### 静态宿主最终验收
+
+Windows Clang Static Debug：使用 -j1 构建 gneiss_runtime、gneiss_editor、gneiss_minimal_example、
+gneiss_scene_viewer、gneiss_application_log_test、gneiss_native_application_flow_test；随后重新链接
+native_application 与 engine_header_boundary 测试，全部成功。
+
+CTest 以下 12 项全部通过（5 CPU、7 GPU）：minimal-example、scene-viewer、scene-viewer-dual、
+runtime.smoke、runtime.stop-protocol、runtime.async-input-startup、engine-header-boundary、
+application_log、native-application-flow、native-application、editor.smoke、editor.project-manager-smoke。
+未修改警告或测试等级，未跳过失败。源码审计、共享验证与静态宿主证据共同覆盖计划五项退出条件。
+
+共享定向命令：
+
+```powershell
+ctest --preset windows-clang-debug -R '(application_log|native-application|runtime\.(smoke|async-input-startup|stop-protocol)|editor\.(document-actions|scene-loader|runtime-process|runtime-scene-loading|project-manager)|minimal-example|scene-viewer|header-boundary|header-visibility)' --output-on-failure
+```
+
+静态定向命令：
+
+```powershell
+ctest --preset windows-clang-static-debug -R '(editor\.(smoke|project-manager-smoke)|runtime\.(smoke|async-input-startup|stop-protocol)|minimal-example|scene-viewer|application_log|native-application|engine-header-boundary)' --output-on-failure
+```

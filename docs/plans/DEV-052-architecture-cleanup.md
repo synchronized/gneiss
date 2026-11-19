@@ -15,7 +15,7 @@
 新增 World/Scene 入口与归属收敛见 [PLAN-110](PLAN-110-world-scene-ownership.md)，当前开始实施。
 
 新增 Application 生命周期与调度收敛见 [PLAN-126](PLAN-126-application-scheduling.md)，
-当前仅完成规划；不将本文历史宿主收尾验收视为新架构已经实现。
+2026-11-19 已完成本地实施、真实宿主迁移及共享/静态验收；不代表整个版本完成。
 
 ## 本次三项收尾（已完成）
 
