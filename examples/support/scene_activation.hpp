@@ -30,7 +30,7 @@ inline gneiss::result<scene_activation> activate_scene(gneiss::runtime::applicat
     return dependencies.error();
   scene_activation output;
   if (!dependencies->empty()) {
-    auto submitted = app.load_assets(*dependencies);
+    auto submitted = app.assets().load_batch(*dependencies);
     if (!submitted)
       return submitted.error();
     output.visuals = std::move(*submitted);

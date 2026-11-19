@@ -3,17 +3,18 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
-#include <gneiss/engine/export.hpp>
+#include <functional>
 #include <gneiss/engine/core/base/result.hpp>
-#include <gneiss/engine/core/tasks/task_scheduler.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>
+#include <gneiss/engine/core/tasks/task_scheduler.hpp>
+#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/function/asset/asset_batch_request.hpp>
 #include <gneiss/engine/function/asset/asset_loading.hpp>
 #include <gneiss/engine/function/asset/asset_request.hpp>
 #include <gneiss/engine/resource/asset_decoder.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 #include <gneiss/engine/resource/mesh/mesh_data.hpp>
 #include <gneiss/engine/resource/texture/texture_data.hpp>
-#include <functional>
 #include <memory>
 #include <utility>
 
@@ -52,11 +53,12 @@ public:
   GNEISS_ENGINE_API error attach_render(gneiss::render::service& render);
   /** 配置 CPU 加载；scope 须独占且空闲；成功后接管关闭责任。省略时内部创建。
    * 首次配置后保留执行器与 profile，停止后拒绝重新装配。 */
-  GNEISS_ENGINE_API error configure(gneiss::tasks::task_executor& executor, texture_prepare_profile profile,
-                             gneiss::tasks::task_scope scope = {});
+  GNEISS_ENGINE_API error configure(gneiss::tasks::task_executor& executor,
+                                    texture_prepare_profile profile,
+                                    gneiss::tasks::task_scope scope = {});
   /** 只查找 CPU 内容已就绪的缓存，不读取文件、不等待 GPU。 */
   GNEISS_ENGINE_API result<render_resource_ref> find(const render_resource_source&,
-                                              texture_prepare_profile = {}) const;
+                                                     texture_prepare_profile = {}) const;
   GNEISS_ENGINE_API bool owns(const ref<const gneiss::mesh>&) const;
   GNEISS_ENGINE_API bool owns(const ref<const gneiss::texture>&) const;
   GNEISS_ENGINE_API bool owns(const ref<const gneiss::material>&) const;
@@ -64,12 +66,17 @@ public:
   /** 所属线程创建程序化资源并返回强引用；失败返回错误，不接管外部 RID。 */
   GNEISS_ENGINE_API result<ref<const gneiss::texture>> create(const texture_view&);
   GNEISS_ENGINE_API result<ref<const gneiss::mesh>> create(const mesh_view&);
-  GNEISS_ENGINE_API result<ref<const gneiss::material>> create(const material_parameters&,
-                                                        std::array<ref<const gneiss::texture>, 5>);
+  GNEISS_ENGINE_API result<ref<const gneiss::material>>
+  create(const material_parameters&, std::array<ref<const gneiss::texture>, 5>);
   /** 单资源异步加载；默认复用缓存，同身份的在途请求共享工作（包括 reload）。
    * 输入在返回前复制；提交失败返回错误。每项独立完成，不等待 GPU。 */
-  GNEISS_ENGINE_API result<asset_request<render_resource_ref>> load(const render_resource_source&,
-                                                             asset_load_options options = {});
+  GNEISS_ENGINE_API result<asset_request<render_resource_ref>>
+  load(const render_resource_source&, asset_load_options options = {});
+
+  /** 独立批次观察请求；各批次可并存，取消一个不影响其他观察者。
+   * 所属线程提交与领取；输入立即复制，底层同身份加载共享，关闭后请求失效。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<asset_batch_request>
+  load_batch(std::span<const render_resource_source> sources, bool reload = false);
 
   GNEISS_ENGINE_API texture_prepare_profile profile() const noexcept;
 
@@ -94,7 +101,8 @@ public:
       std::function<std::shared_ptr<asset_loader>(asset_identity, asset_load_options)>;
   /** 注册完整加载协议；工厂在所属线程执行，decode 在工作线程执行；首次加载后冻结。 */
   /** 按进程类型加载注册资产；仅为异构引用调度使用，与模板入口共用记录。 */
-  GNEISS_ENGINE_API result<asset_request<asset>> load(type_id, std::string_view, asset_load_options = {});
+  GNEISS_ENGINE_API result<asset_request<asset>> load(type_id, std::string_view,
+                                                      asset_load_options = {});
   template <class T>
     requires std::derived_from<T, asset>
   error register_loader(loader_factory factory) {
@@ -214,10 +222,11 @@ public:
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   /** 借用同线程异步文件服务；停止后为空。 */
-  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<gneiss::files::service> async_files() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<gneiss::files::service>
+  async_files() const noexcept;
   /** 解析统一来源身份，不执行文件 I/O。 */
   [[nodiscard]] GNEISS_ENGINE_API result<asset_identity> identify(std::string_view uri,
-                                                           std::uint32_t type) const;
+                                                                  std::uint32_t type) const;
   /** 所属线程回收无外部引用且无在途任务的缓存；不强制卸载活跃资源。 */
   GNEISS_ENGINE_API void collect_unused();
   /** 当前弱索引键数，包含尚未清理的过期项；不暴露缓存写入口。 */
@@ -287,16 +296,15 @@ private:
   }
   using decoder_factory = result<std::shared_ptr<const asset_decoder>> (*)();
   [[nodiscard]] GNEISS_ENGINE_API error resolve_decoder(type_id, decoder_factory,
-                                                 std::shared_ptr<const asset_decoder>&);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error request(type_id type, std::string_view uri,
-                                                 asset_load_options options,
-                                                 std::shared_ptr<detail::asset_state>& output,
-                                                 decoder_factory fallback,
-                                                 cache_conversion conversion);
+                                                        std::shared_ptr<const asset_decoder>&);
+  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
+  request(type_id type, std::string_view uri, asset_load_options options,
+          std::shared_ptr<detail::asset_state>& output, decoder_factory fallback,
+          cache_conversion conversion);
   GNEISS_ENGINE_API error find_erased(type_id, std::string_view, std::shared_ptr<const asset>&,
-                               asset_load_options) const;
+                                      asset_load_options) const;
   GNEISS_ENGINE_API error store_erased(type_id, std::string_view, std::shared_ptr<const asset>,
-                                std::shared_ptr<const asset>&, asset_load_options);
+                                       std::shared_ptr<const asset>&, asset_load_options);
   detail::asset_construction* construction() noexcept;
   struct implementation;
   std::unique_ptr<implementation> impl_;

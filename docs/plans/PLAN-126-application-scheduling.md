@@ -345,3 +345,17 @@ Runtime、scene_viewer 和测试辅助显式包含 Action Map 资源契约。
 Windows Clang Debug 相关目标构建通过，资产加载、输入与 Application 流程三项 CPU 回归通过；
 原生窗口加载途中关闭与 Runtime 协作调度 editor_demo smoke 退出 0。
 本批未重复完整矩阵，静态构建和其他平台未验证。批量资产请求与环境资源所有权仍待迁移。
+
+### 资产管理器独立批次与场景消费者迁移
+
+新增 asset_manager::load_batch，复用既有 resource_load_group 汇总逻辑，每个请求拥有独立批次观察，
+底层资产记录、缓存及在途加载仍由同一个管理器维护。管理器 advance 推进批次并回收已放弃或
+领取的汇总；停止时使请求失效。多个批次不再互斥，取消一批不取消其他观察者。
+Runtime、Editor 场景加载、示例激活与场景测试辅助已迁入此入口；宿主只检查是否停止，
+不等待 Application 的全局批次槽位。原 Application 槽位暂留给编辑命令和剩余测试，
+退出条件为迁移全部消费者并删除 load_assets/can_load_assets 及其私有状态，不能视为此阶段完成。
+
+Windows Clang Debug 相关目标构建通过；texture-load-application 覆盖协作与线程池模式下
+多批次并存、取消隔离、独立领取，native-application 覆盖移动、取消与管理器关闭后的失效。
+两项 CPU 回归通过；Runtime 协作模式、Editor editor_demo 与 scene_viewer 双视图 smoke 均退出 0。
+未重复完整矩阵，静态及其他平台未验证。

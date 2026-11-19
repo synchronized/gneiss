@@ -6,22 +6,23 @@
 #include "detail/dependency_graph.hpp"
 #include "detail/load_operation.hpp"
 #include "detail/render_load_operation.hpp"
+#include "detail/resource_load_group.hpp"
 #include "function/asset/detail/loader_factory.hpp"
 #include "resource/material/detail/material_resource_access.hpp"
 #include "resource/mesh/detail/mesh_resource_access.hpp"
 #include "resource/scene/detail/scene_asset_access.hpp"
 #include "resource/texture/detail/texture_resource_access.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
-#include <gneiss/engine/core/base/type_id.hpp>
-#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
-#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 #include <gneiss/engine/function/files/service.hpp>
+#include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/resource/asset_uri.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
-#include <gneiss/engine/function/asset/loaders/texture_decoder.hpp>
 
 #include "function/asset/resource_cache.hpp"
 #include <algorithm>
@@ -58,6 +59,7 @@ struct asset_manager::implementation {
   void advance(asset_manager& owner);
   void collect_unused();
   resource_cache cache;
+  std::vector<std::unique_ptr<resource_load_group>> batches;
   struct operation : detail::load_operation {
     cache_conversion conversion;
     std::shared_ptr<asset_loader> loader;
@@ -202,6 +204,9 @@ struct asset_manager::implementation {
     if (stopped)
       return;
     stopped = true;
+    for (auto& batch : batches)
+      batch->request_stop();
+    batches.clear();
     for (const auto& [key, work] : rendering) {
       (void)key;
       work->stop();
@@ -568,7 +573,23 @@ asset_diagnostic asset_manager::advance_dependencies(
   }
   return {waiting ? error::not_ready : error::success, 0, {}, {}};
 }
-void asset_manager::advance() { impl_->advance(*this); }
+result<asset_batch_request>
+asset_manager::load_batch(std::span<const render_resource_source> sources, bool reload) {
+  if (impl_->stopped)
+    return error::invalid_state;
+  auto batch = std::make_unique<resource_load_group>(*this);
+  auto request = batch->begin(sources, reload);
+  if (!request)
+    return request.error();
+  impl_->batches.push_back(std::move(batch));
+  return request;
+}
+void asset_manager::advance() {
+  impl_->advance(*this);
+  for (auto& batch : impl_->batches)
+    batch->advance();
+  std::erase_if(impl_->batches, [](const auto& batch) { return !batch->busy(); });
+}
 void asset_manager::collect_unused() { impl_->collect_unused(); }
 void asset_manager::implementation::advance(asset_manager& owner) {
   auto& state = *this;

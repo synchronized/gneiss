@@ -5,6 +5,15 @@
 
 普通资源、网格和纹理统一通过[文件服务](file-service.md)异步读取；旧 VFS 和同步加载入口已删除。
 
+## 批次请求
+
+`asset_manager::load_batch(sources, reload)` 返回独立的 `asset_batch_request`。
+多个批次可以并存，同身份资产仍共享底层加载工作；取消或丢弃某个批次只撤销其观察。
+调用者持有请求，通过 ready/progress 查询、take 领取完成结果，管理器 advance 负责推进；
+管理器停止后批次句柄失效。各项失败保留在完成结果中，不回滚其他已完成资产。
+Runtime、Editor 的场景加载与示例场景激活已使用该入口；Application 的旧单槽位入口
+仍供尚未迁移的编辑命令与测试使用，属于 PLAN-126 过渡路径。
+
 ## 值返回入口
 
 `asset_manager::load<T>(uri)` 或 `reload<T>(uri)` 返回 `result<asset_request<T>>`，表示是否成功提交请求；

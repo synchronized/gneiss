@@ -158,15 +158,22 @@ void run(gneiss::tasks::execution_mode mode) {
         gneiss::render_resource_source{.uri = "asset://extra.material",
                                        .type = gneiss::render_resource_kind::material},
         material_source};
-    auto mixed = app->load_assets(mixed_sources);
+    auto mixed = app->assets().load_batch(mixed_sources);
     check(mixed && !mixed->ready());
-    auto blocked = app->load_assets(mixed_sources);
-    check(!blocked && blocked.error() == gneiss::error::not_ready);
+    auto independent = app->assets().load_batch(mixed_sources);
+    check(independent.ok());
+    auto cancelled = app->assets().load_batch(mixed_sources);
+    check(cancelled.ok() && cancelled->cancel().ok());
+    auto cancellation = cancelled->take();
+    check(cancellation && cancellation->state == gneiss::asset_load_state::cancelled);
     assets_request = std::move(*mixed);
     wait();
     check(completion.result.ok() && completion.assets.size() == 2 &&
           completion.results.size() == 2 && completion.assets.front() == selected_before);
     check(completion.results[0].applied && completion.results[1].applied);
+    assets_request = std::move(*independent);
+    wait();
+    check(completion.result.ok() && completion.assets.size() == 2);
   }
   write_material(false);
   auto preparation = app->load_assets({&material_source, 1}, true);

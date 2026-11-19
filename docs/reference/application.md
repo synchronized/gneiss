@@ -26,15 +26,15 @@ Application 拥有平台状态、资源服务及可选窗口；World 与渲染�
 
 ## 加载请求
 
-Application 每帧在 update 回调前统一处理文件完成、资产管理器和共享资源批次。
+Application 每帧在 update 回调前统一处理文件完成和资产管理器；管理器推进其独立批次。
 自定义宿主循环调用 `step()` 驱动一轮并处理停止状态；业务回调内不重入循环。
 场景打开、来源重载、实例化及替换策略由 Runtime/Editor 宿主加载器维护。
 示例直接使用资产请求与组合/实例化接口；examples/support/scene_activation.hpp 仅复用示例装配。
 
 - 普通资产和场景：`app.assets().load<T>(uri)` 返回资产请求，Scene/Prefab 也使用同一入口。
-- 多资源编辑：`app.load_assets(sources, reload)` 返回 `asset_batch_request`；缓存命中可立即就绪。
+- 过渡期多资源编辑：`app.load_assets(sources, reload)` 返回 `asset_batch_request`；缓存命中可立即就绪。
   单个批次占用一个观察槽位，`take()` 领取完成值并释放槽位，未完成返回 not_ready。
-- `can_load_assets()` 表示应用接受请求、已配置加载执行器且共享批次空闲；仅所属线程查询。
+- 旧 `can_load_assets()` 表示应用接受请求、已配置加载执行器且共享批次空闲；仅所属线程查询。
   它不判断场景切换策略，也不表示所有单资产请求均已完成。
 
 查询和领取回执不驱动加载。单资产观察者可以复制，取消只影响自身观察者；批次请求只能移动。
@@ -164,7 +164,7 @@ Runtime 宿主显式卸载其上次打开的实例；编辑器关闭旧文档时
 Runtime 打开场景直接使用 assets().reload<scene>()，就绪后组合并调用 instantiate；
 其视觉资源批次由 Runtime 持有。结构加载失败保留旧实例，
 取消只放弃本观察者；视觉资源失败记录日志，不撤回已经创建的场景。
-Application 的 can_load_assets() 只表示共享资源批次可提交；宿主查询自己的视觉批次。
+场景加载通过 assets().load_batch() 提交独立批次，不等待旧 can_load_assets()；宿主查询自己的视觉批次。
 编辑器同样直接请求资产并实例化，将固定内容建立为文档快照，实例化回执交给编辑会话绑定。
 加载失败或取消保留原文档、选择及撤销历史；成功后关闭旧文档并采用新实例。
 编辑器通过 editor_scene_loader::visual_loading() 观察自己的视觉批次，不创建 Runtime 重载基线。

@@ -29,7 +29,7 @@ inline gneiss::result<scene_activation> activate_scene(runtime::application& app
     return dependencies.error();
   scene_activation output;
   if (!dependencies->empty()) {
-    auto submitted = app.load_assets(*dependencies);
+    auto submitted = app.assets().load_batch(*dependencies);
     if (!submitted)
       return submitted.error();
     output.visuals = std::move(*submitted);
@@ -128,7 +128,7 @@ inline gneiss::error prepare_scene(runtime::application& app, std::string_view u
   if (dependencies->empty())
     return gneiss::error::success;
   // 一次提交整个视觉批次；测试宿主只负责等待，不逐资产重做批次调度。
-  auto request = app.load_assets(*dependencies);
+  auto request = app.assets().load_batch(*dependencies);
   if (!request)
     return request.error();
   for (;;) {

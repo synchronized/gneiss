@@ -83,7 +83,7 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
     });
     return gneiss::error::success;
   }
-  if (!ready_->load() || !application.can_load_assets())
+  if (!ready_->load() || !application.accepts_requests())
     return gneiss::error::success;
   auto content = request_.snapshot();
   auto loaded = request_.take();
@@ -103,7 +103,7 @@ gneiss::error editor_scene_loader::advance(runtime::application& application,
   auto dependencies = gneiss::scene_dependencies(*composed);
   if (!dependencies)
     return fail(dependencies.error());
-  auto visual_request = application.load_assets(*dependencies);
+  auto visual_request = application.assets().load_batch(*dependencies);
   if (!visual_request)
     return fail(visual_request.error());
   for (const auto& dependency : *dependencies) {

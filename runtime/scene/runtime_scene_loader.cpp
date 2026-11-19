@@ -96,7 +96,7 @@ gneiss::error runtime_scene_loader::activate(::gneiss::host::scene_open_result& 
   auto dependencies = gneiss::scene_dependencies(*composed);
   if (!dependencies)
     return dependencies.error();
-  auto visual_request = application_.load_assets(*dependencies);
+  auto visual_request = application_.assets().load_batch(*dependencies);
   if (!visual_request)
     return visual_request.error();
   gneiss::scene_resource_bindings bindings;
@@ -161,8 +161,8 @@ gneiss::error runtime_scene_loader::advance() {
   advance_reload();
   if (!active_ || !ready_->load())
     return gneiss::error::success;
-  // 共享批次仍串行提交；只在资源批次可提交时构建运行实例。
-  if (!application_.can_load_assets())
+  // 停止阶段不再构建运行实例；独立批次不受其他会话加载影响。
+  if (!application_.accepts_requests())
     return gneiss::error::success;
   scene_open_result completion;
   completion.content = request_.snapshot();
@@ -206,7 +206,7 @@ gneiss::error runtime_scene_loader::reload(gneiss::ref<scene_reload_state> sourc
     return gneiss::error::invalid_state;
   if (!source->instance.is_valid())
     return gneiss::error::invalid_handle;
-  if (active_ || reload_ || visuals_ || !application_.can_load_assets())
+  if (active_ || reload_ || visuals_ || !application_.accepts_requests())
     return gneiss::error::not_ready;
   reload_task next;
   next.source = std::move(source);
@@ -256,7 +256,7 @@ gneiss::error runtime_scene_loader::apply_source(scene_reload_state& source,
   auto dependencies = gneiss::scene_dependencies(*next);
   if (!dependencies)
     return dependencies.error();
-  auto visual_request = application_.load_assets(*dependencies);
+  auto visual_request = application_.assets().load_batch(*dependencies);
   if (!visual_request)
     return visual_request.error();
   gneiss::scene_resource_bindings bindings;
@@ -279,7 +279,8 @@ gneiss::error runtime_scene_loader::apply_source(scene_reload_state& source,
 }
 
 void runtime_scene_loader::advance_reload() {
-  if (!reload_ || reload_->completion || !reload_->ready->load() || !application_.can_load_assets())
+  if (!reload_ || reload_->completion || !reload_->ready->load() ||
+      !application_.accepts_requests())
     return;
   auto& task = *reload_;
   auto result = std::visit(

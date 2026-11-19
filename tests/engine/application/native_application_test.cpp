@@ -149,45 +149,40 @@ void test_loading_request_lifetime() {
   auto created = runtime::application::create(config);
   check(bool(created));
   auto app = std::move(*created);
-  check(app->can_load_assets());
   const gneiss::render_resource_source source{"asset://missing.texture",
                                               gneiss::render_resource_kind::texture};
-  auto submitted = app->load_assets({&source, 1});
+  auto submitted = app->assets().load_batch({&source, 1});
   check(bool(submitted));
   auto request = std::move(*submitted);
   check(bool(request) && !bool(*submitted) && !request.ready());
-  check(!app->can_load_assets());
   bool worker_rejected{};
   std::thread worker([&] {
     worker_rejected = !request.progress() && request.cancel() == gneiss::error::invalid_state;
   });
   worker.join();
   check(worker_rejected && bool(request));
-  // 放弃批次释放操作槽位；已移动请求的清理不能取消新所有者。
+  // 放弃批次释放自身观察；已移动请求的清理不能取消新所有者。
   submitted->reset();
   check(bool(request));
   request.reset();
-  check(app->can_load_assets());
-  submitted = app->load_assets({&source, 1});
+  submitted = app->assets().load_batch({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
   check(request.cancel().ok() && request.ready());
-  check(!app->can_load_assets());
   auto cancelled = request.take();
-  check(app->can_load_assets());
   check(bool(cancelled) && cancelled->state == gneiss::asset_load_state::cancelled && !request);
   // 每个 Application 的批次独立；关闭一个不会使另一个的请求失效。
   runtime::application_configuration other_config;
   other_config.executor = &tasks;
   auto other_created = runtime::application::create(other_config);
   check(bool(other_created));
-  auto independent = (*other_created)->load_assets({});
+  auto independent = (*other_created)->assets().load_batch({});
   check(bool(independent) && independent->ready());
-  submitted = app->load_assets({&source, 1});
+  submitted = app->assets().load_batch({&source, 1});
   check(bool(submitted));
   request = std::move(*submitted);
   app->request_exit();
-  check(app->run().ok() && !app->can_load_assets());
+  check(app->run().ok());
   check(!request && bool(*independent));
   app.reset();
   auto expired = request.take();
