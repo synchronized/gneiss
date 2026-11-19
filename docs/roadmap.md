@@ -865,6 +865,9 @@ Scene/World、Prefab 与编辑器 Document 的所有权已收敛，Meta 与通�
 版本范围与完成条件见 [VER-052](plans/VER-052-0.52.0-architecture-cleanup.md)，
 实施顺序见 [DEV-052](plans/DEV-052-architecture-cleanup.md)。
 
+Application 调度与宿主状态组合已确认规划，尚未实施，见
+[PLAN-126](plans/PLAN-126-application-scheduling.md)。按项目选择界面、Runtime、Editor 顺序迁移。
+
 ## 未排期：大型场景视口性能
 
 保留原性能讨论与 M-325～M-328 编号，不分配版本号或承诺启动顺序。

@@ -712,3 +712,6 @@
 - [PLAN-124：基础模块与构建归属](plans/PLAN-124-foundation-modules.md)
 - [PLAN-125：统一属性访问与类型操作](plans/PLAN-125-property-access.md)
 - [ADR-128：分层目录与完整领域构建目标](decisions/ADR-128-foundation-modules.md)
+
+- [PLAN-126：Application 生命周期、调度与宿主状态组合](plans/PLAN-126-application-scheduling.md)
+- [ADR-129：Application 调度与宿主状态组合](decisions/ADR-129-application-scheduling.md)

@@ -139,3 +139,5 @@ Reference 和实现为准。
 - [ADR-126：格式无关的值类型适配](ADR-126-serialization-adapters.md)
 
 - [ADR-127：静态类型表示能力](ADR-127-static-representation.md)
+
+- [ADR-129：Application 调度与宿主状态组合](ADR-129-application-scheduling.md)
