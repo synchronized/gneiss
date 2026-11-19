@@ -6,6 +6,7 @@
 #include <gneiss/engine/core/tasks/task_scheduler.hpp>
 
 #include "../../support/async_application.hpp"
+#include "../../support/render_scene.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 
@@ -78,6 +79,7 @@ struct probe_trace {
   }
 };
 struct response_context {
+  gneiss::world* world{};
   std::atomic_int64_t key_sent, task_finished, close_sent;
   std::atomic_uint sent, keys, tasks;
   std::atomic_bool failed, stopped;
@@ -117,7 +119,7 @@ gneiss::error advance_scene(gneiss::runtime::application& app, response_context&
       return loaded.error().error;
     if (!content)
       return error::invalid_state;
-    auto activated = gneiss::test_support::activate_scene(app, *app.native_world(), *content);
+    auto activated = gneiss::test_support::activate_scene(app, *state.world, *content);
     if (!activated)
       return activated.error();
     state.nodes = activated->instance.node_count;
@@ -318,6 +320,14 @@ int main(int argc, char** argv) try {
           .failed()) {
     return 1;
   }
+  auto world = gneiss::create_native();
+  if (!world)
+    return 1;
+  state.world = world->get();
+  auto binding = gneiss::world_render_binding::create(**world, app->render());
+  if (!binding)
+    return 1;
+  gneiss::test_support::add_scene_render_systems(*app, **world, **binding);
   if (!asset_root.empty() &&
       gneiss::test_support::take_value(
           app->assets().load<gneiss::scene>("asset://scenes/scene.scene.json"),

@@ -54,13 +54,6 @@ class resource_load_group;
 
 namespace gneiss::runtime {
 
-/** 一个宿主视图；省略相机时选用 World 主相机。目标为零表示窗口。
- * 相机按值保存，目标 RID 借用，调用方须先移除视图再销毁目标。 */
-struct application_view {
-  rid target{};
-  std::optional<view_camera> camera{};
-};
-
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class application final {
@@ -117,16 +110,6 @@ public:
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
   create(const application_configuration& config);
-  /** 原子替换视图列表；目标不可重复，最多一个窗口视图。
-   * 空列表恢复默认主相机窗口视图；全部离屏时自动追加 UI 窗口。
-   * 失败保留旧列表；与单视图便捷接口共享同一份状态。 */
-  [[nodiscard]] GNEISS_ENGINE_API result<void> set_views(std::span<const application_view> views);
-  /** 修改首个视图的相机；空指针恢复 World 主相机。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error set_view_camera(const gneiss::view_camera* camera);
-  /** 修改首个视图的借用目标；零表示窗口。调用方负责目标生命周期。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error set_view_target(gneiss::rid target);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  capture_frame(std::uint32_t width, std::uint32_t height, gneiss::render::frame_image& output);
   [[nodiscard]] GNEISS_ENGINE_API gneiss::render::queue_stats render_statistics() const;
   [[nodiscard]] GNEISS_ENGINE_API bool has_asset_loading_service() const noexcept;
   /** 多资源编辑批次；普通单资产直接使用 assets().load<T>()。 */
@@ -164,8 +147,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error run(std::uint64_t max_frame_count);
   [[nodiscard]] GNEISS_ENGINE_API bool is_owner_thread() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API bool accepts_requests() const noexcept;
-  /** 借用宿主 World；普通场景切换保持地址稳定，关闭后禁止解引用。 */
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::world* native_world() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::render::service& render() noexcept;
   /** 借用应用级资产管理器；仅所属线程使用，有效期不超过 Application。 */
   [[nodiscard]] GNEISS_ENGINE_API gneiss::asset_manager& assets() noexcept;
@@ -190,11 +171,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error
   get_action_state(gneiss::input::action_id action,
                    gneiss::input::action_state& out_state) const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API bool can_submit_draw_lists() const noexcept;
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  submit_ui_draw_list(const gneiss::ui_draw_view& desc);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error
-  submit_debug_draw_list(std::span<const gneiss::debug_line> lines);
   GNEISS_ENGINE_API void report(gneiss::severity severity, gneiss::category category,
                                 gneiss::error result, std::string_view module,
                                 std::string_view message);
@@ -204,7 +180,6 @@ public:
 private:
   [[nodiscard]] GNEISS_ENGINE_API std::uint64_t now_ns() const;
   [[nodiscard]] GNEISS_ENGINE_API gneiss::error poll_events(bool& out_should_close);
-  [[nodiscard]] GNEISS_ENGINE_API gneiss::error render_frame();
 
   GNEISS_ENGINE_API void register_system(app::stage, std::string, app::system_function);
   GNEISS_ENGINE_API void register_state(app::detail::state_key);

@@ -34,11 +34,6 @@ void loop() {
   config.callbacks.shutdown = [&] { ++shutdowns; };
   config.callbacks.update = [&](const gneiss::frame_time& time) {
     check(time.frame_index == updates && (updates == 0 || time.delta_ns == 10));
-    gneiss::ui_draw_view ui;
-    ui.display_width = 640;
-    ui.display_height = 480;
-    check(app->submit_ui_draw_list(ui).ok());
-    check(app->submit_debug_draw_list({}).ok());
     if (++updates == 3)
       app->request_exit();
     return gneiss::error::success;

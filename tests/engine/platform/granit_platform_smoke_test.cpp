@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/render_scene.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
@@ -26,6 +27,8 @@ namespace native = gneiss;
 namespace {
 
 struct smoke_context final {
+  gneiss::ui_draw_list ui;
+  gneiss::debug_draw_list debug;
   native::ref<const native::texture> texture;
   bool received_key{};
   gneiss::window::id window_id{};
@@ -61,14 +64,14 @@ native::error submit_ui(gneiss::runtime::application& application, smoke_context
                                        .vertices = vertices,
                                        .indices = indices,
                                        .commands = commands};
-  auto result = application.submit_ui_draw_list(draw_list);
+  auto result = context.ui.replace(draw_list, application.render());
   constexpr std::array lines{native::debug_line{.start = {-0.8F, 0.0F, 0.0F},
                                                 .end = {0.8F, 0.0F, 0.0F},
                                                 .color_rgba8 = UINT32_C(0xff60a5fa),
                                                 .width = 2.0F,
                                                 .depth_test = true}};
   if (result == native::error::success) {
-    result = application.submit_debug_draw_list(lines);
+    result = context.debug.replace(lines);
   }
   return result;
 }
@@ -91,6 +94,43 @@ int main() {
     std::fprintf(stderr, "Application 创建失败：%d\n", create_result.code());
     return 1;
   }
+  auto owned_world = gneiss::create_native();
+  if (!owned_world)
+    return 1;
+  auto& world = **owned_world;
+  auto binding = world_render_binding::create(world, application->render());
+  if (!binding)
+    return 1;
+  application->add_system(app::stage::synchronize, "smoke.sync", [&] {
+    world.flush_changes();
+    return (*binding)->synchronize();
+  });
+  const auto make_frame = [&](render::target_description extent = {}) {
+    auto frame =
+        test_support::scene_frame(world, **binding, application->window()->surface(), extent);
+    if (frame) {
+      frame->ui = context.ui;
+      frame->debug = context.debug;
+    }
+    return frame;
+  };
+  application->add_system(app::stage::present, "smoke.present", [&]() -> result<void> {
+    auto frame = make_frame();
+    if (!frame)
+      return frame.error();
+    if (frame->views.empty())
+      return {};
+    auto submitted = application->render().render(std::move(*frame));
+    return !submitted && submitted.error() != error::not_ready ? submitted : result<void>{};
+  });
+  const auto capture = [&](std::uint32_t width, std::uint32_t height,
+                           render::frame_image& image) -> error {
+    auto frame = make_frame({width, height});
+    if (!frame)
+      return frame.error();
+    return test_support::capture_frame(application->render(), std::move(*frame), {width, height},
+                                       image);
+  };
   auto& resources = application->render();
   auto& resources_factory = application->assets();
   constexpr std::array vertices{
@@ -155,7 +195,6 @@ int main() {
     return 2;
   }
   material = resource_handle(material_owner);
-  auto& world = *application->native_world();
   entity_id camera_entity{}, mesh_entity{}, plain_mesh_entity{};
   entity_id camera_node{}, mesh_node{}, plain_mesh_node{};
   const native::math::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
@@ -201,8 +240,7 @@ int main() {
   // 捕获尺寸独立于窗口；连续调整窗口后仍能正常呈现，最小化不阻止离屏捕获。
   render::frame_image captured;
   const auto original = application->window()->surface();
-  if (application->capture_frame(64, 48, captured).failed() || captured.width != 64 ||
-      captured.height != 48)
+  if (capture(64, 48, captured).failed() || captured.width != 64 || captured.height != 48)
     return 13;
   const auto current = application->window()->surface();
   if (current.width != original.width || current.height != original.height)
@@ -216,9 +254,8 @@ int main() {
   }
   ShowWindow(window, SW_MINIMIZE);
   if (application->run(1).failed() || application->window()->surface().width != 0 ||
-      application->window()->surface().height != 0 ||
-      application->capture_frame(80, 60, captured).failed() || captured.width != 80 ||
-      captured.height != 60)
+      application->window()->surface().height != 0 || capture(80, 60, captured).failed() ||
+      captured.width != 80 || captured.height != 60)
     return 16;
   ShowWindow(window, SW_SHOWNOACTIVATE);
   if (application->run(2).failed() || resources.finish_frames().failed())
@@ -248,6 +285,11 @@ int main() {
       resources.destroy_texture(texture).failed()) {
     return 8;
   }
+  object_scene->unload();
+  context.ui.clear();
+  context.debug = {};
+  binding->reset();
+  owned_world->reset();
   if (application->shutdown().failed())
     return 12;
 #ifdef _WIN32

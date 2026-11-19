@@ -11,8 +11,8 @@
 调用方检查结果后移出拥有引用；不创建 Application RID 或注册表项。
 完整 Application C API 与公共创建描述已删除。动态游戏模块也已撤销。
 
-Application 拥有 World、平台状态、资源服务及可选窗口。`native_world()` 返回借用对象，
-调用方不得销毁 Application 拥有的 World。关闭后借用 World 句柄失效。
+Application 拥有平台状态、资源服务及可选窗口；World 与渲染绑定由宿主拥有。
+宿主停止系统先释放文档、场景与绑定，再释放 World，随后 Application 关闭服务。
 最后一个 Application 引用必须在创建线程释放，析构执行关闭；也可显式调用 `shutdown`。
 初始化失败会回收部分状态，已经进入初始化的平台回调与 shutdown 配对。
 
@@ -154,7 +154,7 @@ Application 私有持有 `gneiss::window::service`，负责窗口生命周期及
 
 ### World 生命周期
 
-Application 直接拥有 World，native_world() 的地址在普通场景切换期间保持稳定，关闭后失效。
+宿主直接拥有 World，加载和实例化显式选择目标 World；Application 不提供默认 World。
 Runtime 宿主显式卸载其上次打开的实例；编辑器关闭旧文档时卸载对应实例，其他场景不受影响。准备阶段不创建运行对象或预留视觉
 资源身份。场景卸载后旧对象/场景句柄失效，不能将 World 地址稳定理解为所有句柄永久有效。
 Runtime 打开场景直接使用 assets().reload<scene>()，就绪后组合并调用 instantiate；
@@ -190,9 +190,9 @@ host/runtime/runtime_scene_loader.hpp，只保存绑定检查器和来源更新�
 
 ## 普通帧同步
 
-有窗口时 Application 拥有一个 world_render_binding，普通帧先同步 World 变化，
-再查询相机并提交 render::frame_request（UI、调试输入随帧提供）。无窗口运行不创建绑定。
-最小化跳过绘制，但仍同步对象删除和资源换绑；关闭先释放绑定，再销毁 World。
-普通帧背压由 Render 处理，Application 不再领取可复用 packet 或枚举全部网格。
-截图 capture_frame 使用相同的绑定和 frame_request，暂保持同步诊断回读；
-普通帧与截图均不再从 World 提取全量对象列表。完成和迁移边界见 [Render](render.md)。
+宿主在 synchronize 系统中调用 World::flush_changes 和 world_render_binding::synchronize，
+在 present 系统中查询相机并提交 render::frame_request。Application 不隐式创建绑定或提交默认帧。
+最小化时仍同步对象删除和资源换绑，可跳过窗口绘制；关闭先释放绑定，再销毁 World。
+普通帧背压由 Render 处理，宿主处理 not_ready 并在下一帧提交最新内容。
+截图由宿主直接调用 Render::request_capture，并按序号领取必达完成回执。
+UI 与调试绘制数据由宿主装入帧请求。完成协议见 [Render](render.md)。

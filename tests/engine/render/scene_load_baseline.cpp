@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_application.hpp"
+#include "../../support/render_scene.hpp"
 #include "../../support/value_result.hpp"
 #include "function/render/detail/frame_packet.hpp"
 #include <gneiss/engine/core/base/error.hpp>
@@ -71,8 +72,8 @@ std::uint64_t peak_resident_bytes() {
 }
 // 场景切换的预载也走设备变体选择和 CPU 准备，不能用同步预载阻断被测异步路径。
 gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>& app,
-                            gneiss::tasks::task_scheduler& scheduler, bool cooperative,
-                            std::string_view uri, gneiss::scene_instance& scene) {
+                            gneiss::world& world, gneiss::tasks::task_scheduler& scheduler,
+                            bool cooperative, std::string_view uri, gneiss::scene_instance& scene) {
   auto request = app->assets().load<gneiss::scene>(uri);
   if (!request)
     return request.error();
@@ -91,7 +92,7 @@ gneiss::error preload_scene(const std::shared_ptr<gneiss::runtime::application>&
         return loaded.error().error;
       if (!content)
         return gneiss::error::invalid_state;
-      auto built = gneiss::test_support::activate_scene(*app, *app->native_world(), *content);
+      auto built = gneiss::test_support::activate_scene(*app, world, *content);
       if (!built)
         return built.error();
       scene = built->instance.instance;
@@ -155,10 +156,18 @@ int main(int argc, char** argv) try {
     desc.window.visible = true;
   }
   if (gneiss::error{gneiss::test_support::assign_value(gneiss::runtime::application::create(desc),
-                                                       app)} != gneiss::error::success ||
-      gneiss::error{app->run(3U)} != gneiss::error::success) {
+                                                       app)} != gneiss::error::success) {
     return 3;
   }
+  auto world = gneiss::create_native();
+  if (!world)
+    return 3;
+  auto binding = gneiss::world_render_binding::create(**world, app->render());
+  if (!binding)
+    return 3;
+  gneiss::test_support::add_scene_render_systems(*app, **world, **binding);
+  if (app->run(3U).failed())
+    return 3;
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss::scene_instance previous_scene{};
@@ -168,12 +177,13 @@ int main(int argc, char** argv) try {
   gneiss::render::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
   if (scenario != "initial") {
-    const auto preload = preload_scene(app, scheduler, mode == "cooperative", uri, previous_scene);
+    const auto preload =
+        preload_scene(app, **world, scheduler, mode == "cooperative", uri, previous_scene);
     if (preload != gneiss::error::success) {
       std::fprintf(stderr, "异步预载失败：结果=%d\n", preload.code());
       return 11;
     }
-    if (previous_scene == gneiss::scene_instance{} || app->native_world() == nullptr ||
+    if (previous_scene == gneiss::scene_instance{} ||
         gneiss::error{app->run(10U)} != gneiss::error::success) {
       return 11;
     }
@@ -185,7 +195,8 @@ int main(int argc, char** argv) try {
       }
     }
     previous_resources = app->render().live_resource_count();
-    if (preserve && app->capture_frame(1024U, 768U, previous_image) != gneiss::error::success) {
+    if (preserve && gneiss::test_support::capture_scene(*app, **world, **binding, 1024U, 768U,
+                                                        previous_image) != gneiss::error::success) {
       return 11;
     }
   }
@@ -372,8 +383,7 @@ int main(int argc, char** argv) try {
           if (!content)
             return gneiss::error::invalid_state;
           const auto activation_start = clock_type::now();
-          auto built =
-              gneiss::test_support::activate_scene(*handle, *handle->native_world(), *content);
+          auto built = gneiss::test_support::activate_scene(*handle, **world, *content);
           if (!built)
             return built.error();
           if (previous_scene.id()) {
@@ -452,6 +462,8 @@ int main(int argc, char** argv) try {
   }
   if (closed) {
     const auto closing_start = clock_type::now();
+    binding->reset();
+    world->reset();
     app.reset();
     shutdown_ms = milliseconds(closing_start);
     std::ofstream report(prefix.string() + ".json");
@@ -468,6 +480,8 @@ int main(int argc, char** argv) try {
   if (result != gneiss::error::success) {
     live_resources = app->render().live_resource_count();
     const auto peak = peak_resident_bytes();
+    binding->reset();
+    world->reset();
     app.reset();
     std::ofstream report(prefix.string() + ".json");
     report << "{\"result\":" << result.code() << ",\"load_ms\":" << load_ms
@@ -486,7 +500,8 @@ int main(int argc, char** argv) try {
   const auto stats = app->render_statistics();
   const auto capture_start = clock_type::now();
   gneiss::render::frame_image image;
-  if (app->capture_frame(1024U, 768U, image) != gneiss::error::success) {
+  if (gneiss::test_support::capture_scene(*app, **world, **binding, 1024U, 768U, image) !=
+      gneiss::error::success) {
     return 8;
   }
   const auto capture_ms = milliseconds(capture_start);
@@ -498,7 +513,8 @@ int main(int argc, char** argv) try {
   bool retried{};
   if (scenario == "failure") {
     const auto retry_start = clock_type::now();
-    if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) != gneiss::error::success)
+    if (preload_scene(app, **world, scheduler, mode == "cooperative", uri, scene) !=
+        gneiss::error::success)
       return 16;
     previous_scene.unload();
     if (gneiss::error{app->run(60U)} != gneiss::error::success)
@@ -506,7 +522,8 @@ int main(int argc, char** argv) try {
     retry_ms = milliseconds(retry_start);
     live_resources = app->render().live_resource_count();
     gneiss::render::frame_image retried_image;
-    if (app->capture_frame(1024U, 768U, retried_image) != gneiss::error::success ||
+    if (gneiss::test_support::capture_scene(*app, **world, **binding, 1024U, 768U, retried_image) !=
+            gneiss::error::success ||
         retried_image.pixels != previous_image.pixels || live_resources != previous_resources) {
       return 17;
     }

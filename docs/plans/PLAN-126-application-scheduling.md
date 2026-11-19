@@ -167,11 +167,11 @@ OnExit 不能代替应用关闭通知；业务回调解除和异步工作排空�
 | --- | --- | --- |
 | 调度与状态 | 五个阶段、枚举状态、延迟转换、冲突拒绝、具名错误 | 服务启动装配的最终 API |
 | 生命周期 | run/step 共用推进，pending/complete 停止，停止时完成分发 | 删除测试中的 run(n) 与分步关闭旧入口 |
-| 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发 | 默认 World、视口、绑定移交 Session |
-| 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统 | Application 本身不再创建默认 World |
+| 所有权 | 配置字符串自有；执行器在创建配置中借用；无用 service_registry 已删除；只读 window() 取代尺寸转发；宿主拥有 World/绑定/视图，默认实现已删除 | 多 World 与关闭重开验收 |
+| 项目管理器 | selecting 状态、UI 释放与异步任务排空进入停止系统；无隐式 World | 最终启动协议对齐 |
 | Runtime | completions/update、完整 run、停止时清除请求与卸载场景；加载器显式借用 World，检查器直接读取场景 | 输入加载、暂停与旧业务转发清理 |
-| Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发与 Application 默认 World 清理 |
-| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 删除 Application 旧示例转发入口 |
+| Editor | completions/update、取消/等待/释放三段停止；文档/加载器使用宿主指定 World，删除默认 World 身份限制 | 旧业务转发清理与多 World/关闭重开验收 |
+| 示例 | minimal 自有 World；scene_viewer loading/viewing、停止清理、双视图尺寸切换 | 输入加载与批次转发清理 |
 
 当前接口契约以 [Application Reference](../reference/application.md) 为准。计划各阶段保持未完成，
 不能把多个宿主使用新 run 等同于整体所有权迁移完成。旧 attach_task_executor 已从源码删除，
@@ -212,7 +212,7 @@ Runtime 和 Editor 已独立拥有 World 与 world_render_binding，在 synchron
 UI 适配器返回借用绘制数据，由宿主复制到帧请求。项目管理器直接提交 UI 帧。
 停止系统先关闭文档与场景，再释放绑定及 World，最后由 Application 关闭服务。
 
-过渡边界：Application 暂时仍为未迁移示例和测试创建默认 World；注册 present 系统的宿主
+前期过渡（本批已删除）：Application 曾为未迁移示例和测试创建默认 World；注册 present 系统的宿主
 不再触发旧默认呈现，避免一轮双重提交。这不是最终协议，退出条件是 scene_viewer 和相关
 测试迁移完成，随后一并删除默认 World、默认呈现及业务转发接口。
 
@@ -244,3 +244,17 @@ Runtime 检查/加载/启动、Scene/Prefab 结构重载、相机选择、保存
 Application 测试删除“默认拥有 World、关闭后 native_world 为空”的旧契约断言，保留生命周期、
 失败清理及异步停止验证。GPU 验收与测量程序暂时显式传入默认 World，需连同帧提交/截图一起迁移；
 这些工具已完成签名适配并编译通过，本批不宣称已移除生产实现的默认 World。
+
+### 默认 World 与默认呈现退出
+
+像素验收、平台 smoke、加载测量程序及属性检查测试已改为显式拥有 World；GPU 消费者
+注册同步和呈现系统，截图直接提交 Render 请求。测试辅助只借用 World/绑定，不持有第二套应用状态。
+Application 已删除默认 World、渲染绑定、视图列表、绘制列表、截图转发和默认帧提交。
+旧更新阶段绘制许可状态也随之删除，present 阶段计时直接包围宿主呈现系统。
+视图校验归 Render，绘制输入校验归 draw_list，测试不再要求 Application 保存这两类业务数据。
+
+本批仍不代表 PLAN-126 完成：旧有界 run/关闭入口、业务转发与启动协议仍需按后续阶段收敛。
+
+本批验证：Windows Clang Debug 全量构建通过，213 项 CPU 回归全部通过。
+删除默认实现后，像素验收、平台窗口 smoke、双视图 smoke 和主循环响应测试均退出 0。
+测量程序完成编译；未运行完整纹理/场景性能基准，也未验证其他平台和静态构建。

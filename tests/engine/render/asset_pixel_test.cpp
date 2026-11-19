@@ -3,6 +3,7 @@
 
 #include "../../support/async_application.hpp"
 #include "../../support/codec_result.hpp"
+#include "../../support/render_scene.hpp"
 #include "../../support/value_result.hpp"
 #include "function/asset/detail/asset_construction.hpp"
 #include "function/render/detail/frame_packet.hpp"
@@ -37,7 +38,8 @@ void check(bool value, std::source_location where = std::source_location::curren
   }
 }
 // 通道对照需要确定已使用真实纹理，而非默认贴图；等待 CPU 请求后用完成的回读跨过上传提交。
-void prepare_texture_capture(runtime::application& app) {
+void prepare_texture_capture(runtime::application& app, world& world,
+                             world_render_binding& binding) {
   auto request = app.assets().load<texture>("asset://t.texture.json");
   check(bool(request));
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -48,7 +50,7 @@ void prepare_texture_capture(runtime::application& app) {
   }
   check(bool(request->take()));
   gneiss::render::frame_image submitted;
-  check(app.capture_frame(128U, 128U, submitted).ok());
+  check(test_support::capture_scene(app, world, binding, 128U, 128U, submitted).ok());
 }
 struct fixture {
   std::filesystem::path root =
@@ -103,6 +105,11 @@ void run_asset_reload() {
   desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
 
   const auto reload = [&](std::span<const gneiss::render_resource_source> requests) {
     gneiss::asset_batch_request assets_request;
@@ -127,20 +134,21 @@ void run_asset_reload() {
   };
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
-                                                       &scheduler)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene, &scheduler)} ==
+        gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
     if (object.try_component<camera_component>()) {
-      check(set_active_camera(*app->native_world(), object.entity()).ok());
+      check(set_active_camera(**world, object.entity()).ok());
       selected_camera = true;
     }
   }
   check(selected_camera);
   const auto pixel = [&] {
     gneiss::render::frame_image image;
-    check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
+    check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
+          gneiss::error::success);
     constexpr auto offset = ((64U * 128U) + 64U) * 4U;
     return std::array{
         std::to_integer<unsigned>(image.pixels[offset]),
@@ -190,15 +198,20 @@ void run_pending_resources() {
   desc.executor = &gneiss::test_support::application_tasks();
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene)} ==
+  check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene)} ==
         gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
     if (object.try_component<camera_component>()) {
-      check(set_active_camera(*app->native_world(), object.entity()).ok());
+      check(set_active_camera(**world, object.entity()).ok());
       selected_camera = true;
     }
   }
@@ -242,7 +255,8 @@ void run_pending_resources() {
   *target = binding;
   const auto pixel = [&] {
     gneiss::render::frame_image image;
-    check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
+    check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
+          gneiss::error::success);
     constexpr auto offset = ((64U * 128U) + 64U) * 4U;
     return std::array{
         std::to_integer<unsigned>(image.pixels[offset]),
@@ -392,6 +406,11 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
   if (async) {
@@ -406,12 +425,12 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     }
     auto content = request->snapshot();
     check(bool(request->take()) && bool(content));
-    auto activated = test_support::activate_scene(*app, *app->native_world(), *content);
+    auto activated = test_support::activate_scene(*app, **world, *content);
     check(bool(activated));
     scene = activated->instance.instance;
     // CPU 场景先实例化，随后分发视觉加载；两帧图像必须体现资源就绪后的变化。
     gneiss::render::frame_image initial;
-    check(app->capture_frame(128U, 128U, initial).ok());
+    check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, initial).ok());
     while (activated->visuals && !activated->visuals.ready()) {
       check(std::chrono::steady_clock::now() < deadline);
       check(app->run(1).ok());
@@ -421,16 +440,16 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     auto completed = activated->visuals.take();
     check(bool(completed) && completed->result.ok());
     gneiss::render::frame_image loaded;
-    check(app->capture_frame(128U, 128U, loaded).ok());
+    check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, loaded).ok());
     check(initial.pixels != loaded.pixels);
   } else {
-    check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
-                                                         &scheduler)} == gneiss::error::success);
+    check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene, &scheduler)} ==
+          gneiss::error::success);
     // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
     bool selected_camera{};
     for (auto object : scene.objects()) {
       if (object.try_component<camera_component>()) {
-        check(set_active_camera(*app->native_world(), object.entity()).ok());
+        check(set_active_camera(**world, object.entity()).ok());
         selected_camera = true;
       }
     }
@@ -441,7 +460,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     (void)scheduler.run_ready();
     check(app->run(1).ok());
     gneiss::render::frame_image image;
-    check(app->capture_frame(128U, 128U, image).ok());
+    check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image).ok());
     const auto offset = (64U * 128U + 64U) * 4U;
     // LOD0 全蓝，缩小时应采样全红的较低分辨率层；等待真实采样而非固定帧数。
     if (std::to_integer<unsigned>(image.pixels[offset]) >
@@ -515,22 +534,28 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   desc.executor = &gneiss::test_support::application_tasks();
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene)} ==
+  check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene)} ==
         gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
     if (object.try_component<camera_component>()) {
-      check(set_active_camera(*app->native_world(), object.entity()).ok());
+      check(set_active_camera(**world, object.entity()).ok());
       selected_camera = true;
     }
   }
   check(selected_camera);
-  prepare_texture_capture(*app);
+  prepare_texture_capture(*app, **world, **render_binding);
   gneiss::render::frame_image image;
-  check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
+  check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
+        gneiss::error::success);
   const auto offset = (64U * 128U + 64U) * 4U;
   return {std::to_integer<unsigned>(image.pixels[offset]),
           std::to_integer<unsigned>(image.pixels[offset + 1U]),
@@ -647,22 +672,28 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   desc.executor = &gneiss::test_support::application_tasks();
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene)} ==
+  check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene)} ==
         gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
     if (object.try_component<camera_component>()) {
-      check(set_active_camera(*app->native_world(), object.entity()).ok());
+      check(set_active_camera(**world, object.entity()).ok());
       selected_camera = true;
     }
   }
   check(selected_camera);
-  prepare_texture_capture(*app);
+  prepare_texture_capture(*app, **world, **render_binding);
   gneiss::render::frame_image image;
-  check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
+  check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
+        gneiss::error::success);
   if (frame != nullptr)
     *frame = image.pixels;
   constexpr auto offset = (64U * 128U + 64U) * 4U;
@@ -734,16 +765,21 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
 
   gneiss::scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
-  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
-                                                       &scheduler)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene, &scheduler)} ==
+        gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
     if (object.try_component<camera_component>()) {
-      check(set_active_camera(*app->native_world(), object.entity()).ok());
+      check(set_active_camera(**world, object.entity()).ok());
       selected_camera = true;
     }
   }
@@ -751,7 +787,8 @@ void run(gneiss::tasks::execution_mode mode, bool pbr = false) {
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
   const auto capture = [&](unsigned width = 128U) {
     gneiss::render::frame_image image;
-    const auto result = app->capture_frame(width, 128U, image);
+    const auto result =
+        test_support::capture_scene(*app, **world, **render_binding, width, 128U, image);
     if (result != gneiss::error::success) {
       std::fprintf(stderr, "capture=%d\n", result.code());
     }
@@ -875,16 +912,21 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   desc.executor = &scheduler;
   check(gneiss::error{gneiss::test_support::assign_value(runtime::application::create(desc),
                                                          app)} == gneiss::error::success);
+  auto world = create_native();
+  check(bool(world));
+  auto render_binding = world_render_binding::create(**world, app->render());
+  check(bool(render_binding));
+  test_support::add_scene_render_systems(*app, **world, **render_binding);
 
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss::scene_instance scene{};
-  check(gneiss::error{gneiss::test_support::load_scene(*app, *app->native_world(), uri, &scene,
-                                                       &scheduler)} == gneiss::error::success);
+  check(gneiss::error{gneiss::test_support::load_scene(*app, **world, uri, &scene, &scheduler)} ==
+        gneiss::error::success);
   // 此夹具只有一台相机；实例化不负责选择宿主的默认渲染相机。
   bool selected_camera{};
   for (auto object : scene.objects()) {
     if (object.try_component<camera_component>()) {
-      check(set_active_camera(*app->native_world(), object.entity()).ok());
+      check(set_active_camera(**world, object.entity()).ok());
       selected_camera = true;
     }
   }
@@ -892,7 +934,8 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   check(gneiss::error{app->run(3U)} == gneiss::error::success);
   const auto capture = [&] {
     gneiss::render::frame_image image;
-    check(app->capture_frame(128U, 128U, image) == gneiss::error::success);
+    check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
+          gneiss::error::success);
     return image.pixels;
   };
   auto active_pixels = capture();
@@ -930,7 +973,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
     } else {
       auto content = request->snapshot();
       check(bool(request->take()) && bool(content));
-      auto activated = test_support::activate_scene(*app, *app->native_world(), *content);
+      auto activated = test_support::activate_scene(*app, **world, *content);
       check(bool(activated));
       old_scene.unload();
       scene = activated->instance.instance;

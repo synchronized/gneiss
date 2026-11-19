@@ -12,8 +12,8 @@ World 不再登记全局 RID 表，不提供借用 RID 或 world_service 转发�
 工厂仅分配节点与实体校验所需的唯一所属域，域编号不会复用。
 
 World 及其实体只能在创建线程访问；跨线程操作返回 `error::invalid_state`。
-内部直接借用 world&；Application 的 native_world() 返回活动对象的借用指针。
-场景切换或关闭后必须重新获取，禁止解引用旧指针；借用者必须在 World 销毁前清理。
+宿主拥有 World，内部消费者直接借用 world&；Application 不提供隐式 World。
+场景切换不改变 World 所有者；借用者必须在 World 销毁前清理，禁止解引用已销毁对象。
 反射组件入口也直接接收 world&，不再按句柄查回对象。
 
 ## 场景所有权与借用

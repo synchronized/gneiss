@@ -96,24 +96,19 @@ GPU 在途安全回收仍由 Render 及后端负责，RID 释放队列不替代 
 
 ## 当前帧即时 UI 数据
 
-`application::submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI
-数据。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、UInt32 索引以及持有 Texture 强引用的绘制
-命令；每条命令同时给出裁剪矩形、索引范围和顶点偏移。Runtime 在返回前深拷贝全部数组，调用方可
-立即复用或释放源内存。
-
-提交只能发生在 Application 创建线程的 `update` 回调内；同一帧最后一次成功提交原子替换前一份
-数据，失败提交保留已有数据。Runtime 会校验有限浮点值、数组范围、索引引用和 Texture
-所属关系。数据在该帧渲染或跳过渲染后清空，不跨帧缓存。接口不包含 Dear ImGui 或 Granit 类型，
+宿主持有 `ui_draw_list`，通过 `replace(ui_draw_view, renderer)` 复制后端无关的即时 UI
+数据，再将列表装入 `frame_request::ui`。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、
+UInt32 索引和持有 Texture 强引用的绘制命令；调用方可在复制成功后复用源数组。
+校验包含有限浮点值、索引范围和纹理所属关系；失败保留原列表。宿主负责替换或清空数据，
+Application 不保存 UI 状态。接口不包含 Dear ImGui 或 Granit 类型。
 长期边界见 [ADR-017](../decisions/ADR-017-editor-ui-render-composition.md)。
 
 ## 当前帧世界 Debug Draw
 
-`application::submit_debug_draw_list` 在 `update` 回调内提交后端无关的世界线段。每条线包含
-两个三维端点、RGBA8 颜色、像素宽度和深度测试开关；Runtime 深拷贝数组，同帧最后一次成功提交
-替换前一份数据，失败提交不改变已有内容，帧结束后自动清空。
-
-启用深度测试的线段读取当前 Camera 的深度附件但不写入深度，在场景之后、即时 UI 之前绘制；关闭
-深度测试的线段始终可见。接口不包含 Granit 类型，当前只承诺线段，不包含持久图元或世界文字。
+宿主持有 `debug_draw_list`，通过 `replace(lines)` 复制线段，再装入 `frame_request::debug`。
+每条线包含两个三维端点、RGBA8 颜色、像素宽度和深度测试开关；失败保留原列表。
+启用深度测试的线段读取相机深度附件但不写入深度，在场景之后、即时 UI 之前绘制；关闭
+深度测试的线段始终可见。列表不自动按 Application 帧清空，宿主负责本帧输入的生命周期。
 设计边界见 [ADR-022](../decisions/ADR-022-debug-draw-boundary.md)。
 
 ## ECS 组件
@@ -309,10 +304,10 @@ Application 在逻辑更新回调结束后统一发布 World 变化；截图入�
 普通帧 not_ready 时宿主保留窗口重建标记，稍后以最新输入再提交。
 完成回执消费后直接释放 packet，不再维护无消费者的容量回收缓存。
 
-Application 截图和普通帧共用绑定同步、相机查询及 frame_request 构建。
+宿主截图和普通帧可共用绑定同步、相机查询及 frame_request 构建。
 `request_capture` 要求非空 shared_ptr<frame_image>；失败保留请求且不写输出，成功接受后
 调用方须等对应 required completion 才读取图像，不得同时复用输出。必达帧不能被普通帧替换。
-Application 的 capture_frame 暂保持同步诊断接口，通过 finish_frames 与序号回执领取结果；
+测试中的同步截图辅助通过 finish_frames 与序号回执领取结果；生产宿主直接消费异步完成回执。
 完整异步回读对象与取消语义尚未实现。
 
 旧 render_snapshot、对象提取与独立捕获入口已删除；Render 内部仍逐帧捕获持久场景。
@@ -398,11 +393,10 @@ auto submitted = renderer.render(std::move(request));
 编辑器 Scene View 已通过 ImGui Image 使用该路径，投影、网格与 Gizmo 使用图像尺寸；GPU 显示待验收。
 
 
-Application 使用 `set_views(span<application_view>)` 替换视图列表：每项包含借用目标和可选的
-相机值；未指定相机时选择 World 主相机。同一 World 的渲染场景由各视图共享，分别按目标尺寸
-计算投影。目标不得重复；校验失败不修改旧列表。空列表恢复默认主相机窗口，全部离屏时自动
-追加仅合成 UI 的窗口视图。调用方必须先移除视图再销毁目标。
-`set_view_target(rid)` 与 `set_view_camera(...)` 是修改首个视图的便捷入口，共享同一份列表。
+宿主直接构造 `frame_request::views`，每项包含渲染场景、目标和相机矩阵；同一 World 的
+渲染场景可由多个视图共享，并按各目标尺寸计算投影。Render 校验目标归属和重复输出。
+宿主显式添加窗口 UI 视图，不存在 Application 自动追加视图或默认相机的规则。
+调用方负责目标生命周期，停止向新帧引用目标后再请求销毁。
 查看器双视图用例见[示例说明](../../examples/README.md)。
 `view.scene == 0` 表示空输出，不携带场景相机和世界空间调试线。
 编辑器按 Scene View 内容区域与 framebuffer scale 创建目标；尺寸变化时替换，

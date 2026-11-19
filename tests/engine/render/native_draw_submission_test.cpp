@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../support/value_result.hpp"
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/resource/texture/texture_view.hpp>
-#include "../../support/value_result.hpp"
 
 #include <array>
 #include <memory>
@@ -13,6 +13,8 @@
 namespace {
 struct draw_context {
   gneiss::ref<const gneiss::texture> texture;
+  gneiss::ui_draw_list ui;
+  gneiss::debug_draw_list debug;
   unsigned updates = 0;
   unsigned failure = 0;
 };
@@ -20,10 +22,10 @@ struct draw_context {
 gneiss::error update(gneiss::runtime::application& app, draw_context& context) noexcept {
   ++context.updates;
   const auto submit_ui = [&](const gneiss::ui_draw_view& value) {
-    return app.submit_ui_draw_list(value);
+    return context.ui.replace(value, app.render());
   };
   const auto submit_debug = [&](std::span<const gneiss::debug_line> value) {
-    return app.submit_debug_draw_list(value);
+    return context.debug.replace(value);
   };
   // 所有输入均为本次回调的局部存储，不延长至后续帧。
   const std::array vertices{
@@ -88,9 +90,7 @@ int main() {
   draw_context context;
   std::shared_ptr<gneiss::runtime::application> app;
   gneiss::runtime::application_configuration config;
-  config.callbacks.update = [&](const gneiss::frame_time&) {
-    return update(*app, context);
-  };
+  config.callbacks.update = [&](const gneiss::frame_time&) { return update(*app, context); };
   if (gneiss::test_support::assign_value(gneiss::runtime::application::create(config), app)
           .failed()) {
     return 1;
@@ -101,10 +101,6 @@ int main() {
   if (gneiss::test_support::take_value(app->assets().create(texture), context.texture).failed()) {
     return 2;
   }
-  if (app->submit_debug_draw_list({}) != gneiss::error::invalid_state ||
-      app->submit_ui_draw_list({}) != gneiss::error::invalid_state) {
-    return 3;
-  }
   const auto status = app->run(2);
   if (status.failed() || context.failure != 0) {
     return 10 + static_cast<int>(context.failure);
@@ -112,6 +108,8 @@ int main() {
   if (context.updates != 2) {
     return 4;
   }
+  context.ui.clear();
+  context.debug.clear();
   context.texture.reset();
   return app->shutdown().failed() ? 6 : 0;
 }

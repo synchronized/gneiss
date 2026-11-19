@@ -17,10 +17,6 @@
 #include <gneiss/engine/function/meta_registration.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
 #include <gneiss/engine/function/render/service.hpp>
-#include <gneiss/engine/function/scene/rendering/render_camera.hpp>
-#include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
-#include <gneiss/engine/function/scene/scene_types.hpp>
-#include <gneiss/engine/function/scene/world.hpp>
 #include <optional>
 #include <thread>
 #include <tuple>
@@ -64,9 +60,7 @@ public:
     check_registration(name);
     entries_.push_back({phase, std::move(name), std::move(function), condition});
   }
-  bool contains(stage phase) const noexcept {
-    return std::ranges::any_of(entries_, [phase](const auto& item) { return item.phase == phase; });
-  }
+
   void add_stop(std::string name, stop_function function) {
     GNEISS_ASSERT(function, "停止系统不能为空");
     check_registration(name);
@@ -248,9 +242,6 @@ struct application::storage {
   std::unique_ptr<gneiss::render::service> render_service_ =
       std::make_unique<gneiss::render::service>();
   app::schedule systems_;
-  gneiss::ui_draw_list ui_draw_list_;
-  gneiss::debug_draw_list debug_draw_list_;
-  std::vector<application_view> views_{application_view{}};
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<gneiss::io::executor> asset_io_executor_;
 #endif
@@ -272,8 +263,6 @@ struct application::storage {
     pending_action_map_.cancel();
     action_map_result_ = gneiss::error::invalid_state;
   }
-  gneiss::world_owner world_;
-  std::unique_ptr<gneiss::world_render_binding> render_binding_;
   std::unique_ptr<gneiss::resource_load_group> asset_loading_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
@@ -300,54 +289,8 @@ struct application::storage {
   bool is_running_ = false;
   bool is_paused_ = false;
   bool should_exit_ = false;
-  bool is_updating_ = false;
   gneiss::input::service input_;
   std::unique_ptr<gneiss::window::service> window_service_;
-  result<render::frame_request> make_render_request(const window::surface_state& surface,
-                                                    render::target_description capture_size = {}) {
-    auto synced = render_binding_->synchronize();
-    if (!synced)
-      return synced.error();
-    render::frame_request request;
-    request.surface = surface;
-    bool has_window = false;
-    for (const auto& view : views_) {
-      render::target_description extent =
-          capture_size.width && capture_size.height
-              ? capture_size
-              : render::target_description{surface.width, surface.height};
-      if (view.target) {
-        auto target = render_service_->describe_target(view.target);
-        if (!target)
-          return target.error();
-        extent = *target;
-      } else {
-        if (!extent.width || !extent.height)
-          continue;
-        has_window = true;
-      }
-      auto camera = select_render_camera(*world_, extent.width, extent.height,
-                                         view.camera ? &*view.camera : nullptr);
-      if (!camera)
-        return camera.error();
-      if (*camera) {
-        const auto& selected = **camera;
-        request.views.push_back({.scene = render_binding_->scene(),
-                                 .target = view.target,
-                                 .view_matrix = selected.view,
-                                 .projection_matrix = selected.projection,
-                                 .camera_position = selected.transform.translation});
-      } else {
-        request.views.push_back({.target = view.target});
-      }
-    }
-    if (!has_window &&
-        ((surface.width && surface.height) || (capture_size.width && capture_size.height)))
-      request.views.push_back({});
-    request.ui = ui_draw_list_;
-    request.debug = debug_draw_list_;
-    return request;
-  }
 };
 
 namespace {
@@ -619,16 +562,7 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
     storage_->asset_manager_ = std::make_unique<gneiss::asset_manager>(storage_->files_);
     if (storage_->asset_manager_->attach_render(*storage_->render_service_).failed())
       return gneiss::error::invalid_state;
-    auto created_world = gneiss::create_native();
-    if (!created_world)
-      return created_world.error();
-    storage_->world_ = std::move(*created_world);
-    if (storage_->window_service_) {
-      auto binding = world_render_binding::create(*storage_->world_, *storage_->render_service_);
-      if (!binding)
-        return binding.error();
-      storage_->render_binding_ = std::move(*binding);
-    }
+
   } catch (...) {
     static_cast<void>(shutdown());
     throw;
@@ -762,16 +696,6 @@ gneiss::error application::get_action_state(gneiss::input::action_id action,
   return storage_->input_.get_action_state(action, out_state);
 }
 
-gneiss::error application::submit_ui_draw_list(const gneiss::ui_draw_view& desc) {
-  return storage_->is_updating_ ? storage_->ui_draw_list_.replace(desc, *storage_->render_service_)
-                                : gneiss::error::invalid_state;
-}
-
-gneiss::error application::submit_debug_draw_list(std::span<const gneiss::debug_line> lines) {
-  return storage_->is_updating_ ? storage_->debug_draw_list_.replace(lines)
-                                : gneiss::error::invalid_state;
-}
-
 void application::report(gneiss::severity severity, gneiss::category category, gneiss::error result,
                          std::string_view module, std::string_view message) {
   if (storage_->config_.callbacks.diagnostic != nullptr) {
@@ -799,116 +723,6 @@ void application::report(gneiss::severity severity, gneiss::category category, g
       .message = message,
       .result = gneiss::error{result},
   }));
-}
-
-result<void> application::set_views(std::span<const application_view> views) {
-  if (!is_owner_thread() || !accepts_requests())
-    return error::invalid_state;
-  for (std::size_t i = 0; i < views.size(); ++i) {
-    const auto& view = views[i];
-    if (view.target && !render().is_target(view.target))
-      return error::invalid_handle;
-    for (std::size_t j = 0; j < i; ++j) {
-      if (views[j].target == view.target)
-        return error::invalid_argument;
-    }
-    if (view.camera) {
-      math::matrix4 matrix;
-      auto status = math::view_matrix_rh(view.camera->transform, matrix);
-      if (status.failed())
-        return status;
-      status = math::perspective_rh_zo(view.camera->camera, 1.0F, matrix);
-      if (status.failed())
-        return status;
-    }
-  }
-  std::vector<application_view> replacement(views.begin(), views.end());
-  if (replacement.empty())
-    replacement.emplace_back();
-  storage_->views_ = std::move(replacement);
-  return {};
-}
-
-gneiss::error application::set_view_target(rid target) {
-  if (!is_owner_thread() || !accepts_requests())
-    return error::invalid_state;
-  auto views = storage_->views_;
-  views.front().target = target;
-  auto status = set_views(views);
-  return status ? error::success : status.error();
-}
-
-gneiss::error application::set_view_camera(const gneiss::view_camera* camera) {
-  if (!is_owner_thread() || !accepts_requests())
-    return error::invalid_state;
-  auto views = storage_->views_;
-  views.front().camera = camera ? std::optional{*camera} : std::nullopt;
-  auto status = set_views(views);
-  return status ? error::success : status.error();
-}
-
-gneiss::error application::capture_frame(std::uint32_t width, std::uint32_t height,
-                                         gneiss::render::frame_image& output) {
-  output = {};
-  if (!is_owner_thread() || !accepts_requests())
-    return gneiss::error::invalid_state;
-  if (width == 0U || height == 0U || width > 1024U || height > 1024U) {
-    return gneiss::error::invalid_argument;
-  }
-  if (!storage_->window_service_) {
-    return gneiss::error::unsupported;
-  }
-  {
-    const auto window = storage_->window_service_->surface();
-    storage_->world_->flush_changes();
-    auto request = storage_->make_render_request(window, {width, height});
-    if (!request)
-      return request.error();
-    auto image = std::make_shared<gneiss::render::frame_image>();
-    auto submitted =
-        storage_->render_service_->request_capture(std::move(*request), image, {width, height});
-    if (!submitted)
-      return submitted.error();
-    const auto sequence = *submitted;
-    auto result = storage_->render_service_->finish_frames();
-    if (result != gneiss::error::success) {
-      return result;
-    }
-    auto completed = storage_->render_service_->try_take_required_completion();
-    if (!completed)
-      return completed.error();
-    if (!*completed || (*completed)->sequence != sequence)
-      return gneiss::error::internal;
-    if ((*completed)->status.failed())
-      return (*completed)->status;
-    output = std::move(*image);
-    return gneiss::error::success;
-  }
-}
-
-gneiss::error application::render_frame() {
-  GNEISS_PROFILE_SCOPE("application.render.submit");
-  // 迁移期间：显式 present 系统独占帧提交；旧宿主全部迁出后删除默认呈现。
-  if (storage_->systems_.contains(app::stage::present) || storage_->window_service_ == nullptr) {
-    return gneiss::error::success;
-  }
-  const auto window = storage_->window_service_->surface();
-  if ((window.width == 0U || window.height == 0U) &&
-      std::ranges::none_of(storage_->views_, [](const auto& view) { return bool(view.target); })) {
-    auto synced = storage_->render_binding_->synchronize();
-    return synced ? error{error::success} : synced.error();
-  }
-  auto request = storage_->make_render_request(window);
-  if (!request)
-    return request.error();
-  const auto submitted = measure(loop_stage::frame_submit, [&] {
-    return storage_->render_service_->render(std::move(*request));
-  });
-  if (!submitted)
-    return submitted.error() == error::not_ready ? error{error::success} : submitted.error();
-  if (storage_->loop_wakeup_)
-    storage_->loop_wakeup_->notify();
-  return error::success;
 }
 
 const gneiss::window::service* application::window() const noexcept {
@@ -989,79 +803,49 @@ error application::advance_frame() try {
     }
     if (storage_->should_exit_)
       return error::success;
-    gneiss::measure(gneiss::loop_stage::draw_clear, [&] {
-      storage_->ui_draw_list_.clear();
-      storage_->debug_draw_list_.clear();
-    });
+    gneiss::measure(gneiss::loop_stage::draw_clear, [&] {});
     const auto run_systems = [&](app::stage phase) {
       auto result = storage_->systems_.run(phase, time, storage_->should_exit_);
       if (!result) {
         report(gneiss::severity::error, gneiss::category::application, result.error().code,
                result.error().name, "应用系统执行失败");
         storage_->is_running_ = false;
-        storage_->is_updating_ = false;
-        storage_->ui_draw_list_.clear();
-        storage_->debug_draw_list_.clear();
         return result.error().code;
       }
       return error::success;
     };
-    storage_->is_updating_ = true;
     auto system_status = run_systems(app::stage::input);
     if (system_status.failed())
       return system_status;
     if (storage_->config_.callbacks.update != nullptr) {
-      storage_->is_updating_ = true;
       const auto update_result = gneiss::measure(gneiss::loop_stage::update, [&] {
         GNEISS_PROFILE_SCOPE("application.update");
         return storage_->config_.callbacks.update(time);
       });
-      storage_->is_updating_ = false;
       if (update_result != gneiss::error::success) {
         report(gneiss::severity::error, gneiss::category::application, update_result, "application",
                "更新回调失败");
-        storage_->ui_draw_list_.clear();
-        storage_->debug_draw_list_.clear();
         storage_->is_running_ = false;
         return update_result;
       }
     }
-    storage_->is_updating_ = true;
     system_status = run_systems(app::stage::update);
     if (system_status.failed())
       return system_status;
-    storage_->world_->flush_changes();
     system_status = run_systems(app::stage::synchronize);
     if (system_status.failed())
       return system_status;
-    system_status = run_systems(app::stage::present);
+    system_status = gneiss::measure(gneiss::loop_stage::render,
+                                    [&] { return run_systems(app::stage::present); });
     if (system_status.failed())
       return system_status;
-    storage_->is_updating_ = false;
-    const auto render_result =
-        gneiss::measure(gneiss::loop_stage::render, [&] { return render_frame(); });
-    // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
-    if (render_result != gneiss::error::success && render_result != gneiss::error::not_ready) {
-      storage_->ui_draw_list_.clear();
-      storage_->debug_draw_list_.clear();
-      storage_->is_running_ = false;
-      return render_result;
-    }
-    gneiss::measure(gneiss::loop_stage::draw_clear, [&] {
-      storage_->ui_draw_list_.clear();
-      storage_->debug_draw_list_.clear();
-    });
     ++storage_->frame_index_;
     return error::success;
   }();
   storage_->is_running_ = false;
-  storage_->is_updating_ = false;
   return status;
 } catch (...) {
   storage_->is_running_ = false;
-  storage_->is_updating_ = false;
-  storage_->ui_draw_list_.clear();
-  storage_->debug_draw_list_.clear();
   throw;
 }
 
@@ -1195,9 +979,6 @@ gneiss::error application::run(std::uint64_t max_frame_count) try {
   return gneiss::error::success;
 } catch (...) {
   storage_->is_running_ = false;
-  storage_->is_updating_ = false;
-  storage_->ui_draw_list_.clear();
-  storage_->debug_draw_list_.clear();
   throw;
 }
 
@@ -1307,14 +1088,9 @@ gneiss::error application::shutdown() {
   auto shutdown_result = storage_->host_stop_result_;
   storage_->cancel_action_map();
   storage_->asset_loading_.reset();
-  storage_->render_binding_.reset();
-  storage_->world_.reset();
   if (storage_->asset_manager_)
     storage_->asset_manager_->stop();
   storage_->asset_manager_.reset();
-  storage_->is_updating_ = false;
-  storage_->ui_draw_list_.clear();
-  storage_->debug_draw_list_.clear();
   storage_->environment_.reset();
   storage_->files_.reset();
   if (storage_->platform_initialized_) {
@@ -1484,8 +1260,6 @@ bool application::accepts_requests() const noexcept {
   return storage_->accepts_requests_.load(std::memory_order_acquire);
 }
 
-gneiss::world* application::native_world() const noexcept { return storage_->world_.get(); }
-
 gneiss::render::service& application::render() noexcept { return *storage_->render_service_; }
 
 std::shared_ptr<gneiss::files::service> application::async_files() const noexcept {
@@ -1501,8 +1275,6 @@ const gneiss::input::keyboard_state& application::keyboard_state() const noexcep
 const gneiss::input::pointer_state& application::pointer_state() const noexcept {
   return storage_->input_.pointer();
 }
-
-bool application::can_submit_draw_lists() const noexcept { return storage_->is_updating_; }
 
 void application::request_exit() noexcept { storage_->should_exit_ = true; }
 

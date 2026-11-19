@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/async_application.hpp"
+#include "../../support/render_scene.hpp"
 #include "../../support/value_result.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
@@ -33,6 +34,7 @@ struct sample {
   double update_interval{};
 };
 struct context {
+  gneiss::world* world{};
   gneiss::asset_batch_request request;
   gneiss::tasks::task_scheduler* scheduler{};
   std::filesystem::path root;
@@ -67,6 +69,9 @@ gneiss::error native_update(runtime::application& app, context& state) {
   if (state.scheduler->mode() == gneiss::tasks::execution_mode::cooperative) {
     (void)state.scheduler->run_ready();
   }
+  // 加载场景也会推进宿主循环；相机装配完成后才开始测量与窗口操作。
+  if (!state.camera)
+    return gneiss::error::success;
   const auto stats = app.render_statistics();
   if (stats.presented_frames != state.stats.presented_frames) {
     state.samples.push_back(
@@ -76,8 +81,7 @@ gneiss::error native_update(runtime::application& app, context& state) {
   gneiss::math::transform transform;
   transform.translation[0] = static_cast<float>(std::sin(elapsed) * 0.15);
   transform.translation[2] = 2.0F;
-  if (gneiss::error{app.native_world()
-                        ->find(gneiss::entity_id{(state.camera).get()})
+  if (gneiss::error{state.world->find(gneiss::entity_id{(state.camera).get()})
                         .set_local_transform(transform)} != gneiss::error::success) {
     return gneiss::error::internal;
   }
@@ -182,9 +186,17 @@ int main(int argc, char** argv) try {
       gneiss::error::success) {
     return 1;
   }
+  auto world = create_native();
+  if (!world)
+    return 1;
+  state.world = world->get();
+  auto binding = world_render_binding::create(**world, app->render());
+  if (!binding)
+    return 1;
+  test_support::add_scene_render_systems(*app, **world, **binding);
   constexpr std::string_view scene = "asset://scenes/test.scene.json";
-  if (gneiss::error{gneiss::test_support::load_scene(
-          *app, *app->native_world(), scene, &state.scene, &scheduler)} != gneiss::error::success) {
+  if (gneiss::error{gneiss::test_support::load_scene(*app, **world, scene, &state.scene,
+                                                     &scheduler)} != gneiss::error::success) {
     return 2;
   }
   for (auto object : state.scene.objects()) {
@@ -197,6 +209,9 @@ int main(int argc, char** argv) try {
     return 3;
   state.start = state.previous = std::chrono::steady_clock::now();
   const auto result = gneiss::error{app->run(0U)};
+  state.scene.unload();
+  binding->reset();
+  world->reset();
   app.reset();
   const auto lifetime =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - state.start).count();
