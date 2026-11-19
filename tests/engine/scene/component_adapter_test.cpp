@@ -4,12 +4,12 @@
 #include "../../support/scene_application.hpp"
 #include "../../support/scene_instantiation.hpp"
 #include "../../support/value_result.hpp"
-#include "function/scene/detail/world_component_access.hpp"
+#include "function/scene/world_state.hpp"
 #include <cstdio>
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
-#include <gneiss/engine/resource/property_edit_policy.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/serialization/json.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/meta_registration.hpp>
@@ -19,11 +19,11 @@
 #include <gneiss/engine/function/scene/instantiation.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
 #include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <gneiss/engine/resource/scene.hpp>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
-#include <gneiss/engine/core/meta/resolve.hpp>
 namespace e = gneiss;
 namespace {
 void check(bool value, std::source_location location = std::source_location::current()) {
@@ -142,12 +142,11 @@ int main() try {
                            .find_property(e::property_id{4});
   check(primary && gneiss::is_edit_read_only(primary));
   check(gneiss::meta::has_flags(primary.capabilities(),
-                                        gneiss::meta::property_capabilities::writable));
+                                gneiss::meta::property_capabilities::writable));
   e::camera_description camera{{1, 0.1F, 100}, true};
   auto saved_camera = gneiss::serialization::json::encode_bytes(camera);
   check(saved_camera.has_value());
-  auto loaded_camera =
-      gneiss::serialization::json::decode<e::camera_description>(*saved_camera);
+  auto loaded_camera = gneiss::serialization::json::decode<e::camera_description>(*saved_camera);
   check(loaded_camera && loaded_camera->is_primary);
   // 纯场景和组件操作不需要文件服务、渲染服务或资产管理器。
   auto owner = e::create_native();
@@ -191,7 +190,8 @@ int main() try {
   check(another_handle.has_value());
   auto mapping = associations(created->objects);
   auto first_object = world.object(mapping.at({first.uuid, {}}).entity);
-  auto foreign_parent = world.object(associations(another_scene->objects).at({first.uuid, {}}).entity);
+  auto foreign_parent =
+      world.object(associations(another_scene->objects).at({first.uuid, {}}).entity);
   check(first_object && foreign_parent);
   check(first_object->reparent(*foreign_parent) == e::error::invalid_argument);
   check(world.find(gneiss::entity_id{(created->objects[0].entity).get()})
@@ -220,9 +220,8 @@ int main() try {
   check(other_world.has_value());
   check(!e::scene_instance::borrow(**other_world, (instance).id()));
   e::error wrong_thread;
-  std::thread scene_worker([&] {
-    wrong_thread = e::scene_instance::borrow(world, borrowed_copy.id()).error();
-  });
+  std::thread scene_worker(
+      [&] { wrong_thread = e::scene_instance::borrow(world, borrowed_copy.id()).error(); });
   scene_worker.join();
   check(wrong_thread == e::error::invalid_state);
   check(borrowed_copy.is_valid());
@@ -230,8 +229,7 @@ int main() try {
   check(!e::scene_instance::borrow(world, {}));
   auto captured = e::capture_components(world, node);
   check(bool(captured));
-  check(captured->get<movement_description>() &&
-        captured->get<movement_description>()->speed == 2);
+  check(captured->get<movement_description>() && captured->get<movement_description>()->speed == 2);
   check(captured->identity(movement_description::type_guid) ==
         first.components.identity(movement_description::type_guid));
   auto id = entity(world, node);

@@ -166,7 +166,7 @@ Inspector 的 Prefab URI、来源变换和覆盖列表由编辑文档查询生�
 安装不得读取文件或阻塞等待，失败不得改变目标组件，并须能用捕获描述恢复旧值。
 
 实际组件仍存入 World 唯一 ECS。需要直接访问 ECS 的适配实现使用内部
-`world_component_access.hpp`，其借用指针只在所属线程及 World 生存期有效；
+`world_state.hpp` 的 `state_of`，其借用指针只在所属线程及 World 生存期有效；
 普通 Scene/资源接口不暴露 EnTT。节点销毁依靠 ECS 正常析构组件，不另建组件副本表。
 通用扩展示例见 `tests/support/movement_component.hpp`。编辑器通过
 `scene_edit_session::components` 恢复文档中的有效组件描述，用只读 `component_description_base::view()` 和

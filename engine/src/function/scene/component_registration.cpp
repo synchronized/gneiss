@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/export.hpp>
-#include "function/scene/detail/world_component_access.hpp"
+#include "function/scene/world_state.hpp"
 #include <gneiss/engine/core/meta/capabilities/object.hpp>
-#include <gneiss/engine/resource/property_edit_policy.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/serialization/value.hpp>
+#include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/asset/asset_manager.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
 #include <gneiss/engine/function/scene/components.hpp>
+#include <gneiss/engine/resource/property_edit_policy.hpp>
 #include <gneiss/engine/resource/scene/scene_validation.hpp>
 #include <map>
 #include <mutex>
-#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include "function/scene/detail/camera_selection_state.hpp"
 #include "function/scene/detail/component_storage.hpp"
 namespace gneiss::detail {
 template <> struct component_policy<camera_component> {
-  static void removed(detail::world_component_access::storage& state, entity_id entity) {
+  static void removed(world_state& state, entity_id entity) {
     auto& selection = state.context<camera_selection_state>();
     if (selection.entity == entity)
       selection.entity = {};
@@ -46,7 +46,7 @@ struct component_instance_ids {
   std::map<guid, guid> values;
 };
 component_instance_ids& instance_ids(world& owner, entity_id node) {
-  auto& state = detail::world_component_access::get(owner);
+  auto& state = state_of(owner);
   auto id = entity(owner, node).get();
   auto* identities = state.get<component_instance_ids>(id);
   return identities ? *identities : state.emplace<component_instance_ids>(id);
@@ -136,7 +136,8 @@ struct adapter_registry {
              [](game_object target) { return target.remove_component<gneiss::camera_component>(); },
          .equal =
              [](const camera_description& a, const camera_description& b) {
-               return a.settings.fov == b.settings.fov && a.settings.near_plane == b.settings.near_plane &&
+               return a.settings.fov == b.settings.fov &&
+                      a.settings.near_plane == b.settings.near_plane &&
                       a.settings.far_plane == b.settings.far_plane && a.is_primary == b.is_primary;
              },
          .properties = component_property_operations<camera_description>{}}));
@@ -522,8 +523,10 @@ error write_component_property(world& world, std::uint64_t entity, guid type,
 namespace gneiss {
 template GNEISS_ENGINE_API camera_component* game_object::try_component<camera_component>() const;
 template GNEISS_ENGINE_API mesh_component* game_object::try_component<mesh_component>() const;
-template GNEISS_ENGINE_API error game_object::insert_component<camera_component>(camera_component) const;
-template GNEISS_ENGINE_API error game_object::insert_component<mesh_component>(mesh_component) const;
+template GNEISS_ENGINE_API
+    error game_object::insert_component<camera_component>(camera_component) const;
+template GNEISS_ENGINE_API
+    error game_object::insert_component<mesh_component>(mesh_component) const;
 
 template GNEISS_ENGINE_API error game_object::remove_component<camera_component>() const;
 template GNEISS_ENGINE_API error game_object::remove_component<mesh_component>() const;

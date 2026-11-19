@@ -37,7 +37,7 @@
 #if __has_include("engine/core/meta/registration.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/scene/detail/world_impl.hpp") ||                                \
+#if __has_include("function/scene/world_state.hpp") ||                                             \
                   __has_include(                                                                   \
                       "engine/function/scene/detail/object_state.hpp") ||                          \
                       __has_include("engine/function/scene/detail/camera_selection_state.hpp")

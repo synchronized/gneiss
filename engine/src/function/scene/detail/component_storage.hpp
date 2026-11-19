@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "function/scene/detail/world_component_access.hpp"
+#include "function/scene/world_state.hpp"
 #include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/function/scene/game_object.hpp>
 #include <type_traits>
@@ -9,11 +9,11 @@
 namespace gneiss::detail {
 // 仅在组件实现单元实例化，不把 EnTT 传播到对象使用方。
 template <class T> struct component_policy {
-  static void removed(detail::world_component_access::storage&, entity_id) {}
+  static void removed(world_state&, entity_id) {}
 };
-inline world_component_access::storage& component_state(game_object object) {
+inline world_state& component_state(game_object object) {
   GNEISS_ASSERT(object.is_valid(), "组件操作要求有效 GameObject 及所属线程");
-  return world_component_access::get(*object.owner());
+  return state_of(*object.owner());
 }
 }
 namespace gneiss {

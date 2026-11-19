@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../support/value_result.hpp"
+#include "function/scene/detail/system_scheduler.hpp"
+#include "function/scene/world_state.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include "function/scene/detail/system_scheduler.hpp"
-#include "function/scene/detail/world_component_access.hpp"
 
 #include <array>
 #include <cstddef>
@@ -23,8 +23,7 @@ struct system_context {
   int delta = 0;
 };
 
-gneiss::error update_position(gneiss::detail::world_component_access::storage& world,
-                              void* user_data) noexcept {
+gneiss::error update_position(gneiss::world_state& world, void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 1;
   try {
@@ -37,15 +36,13 @@ gneiss::error update_position(gneiss::detail::world_component_access::storage& w
   }
 }
 
-gneiss::error fail_system(gneiss::detail::world_component_access::storage& /*world*/,
-                          void* user_data) noexcept {
+gneiss::error fail_system(gneiss::world_state& /*world*/, void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 2;
   return gneiss::error::invalid_state;
 }
 
-gneiss::error skipped_system(gneiss::detail::world_component_access::storage& /*world*/,
-                             void* user_data) noexcept {
+gneiss::error skipped_system(gneiss::world_state& /*world*/, void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 3;
   return gneiss::error::success;
@@ -54,8 +51,8 @@ gneiss::error skipped_system(gneiss::detail::world_component_access::storage& /*
 } // namespace
 
 int run_tests() {
-  gneiss::detail::world_component_access::storage first{1};
-  gneiss::detail::world_component_access::storage second{2};
+  gneiss::world_state first{1};
+  gneiss::world_state second{2};
   const auto entity = first.create_entity();
   first.emplace<position>(entity, 10);
   if (!first.is_alive(entity) || second.is_alive(entity) || first.entity_count() != 1U) {

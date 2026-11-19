@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "function/scene/detail/world_component_access.hpp"
+#include "function/scene/world_state.hpp"
 #include <gneiss/engine/function/render/service.hpp>
 #include <gneiss/engine/function/scene/rendering/world_render_binding.hpp>
 #include <limits>
@@ -36,7 +36,7 @@ result<std::unique_ptr<world_render_binding>>
 world_render_binding::create(world& source, gneiss::render::service& render) {
   if (!source.is_owner_thread())
     return error::invalid_state;
-  auto& state = detail::world_component_access::get(source);
+  auto& state = state_of(source);
   auto value = std::unique_ptr<world_render_binding>(new world_render_binding(source, render));
   value->subscription_ = source.changes().connect<&world_render_binding::on_changed>(*value);
   // 只在建立绑定时全量枚举；后续订阅记录不会被其他消费者清空。
@@ -53,7 +53,7 @@ world_render_binding::create(world& source, gneiss::render::service& render) {
 result<void> world_render_binding::synchronize() {
   if (!source_.is_owner_thread())
     return error::invalid_state;
-  auto& state = detail::world_component_access::get(source_);
+  auto& state = state_of(source_);
   render::scene_commands commands{scene_, {}};
   std::map<entity_id, render::instance_key> updates;
   auto last_key = last_key_;

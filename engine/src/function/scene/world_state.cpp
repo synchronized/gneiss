@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "function/scene/detail/world_impl.hpp"
+#include "function/scene/world_state.hpp"
 #include <algorithm>
 namespace gneiss {
-result<entity_id> world::implementation::create_object(entity_id parent, std::uint64_t entity) {
+world_state::~world_state() noexcept {
+  try {
+    scene_slots.for_each(resource_type::scene_instance,
+                         [&](scene_instance_id id) { destroy_scene_members(id); });
+  } catch (...) {
+    fatal_current_exception();
+  }
+}
+
+result<entity_id> world_state::create_object(entity_id parent, std::uint64_t entity) {
   if (parent && !get<detail::object_state>(parent.get()))
     return error::invalid_handle;
   if (entity && !is_alive(entity))
@@ -36,7 +45,7 @@ result<entity_id> world::implementation::create_object(entity_id parent, std::ui
   }
 }
 
-void world::implementation::detach(entity_id id) noexcept {
+void world_state::detach(entity_id id) noexcept {
   const auto* object = get<detail::object_state>(id.get());
   if (!object)
     return;

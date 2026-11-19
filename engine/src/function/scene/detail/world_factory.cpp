@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/function/scene/world.hpp>
+#include "function/scene/world_state.hpp"
 #include <atomic>
+#include <gneiss/engine/function/scene/world.hpp>
 #include <limits>
 #include <new>
 
 namespace gneiss {
-struct world_factory {
-  static std::unique_ptr<world> make(std::uint32_t domain) {
-    return std::unique_ptr<world>(new world(domain));
-  }
-};
 void world_deleter::operator()(world* object) const noexcept {
   if (!object->is_owner_thread())
     std::terminate();
-  delete object;
+  delete static_cast<world_state*>(object);
 }
 result<world_owner> create_native() {
   // 只分配节点/ECS 所属域，不登记 World 对象，也不复用耗尽的域。
@@ -24,9 +20,6 @@ result<world_owner> create_native() {
     if (domain == std::numeric_limits<std::uint32_t>::max())
       return error::out_of_memory;
   } while (!next_domain.compare_exchange_weak(domain, domain + 1U, std::memory_order_relaxed));
-  {
-    auto candidate = world_factory::make(static_cast<std::uint32_t>(domain));
-    return world_owner(candidate.release());
-  }
+  return world_owner(new world_state(domain));
 }
 }

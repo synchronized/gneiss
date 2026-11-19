@@ -3,15 +3,15 @@
 
 # PLAN-127：World 自有系统调度与宿主组合
 
-状态：2026-11-20，系统接口及 world_state 内部组织方向已确认，待实施。
-本轮只整理计划与决策，不声称已有 World system API 或内部继承实现。
+状态：2026-11-20，实施中；P0/P1a 已完成，world_state 内部所有权与访问路径通过本地验证。
+World system API、宿主迁移及多 World 调度验收尚未完成。
 决策见 [ADR-130](../decisions/ADR-130-world-system-scheduling.md)，应用基础调度沿用
 [PLAN-126](PLAN-126-application-scheduling.md)。纳入 0.52 本地架构整理，不包含远端发布授权。
 
 ## 当前事实与目标
 
-当前 World 通过 unique_ptr<implementation> 拥有 ECS、层级、场景实例和对象变化通知，
-没有 add_system/update；内部实现位于 src/function/scene/detail/world_impl.hpp。
+当前 World 的具体实现为 world_state final : world，直接拥有 ECS、层级、场景实例和对象变化通知，
+没有 add_system/update；内部实现位于 engine/src/function/scene/world_state.hpp/.cpp。
 宿主通过 create_native() 获得 world_owner，在 Application 系统中捕获拥有者并执行逻辑。
 world_render_binding 借用 World 与 Render，宿主先 flush_changes，再 synchronize。
 
@@ -81,7 +81,8 @@ world.cpp 实现运行空间入口，game_object.cpp 实现单对象入口，
 scene_instance.cpp 实现场景归属组入口；world_state.cpp 集中维护共享的层级、
 归属、销毁与变化记录逻辑。不按接口方法机械添加一套同名内部转发方法。
 
-内部需要转换时采用定义于私有头的 state_of(world&) / state_of(const world&) 等小型函数，
+内部需要转换时采用声明于私有头、定义于 world.cpp 的 state_of(world&) / state_of(const world&) 小型函数，
+所属线程断言留在实现文件，避免私有访问消费者额外引入断言库头；
 用受工厂约束的静态转换获得实际对象，不暴露到 include 契约。
 不是所有函数都必须经过新的访问类；现有 world_component_access 应按真实依赖审查，
 迁移必要的模板/组件访问后删除纯转发部分，不为消灭名称暴露 EnTT。
@@ -186,11 +187,12 @@ on_stop 必须允许 World 尚未创建。应用系统捕获稳定的拥有者�
 
 ## 实施顺序
 
-- [ ] P0：复核目标签名、返回适配与生命周期规则，确认真实调用链；避免无职责公开调度对象。
-- [ ] P1a：将 implementation 迁移为 src/function/scene/world_state.hpp/.cpp 的内部派生实现，
+- [x] P0：复核目标签名、返回适配与生命周期规则，确认真实调用链；避免无职责公开调度对象。
+- [x] P1a：将 implementation 迁移为 src/function/scene/world_state.hpp/.cpp 的内部派生实现，
   同步工厂、自定义删除器及三个接口的访问路径；删除旧 PImpl 存储与无职责转发，
   验证句柄身份和析构顺序不变。
 - [ ] P1b：在 world_state 内实现系统存储、注册、顺序执行和最小诊断；保持 ECS 与服务边界。
+  删除仅由 world_state_test 使用的旧 detail/system_scheduler，顺序和失败短路验收改走 World 入口。
 - [ ] P2：选择一个现有宿主中确属 World 的更新逻辑迁移，服务完成分发与渲染提交保留应用层。
   不为填充系统列表新增虚构脚本、物理或 AI 模块。
 - [ ] P3：验证两个 World 配置不同列表、独立有状态 callable、单独暂停/销毁及更新失败传播；
@@ -199,6 +201,14 @@ on_stop 必须允许 World 尚未创建。应用系统捕获稳定的拥有者�
   卸载一个实例不清空 World 系统或影响另一个实例。不实施完整多文档编辑器。
 - [ ] P5：迁移真实调用方、更新 Reference/Concept，运行相关共享/静态构建和行为测试，
   删除迁移过程中产生的重复更新路径，并记录未覆盖范围。
+
+## 当前验证
+
+2026-11-20：P1a 完成共享/静态 Windows Clang Debug 相关构建。共享构建的对象、场景、
+层级、内部状态、渲染绑定、组件适配及私有头可见性共 7 项测试通过；核心边界及负例、
+World 服务边界共 3 项检查通过。静态构建的对象/场景生命周期和组件适配 3 项测试通过，
+包含 World 销毁后的组件资源释放。git diff --check 通过。
+本轮未进行 GPU 运行、其他平台或全量回归；系统调度与宿主更新迁移尚未实施。
 
 ## 验收与非目标
 

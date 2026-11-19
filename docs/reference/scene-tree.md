@@ -50,12 +50,15 @@ World 的层级组件是 Transform 的唯一权威存储：
 
 ## 内部实现归属
 
-World 通过私有 `world::implementation` 持有唯一 ECS、场景槽位和变更记录，定义位于
-`function/scene/detail/world_impl.hpp`。场景槽位仅由 World 与 SceneInstance 操作。
+World 由私有 `gneiss::world_state final : world` 直接持有唯一 ECS、场景槽位和变更记录，
+定义位于 `engine/src/function/scene/world_state.hpp`。场景槽位仅由 World 与 SceneInstance 操作。
+`world` 不保存 PImpl 指针，构造和析构私有；工厂创建具体实现，`world_owner` 的删除器按
+完整派生类型销毁。GameObject 和 SceneInstance 仍是借用 World 的身份句柄。
 
 对象名称、变换查询/修改和重挂接直接实现在 `game_object.cpp`；不再维护独立的
-`world_hierarchy` 对象或公开层级视图。`detail/hierarchy.cpp` 只实现共享的对象创建与父子解绑算法。
-组件适配和内部系统通过 `detail/world_component_access.hpp` 借用 ECS，不能保存超出 World 生命周期的引用。
+`world_hierarchy` 对象或公开层级视图。`world_state.cpp` 实现共享的对象创建、父子解绑与销毁。
+组件适配和内部实现通过私有 `state_of(world&)` 借用 ECS，不能保存超出 World 生命周期的引用。
+该函数及只读重载在 `.cpp` 中检查所属线程，私有头不传递断言库依赖。
 
 场景卸载先收集全部成员的稳定实体 ID，再逐个销毁；已随父节点删除的子实体会被跳过。
 辅助实体也按场景归属参与卸载，不在删除每个成员后重新扫描整张 ECS 表。

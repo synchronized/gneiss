@@ -6,7 +6,7 @@
 #include <gneiss/engine/function/scene/scene_types.hpp>
 
 #include "function/scene/detail/identifier_conversion.hpp"
-#include "function/scene/detail/world_impl.hpp"
+#include "function/scene/world_state.hpp"
 #include <gneiss/engine/function/scene/world.hpp>
 
 #include <algorithm>
@@ -17,8 +17,8 @@ namespace gneiss {
 error world::validate_scene(scene_instance_id id) const noexcept {
   if (!is_owner_thread())
     return error::invalid_state;
-  return impl_->scene_slots.get(id, resource_type::scene_instance) ? error::success
-                                                                   : error::invalid_handle;
+  return state_of(*this).scene_slots.get(id, resource_type::scene_instance) ? error::success
+                                                                            : error::invalid_handle;
 }
 
 result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id) noexcept {
@@ -38,14 +38,14 @@ bool scene_instance::is_valid() const noexcept {
 std::uint64_t scene_instance::size() const noexcept {
   GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   std::uint64_t count{};
-  owner_->impl_->each_scene_member(id_, [&](entity_id) { ++count; });
+  state_of(*owner_).each_scene_member(id_, [&](entity_id) { ++count; });
   return count;
 }
 std::vector<game_object> scene_instance::objects() const {
   GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   std::vector<game_object> objects;
-  owner_->impl_->each_scene_member(id_, [&](entity_id id) {
-    if (owner_->impl_->get<detail::object_state>(id.get()))
+  state_of(*owner_).each_scene_member(id_, [&](entity_id id) {
+    if (state_of(*owner_).get<detail::object_state>(id.get()))
       objects.push_back(owner_->find(id));
   });
   return objects;
@@ -53,8 +53,8 @@ std::vector<game_object> scene_instance::objects() const {
 std::vector<game_object> scene_instance::roots() const {
   GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   std::vector<game_object> objects;
-  owner_->impl_->each_scene_member(id_, [&](entity_id id) {
-    const auto* object = owner_->impl_->get<detail::object_state>(id.get());
+  state_of(*owner_).each_scene_member(id_, [&](entity_id id) {
+    const auto* object = state_of(*owner_).get<detail::object_state>(id.get());
     if (object && !object->parent)
       objects.push_back(owner_->find(id));
   });
@@ -69,8 +69,8 @@ error scene_instance::visit_objects(const std::function<error(game_object)>& vis
     return status;
   if (!visitor)
     return error::invalid_argument;
-  owner_->impl_->each_scene_member(id_, [&](entity_id node) {
-    const auto* data = owner_->impl_->get<detail::object_state>(node.get());
+  state_of(*owner_).each_scene_member(id_, [&](entity_id node) {
+    const auto* data = state_of(*owner_).get<detail::object_state>(node.get());
     if (status.failed() || (roots_only && data && data->parent))
       return;
     auto object = owner_->object(entity_id{node.get()});
@@ -104,15 +104,16 @@ error world::transfer_subtree(game_object root, scene_instance destination, game
   for (std::size_t i = 0; i < nodes.size(); ++i) {
     if (parent.owner() && nodes[i].get() == parent.entity().get())
       return error::invalid_argument;
-    GNEISS_ASSERT(impl_->scene_of(nodes[i]) == source.id(), "对象子树必须属于同一存活场景");
-    const auto* object = impl_->get<detail::object_state>(nodes[i].get());
+    GNEISS_ASSERT(state_of(*this).scene_of(nodes[i]) == source.id(),
+                  "对象子树必须属于同一存活场景");
+    const auto* object = state_of(*this).get<detail::object_state>(nodes[i].get());
     GNEISS_ASSERT(object, "对象层级不得包含失效子对象");
     nodes.insert(nodes.end(), object->children.begin(), object->children.end());
   }
   // 已有归属组件原位更新，不在提交阶段分配组件存储。
   auto assign = [&](scene_instance_id id) {
     for (auto node : nodes)
-      impl_->assign_scene(node, id);
+      state_of(*this).assign_scene(node, id);
   };
   assign(destination.id());
   try {
@@ -129,14 +130,14 @@ bool scene_instance::contains(game_object object) const noexcept {
   GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
   if (object.owner() != owner_)
     return false;
-  return owner_->impl_->is_alive(object.entity().get()) &&
-         owner_->impl_->scene_of(object.entity()) == id_;
+  return state_of(*owner_).is_alive(object.entity().get()) &&
+         state_of(*owner_).scene_of(object.entity()) == id_;
 }
 
 void scene_instance::unload() const noexcept try {
   GNEISS_ASSERT(is_valid(), "场景卸载要求有效句柄及所属线程");
-  owner_->impl_->destroy_scene_members(id_);
-  const auto status = owner_->impl_->scene_slots.destroy(id_, resource_type::scene_instance);
+  state_of(*owner_).destroy_scene_members(id_);
+  const auto status = state_of(*owner_).scene_slots.destroy(id_, resource_type::scene_instance);
   GNEISS_ASSERT(status.ok(), "有效场景槽位必须能够释放");
 } catch (...) {
   fatal_current_exception();
@@ -155,7 +156,7 @@ result<game_object> scene_instance::create_object(const object_options& options,
   }
   // 创建实体可能移动层级组件；先复制可能借自已有对象的名称。
   std::string name(options.name);
-  auto& state = *owner_->impl_;
+  auto& state = state_of(*owner_);
   auto created = state.create_object(parent.entity());
   if (!created)
     return created.error();

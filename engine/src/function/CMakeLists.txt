@@ -43,7 +43,7 @@ target_sources(gneiss_engine PRIVATE
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/resource_cache.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/asset/asset_batch_request.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/world_state.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/camera_selection_state.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/object_state.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/scene_update.cpp"
@@ -64,7 +64,7 @@ target_sources(gneiss_engine PRIVATE
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/rendering/render_camera.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/world_changes.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/world_factory.cpp"
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/world_impl.hpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/world_state.hpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/meta_registration.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/application/application.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/application/main_loop_wakeup.hpp")

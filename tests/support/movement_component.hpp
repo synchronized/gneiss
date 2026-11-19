@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include "function/scene/world_state.hpp"
+#include "value_result.hpp"
 #include <gneiss/engine/core/meta/object_type.hpp>
 #include <gneiss/engine/core/meta/registration.hpp>
 #include <gneiss/engine/function/scene/component_registration.hpp>
-#include "function/scene/detail/world_component_access.hpp"
-#include "value_result.hpp"
 #include <stdexcept>
 namespace gneiss::test_support {
 namespace e = gneiss;
@@ -52,7 +52,7 @@ struct movement_component {
   movement_description data;
   std::shared_ptr<int> lifetime = std::make_shared<int>(0);
 };
-inline auto& state(e::world& world) { return e::detail::world_component_access::get(world); }
+inline auto& state(e::world& world) { return e::state_of(world); }
 inline std::uint64_t entity(e::world& world, gneiss::entity_id node) {
   gneiss::entity_id value;
   if (gneiss::test_support::assign_value(world.object(gneiss::entity_id{(node).get()}), value)

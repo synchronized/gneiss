@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include <gneiss/engine/export.hpp>
-#include <gneiss/engine/function/scene/entity_id.hpp>
-#include <gneiss/engine/core/events/signal.hpp>
 #include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/events/signal.hpp>
+#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/function/scene/entity_id.hpp>
 #include <gneiss/engine/function/scene/game_object.hpp>
 #include <gneiss/engine/function/scene/object_change.hpp>
 #include <gneiss/engine/function/scene/scene_instance.hpp>
@@ -16,17 +16,13 @@
 #include <vector>
 
 namespace gneiss {
-struct world_factory;
-namespace detail {
-struct world_component_access;
-}
+struct world_state;
 }
 namespace gneiss {
 /** 原生 World 操作入口；拥有唯一 ECS/场景树状态，全部访问限所属线程。
  * domain 由 World 创建工厂分配；私有实现不向宿主暴露 EnTT。 */
-class world final {
+class world {
 public:
-  GNEISS_ENGINE_API ~world() noexcept;
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] GNEISS_ENGINE_API bool is_owner_thread() const noexcept;
@@ -38,8 +34,9 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API result<scene_instance> create_scene();
   /** 将整棵对象子树移入本 World 的目标场景；保持局部变换与实体身份。
    * parent 必须属于目标且不在子树中；验证失败不改变归属或层级。 */
-  [[nodiscard]] GNEISS_ENGINE_API error transfer_subtree(game_object root, scene_instance destination,
-                                                  game_object parent = {});
+  [[nodiscard]] GNEISS_ENGINE_API error transfer_subtree(game_object root,
+                                                         scene_instance destination,
+                                                         game_object parent = {});
   /** 返回全部 ECS 实体数量；必须在所属线程调用，违例断言终止。 */
   [[nodiscard]] GNEISS_ENGINE_API std::uint64_t entity_count() const;
   /** 构造借用句柄；不访问 ECS，各操作在使用时校验身份和线程。零 ID 返回空句柄。 */
@@ -50,13 +47,11 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API result<game_object> object(entity_id entity) noexcept;
 
 private:
-  friend struct gneiss::world_factory;
+  friend struct world_state;
   friend class scene_instance;
   [[nodiscard]] error validate_scene(scene_instance_id) const noexcept;
-  friend struct detail::world_component_access;
-  explicit GNEISS_ENGINE_API world(std::uint32_t domain);
-  struct implementation;
-  std::unique_ptr<implementation> impl_;
+  world() = default;
+  ~world() = default;
 };
 }
 

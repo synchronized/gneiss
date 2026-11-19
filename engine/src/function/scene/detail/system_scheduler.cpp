@@ -20,7 +20,7 @@ gneiss::error system_scheduler::add(system_id id, system_callback callback, void
   }
 }
 
-gneiss::error system_scheduler::run(detail::world_component_access::storage& world) noexcept {
+gneiss::error system_scheduler::run(world_state& world) noexcept {
   for (const auto& system : systems_) {
     const auto result = system.callback(world, system.user_data);
     if (result != gneiss::error::success) {

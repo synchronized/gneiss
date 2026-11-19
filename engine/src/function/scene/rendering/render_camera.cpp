@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "function/scene/detail/world_component_access.hpp"
+#include "function/scene/world_state.hpp"
 #include <gneiss/engine/function/scene/camera_selection.hpp>
 #include <gneiss/engine/function/scene/rendering/render_camera.hpp>
 namespace gneiss {
@@ -10,7 +10,7 @@ result<std::optional<render_camera_snapshot>> select_render_camera(world& owner,
                                                                    const view_camera* camera) {
   if (!owner.is_owner_thread())
     return error::invalid_state;
-  auto& state = detail::world_component_access::get(owner);
+  auto& state = state_of(owner);
   if (!viewport_width || !viewport_height)
     return error::invalid_argument;
   auto& world = state;

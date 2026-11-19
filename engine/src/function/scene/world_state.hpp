@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_WORLD_IMPLEMENTATION_HPP_
-#define GNEISS_WORLD_IMPLEMENTATION_HPP_
+#ifndef GNEISS_WORLD_STATE_HPP_
+#define GNEISS_WORLD_STATE_HPP_
 
+#include "core/rid_table.hpp"
+#include <atomic>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-#include "core/rid_table.hpp"
 #include <gneiss/engine/function/scene/components.hpp>
-#include <atomic>
 #include <limits>
 
 #include "function/scene/detail/object_state.hpp"
@@ -30,7 +30,7 @@
 
 namespace gneiss {
 
-struct world::implementation final {
+struct world_state final : world {
 public:
   static std::uint16_t allocate_scene_domain() noexcept {
     static std::atomic_uint32_t next{1024U};
@@ -46,13 +46,15 @@ private:
   rid_table<scene_instance_id, scene_instance_id> scene_slots{scene_domain};
 
 public:
-  explicit implementation(std::uint32_t domain) noexcept
+  explicit world_state(std::uint32_t domain) noexcept
       : domain_(domain), owner_thread_(std::this_thread::get_id()) {}
 
-  implementation(const implementation&) = delete;
-  implementation& operator=(const implementation&) = delete;
-  implementation(implementation&&) = delete;
-  implementation& operator=(implementation&&) = delete;
+  ~world_state() noexcept;
+
+  world_state(const world_state&) = delete;
+  world_state& operator=(const world_state&) = delete;
+  world_state(world_state&&) = delete;
+  world_state& operator=(world_state&&) = delete;
 
   [[nodiscard]] bool is_owner_thread() const noexcept {
     return owner_thread_ == std::this_thread::get_id();
@@ -235,6 +237,10 @@ private:
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;
 };
+
+/** 仅供实现文件访问；World 必须由本模块工厂创建且在所属线程使用。 */
+GNEISS_ENGINE_API world_state& state_of(world& owner) noexcept;
+GNEISS_ENGINE_API const world_state& state_of(const world& owner) noexcept;
 
 } // namespace gneiss
 

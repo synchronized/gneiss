@@ -34,7 +34,7 @@ set_tests_properties(gneiss.scene_tree_transform PROPERTIES LABELS "cpu;integrat
 add_executable(
   gneiss_world_state_test
   world_state_test.cpp
-  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/hierarchy.cpp"
+  "${PROJECT_SOURCE_DIR}/engine/src/function/scene/world_state.cpp"
   "${PROJECT_SOURCE_DIR}/engine/src/function/scene/detail/system_scheduler.cpp"
 )
 target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
