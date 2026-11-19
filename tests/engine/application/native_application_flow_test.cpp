@@ -156,6 +156,51 @@ void state_systems() {
   (*exiting)->on_update(flow::loading, "must_not_run", [&] { check(false); });
   check((*exiting)->run(1).ok());
 }
+void host_shutdown() {
+  std::string order;
+  runtime::application_configuration config;
+  config.callbacks.shutdown = [&] { order += 's'; };
+  auto created = runtime::application::create(config);
+  check(created.ok());
+  auto application = std::move(*created);
+  auto* borrowed = application.get();
+  application->on_stop("release", [&] {
+    check(borrowed->native_world() != nullptr);
+    check(borrowed->run(1) == error::invalid_state);
+    check(borrowed->request_shutdown() == error::invalid_state);
+    order += 'a';
+    return error::io;
+  });
+  application->on_stop("release_remaining", [&]() -> result<void> {
+    check(borrowed->native_world() != nullptr);
+    order += 'b';
+    return {};
+  });
+  check(application->request_shutdown().ok());
+  check(order == "ab");
+  check(application->run(1) == error::invalid_state);
+  check(application->request_shutdown().ok() && order == "ab");
+  check(application->advance_shutdown() == error::io && order == "abs");
+  check(application->native_world() == nullptr);
+  check(application->advance_shutdown() == error::io);
+  application.reset();
+  check(order == "abs");
+
+  // 未运行就退出（例如宿主装配失败）也清理；析构保底不会重复显式关闭。
+  created = runtime::application::create(config);
+  check(created.ok());
+  application = std::move(*created);
+  application->on_stop("never_ran", [&] { order += 'c'; });
+  check(application->shutdown().ok());
+  application.reset();
+  check(order == "abscs");
+  created = runtime::application::create(config);
+  check(created.ok());
+  application = std::move(*created);
+  application->on_stop("destructor", [&] { order += 'd'; });
+  application.reset();
+  check(order == "abscsds");
+}
 void action_maps() {
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 0, .mode = gneiss::tasks::execution_mode::cooperative});
@@ -218,6 +263,7 @@ int main() try {
   loop();
   scheduled_systems();
   state_systems();
+  host_shutdown();
   action_maps();
   creation_failures();
   return 0;

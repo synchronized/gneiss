@@ -245,7 +245,8 @@ gneiss::error imgui_adapter::initialize(runtime::application& application) {
 }
 
 void imgui_adapter::shutdown(runtime::application& application) noexcept {
-  if (!application.is_owner_thread() || !application.accepts_requests()) {
+  // 停止阶段已拒绝新请求，但仍必须释放现有 UI 和资源引用。
+  if (!application.is_owner_thread()) {
     return;
   }
   ImGui::SetCurrentContext(context_);

@@ -268,6 +268,11 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
     application->on_update(
         project_phase::selecting, "project_manager.update",
         [&state](const gneiss::frame_time& time) { return update_project_manager(state, time); });
+    application->on_stop("project_manager.release_session", [&state] {
+      (void)state.scheduler.close_scope(state.scope);
+      state.pending.reset();
+      state.ui.shutdown(*state.application);
+    });
     if (operation == gneiss::error::success) {
       operation = application->run(smoke ? 3U : 0U);
       if (operation != gneiss::error::success) {
@@ -277,10 +282,6 @@ gneiss::error run_project_manager(bool smoke, editor_project& output) {
                      operation.code(), static_cast<int>(message.size()), message.data());
       }
     }
-    // 异常离开事件循环时也显式等待任务；任务不访问已经销毁的 UI。
-    (void)state.scheduler.close_scope(state.scope);
-    state.pending.reset();
-    state.ui.shutdown(*application);
     // 正常退出显式收尾文件回执与服务，不依赖 Application 析构等待。
     auto closing = application->request_shutdown();
     if (closing.ok()) {

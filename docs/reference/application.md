@@ -92,6 +92,26 @@ state<T>() 查询当前枚举值；初始 Enter 前返回配置值。
 以上是当前运行期调度接口。run 仍保留旧的有界执行、GPU 帧收尾和宿主关闭协议，
 尚无共享生命周期 step；业务 OnExit 只用于状态切换，不能代替宿主释放 UI/任务的关闭过程。
 
+## 宿主停止清理
+
+首次运行前用 on_stop(name, callable) 注册具名、无参数的同步清理。调用方可取消并排空自己的
+任务、释放 UI 或会话资源；首次 request_shutdown 或直接 shutdown 在停止资产、文件、渲染
+服务之前按注册顺序执行一次。析构保底使用相同入口，未运行就退出也会执行已注册清理。
+初始化只完成一部分时，清理函数必须根据自身拥有的资源状态处理，不能假定 Enter 已成功。
+
+进入清理前 accepts_requests() 已为 false，不再允许运行循环、注册系统或发起业务状态转换。
+已有服务仍可借用以释放资源，不能递归启动关闭。资源释放入口不应以“不再接受新请求”为由
+跳过析构。回调捕获必须覆盖 Application 的关闭与析构过程。
+
+清理返回 void、result<void> 或 error；失败记录系统名称，继续后续清理及服务关闭，最终返回
+首次宿主清理错误（优先于后续服务关闭错误）。request_shutdown 的成功只表示关闭请求已接收，
+清理失败通过 advance_shutdown 的终态结果返回。直接 shutdown 返回最终结果。
+not_ready 在同步清理中也是失败，不表示稍后重试；异步停止协议尚未接入。
+意外异常保持传播，析构时按既有 noexcept/致命异常策略处理，不承诺异常后所有清理完成。
+
+项目选择界面已用 on_stop 释放任务和 UI，但仍显式驱动 request_shutdown/advance_shutdown；
+不能将当前行为描述为 run/step 自动管理完整生命周期。
+
 ## 平台与窗口
 
 `application_configuration::enable_window` 默认为 false，允许空回调无窗口模式。

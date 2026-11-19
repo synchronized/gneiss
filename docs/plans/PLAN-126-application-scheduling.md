@@ -192,3 +192,18 @@ UI 关闭仍由宿主在关闭服务前执行。状态转换失败会阻止重�
 验证：Windows Clang Debug 构建 gneiss_editor、gneiss_native_application_flow_test 通过；
 原生流程测试通过，包含多状态隔轮转换、冲突合并、同值无操作、失败不重放与退出优先。
 未执行真实项目选择界面交互、GPU 或其他平台验收。
+
+### 宿主同步停止阶段
+
+已接入 on_stop，并把项目选择界面的任务排空、UI 释放移入具名停止系统。
+当前顺序与错误契约见 [Application Reference](../reference/application.md#宿主停止清理)。
+显式关闭、未运行即关闭和析构保底共用一次清理；关闭开始后不再接受 run。
+修正 UI shutdown 对 accepts_requests 的错误依赖，允许停止阶段释放现有资源。
+
+这是同步宿主清理的闭环，不是非阻塞停止协议。项目选择界面仍使用已有 close_scope 同步排空，
+服务关闭仍通过旧 request_shutdown/advance_shutdown 驱动。下一步将任务完成凭据纳入停止阶段，
+然后共用 run/step 生命周期；不得把同步阻塞步骤包装成已支持浏览器的异步单步能力。
+
+验证：Windows Clang Debug 编辑器及两项 Application 测试目标构建通过；
+gneiss.native-application-flow、gneiss.native-application 均通过。覆盖清理顺序、失败继续、
+关闭后拒绝运行、显式关闭与析构幂等；未运行真实窗口/GPU 或浏览器验收。

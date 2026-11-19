@@ -103,6 +103,12 @@ public:
     register_state_system(app::detail::state_event::exit, app::detail::key(state), std::move(name),
                           app::make_system(std::move(function)));
   }
+  /** 首次运行前注册同步宿主清理；停止时按注册顺序执行一次，服务仍可借用。
+   * 无参数，返回 void 或 result<void>/error；失败不跳过后续清理，不用于异步等待。 */
+  template <class F> void on_stop(std::string name, F function) {
+    static_assert(std::is_invocable_v<F&>);
+    register_stop_system(std::move(name), app::make_system(std::move(function)));
+  }
   /** 返回已初始化对象的拥有引用；失败返回错误并清理部分初始化的资源。
    * 创建、运行及最后释放均限所属线程，不创建对外句柄。 */
   [[nodiscard]] static GNEISS_ENGINE_API gneiss::result<std::shared_ptr<application>>
@@ -199,6 +205,8 @@ private:
                                                std::string, app::system_function);
   GNEISS_ENGINE_API result<void> request_state_change(app::detail::state_key);
   GNEISS_ENGINE_API std::uint64_t current_state(type_id) const;
+  GNEISS_ENGINE_API void register_stop_system(std::string, app::system_function);
+  void stop_host();
   struct storage;
   std::unique_ptr<storage> storage_;
 };

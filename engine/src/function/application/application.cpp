@@ -63,6 +63,20 @@ public:
     check_registration(name, function);
     entries_.push_back({phase, std::move(name), std::move(function), condition});
   }
+  void add_stop(std::string name, system_function function) {
+    check_registration(name, function);
+    stops_.push_back({stage::update, std::move(name), std::move(function), {}});
+  }
+  template <class Report> void stop(Report report) {
+    frozen_ = true;
+    // 先前移游标：意外异常沿原有边界传播时，不重复已开始的宿主清理。
+    while (next_stop_ < stops_.size()) {
+      const auto& item = stops_[next_stop_++];
+      auto status = item.function({});
+      if (status.failed())
+        report(system_failure{status, item.name});
+    }
+  }
   void init(detail::state_key initial) {
     GNEISS_ASSERT(!frozen_, "状态须在运行前注册");
     for (const auto& state : states_)
@@ -169,6 +183,8 @@ private:
       GNEISS_ASSERT(item.name != name, "系统名称不能重复");
     for (const auto& item : hooks_)
       GNEISS_ASSERT(item.name != name, "系统名称不能重复");
+    for (const auto& item : stops_)
+      GNEISS_ASSERT(item.name != name, "系统名称不能重复");
   }
   result<void, system_failure> invoke(detail::state_event event, detail::state_key key,
                                       const frame_time& time, const bool& stopping) {
@@ -187,6 +203,8 @@ private:
     return {};
   }
   std::vector<entry> entries_;
+  std::vector<entry> stops_;
+  std::size_t next_stop_{};
   std::vector<hook> hooks_;
   std::vector<state_slot> states_;
   std::optional<system_failure> transition_failure_;
@@ -237,6 +255,8 @@ struct application::storage {
   std::uint64_t previous_time_ns_ = 0;
   std::atomic<bool> accepts_requests_{false};
   bool shutting_down_ = false;
+  bool stopping_host_{};
+  error host_stop_result_{error::success};
   bool shutdown_requested_{};
   bool shutdown_complete_{};
   gneiss::error shutdown_result_{gneiss::error::success};
@@ -397,6 +417,28 @@ void application::register_system(app::stage phase, std::string name,
   GNEISS_ASSERT(phase != app::stage::update || !storage_->config_.callbacks.update,
                 "更新系统不能与旧更新回调混用");
   storage_->systems_.add(phase, std::move(name), std::move(function));
+}
+
+void application::register_stop_system(std::string name, app::system_function function) {
+  GNEISS_ASSERT(is_owner_thread() && accepts_requests() && !storage_->is_running_,
+                "停止系统仅允许所属线程在运行前注册");
+  storage_->systems_.add_stop(std::move(name), std::move(function));
+}
+void application::stop_host() {
+  storage_->accepts_requests_.store(false, std::memory_order_release);
+  storage_->stopping_host_ = true;
+  try {
+    storage_->systems_.stop([&](const app::system_failure& failure) {
+      if (storage_->host_stop_result_.ok())
+        storage_->host_stop_result_ = failure.code;
+      report(severity::error, category::application, failure.code, failure.name,
+             "宿主停止系统失败，继续释放其余资源");
+    });
+  } catch (...) {
+    storage_->stopping_host_ = false;
+    throw;
+  }
+  storage_->stopping_host_ = false;
 }
 
 void application::register_state(app::detail::state_key initial) {
@@ -849,7 +891,8 @@ gneiss::error application::get_window_size(std::uint32_t& out_width,
 }
 
 gneiss::error application::run(std::uint64_t max_frame_count) try {
-  if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_) {
+  if (!is_owner_thread() || !storage_->platform_initialized_ || storage_->is_running_ ||
+      !accepts_requests()) {
     return gneiss::error::invalid_state;
   }
   storage_->systems_.freeze();
@@ -1017,10 +1060,12 @@ bool application::is_owner_thread() const noexcept {
 }
 
 gneiss::error application::request_shutdown() {
-  if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_)
+  if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_ ||
+      storage_->stopping_host_)
     return gneiss::error::invalid_state;
   if (storage_->shutdown_requested_)
     return gneiss::error::success;
+  stop_host();
   auto receipt = std::make_shared<storage::file_close_receipt>();
   auto files = storage_->files_;
   if (files) {
@@ -1047,7 +1092,7 @@ gneiss::error application::request_shutdown() {
 
 gneiss::error application::advance_shutdown() {
   if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_ ||
-      !storage_->shutdown_requested_)
+      storage_->stopping_host_ || !storage_->shutdown_requested_)
     return gneiss::error::invalid_state;
   if (storage_->shutdown_complete_)
     return storage_->shutdown_result_;
@@ -1071,12 +1116,13 @@ gneiss::error application::advance_shutdown() {
 }
 
 gneiss::error application::shutdown() {
-  if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_) {
+  if (!is_owner_thread() || storage_->is_running_ || storage_->shutting_down_ ||
+      storage_->stopping_host_) {
     return gneiss::error::invalid_state;
   }
+  stop_host();
   storage_->shutting_down_ = true;
-  storage_->accepts_requests_.store(false, std::memory_order_release);
-  auto shutdown_result = gneiss::error::success;
+  auto shutdown_result = storage_->host_stop_result_;
   storage_->cancel_action_map();
   storage_->asset_loading_.reset();
   storage_->render_binding_.reset();
