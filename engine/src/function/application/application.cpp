@@ -509,6 +509,8 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
     }
     storage_->render_service_->set_completion_wakeup(storage_->loop_wakeup_);
   }
+  // 初始化可能先取得部分资源再抛出异常；进入回调前就登记配对清理。
+  storage_->platform_initialized_ = true;
   if (storage_->config_.callbacks.initialize != nullptr) {
     auto result = gneiss::error::success;
     {
@@ -517,12 +519,10 @@ gneiss::error application::initialize(std::weak_ptr<application> self) {
     if (result != gneiss::error::success) {
       log_error("application", result, "application.initialize", "application 初始化回调失败");
       // 初始化回调可能已获得部分资源，因此失败时也执行配对清理。
-      storage_->platform_initialized_ = true;
       static_cast<void>(shutdown());
       return result;
     }
   }
-  storage_->platform_initialized_ = true;
 
   try {
     storage_->asset_manager_ = std::make_unique<gneiss::asset_manager>(storage_->files_);

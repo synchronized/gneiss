@@ -265,6 +265,24 @@ void test_platform_callbacks() {
   check(!app->accepts_requests());
   app.reset();
   check(shutdowns == 3U);
+  // 进入初始化回调后，即使异常传播也必须清理其已取得的部分资源。
+  bool acquired{};
+  platform_config.callbacks.initialize = [&]() -> gneiss::error {
+    acquired = true;
+    throw std::runtime_error("平台初始化异常");
+  };
+  platform_config.callbacks.shutdown = [&] {
+    check(acquired);
+    acquired = false;
+    ++shutdowns;
+  };
+  bool initialization_threw{};
+  try {
+    (void)gneiss::runtime::application::create(platform_config);
+  } catch (const std::runtime_error& failure) {
+    initialization_threw = std::string_view(failure.what()) == "平台初始化异常";
+  }
+  check(initialization_threw && !acquired && !app && shutdowns == 4U);
 }
 } // namespace
 
