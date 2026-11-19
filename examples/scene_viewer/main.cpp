@@ -329,7 +329,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     return !submitted && submitted.error() != error::not_ready ? submitted : result<void>{};
   });
   app->init_state(mode::loading);
-  app->on_enter(mode::loading, "load_scene", [&]() -> gneiss::result<void> {
+  app->on_start("request_initial_assets", [&]() -> gneiss::result<void> {
     auto input = app->assets().reload<gneiss::input::action_map>(input_map_uri);
     if (!input)
       return input.error();
@@ -339,6 +339,17 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       return submitted.error();
     scene_request = std::move(*submitted);
     return {};
+  });
+  app->on_start("await_input", [&]() -> gneiss::result<gneiss::app::start_progress> {
+    if (input_request.status() == gneiss::error::not_ready)
+      return gneiss::app::start_progress::pending;
+    auto loaded = input_request.take();
+    if (!loaded)
+      return loaded.error().error;
+    const auto applied = app->input().replace_action_map(*(*loaded)->snapshot());
+    if (applied.failed())
+      return applied;
+    return gneiss::app::start_progress::complete;
   });
   app->on_update(mode::loading, "await_scene", [&]() -> gneiss::result<void> {
     if (!scene.is_valid()) {
@@ -357,17 +368,8 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
       completion = std::move(*activated);
       scene = completion.instance.instance;
     }
-    const auto input = input_request.status();
-    if (input == gneiss::error::not_ready || (completion.visuals && !completion.visuals.ready()))
+    if (completion.visuals && !completion.visuals.ready())
       return {};
-    if (input.failed())
-      return input;
-    auto loaded_input = input_request.take();
-    if (!loaded_input)
-      return loaded_input.error().error;
-    const auto applied = app->input().replace_action_map(*(*loaded_input)->snapshot());
-    if (applied.failed())
-      return applied;
     example::report_visuals(completion);
     scene_ready = clock::now();
     return app->request_state(mode::viewing);

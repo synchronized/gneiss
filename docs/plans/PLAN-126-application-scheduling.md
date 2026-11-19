@@ -547,3 +547,15 @@ Windows Clang Debug 全量构建通过，20 项定向回归全部通过（11 CPU
 覆盖 Application 生命周期与唤醒、引擎/内部头文件边界、Runtime 场景加载/异步输入/停止协议、
 Editor 与项目管理器 smoke、会话及启动诊断、minimal、scene_viewer 双视图和原生窗口。
 当前源代码与 Reference/Guide 无旧 Application 类型名称残留；历史记录保留原名称。
+
+### 示例异步启动等待接入
+
+scene_viewer 的输入映射作为启动前置条件：request_initial_assets 一次提交输入与场景请求，
+await_input 返回 pending/complete 并应用输入映射。场景及视觉资源仍在 loading 业务状态处理，
+不把所有资源加载都阻塞在 starting。输入等待失败、窗口退出沿用已有 on_stop 取消请求与释放会话。
+Runtime 含 IPC 命令响应及停止文件逻辑，保留其业务加载路径，后续按完整通信/业务链路继续整理。
+
+Windows Clang Static Debug 引擎、两项 Application 测试及引擎头文件边界目标构建通过，
+三项测试通过。共享构建下 scene_viewer 单/双视图回归通过；不存在的输入映射返回 not_found，
+经 run 返回失败，进程退出 7。本次未执行物理窗口关闭发生于输入等待中的交互验收，
+等待中退出的调度语义由 Application 流程回归覆盖；不宣称全部宿主静态矩阵完成。
