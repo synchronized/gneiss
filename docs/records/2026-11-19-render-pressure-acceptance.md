@@ -175,3 +175,15 @@ Render service、Application::shutdown 和 run 逐层传播失败。因此本用
 后端逻辑资源零存活检查，无需为验收另建接口。这不等价于操作系统显存或驱动缓存完全释放。
 
 本轮未覆盖加载失败恢复、多次循环重载或设备丢失。GPU 计时可用性和代表性预算测量仍未闭环。
+
+## 2026-11-20：后端执行失败的回执与清理
+
+复用 render_executor 现有执行回调，在后端执行阶段返回 dependency_failed；分别验证 required
+和 replaceable 帧的错误原样保留、回执身份正确、非丢帧、只执行一次、回执只领取一次、帧载荷归零，
+并验证随后提交的清理命令能够完成。没有新增故障注入生产接口。
+Windows Clang Debug 共享和静态 render_executor 均通过。
+
+源码复核：Granit 未显式映射的错误归为 dependency_failed，Render 的 collect_completions
+对未丢弃帧传播其失败状态。执行器允许清理命令继续运行，不负责设备恢复，也不会自动重试失败帧。
+本回归只证明执行器错误交付与清理可达性，不代表真实驱动设备丢失、Render/Application 全链路
+故障注入或设备重建已通过验收。上述设备级验收继续保留为待办。

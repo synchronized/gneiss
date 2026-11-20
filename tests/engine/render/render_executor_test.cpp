@@ -792,5 +792,39 @@ int main(int argc, char** argv) {
   if (!failure || failure->sequence != *prepare_sequence ||
       failure->status != gneiss::error::unsupported || failure->dropped || draw_calls != 0)
     return 29;
+  // 后端已开始执行后失败：保留原错误回执，归还载荷，并允许关闭清理继续执行。
+  for (const auto policy :
+       {gneiss::render::frame_policy::required, gneiss::render::frame_policy::replaceable}) {
+    threaded_render_executor failed_draw;
+    unsigned executions{};
+    bool cleaned{};
+    if (failed_draw
+            .initialize(
+                [&](auto&, auto&) {
+                  ++executions;
+                  return gneiss::error::dependency_failed;
+                },
+                {.frame_input_bytes = 16})
+            .failed())
+      return 30;
+    auto sequence = failed_draw.submit_frame({}, policy, {}, 16);
+    if (!sequence || failed_draw.flush().failed())
+      return 31;
+    auto completed = failed_draw.try_take_frame_completion();
+    if (!completed || completed->sequence != *sequence || completed->dropped ||
+        completed->status != gneiss::error::dependency_failed || executions != 1 ||
+        failed_draw.query_stats().frame_input_bytes != 0 || failed_draw.try_take_frame_completion())
+      return 32;
+    auto cleanup = failed_draw.submit_command([&](const auto&) {
+      cleaned = true;
+      return gneiss::error::success;
+    });
+    if (!cleanup || failed_draw.flush().failed())
+      return 33;
+    auto receipt = failed_draw.try_take_command_completion();
+    if (!receipt || receipt->sequence != *cleanup || receipt->status.failed() || !cleaned)
+      return 34;
+    failed_draw.stop();
+  }
   return 0;
 }
