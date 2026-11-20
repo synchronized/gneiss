@@ -1108,16 +1108,25 @@ error backend::implementation::execute_frame(gneiss::render::detail::frame_packe
     output.environment_fallback = current.environment_fallback;
     output.environment_intensity = current.environment_intensity;
     output.environment_rotation_radians = current.environment_rotation_radians;
-    if (current.gpu_timing_valid) {
-      output.gpu_timing_valid = true;
-      output.gpu_timing_sample_sequence = current.gpu_timing_sample_sequence;
-      output.gpu_frame_ms = current.gpu_frame_ms;
-      output.gpu_shadow_ms = current.gpu_shadow_ms;
-      output.gpu_opaque_ms = current.gpu_opaque_ms;
-      output.gpu_tone_mapping_ms = current.gpu_tone_mapping_ms;
-    }
     if (status.failed())
       return status;
+  }
+  // 样本是最新已完成的单次管线执行，不是本批次多视图 GPU 总时长。
+  if (gpu_timing_supported_) {
+    ::granit::render_pipeline_metrics metrics{};
+    const auto metric_result = pipeline_.get_metrics(metrics);
+    if (metric_result.ok() && metrics.sample_sequence > last_pipeline_metric_sequence_) {
+      output.gpu_timing_valid = true;
+      output.gpu_timing_sample_sequence = metrics.sample_sequence;
+      output.gpu_frame_ms = static_cast<float>(metrics.total_gpu_ns) / 1'000'000.0F;
+      output.gpu_shadow_ms = static_cast<float>(metrics.shadow_gpu_ns) / 1'000'000.0F;
+      output.gpu_opaque_ms = static_cast<float>(metrics.opaque_gpu_ns) / 1'000'000.0F;
+      output.gpu_tone_mapping_ms = static_cast<float>(metrics.tone_mapping_gpu_ns) / 1'000'000.0F;
+      last_pipeline_metric_sequence_ = metrics.sample_sequence;
+    } else if (metric_result.failed() && metric_result != ::granit::result::not_ready) {
+      gpu_timing_supported_ = false;
+      output.gpu_timing_supported = false;
+    }
   }
   return error::success;
 }
@@ -1402,22 +1411,6 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - render_started)
           .count();
   if (result.ok()) {
-    if (gpu_timing_supported_) {
-      ::granit::render_pipeline_metrics metrics{};
-      const auto metric_result = pipeline_.get_metrics(metrics);
-      if (metric_result.ok() && metrics.sample_sequence > last_pipeline_metric_sequence_) {
-        output.gpu_timing_valid = true;
-        output.gpu_timing_sample_sequence = metrics.sample_sequence;
-        output.gpu_frame_ms = static_cast<float>(metrics.total_gpu_ns) / 1'000'000.0F;
-        output.gpu_shadow_ms = static_cast<float>(metrics.shadow_gpu_ns) / 1'000'000.0F;
-        output.gpu_opaque_ms = static_cast<float>(metrics.opaque_gpu_ns) / 1'000'000.0F;
-        output.gpu_tone_mapping_ms = static_cast<float>(metrics.tone_mapping_gpu_ns) / 1'000'000.0F;
-        last_pipeline_metric_sequence_ = metrics.sample_sequence;
-      } else if (metric_result.failed() && metric_result != ::granit::result::not_ready) {
-        gpu_timing_supported_ = false;
-        output.gpu_timing_supported = false;
-      }
-    }
     const auto present_started = std::chrono::steady_clock::now();
     result = swapchain_.present(frame);
     output.presented = result.ok();
