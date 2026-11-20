@@ -29,7 +29,7 @@
 - [PLAN-127](plans/PLAN-127-world-system-scheduling.md)：本地范围完成；World 自有系统及宿主接入已验证，Application 继续管理共享服务与应用阶段。
 - [PLAN-119](plans/PLAN-119-engine-build-test-layout.md)：模块目录与多轮目标/测试迁移已落地，依赖闭包、标签及完整验收仍在收尾。
 - [PLAN-118](plans/PLAN-118-error-contracts.md)：P0–P4 本地实施与验收已完成；跨平台和完整版本矩阵继续归 DEV-052。
-- [PLAN-115](plans/PLAN-115-persistent-render-scene.md)：命令同步与双视图已接入，GPU 压力、回收、预算及基线问题未完成。
+- [PLAN-115](plans/PLAN-115-persistent-render-scene.md)：持久场景、双视图与标准 PBR 阴影已接通并定向验收；完整故障退出、产品交互、回读/拾取及平台/测量尾项见计划，尚未完成。
 - [PLAN-116](plans/PLAN-116-events-and-logging.md)、[PLAN-117](plans/PLAN-117-domain-namespaces.md)、[PLAN-120](plans/PLAN-120-ipc-protocol-boundaries.md)：已完成各自本地实施与验收范围。
 - [PLAN-110](plans/PLAN-110-world-scene-ownership.md)、[PLAN-113](plans/PLAN-113-application-scene-boundaries.md)：对象/场景边界迁移已完成本地范围。
 
