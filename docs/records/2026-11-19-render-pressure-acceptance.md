@@ -220,3 +220,44 @@ RSS 为 10 ms 轮询观测到的峰值，不是显存或内存泄漏统计；表
 
 两组均未达到队列压力，神庙资产规模小，GPU 计时仍不完整，因此维持现有预算默认值。
 剩余：实际硬件确认、更大资产及跨硬件样本、Granit 计时问题、真实设备级失败验收。
+
+
+## 2026-11-20 Granit 0.73.0 接入检查：标准资产不配套
+
+候选依赖为 `9bcf71b54f88d236d06c69a9b7903e1786251123`（远端 v0.73.0），
+Windows Clang Debug shared 定向构建成功。升级与阴影投射标志映射仍在工作区，未作为已验收升级提交。
+
+- `granit_version_cache`、`render_scene`、`render-texture-uploads`、`render-pressure` 通过。
+- `scene-viewer-dual` 图像验收失败；`asset-pixel` 首次红色纹理等待 5 秒后仍为 R=49、B=156，
+  尚未进入热重载阶段。测试在等待期间持续驱动协作式任务和 Application。
+- 新版双视图测量取得 146 个有效 GPU 时间样本、0 次 unavailable；这是单次 Debug 诊断结果，
+  不是完整多视图 GPU 时间求和，也不用于调整预算。
+
+### 定位证据
+
+比较旧依赖 `4eebbdd73bca010761b7528ec34bd76ae630d32f` 与候选依赖的已提交资产：
+
+1. `assets/generated/installed/libraries/pbr_standard.grshlib` 已改变；新旧各有 16 个 Shader。
+2. `assets/generated/installed/materials/pbr_standard.grmat` 字节完全未变。
+3. 材质包引用的旧库 16 个 Shader content ID 全部不在新库中。例如顶点 Shader
+   `0e4c1261d74e9f036441e4924c3bb736bd4f9c652175a26504916f2e30114ca1`
+   在材质包出现 12 次，但新库不再包含它。
+4. Granit `material_template_gpu::create_shader` 按材质包的 asset_id 调用
+   `granit_shader_create_from_library_content_id`；库中查找失败返回 `GRANIT_ERROR_NOT_READY`。
+   固定资产引用不匹配不会随异步加载推进而恢复。
+
+仅在 Gneiss 构建产物中临时恢复旧 Shader 库，保持新版 Granit 二进制和其余加载逻辑不变：
+双视图通过，像素测试的初始红色、红转蓝热重载及原有材质状态检查通过，随后停在本轮新增的
+关闭投影图像断言。这项对照只定位资产问题，不代表阴影功能通过；已恢复新版 Shader 并重新构建，
+不以混用新旧资产作为交付方案。未修改 Granit 仓库或依赖源码。
+
+### 建议交给 Granit 的修复范围
+
+- 以同一批 Shader 输出重新生成标准 Material 包，随 Shader 库一起更新发布快照。
+- 增加配套资产验收：标准 Material 的所有非零 Shader content ID 必须能从对应库解析，
+  并运行真实网格、纹理和相机的绘制检查，不能只验证资产各自格式合法。
+- 标准 PBR 与运行时简化 PBR 分别验证关闭投影、关闭接收，确认正式安装资产覆盖新能力。
+
+这属于 Granit 可复用的标准资产一致性问题，由用户协调上游提交；Gneiss 不修改上游。
+修复发布后重新锁定依赖，先复跑上述失败链路和阴影检查，再扩大共享/静态验收。
+当前不关闭 PLAN-115，不提交候选升级，不声称像素或阴影验收完成。
