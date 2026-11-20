@@ -244,7 +244,7 @@ RID 表和 Service 接口仍限所属线程。初始化后，场景命令、资�
 捕获时过滤隐藏或层不匹配实例；未就绪网格由绘制消费者跳过，材质/纹理沿用缺省内容策略。
 剪切通过完整矩阵保留，包围球按变换后的顶点计算。旧 World 帧快照在入口转换为同一绘制表示。
 
-**当前限制**：新入口支持多个独立离屏目标和最多一个窗口视图；重复目标返回 invalid_argument。可见的 casts_shadows=false 实例仍返回 unsupported。
+**当前限制**：新入口支持多个独立离屏目标和最多一个窗口视图；重复目标返回 invalid_argument。casts_shadows=false 映射为 Granit 的关闭投射标志，主视图仍正常绘制。标准 PBR 材质尚未采样阴影贴图，可见阴影仍待上游补齐。
 窗口输入暂未替换为 target RID。新入口携带自有 UI/调试数据并固定 UI 纹理版本，
 UI 纹理尚未就绪返回 not_ready。Runtime/Editor 共用 Application 的普通帧已改用 World 增量绑定；
 截图也使用 frame_request，执行策略为必达帧。当前实现仍逐帧捕获持久场景；后端拆分、目标视图及 GPU 验收按

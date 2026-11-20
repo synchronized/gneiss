@@ -50,9 +50,6 @@ result<void> scene::extract(const view& view, target_description size,
     const auto& value = entry.description;
     if (!value.visible || (value.layers & view.layers) == 0)
       continue;
-    // 当前 Granit 场景接口没有逐实例阴影开关；不得静默绘制成不同语义。
-    if (!value.casts_shadows)
-      return error::unsupported;
     auto versions = entry.resources.capture();
     packet.resources.meshes_.try_emplace(value.mesh, std::move(versions.mesh));
     packet.resources.materials_.try_emplace(value.material, versions.material);
@@ -62,8 +59,8 @@ result<void> scene::extract(const view& view, target_description size,
         if (handles[slot] != null_rid)
           packet.resources.textures_.try_emplace(handles[slot], std::move(versions.textures[slot]));
     }
-    output.scene.instances.push_back(
-        {value.mesh, value.material, value.world_matrix, entry.normal_matrix, value.layers});
+    output.scene.instances.push_back({value.mesh, value.material, value.world_matrix,
+                                      entry.normal_matrix, value.layers, value.casts_shadows});
   }
   packet.capture.copied_payload_bytes += output.scene.instances.size() * sizeof(draw_instance);
   packet.views.push_back(std::move(output));

@@ -261,3 +261,35 @@ Windows Clang Debug shared 定向构建成功。升级与阴影投射标志映�
 这属于 Granit 可复用的标准资产一致性问题，由用户协调上游提交；Gneiss 不修改上游。
 修复发布后重新锁定依赖，先复跑上述失败链路和阴影检查，再扩大共享/静态验收。
 当前不关闭 PLAN-115，不提交候选升级，不声称像素或阴影验收完成。
+
+
+## 2026-11-20 Granit 0.73.1 修复接入
+
+远端 v0.73.1 锁定 `e3671a78daf75eaf986dccf3ee45dc4eb24a357d`，源码归档 SHA256 为
+`43334ec0eeb15cc82fcc640541c2fe036fadc53a79766c06a1a74351cd02b7d6`。
+上游修复 `0b0eab23` 同步标准材质快照及内容哈希；新材质引用新库全部 16 个 Shader ID，
+不再引用旧库 ID。此前 0.73.0 的资产配套阻塞已消除，本轮没有修改 Granit 源码。
+
+Gneiss 同步 FETCH/PACKAGE 版本、源码校验和及缓存迁移检查；将 casts_shadows 经帧数据传给
+Granit shadow_flags，关闭投射不再导致整个可见实例 unsupported。CPU 检查标志保留，
+GPU 检查关闭投射后主视图实例仍然可见。
+
+Windows Clang Debug shared：查看器、像素测试、场景测试构建通过；granit_version_cache、
+render_scene、asset-pixel、scene-viewer-dual、render-texture-uploads、render-pressure 全部通过。
+其中 asset-pixel 包括初始纹理、热重载、Mip、材质通道和透明/裁剪等原有检查。
+
+独立运行 `gneiss_scene_viewer.exe --measure --dual-view`：60 帧预热、300 帧采样，
+198 个有效 GPU 时间样本，0 次 unavailable，末次 Pipeline 样本 1.833 ms；队列拒绝/替换均为 0，
+排空后命令/帧载荷均为 0。此数据仍是单次 Debug 诊断，不是多视图合计或预算默认值依据。
+
+### 阴影验收边界
+
+核查上游 `assets/sources/shaders/pbr/pbr_standard.hlsl`，标准材质当前未采样阴影贴图；
+相关采样在简化 `pbr_untextured.hlsl` 路径。新增测试原先假定关闭投射必然改变标准材质像素，
+这个前提不成立，改为只验证主视图可见性；没有删除或放宽已有图像断言。
+也修正了旧 Alpha 用例误称阴影验收的注释：该用例实际比较的是主视图透明/裁剪结果。
+真正可见阴影及关闭接收验收仍留在 PLAN-115，不将本次依赖升级等同于阴影功能全部完成。
+
+Windows Clang Debug static：同样三个目标构建及上述六项测试全部通过。
+clang-format 检查、git diff --check 通过，本次依赖升级完成本地定向验收。
+未覆盖 Linux/Web、安装包 Consumer、真实设备丢失或新一轮 Release 性能矩阵；未执行远端发布。

@@ -144,7 +144,10 @@ bool scene_extraction() {
   CHECK(packet.views[1].width == 128);
   content.apply({{render::set_visibility{{1}, {.casts_shadows = false}}, {}}});
   packet = {};
-  CHECK(content.extract({}, {64, 32}, packet).error() == error::unsupported);
+  CHECK(content.extract({}, {64, 32}, packet));
+  CHECK(packet.views[0].scene.instances.size() == 1 &&
+        !packet.views[0].scene.instances[0].casts_shadows);
+  packet = {};
   content.apply({{render::destroy_instance{{1}}, {}}});
   CHECK(content.extract({}, {64, 32}, packet) && packet.views[0].scene.instances.empty());
   return true;

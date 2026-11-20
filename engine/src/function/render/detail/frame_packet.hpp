@@ -4,8 +4,8 @@
 #ifndef GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
 #define GNEISS_RENDER_DETAIL_FRAME_PACKET_HPP_
 
-#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/function/render/camera.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
@@ -68,6 +68,7 @@ struct draw_instance {
   math::matrix4 world_matrix{1.F};
   math::matrix4 normal_matrix{1.F};
   std::uint64_t layers{~UINT64_C(0)};
+  bool casts_shadows{true};
 };
 struct draw_scene {
   render_camera_snapshot camera{};

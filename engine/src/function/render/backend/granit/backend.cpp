@@ -1254,7 +1254,9 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
                                .sort_key = instance.material,
                                .payload = payload,
                                .object_id = static_cast<std::uint32_t>(index + 1U),
-                               .reserved = 0});
+                               .shadow_flags = instance.casts_shadows
+                                                   ? GRANIT_SCENE_RENDERABLE_SHADOW_DEFAULT
+                                                   : GRANIT_SCENE_RENDERABLE_SHADOW_DISABLE_CAST});
         bindings.push_back({.payload = payload,
                             .mesh = mesh_mirrors_.at(instance.mesh).mesh.ref(),
                             .material = material_mirrors_.at(instance.material).material.ref(),

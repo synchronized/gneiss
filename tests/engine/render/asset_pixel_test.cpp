@@ -579,6 +579,7 @@ struct state_case {
   bool reverse_submission{};
   bool foreground{};
   bool receiver{};
+  bool disable_shadow_cast{};
 };
 std::array<unsigned, 3> state_pixel(const state_case& test,
                                     std::vector<std::byte>* frame = nullptr) {
@@ -699,6 +700,31 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   gneiss::render::frame_image image;
   check(test_support::capture_scene(*app, **world, **render_binding, 128U, 128U, image) ==
         gneiss::error::success);
+  if (test.disable_shadow_cast) {
+    // 复用已加载资产，通过正式 Render 命令验证同一批实例关闭投射仍留在主视图。
+    auto render_scene = app->render().create_scene();
+    check(bool(render_scene));
+    render::scene_commands commands{.scene = *render_scene, .entries = {}};
+    std::uint64_t key{};
+    for (auto object : scene.objects()) {
+      if (const auto* mesh = object.try_component<mesh_component>()) {
+        commands.entries.push_back(
+            render::create_instance{{++key},
+                                    {.mesh = resource_handle(mesh->mesh),
+                                     .material = resource_handle(mesh->material),
+                                     .world_matrix = object.world_matrix(),
+                                     .casts_shadows = false}});
+      }
+    }
+    check(app->render().submit(std::move(commands)).ok());
+    auto frame_request =
+        test_support::scene_frame(**world, **render_binding, app->window()->surface(), {128, 128});
+    check(bool(frame_request) && frame_request->views.size() == 1);
+    frame_request->views[0].scene = *render_scene;
+    check(test_support::capture_frame(app->render(), std::move(*frame_request), {128, 128}, image)
+              .ok());
+    check(app->render().destroy_scene(*render_scene).ok());
+  }
   if (frame != nullptr)
     *frame = image.pixels;
   constexpr auto offset = (64U * 128U + 64U) * 4U;
@@ -730,7 +756,7 @@ void run_material_states() {
   const auto foreground =
       state_pixel({.mode = "BLEND", .alpha = 0.5F, .layers = true, .foreground = true});
   check(foreground[2] > foreground[0] + 30U);
-  // 透明 Alpha 0 不投影；MASK 裁掉的整个物体也不能留下实心阴影。
+  // Alpha 0 与完整 MASK 裁剪应露出相同背景；不透明与未裁剪 MASK 应保持一致。
   std::vector<std::byte> invisible_blend, invisible_mask, opaque_shadow, mask_shadow;
   (void)state_pixel({.mode = "BLEND", .alpha = 0, .receiver = true}, &invisible_blend);
   (void)state_pixel({.mode = "MASK", .alpha = 0, .receiver = true}, &invisible_mask);
@@ -738,6 +764,11 @@ void run_material_states() {
   (void)state_pixel({.mode = "MASK", .receiver = true}, &mask_shadow);
   check(invisible_blend == invisible_mask);
   check(opaque_shadow == mask_shadow && opaque_shadow != invisible_mask);
+  std::vector<std::byte> no_shadow;
+  const auto visible = state_pixel({.receiver = true, .disable_shadow_cast = true}, &no_shadow);
+  // 标准 PBR 尚未采样阴影贴图；这里只验证关闭投射不会隐藏主视图实例。
+  check(no_shadow != invisible_mask);
+  check(visible[0] > visible[2] + 30U);
 }
 
 void run_material_channels() {
