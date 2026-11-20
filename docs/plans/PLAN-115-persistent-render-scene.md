@@ -395,12 +395,9 @@ World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建�
 [设计复核](../records/2026-11-11-render-design-review.md)与
 [多视图核查](../records/2026-11-12-render-multiview-feasibility.md)；完整历史文本可从 Git 历史查阅。
 
-## 拾取待确认方案
+## 拾取上游需求建议
 
-推荐按实际可见像素返回身份；需要 Granit 可复用的 Pipeline 对象 ID 输出能力，不向上游引入
-Gneiss 的 World、RID 或编辑器协议。建议上游最小范围：每 View 输出整数 object_id 附件，
-覆盖深度与 MASK 裁剪语义，并明确透明混合物体的取舍；通过现有异步纹理回读读一个像素。
-验收覆盖遮挡、背景、裁剪透明、独立 View、目标销毁与在途回读。
-Gneiss 接入时固定场景身份/帧版本与 instance_key 对照，结果过期不得选中新实例。
-另一方案是 Gneiss CPU 射线求交，但与可见像素并非同一语义，不能静默替代。
-本轮已向用户询问这项选择；未确认前不新增占位拾取接口、不修改 Granit 仓库。
+推荐采用不透明及 MASK 物体的可见像素拾取，复用 Granit 的 object_id 与异步区域回读。
+完整接口范围、透明/MSAA 取舍、验收条件和 Gneiss 请求身份规则统一维护在
+[UPSTREAM-052：对象 ID 输出与异步像素拾取](UPSTREAM-052-granit-object-picking.md)。
+当前仅整理需求文档，尚未提交或实现上游能力；具体语义仍需评审，不将截图算作拾取完成。
