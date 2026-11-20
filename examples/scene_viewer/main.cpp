@@ -421,9 +421,19 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
                          return released;
                        ++round;
                        rendered_updates = 0;
-                       auto targets = create_targets();
-                       if (!targets)
-                         return targets;
+                       // 复用正常加载状态，验证卸载后的身份失效及重新实例化。
+                       const auto previous_scene = scene;
+                       completion = {};
+                       scene.unload();
+                       scene = {};
+                       state.camera.target = {};
+                       if (previous_scene.is_valid())
+                         return gneiss::error::internal;
+                       auto submitted = app->assets().reload<gneiss::scene>(scene_uri);
+                       if (!submitted)
+                         return submitted.error();
+                       scene_request = std::move(*submitted);
+                       return app->request_state(mode::loading);
                      } else {
                        app->request_exit();
                        return {};
