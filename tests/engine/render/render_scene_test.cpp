@@ -303,15 +303,14 @@ bool target_lifetime() {
   CHECK(!owner.destroy_target(*scene));
   render::frame_request request;
   request.views.push_back({.scene = *scene, .target = *target});
-  auto image = std::make_shared<render::frame_image>();
   // 目标提供输出尺寸；尚未初始化设备会拒绝接受，保留输入。
-  auto pending = owner.request_capture(std::move(request), image);
+  auto pending = owner.request_capture(std::move(request));
   CHECK(!pending && pending.error() == error::not_ready && request.views.size() == 1);
   CHECK(owner.destroy_target(*target));
   CHECK(!owner.destroy_target(*target));
   auto replacement = owner.create_target({64, 32});
   CHECK(replacement && *replacement != *target);
-  auto stale = owner.request_capture(std::move(request), image);
+  auto stale = owner.request_capture(std::move(request));
   CHECK(!stale && stale.error() == error::invalid_handle && request.views.size() == 1);
   render::device_stats stats;
   CHECK(owner.shutdown(stats).ok());

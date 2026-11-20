@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
-#include <gneiss/engine/core/math/types.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
-namespace gneiss {
+#include <gneiss/engine/core/math/types.hpp>
+namespace gneiss::render {
 /** 持久渲染实例的值描述；不包含 World、资产对象或后端指针。 */
 struct mesh_instance_description {
   rid mesh{};

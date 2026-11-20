@@ -6,7 +6,6 @@
 #include "function/render/detail/executor.hpp"
 #include "function/render/detail/resource_storage.hpp"
 #include "function/render/detail/scene.hpp"
-#include <deque>
 #include <gneiss/engine/function/render/service.hpp>
 #include <set>
 namespace gneiss::render {
@@ -47,7 +46,8 @@ public:
   [[nodiscard]] result<bool> can_prepare_frame();
   [[nodiscard]] result<std::uint64_t> submit(render::detail::render_frame_prepare prepare,
                                              frame_policy policy = frame_policy::replaceable,
-                                             std::size_t input_bytes = 0);
+                                             std::size_t input_bytes = 0,
+                                             std::function<void(error)> completed = {});
   result<void> dispatch(std::function<void()> operation, std::size_t bytes = 0,
                         std::weak_ptr<const void> payload = {}) {
     if (!executor_.is_running()) {
@@ -62,7 +62,6 @@ public:
         render::detail::render_command_policy::once, bytes, std::move(payload));
     return accepted ? result<void>{} : result<void>{accepted.error()};
   }
-  [[nodiscard]] result<std::optional<frame_completion>> try_take_required_completion();
   [[nodiscard]] queue_stats query_performance_stats() const noexcept;
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
   [[nodiscard]] texture_prepare_profile texture_profile() const noexcept {
@@ -74,6 +73,5 @@ private:
   render::backend::granit::backend backend_;
   // 执行器先停止，后端及其资源才能析构。
   render::detail::threaded_render_executor executor_;
-  std::deque<frame_completion> required_frame_completions_;
 };
 } // namespace gneiss::render

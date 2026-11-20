@@ -325,20 +325,15 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
     }
     // 同步后回读本帧，验证两组尺寸和独立相机。
     if (dual && smoke && !state.captured_dual) {
-      auto image = std::make_shared<render::frame_image>();
-      auto submitted = app->render().request_capture(std::move(frame), image, {512, 256});
+      auto submitted = app->render().request_capture(std::move(frame), {512, 256});
       if (!submitted)
         return submitted.error() == error::not_ready ? result<void>{} : submitted.error();
       auto finished = app->render().finish_frames();
       if (finished.failed())
         return finished;
-      auto completed = app->render().try_take_required_completion();
-      if (!completed)
-        return completed.error();
-      if (!*completed || (*completed)->sequence != *submitted)
-        return error::internal;
-      if ((*completed)->status.failed())
-        return (*completed)->status;
+      auto image = submitted->take();
+      if (!image)
+        return image.error();
       if (!has_distinct_views(*image))
         return error::internal;
       state.captured_dual = true;

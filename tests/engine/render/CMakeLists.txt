@@ -73,7 +73,7 @@ add_executable(
 target_include_directories(gneiss_render_executor_test PRIVATE
     "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_ENGINE)
-target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
+target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine gneiss_libassert)
 target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_executor_test)
 gneiss_target_output_directories(gneiss_render_executor_test)
@@ -276,7 +276,7 @@ add_executable(gneiss_render_scene_test
   "${PROJECT_SOURCE_DIR}/engine/src/function/render/detail/scene.cpp")
 target_include_directories(gneiss_render_scene_test PRIVATE "${PROJECT_SOURCE_DIR}/engine/src")
 target_compile_definitions(gneiss_render_scene_test PRIVATE GNEISS_BUILDING_ENGINE)
-target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_base)
+target_link_libraries(gneiss_render_scene_test PRIVATE gneiss::engine gneiss_base gneiss_libassert)
 gneiss_target_compile_warnings(gneiss_render_scene_test)
 gneiss_target_output_directories(gneiss_render_scene_test)
 set_target_properties(gneiss_render_scene_test PROPERTIES FOLDER "Tests")
@@ -287,3 +287,6 @@ set_tests_properties(gneiss.texture-load-service PROPERTIES TIMEOUT 30)
 
 add_test(NAME gneiss.render-texture-uploads COMMAND gneiss_asset_pixel_test --probe-uploads)
 set_tests_properties(gneiss.render-texture-uploads PROPERTIES TIMEOUT 90 LABELS "gpu;integration")
+
+add_test(NAME gneiss.render-capture-failure COMMAND gneiss_asset_pixel_test --probe-capture-failure)
+set_tests_properties(gneiss.render-capture-failure PROPERTIES TIMEOUT 30 LABELS "gpu;integration")

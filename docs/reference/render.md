@@ -12,7 +12,7 @@ Service 外壳仅拥有一个 PImpl。其资源存储与场景存储平级，资
 资源身份与场景消费状态位于 `gneiss::render::detail`。析构先排空并停止执行器，
 再按成员顺序释放后端、场景和资源；已接受任务使用期间不会提前销毁这些状态。
 执行器及命令调度类型归入 `gneiss::render::detail`，定义在 `detail/executor.hpp/.cpp`。
-Service 和 Application 通过 `frame_result.hpp` 使用完成回执和截图数据，不包含执行器头；
+截图通过 `capture_request.hpp` 返回独立请求，图像值定义在 `frame_result.hpp`；调用方不包含执行器头；
 普通模块的内部头文件集合也不再导出执行器。
 设备计数和单帧执行指标定义于 `statistics.hpp`，不再要求后端依赖 Service 或执行器声明。
 
@@ -21,8 +21,8 @@ Render 的 `reserve_mesh/texture/material()` 与 `create_*` 系列返回 `result
 `prepare_mesh/material/texture_data()` 返回 `result<shared_ptr<const ..._data>>`，
 只准备和登记 CPU 数据，不等待 GPU 上传。资源服务内部创建链同样使用值返回。
 
-普通帧使用 `render(frame_request&&)`，截图使用 `request_capture(frame_request&&, image)`；
-宿主不再准备或复用 packet。截图返回 `result<uint64_t>`，成功值是必达帧回执序号，接受不等待 GPU。
+普通帧使用 `render(frame_request&&)`，截图使用 `request_capture(frame_request&&, capture_size)`；
+宿主不再准备或复用 packet。截图返回 `result<capture_request>`，接受不等待 GPU，也不暴露执行器序号。
 内部 packet 提交和执行器的 `submit_frame/submit_command` 仍使用序号关联完成结果。
 底层 `rid_table::create(type, value)` 返回 `result<Identifier>`，句柄的 generation、类型与所属域校验不变。
 关闭流程仍通过 error 和统计参数同时报告错误及资源统计，失败时统计信息也必须保留。
@@ -187,8 +187,11 @@ shutdown 排空旧工作和完成回执后关闭设备；即使报告历史执�
 执行器的 `try_take_frame_completion()`、`try_take_command_completion()` 返回 `std::optional`，
 空值表示尚无可领取记录；领取成功移出队列。执行失败仍返回包含序号、统计和 `status` 的记录。
 `query_command_status()` 返回可选的状态快照，不消费完成记录。
-服务的 `try_take_required_completion()` 返回 `result<std::optional<render::frame_completion>>`：
-失败表示收集过程出错，成功的空值表示暂无必需帧，成功的非空值表示领取到记录。
+服务内部收集帧/命令错误；截图请求由执行线程直接发布终态，不需要主线程另行分发回执。
+`capture_request::ready()` 判断终态，`take()` 领取自有图像；未完成返回 not_ready，
+成功图像只能领取一次，后续返回 invalid_state。空请求不 ready，take 返回 invalid_state。
+`cancel()` 只对未完成请求生效，此后 take 返回 cancelled；它不强行中断 GPU 工作。
+请求副本共享同一结果和领取状态，服务关闭后仍可使用；丢弃请求不会中断已接受的工作。
 
 ## 持久场景更新与单窗口绘制
 
@@ -305,9 +308,9 @@ Application 在逻辑更新回调结束后统一发布 World 变化；截图入�
 完成回执消费后直接释放 packet，不再维护无消费者的容量回收缓存。
 
 宿主截图和普通帧可共用绑定同步、相机查询及 frame_request 构建。
-`request_capture` 要求非空 shared_ptr<frame_image>；失败保留请求且不写输出，成功接受后
-调用方须等对应 required completion 才读取图像，不得同时复用输出。必达帧不能被普通帧替换。
-测试中的同步截图辅助通过 finish_frames 与序号回执领取结果；生产宿主直接消费异步完成回执。
+`request_capture` 失败保留帧输入，成功返回独立请求；必达帧不能被普通帧替换。
+测试同步辅助用 finish_frames 等待后调用请求的 take；生产调用方逐帧查询 ready，不等待 GPU。
+shutdown 排空已接受工作并发布终态，历史执行错误不会阻止资源关闭。
 完整异步回读对象与取消语义尚未实现。
 
 旧 render_snapshot、对象提取与独立捕获入口已删除；Render 内部仍逐帧捕获持久场景。
@@ -363,7 +366,7 @@ GPU 表示在首次绘制时创建并复用。`view.target` 为零表示窗口�
 离屏输出采用目标尺寸，不触发窗口获取或呈现。设备仍须先通过 initialize 初始化。
 同帧支持多个视图，每个目标最多出现一次，窗口最多一个；改变尺寸需要创建新目标。
 
-`request_capture` 可以回读指定目标；接受成功后只能在对应完成回执到达后读取图像。
+`request_capture` 可以回读指定目标；接受成功后通过返回请求的 take 取得图像。
 `destroy_target` 按序释放后端表示，接受成功使 RID 失效；not_ready 表示未接受，须保留句柄重试。
 已接受的旧帧在释放命令前完成消费，后端继续负责 GPU 退休。服务关闭统一释放目标。
 该接口不是可忽略错误的析构入口。正常绘制与目标替换已通过 Windows 神庙双视图 GPU 验收，压力与设备丢失仍待验证。
@@ -420,3 +423,12 @@ Service 的初始化、关闭在所属线程串行调用。初始化使用新执
 成功只表示命令已入队，后台执行失败通过既有完成收集报告；not_ready 表示背压，调用者保留
 输入并重试。Render 不读取工程 URI，不持有宿主加载请求。环境包的加载归属见
 [资产环境包](assets.md#环境包)。
+
+## 协议类型归属
+
+`render::mesh_instance_description` 是场景命令的实例描述，只属于 Render。
+`material_data` 仍是资产装配与渲染资源发布共用的 CPU 材质负载，与 mesh_data、texture_data
+保持同一命名层级；它不是可渲染实例或 GPU 对象，不为收敛名称再建立一套副本。
+未使用的诊断阶段 render_snapshot 已删除；现有 frame_capture 保留，未恢复旧 World 全量快照接口。
+
+当前没有拾取 API。截图是颜色回读，不能用于证明对象身份拾取已经实现。

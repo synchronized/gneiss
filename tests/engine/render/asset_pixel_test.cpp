@@ -1156,6 +1156,76 @@ void run_texture_uploads() {
               static_cast<unsigned long long>(stats.total_live_count));
 }
 
+// 用有效但不相容的网格/材质触发真实后端错误，不模拟设备丢失。
+void run_capture_failure() {
+  app::configuration config;
+  config.enable_window = true;
+  config.window.visible = false;
+  config.window.width = config.window.height = 64;
+  auto application = app::application::create(config);
+  check(bool(application));
+  auto& app = **application;
+  auto& renderer = app.render();
+  rid scene{};
+  std::vector<render::capture_request> captures;
+  bool stopped{};
+  app.on_start("incompatible_resources", [&]() -> result<void> {
+    const std::array vertices{mesh_vertex{{-.5F, -.5F, 0}, {0, 0}},
+                              mesh_vertex{{.5F, -.5F, 0}, {1, 0}},
+                              mesh_vertex{{0, .5F, 0}, {.5F, 1}}};
+    const std::array<std::uint32_t, 3> indices{0, 1, 2};
+    mesh_view view;
+    view.vertices = vertices;
+    view.indices = indices;
+    auto mesh = renderer.create_mesh(view);
+    const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
+    texture_view texture;
+    texture.width = texture.height = 1;
+    texture.row_stride_bytes = 4;
+    texture.pixels = pixels;
+    auto tex = renderer.create_texture(texture);
+    check(bool(mesh) && bool(tex));
+    material_data material;
+    material.base_color_texture = *tex;
+    material.parameters.sampling[0].uv_set = 1;
+    auto mat = renderer.create_material(material);
+    auto created = renderer.create_scene();
+    check(bool(mat) && bool(created));
+    scene = *created;
+    render::scene_commands commands{.scene = scene, .entries = {}};
+    commands.entries.push_back(
+        render::create_instance{.id = {1}, .description = {.mesh = *mesh, .material = *mat}});
+    return renderer.submit(std::move(commands));
+  });
+  app.on_stop("cleanup_after_render_failure", [&] { stopped = true; });
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  app.add_system(app::stage::present, "capture_failure", [&]() -> result<void> {
+    check(std::chrono::steady_clock::now() < deadline);
+    render::frame_request frame;
+    frame.surface = app.window()->surface();
+    frame.views.push_back({.scene = scene});
+    auto submitted = renderer.request_capture(std::move(frame));
+    if (!submitted)
+      return submitted.error() == error::not_ready ? result<void>{} : submitted.error();
+    captures.push_back(std::move(*submitted));
+    return {};
+  });
+  const auto status = app.run();
+  check(!status && status.error() == error::invalid_argument && stopped && !renderer.is_valid());
+  bool failed{};
+  for (auto& capture : captures) {
+    check(capture.ready());
+    auto image = capture.take();
+    if (!image) {
+      check(image.error() == error::invalid_argument);
+      failed = true;
+    }
+  }
+  check(failed);
+  render::device_stats stats;
+  check(renderer.shutdown(stats).ok() && stats.total_live_count == 0);
+}
+
 // 使用真实后端验证预算拒绝不消费请求、重试回读，以及未显式排空时关闭目标。
 void run_queue_pressure() {
   window::service window;
@@ -1217,54 +1287,55 @@ void run_queue_pressure() {
   render::frame_request frame;
   frame.surface = window.surface();
   frame.views = {{.target = *first}, {.target = *second}, {}};
-  auto image = std::make_shared<render::frame_image>();
-  auto oversized = renderer.request_capture(std::move(frame), image);
+  auto oversized = renderer.request_capture(std::move(frame));
   check(!oversized && oversized.error() == error::out_of_memory && frame.views.size() == 3);
   frame.views.erase(frame.views.begin() + 1);
 
   unsigned rejected{};
-  std::vector<std::shared_ptr<render::frame_image>> images;
-  std::vector<std::uint64_t> sequences;
+  std::vector<render::capture_request> captures;
   for (unsigned n = 0; n < 32; ++n) {
     frame.surface = window.surface();
     frame.views = {{.target = *first}, {}};
-    image = std::make_shared<render::frame_image>();
-    auto accepted = renderer.request_capture(std::move(frame), image);
+    auto accepted = renderer.request_capture(std::move(frame));
     if (!accepted) {
       check(accepted.error() == error::not_ready && frame.views.size() == 2);
       ++rejected;
       check(renderer.finish_frames().ok());
-      accepted = renderer.request_capture(std::move(frame), image);
+      accepted = renderer.request_capture(std::move(frame));
     }
     check(bool(accepted));
-    sequences.push_back(*accepted);
-    images.push_back(std::move(image));
+    if (n % 2 == 0)
+      accepted->cancel();
+    captures.push_back(std::move(*accepted));
   }
   check(renderer.finish_frames().ok());
-  for (std::size_t n = 0; n < sequences.size(); ++n) {
-    auto completion = renderer.try_take_required_completion();
-    check(bool(completion) && completion->has_value());
-    check((*completion)->sequence == sequences[n] && (*completion)->status.ok() &&
-          !(*completion)->dropped);
-    check(images[n]->width == 512 && images[n]->height == 512 &&
-          images[n]->pixels.size() == 512 * 512 * 4);
+  for (auto& capture : captures) {
+    check(capture.ready());
+    auto image = capture.take();
+    if (!image && image.error() == error::cancelled)
+      continue;
+    check(bool(image) && image->width == 512 && image->height == 512 &&
+          image->pixels.size() == 512 * 512 * 4);
+    check(!capture.take());
   }
   const auto stats = renderer.query_performance_stats();
   check(stats.frame_input_bytes == 0 && stats.frame_input_high_watermark <= budget);
   // 最后一帧接受后立即关闭，不先调用 finish_frames 或逐个销毁目标。
   frame.surface = window.surface();
   frame.views = {{.target = *first}, {}};
-  image = std::make_shared<render::frame_image>();
-  check(bool(renderer.request_capture(std::move(frame), image)));
+  auto last = renderer.request_capture(std::move(frame));
+  check(bool(last));
   render::device_stats device;
   check(renderer.shutdown(device).ok());
+  auto image = last->take();
+  check(bool(image));
   check(device.total_live_count == 0 &&
         renderer.texture_status(*texture) == error::invalid_handle && !renderer.is_target(*first) &&
         !renderer.is_target(*second) && image->pixels.size() == 512 * 512 * 4);
   check(renderer.shutdown(device).ok());
   std::printf("queue pressure: captures=%zu rejected=%u input_peak=%zu budget=%zu "
               "queue_wait_max_ms=%.3f live_after_close=%llu\n",
-              sequences.size(), rejected, stats.frame_input_high_watermark, budget,
+              captures.size(), rejected, stats.frame_input_high_watermark, budget,
               static_cast<double>(stats.maximum_frame_queue_wait_ms),
               static_cast<unsigned long long>(device.total_live_count));
 }
@@ -1273,6 +1344,10 @@ void run_queue_pressure() {
 int main(int argc, char* argv[]) try {
   if (argc == 2 && std::string_view{argv[1]} == "--probe-uploads") {
     run_texture_uploads();
+    return 0;
+  }
+  if (argc == 2 && std::string_view{argv[1]} == "--probe-capture-failure") {
+    run_capture_failure();
     return 0;
   }
   if (argc == 2 && std::string_view{argv[1]} == "--probe-pressure") {

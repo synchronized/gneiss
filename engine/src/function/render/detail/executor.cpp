@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "function/render/detail/executor.hpp"
-#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/assert.hpp>
 #include <gneiss/engine/core/base/error.hpp>
 
 #include <algorithm>
@@ -44,6 +44,7 @@ struct threaded_render_executor::state final {
     frame_policy frame_policy{frame_policy::replaceable};
     frame_packet packet;
     render_frame_prepare prepare;
+    std::function<void(error)> completed{};
     render_command_callback command;
     render_command_policy command_policy{render_command_policy::once};
     double execution_ms{};
@@ -130,6 +131,10 @@ void threaded_render_executor::state::run() noexcept try {
               .count();
       // 完成队列只保存结果；在发布完成及 idle 前释放帧的 CPU 内容引用。
       task.packet = {};
+      if (task.completed) {
+        task.completed(frame_completion.status);
+        task.completed = {};
+      }
     } else {
       command_completion.sequence = task.sequence;
       command_completion.progress.stage = render_command_stage::preparing;
@@ -277,10 +282,12 @@ gneiss::error threaded_render_executor::initialize(render_frame_callback callbac
 result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet,
                                                              frame_policy policy,
                                                              render_frame_prepare prepare,
-                                                             std::size_t input_bytes) {
+                                                             std::size_t input_bytes,
+                                                             std::function<void(error)> completed) {
   if (!state_) {
     return gneiss::error::not_ready;
   }
+  GNEISS_ASSERT(!completed || policy == frame_policy::required, "完成回调只用于必达请求");
   std::optional<state::queued_task> retired;
   std::optional<frame_completion> dropped;
   std::uint64_t sequence{};
@@ -338,6 +345,7 @@ result<std::uint64_t> threaded_render_executor::submit_frame(frame_packet packet
                                .frame_policy = policy,
                                .packet = std::move(packet),
                                .prepare = std::move(prepare),
+                               .completed = std::move(completed),
                                .command = {},
                                .input_bytes = input_bytes,
                                .enqueued_at = std::chrono::steady_clock::now()});

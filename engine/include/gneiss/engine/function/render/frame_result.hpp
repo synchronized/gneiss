@@ -15,7 +15,7 @@ struct frame_completion final {
   frame_policy policy{frame_policy::replaceable};
 };
 
-/** 内部诊断回读：紧密 RGBA8，所有权属于请求；仅完成回执后可读取。 */
+/** 截图结果：紧密 RGBA8；由独立请求完成后移交给调用方。 */
 struct frame_image final {
   std::uint32_t width{};
   std::uint32_t height{};

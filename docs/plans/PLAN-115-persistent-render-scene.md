@@ -5,8 +5,9 @@
 
 ## 状态与范围
 
-2026-11-20 复核：**主调用链已迁移，计划仍未完成**。本次仅核对源码、测试和既有验收记录，
-不修改实现、不重复运行 GPU 测试，也不将历史构建成功当成当前完整产品验收。
+2026-11-21：**主调用链已迁移，前四组已落实故障收尾、独立截图与命名清理，产品回归通过，计划仍未完成**。
+本轮结果见[独立请求与产品回归验收](../records/2026-11-21-render-request-acceptance.md)。
+真实设备丢失、拾取与整机预算仍不能用普通截图成功代替。
 
 World 管理游戏状态，Render 管理持久可渲染状态，通过单向批量命令同步。
 已接受的所有权与边界见 [ADR-118](../decisions/ADR-118-persistent-render-scene.md)，
@@ -22,13 +23,13 @@ World 管理游戏状态，Render 管理持久可渲染状态，通过单向批�
 
 | 阶段 | 状态 | 已落实与证据 | 尚未满足的原完成条件 |
 | --- | --- | --- | --- |
-| P0 边界与身份 | 核心完成，命名尾项未完成 | render::service 单一实现、私有 Granit 后端、资源身份/版本及队列关闭契约已落地；见 service.hpp、detail/service_impl.hpp | 资源协议仍有根命名空间类型，需与 P6 一次复核其归属；不能把全部命名收敛标完 |
+| P0 边界与身份 | 已完成（当前边界） | render::service 单一实现、私有 Granit 后端、资源身份/版本及队列关闭契约已落地；见 service.hpp、detail/service_impl.hpp | mesh_instance_description 已归 render；material_data 作为共用 CPU 负载保留根命名空间，已通过 shared 构建与定向回归 |
 | P1 持久场景与首个消费者 | 已完成（Windows 定向闭环） | scene_commands → Service → scene::apply/extract → Granit；查看器、pending/ready、纹理热重载及实例保活已有 CPU/GPU 证据 | 不新增平行预览接口；扩展产品流程验收归 P3 |
-| P2 版本与关闭 | 部分完成 | 资源发布/帧捕获共用有序执行器；旧版本保活；正常重载关闭与执行器失败回执已有证据 | Service → Application 的完整失败收尾，以及真实设备丢失/在途 GPU 资源退休的故障验收未完成 |
-| P3 World 与产品接入 | 代码迁移完成，产品验收未完成 | Runtime/Editor 实际 synchronize/present System 均使用 world_render_binding 和 frame_request；旧 World 实例快照链路已删除 | 当前版本编辑、撤销、换绑/热重载、场景切换与视口/Gizmo 对齐的连贯产品验收没有本轮证据 |
-| P4 多视图与回读/拾取 | 部分完成 | 多离屏目标、独立相机/尺寸、窗口合成、Granit 剔除和异步截图已接通；双视图 GPU 验收通过 | request_capture 仍复用 required completion；独立回读请求/取消及拾取闭环没有实现证据，不能用截图替代拾取验收 |
+| P2 版本与关闭 | 部分完成 | 资源发布/帧捕获共用有序执行器；旧版本保活；正常重载关闭与执行器失败回执已有证据 | 真实后端 UV1 不相容错误 → Service → Application 收尾已通过；真实设备丢失/在途 GPU 退休故障验收仍未完成 |
+| P3 World 与产品接入 | 代码迁移与定向产品回归完成 | Runtime/Editor 实际 synchronize/present System 均使用 world_render_binding 和 frame_request；旧 World 实例快照链路已删除 | 编辑会话撤销/Gizmo、Runtime 场景切换、资产工作流及原生窗口交互均已定向通过；完整手工 GUI 连续验收仍未执行 |
+| P4 多视图与回读/拾取 | 部分完成 | 多离屏目标、独立相机/尺寸、窗口合成、Granit 剔除和异步截图已接通；双视图 GPU 验收通过 | 独立 capture_request 的成功/取消/关闭后领取与失败终态已通过；拾取语义与后端能力待确认 |
 | P5 背压与消费 | 有界队列闭环完成，原阶段条件未全部完成 | 数量/字节预算、拒绝后保留输入、重试、替换帧、释放后回执、多线程消费及真实纹理压力测试已有证据 | 实际 GPU 饱和、单线程/浏览器非阻塞消费验收及代表性预算依据未完成 |
-| P6 清理与测试迁移 | 主旧路径已删除，尾项未完成 | 无旧 render_service 类型、render_scene_state、extract_render_snapshot 实现；现有测试使用正式场景/资源入口 | 资源协议命名归属与残留诊断名称仍需一次聚焦复核，不为消除字符串盲目改名 |
+| P6 清理与测试迁移 | 已完成（当前迁移范围） | 无旧 render_service 类型、render_scene_state、extract_render_snapshot 实现；现有测试使用正式场景/资源入口 | 已复核资源协议归属、删除无使用者的 render_snapshot 诊断项及公共 required completion 队列；定向验证通过 |
 | P7 文档与整体验收 | 部分完成 | Reference、架构边界和 Windows shared/static 渲染验收有记录；0.73.2 可见阴影通过 | 依赖 P2—P6 剩余项；新版 Release/实际 GPU 标识及动态更新量等测量尚未闭环；平台限制必须保留 |
 
 ### 源码与测试定位
@@ -36,14 +37,15 @@ World 管理游戏状态，Render 管理持久可渲染状态，通过单向批�
 - [Service 契约](../../engine/include/gneiss/engine/function/render/service.hpp)：生命周期、目标释放、截图完成方式。
 - [Service 实现](../../engine/src/function/render/service.cpp)与[场景提交](../../engine/src/function/render/service_scenes.cpp)：回执、关闭、按序捕获。
 - [执行器](../../engine/src/function/render/detail/executor.cpp)：当前使用 std::thread，不能据此声称浏览器非阻塞消费已完成。
-- [资源协议](../../engine/include/gneiss/engine/function/render/render_resource_data.hpp)与[实例描述](../../engine/include/gneiss/engine/function/render/render_scene.hpp)：material_data、mesh_instance_description 仍位于 gneiss 根命名空间；这只是待复核归属，不是自动判定必须改名。
+- [资源协议](../../engine/include/gneiss/engine/function/render/render_resource_data.hpp)与[实例描述](../../engine/include/gneiss/engine/function/render/render_scene.hpp)：material_data 是资产装配与 Render 共用负载；mesh_instance_description 已归 render。
 - [World 绑定](../../engine/src/function/scene/rendering/world_render_binding.cpp)、[Runtime](../../runtime/application.cpp)、[Editor](../../editor/application.cpp)：变化合并、同步以及实际呈现入口。
 - [场景测试](../../tests/engine/render/render_scene_test.cpp)、[执行器测试](../../tests/engine/render/render_executor_test.cpp)、[绑定测试](../../tests/engine/scene/world_render_binding_test.cpp)：命令身份、版本/寿命、队列行为与失败重试。
 - [像素验收](../../tests/engine/render/asset_pixel_test.cpp)、[查看器](../../examples/scene_viewer/main.cpp)：纹理更新、材质、阴影、双视图与卸载重载。
 
-搜索旧名时发现 Application 私有成员 render_service_ 和 diagnostics::loop_phase::render_snapshot；
-前者不是旧服务类型，后者是历史诊断名称，都不能算旧对象提取链路仍然存在。
-本次未找到 Render 的拾取请求入口，不以未来示意 API 或同名外部能力代替实现。
+Application 私有成员 render_service_ 不是旧服务类型，不为消除字符串改名。
+无使用者的 render_snapshot 诊断项已删除，现有 frame_capture 保留。
+Granit 0.73.2 的 scene_renderable 虽有 object_id/payload，但 Pipeline 没有公开对象 ID 输出/
+拾取读取入口；不得仅凭字段存在就宣称支持拾取。
 
 ## 当前边界与已解除阻塞
 
@@ -52,7 +54,7 @@ World 管理游戏状态，Render 管理持久可渲染状态，通过单向批�
 - frame_request 使用 window::surface_state；设备初始化使用 window::native_handle，已不是 native_window_info。
 - destroy_scene 立即使接受侧 RID 失效，在途任务保活；destroy_target 仍可能因队满返回 not_ready，
   成功接受才失效。目标不具备不可拒绝释放语义，不能把场景的析构策略套给目标。
-- 普通帧完成收集在 Service 内；截图调用方仍领取 required completion。不要将其写成所有回读协议已收敛。
+- 普通帧完成收集在 Service 内；截图返回独立请求，取消仅放弃结果，关闭排空已接受工作。尚未实现拾取。
 - Granit 0.73.2 已解除配套资产与标准 PBR 阴影阻塞。关闭投射后接收面变亮、物体仍可见，
   Windows shared/static 已验证。Gneiss 未新增 receive_shadows 接口或验收独立关闭接收。
 - GPU 计时有连续有效样本，但仍是单次 Pipeline 样本，不是多视图总耗时。默认预算保持不变。
@@ -61,13 +63,13 @@ World 管理游戏状态，Render 管理持久可渲染状态，通过单向批�
 
 以下为现有计划条件的归并，不新增系统或另开架构项目。
 
-1. **故障收尾（P2/P7）**：验证失败沿 Backend → Service → Application 传播，待处理必达请求
+1. **故障收尾（P2/P7，普通后端错误已验收）**：验证失败沿 Backend → Service → Application 传播，待处理必达请求
    有终态，清理继续执行、关闭不挂起。执行器注入失败和真实设备丢失分别记录，不能互相替代。
-2. **产品交互（P3/P4/P7）**：复用现有 Editor/Runtime 用例，在当前基线验证编辑/撤销、组件换绑、
+2. **产品交互（P3/P4/P7，自动化定向回归已通过，手工连续验收待做）**：复用现有 Editor/Runtime 用例，在当前基线验证编辑/撤销、组件换绑、
    异步资源就绪、场景切换、视口尺寸与相机/Gizmo 对齐、关闭回收；查看器通过不能代替该链路。
-3. **回读与拾取（P4）**：先明确真实调用方及请求生命周期、取消/失败语义，再补独立回读/拾取闭环；
+3. **回读与拾取（P4，独立截图已验收，拾取待确认）**：先明确真实调用方及请求生命周期、取消/失败语义，再补独立回读/拾取闭环；
    若选择延期，应明确修订原 P4 范围，不能直接勾选完成。
-4. **命名与退出扫描（P0/P6）**：一次性核对资源协议共享类型的职责归属及诊断残留，按实际消费者
+4. **命名与退出扫描（P0/P6，已完成）**：一次性核对资源协议共享类型的职责归属及诊断残留，按实际消费者
    决定保留/迁移；已有旧路径删除不重做，不为命名增加转发层。
 5. **测量与平台（P5/P7）**：先用 0.73.2 跑 Release 单/双视图并记录实际 GPU/驱动，区分主线程、
    单次 Pipeline 与多视图耗时；补动态变换量、队列峰值和回收数据。神庙未触及预算时不得据此定默认值。
@@ -392,3 +394,13 @@ World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建�
 原逐轮实施日志不再作为当前状态来源：GPU/压力/升级证据见上述记录，初始设计见
 [设计复核](../records/2026-11-11-render-design-review.md)与
 [多视图核查](../records/2026-11-12-render-multiview-feasibility.md)；完整历史文本可从 Git 历史查阅。
+
+## 拾取待确认方案
+
+推荐按实际可见像素返回身份；需要 Granit 可复用的 Pipeline 对象 ID 输出能力，不向上游引入
+Gneiss 的 World、RID 或编辑器协议。建议上游最小范围：每 View 输出整数 object_id 附件，
+覆盖深度与 MASK 裁剪语义，并明确透明混合物体的取舍；通过现有异步纹理回读读一个像素。
+验收覆盖遮挡、背景、裁剪透明、独立 View、目标销毁与在途回读。
+Gneiss 接入时固定场景身份/帧版本与 instance_key 对照，结果过期不得选中新实例。
+另一方案是 Gneiss CPU 射线求交，但与可见像素并非同一语义，不能静默替代。
+本轮已向用户询问这项选择；未确认前不新增占位拾取接口、不修改 Granit 仓库。

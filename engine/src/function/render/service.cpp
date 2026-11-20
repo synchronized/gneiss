@@ -10,7 +10,43 @@
 #include <gneiss/engine/core/logging/logger.hpp>
 #include <gneiss/engine/function/render/service.hpp>
 #include <limits>
+#include <mutex>
 namespace gneiss::render {
+struct capture_request::state {
+  std::mutex mutex;
+  bool finished{};
+  bool consumed{};
+  error status{error::not_ready};
+  frame_image image;
+};
+bool capture_request::ready() const {
+  if (!state_)
+    return false;
+  std::lock_guard lock(state_->mutex);
+  return state_->finished;
+}
+void capture_request::cancel() const {
+  if (!state_)
+    return;
+  std::lock_guard lock(state_->mutex);
+  if (state_->finished)
+    return;
+  state_->finished = true;
+  state_->status = error::cancelled;
+}
+result<frame_image> capture_request::take() {
+  if (!state_)
+    return error::invalid_state;
+  std::lock_guard lock(state_->mutex);
+  if (state_->consumed)
+    return error::invalid_state;
+  if (!state_->finished)
+    return error::not_ready;
+  if (state_->status.failed())
+    return state_->status;
+  state_->consumed = true;
+  return std::move(state_->image);
+}
 namespace {
 void log_shutdown(const queue_stats& render_stats, const device_stats& stats,
                   error shutdown_result) {
@@ -171,13 +207,6 @@ gneiss::error service::implementation::collect_completions() {
       return command->status;
   }
   while (auto completion = executor_.try_take_frame_completion()) {
-    if (completion->policy == frame_policy::required) {
-      required_frame_completions_.push_back({.sequence = completion->sequence,
-                                             .status = completion->status,
-                                             .execution = completion->execution,
-                                             .dropped = completion->dropped,
-                                             .policy = completion->policy});
-    }
     if (completion->dropped) {
       continue;
     }
@@ -203,24 +232,13 @@ result<bool> service::implementation::can_prepare_frame() {
   return true;
 }
 result<std::uint64_t> service::implementation::submit(render::detail::render_frame_prepare prepare,
-                                                      frame_policy policy,
-                                                      std::size_t input_bytes) {
+                                                      frame_policy policy, std::size_t input_bytes,
+                                                      std::function<void(error)> completed) {
   const auto completion_result = collect_completions();
   if (completion_result != gneiss::error::success) {
     return completion_result;
   }
-  return executor_.submit_frame({}, policy, std::move(prepare), input_bytes);
-}
-
-result<std::optional<frame_completion>> service::implementation::try_take_required_completion() {
-  const auto status = collect_completions();
-  if (status.failed())
-    return status;
-  if (required_frame_completions_.empty())
-    return std::optional<frame_completion>{};
-  auto completion = std::move(required_frame_completions_.front());
-  required_frame_completions_.pop_front();
-  return std::optional<frame_completion>{std::move(completion)};
+  return executor_.submit_frame({}, policy, std::move(prepare), input_bytes, std::move(completed));
 }
 
 queue_stats service::implementation::query_performance_stats() const noexcept {
@@ -268,7 +286,6 @@ gneiss::error service::implementation::shutdown(device_stats& stats) {
   }
   const auto render_stats = query_performance_stats();
   executor_.stop();
-  required_frame_completions_.clear();
   log_shutdown(render_stats, stats, completion ? completion->status : submit_result.error());
   if (frame_result != gneiss::error::success) {
     return frame_result;
@@ -320,16 +337,30 @@ result<void> service::render(render::frame_request&& request) {
   auto submitted = submit_request(request, frame_policy::replaceable, {});
   return submitted ? result<void>{} : result<void>{submitted.error()};
 }
-result<std::uint64_t> service::request_capture(render::frame_request&& request,
-                                               std::shared_ptr<frame_image> image,
-                                               target_description capture_size) {
-  if (!image || bool(capture_size.width) != bool(capture_size.height))
+result<capture_request> service::request_capture(render::frame_request&& request,
+                                                 target_description capture_size) {
+  if (bool(capture_size.width) != bool(capture_size.height))
     return error::invalid_argument;
-  return submit_request(request, frame_policy::required, std::move(image), capture_size);
+  auto state = std::make_shared<capture_request::state>();
+  auto image = std::make_shared<frame_image>();
+  auto accepted = submit_request(request, frame_policy::required, image, capture_size,
+                                 [state, image](error status) {
+                                   std::lock_guard lock(state->mutex);
+                                   if (state->finished)
+                                     return;
+                                   state->status = status;
+                                   if (status.ok())
+                                     state->image = std::move(*image);
+                                   state->finished = true;
+                                 });
+  if (!accepted)
+    return accepted.error();
+  return capture_request{std::move(state)};
 }
 result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
                                               std::shared_ptr<frame_image> image,
-                                              target_description capture_size) {
+                                              target_description capture_size,
+                                              std::function<void(error)> completed) {
   if (image && request.views.size() > 1 &&
       std::ranges::none_of(request.views, [](const auto& view) { return !view.target; }))
     return error::unsupported; // 多视图截图明确返回窗口合成结果。
@@ -407,14 +438,11 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
         packet->readback = std::move(image);
         return packet;
       },
-      policy, input_bytes);
+      policy, input_bytes, std::move(completed));
   if (!accepted)
     return accepted.error();
   request = {};
   return *accepted;
-}
-result<std::optional<frame_completion>> service::try_take_required_completion() {
-  return impl_->try_take_required_completion();
 }
 queue_stats service::query_performance_stats() const noexcept {
   return impl_->query_performance_stats();

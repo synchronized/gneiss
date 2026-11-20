@@ -781,16 +781,24 @@ int main(int argc, char** argv) {
         return gneiss::error::success;
       }) != gneiss::error::success)
     return 27;
-  auto prepare_sequence =
-      failed_prepare.submit_frame({}, gneiss::render::frame_policy::required,
-                                  []() -> gneiss::result<gneiss::render::detail::frame_packet> {
-                                    return gneiss::error::unsupported;
-                                  });
+  unsigned terminal_calls{};
+  auto terminal_status = gneiss::error::unknown;
+  auto prepare_sequence = failed_prepare.submit_frame(
+      {}, gneiss::render::frame_policy::required,
+      []() -> gneiss::result<gneiss::render::detail::frame_packet> {
+        return gneiss::error::unsupported;
+      },
+      0,
+      [&](gneiss::error status) {
+        ++terminal_calls;
+        terminal_status = status;
+      });
   if (!prepare_sequence || failed_prepare.flush() != gneiss::error::success)
     return 28;
   auto failure = failed_prepare.try_take_frame_completion();
   if (!failure || failure->sequence != *prepare_sequence ||
-      failure->status != gneiss::error::unsupported || failure->dropped || draw_calls != 0)
+      failure->status != gneiss::error::unsupported || failure->dropped || draw_calls != 0 ||
+      terminal_calls != 1 || terminal_status != gneiss::error::unsupported)
     return 29;
   // 后端已开始执行后失败：保留原错误回执，归还载荷，并允许关闭清理继续执行。
   for (const auto policy :

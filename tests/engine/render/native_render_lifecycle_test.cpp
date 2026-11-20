@@ -26,9 +26,6 @@ int main() try {
   if (!target || !resources.is_target(*target) || other.is_target(*target) ||
       !resources.destroy_target(*target))
     return 31;
-  auto completion = resources.try_take_required_completion();
-  if (!completion || completion->has_value())
-    return 30;
   const std::array vertices{native::mesh_vertex{{-0.5F, -0.5F, 0.0F}, {0.0F, 0.0F}},
                             native::mesh_vertex{{0.5F, -0.5F, 0.0F}, {1.0F, 0.0F}},
                             native::mesh_vertex{{0.0F, 0.5F, 0.0F}, {0.5F, 1.0F}}};

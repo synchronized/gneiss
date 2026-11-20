@@ -6,6 +6,7 @@
 #include <gneiss/engine/core/base/result.hpp>
 #include <gneiss/engine/core/tasks/wakeup_signal.hpp>
 #include <gneiss/engine/export.hpp>
+#include <gneiss/engine/function/render/capture_request.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
 #include <gneiss/engine/function/render/frame_request.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
@@ -51,9 +52,6 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API error finish_frames();
   GNEISS_ENGINE_API void
   set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
-  /** 领取必需帧完成记录；空值表示暂无记录，失败表示收集完成结果时出错。 */
-  [[nodiscard]] GNEISS_ENGINE_API result<std::optional<frame_completion>>
-  try_take_required_completion();
   [[nodiscard]] GNEISS_ENGINE_API queue_stats query_performance_stats() const noexcept;
   /** initialize 完成后读取；设备重建后重新获取。 */
   [[nodiscard]] GNEISS_ENGINE_API texture_prepare_profile texture_profile() const noexcept;
@@ -76,11 +74,9 @@ public:
   [[nodiscard]] GNEISS_ENGINE_API result<void> render(render::frame_request&& request);
   /** 异步提交必达截图；多视图返回窗口合成结果，无窗口则 unsupported；失败不消费请求。
    * capture_size 为零时使用目标尺寸；指定尺寸仅覆盖窗口合成截图，不修改窗口表面。
-   * image 必须非空，成功接受后至对应完成回执前不得读写或复用于其他请求。
-   * 暂复用 required completion，未来统一为独立回读请求。 */
-  [[nodiscard]] GNEISS_ENGINE_API result<std::uint64_t>
-  request_capture(render::frame_request&& request, std::shared_ptr<frame_image> image,
-                  target_description capture_size = {});
+   * 返回独立请求；无需领取帧完成记录。关闭时排空已接受请求，结果仍可领取。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<capture_request>
+  request_capture(render::frame_request&& request, target_description capture_size = {});
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_ENGINE_API void close_resources() noexcept;
@@ -153,7 +149,8 @@ private:
                                     std::weak_ptr<const void> payload = {});
   result<std::uint64_t> submit_request(render::frame_request&, frame_policy,
                                        std::shared_ptr<frame_image>,
-                                       target_description capture_size = {});
+                                       target_description capture_size = {},
+                                       std::function<void(error)> completed = {});
   template <typename Resource>
   result<std::shared_ptr<const Resource>>
   track(std::shared_ptr<const Resource> resource,

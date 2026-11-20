@@ -55,20 +55,15 @@ inline void add_scene_render_systems(app::application& app, world& world,
 // 只供像素验收等待 GPU 回读；生产宿主直接消费异步完成回执。
 inline error capture_frame(render::service& renderer, render::frame_request&& frame,
                            render::target_description extent, render::frame_image& output) {
-  auto image = std::make_shared<render::frame_image>();
-  auto submitted = renderer.request_capture(std::move(frame), image, extent);
+  auto submitted = renderer.request_capture(std::move(frame), extent);
   if (!submitted)
     return submitted.error();
   auto finished = renderer.finish_frames();
+  auto image = submitted->take();
+  if (!image)
+    return image.error();
   if (finished.failed())
     return finished;
-  auto completed = renderer.try_take_required_completion();
-  if (!completed)
-    return completed.error();
-  if (!*completed || (*completed)->sequence != *submitted)
-    return error::internal;
-  if ((*completed)->status.failed())
-    return (*completed)->status;
   output = std::move(*image);
   return error::success;
 }
