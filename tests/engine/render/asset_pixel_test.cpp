@@ -1013,7 +1013,7 @@ void run_scene(gneiss::tasks::execution_mode mode, bool pbr = false) {
   files.color(std::byte{20}, std::byte{240});
   load(4U, false);
 }
-// 每个候选都经过真实 UI 纹理采样和回读，避免只验证 CPU 内容指针。
+// 先逐版本验证采样，再连续提交上传和绘制，验证背压重试与最终像素。
 void run_texture_uploads() {
   window::service window;
   check(window
@@ -1037,19 +1037,29 @@ void run_texture_uploads() {
   const std::array commands{
       ui_draw_command{.texture = *texture, .clip_max = {128, 128}, .index_count = 6}};
   unsigned captures{};
-  for (unsigned n = 0; n < 16; ++n) {
+  unsigned publication_rejections{};
+  unsigned frame_rejections{};
+  for (unsigned n = 0; n < 48; ++n) {
     auto next = std::make_shared<texture_data>();
     next->width = next->height = 256;
     next->format = texture_format::rgba8_unorm;
     next->color_space = texture_color_space::srgb;
     next->levels = {{.width = 256, .height = 256, .pixels = std::vector<std::byte>(bytes)}};
-    const unsigned channel = n % 2 ? 2 : 0;
+    const unsigned channel = n == 47 ? 1 : (n % 2 ? 2 : 0);
     auto& pixels = next->levels.front().pixels;
     for (std::size_t i = 0; i < pixels.size(); i += 4) {
       pixels[i + channel] = std::byte{255};
       pixels[i + 3] = std::byte{255};
     }
-    check(renderer.replace_texture(id, next).ok());
+    auto previous = renderer.share_texture(id);
+    auto published = renderer.replace_texture(id, next);
+    if (!published) {
+      check(published.error() == error::not_ready && renderer.share_texture(id) == previous);
+      ++publication_rejections;
+      check(renderer.finish_frames().ok());
+      published = renderer.replace_texture(id, next);
+    }
+    check(bool(published) && renderer.share_texture(id) == next);
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     for (;;) {
       render::frame_request frame;
@@ -1062,23 +1072,42 @@ void run_texture_uploads() {
                           .commands = commands},
                          renderer)
                 .ok());
+      // 后 32 个版本连续发布并提交绘制，只在背压时等待；最后使用独有的绿色验收。
+      if (n >= 16 && n < 47) {
+        auto submitted = renderer.render(std::move(frame));
+        if (!submitted) {
+          check(submitted.error() == error::not_ready);
+          ++frame_rejections;
+          check(renderer.finish_frames().ok());
+          submitted = renderer.render(std::move(frame));
+        }
+        check(bool(submitted));
+        break;
+      }
+      // 排空此前可丢弃的绘制，避免验收捕获本身受到帧槽位背压。
+      check(renderer.finish_frames().ok());
       render::frame_image image;
       check(test_support::capture_frame(renderer, std::move(frame), {128, 128}, image).ok());
       ++captures;
       check(image.pixels.size() == 128 * 128 * 4);
       const auto center = (64 * 128 + 64) * 4;
       if (std::to_integer<unsigned>(image.pixels[center + channel]) > 200 &&
-          std::to_integer<unsigned>(image.pixels[center + (2 - channel)]) < 30)
+          std::to_integer<unsigned>(image.pixels[center + (channel + 1) % 3]) < 30 &&
+          std::to_integer<unsigned>(image.pixels[center + (channel + 2) % 3]) < 30)
         break;
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
     }
   }
-  check(renderer.query_performance_stats().command_payload_bytes == 0);
+  const auto performance = renderer.query_performance_stats();
+  check(performance.command_payload_bytes == 0 &&
+        performance.command_payload_high_watermark <= bytes);
   render::device_stats stats;
   check(renderer.shutdown(stats).ok() && stats.total_live_count == 0);
   check(renderer.texture_status(id) == error::invalid_handle);
-  std::printf("texture uploads: versions=16 captures=%u live_after_close=%llu\n", captures,
+  std::printf("texture uploads: sequential=16 burst=32 captures=%u publication_rejected=%u "
+              "frame_rejected=%u live_after_close=%llu\n",
+              captures, publication_rejections, frame_rejections,
               static_cast<unsigned long long>(stats.total_live_count));
 }
 
