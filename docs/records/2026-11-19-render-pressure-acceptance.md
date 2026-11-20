@@ -293,3 +293,29 @@ render_scene、asset-pixel、scene-viewer-dual、render-texture-uploads、render
 Windows Clang Debug static：同样三个目标构建及上述六项测试全部通过。
 clang-format 检查、git diff --check 通过，本次依赖升级完成本地定向验收。
 未覆盖 Linux/Web、安装包 Consumer、真实设备丢失或新一轮 Release 性能矩阵；未执行远端发布。
+
+
+## 2026-11-20 Granit 0.73.2 标准 PBR 可见阴影接入
+
+锁定远端 v0.73.2 提交 `8eb744482de1dbd380393e0d8a28ae5339e51fb2`，源码归档 SHA256
+`20aacb80356b51f12fdbf05ad2c1a7540ba99972bbd61b7ffe2cb07056496ac4`。
+上游标准 PBR 新增方向光阴影采样，通过 flat varying 传递接收标志，并重新生成配套材质包。
+Gneiss 更新依赖锁定、PACKAGE 最低版本及缓存迁移检查，未修改 Granit 源码。
+
+在现有 asset-pixel 测试中恢复投射开关的像素差异检查，并增加接收面方向性检查：
+关闭投射前后蓝色区域仍为接收面，关闭后其中至少一个像素的蓝色通道增加超过 3，
+同时中心红色物体仍可见。此检查避免把任意画面差异当作阴影生效，不依赖固定整图黄金文件。
+共享构建及 render_scene、asset-pixel、scene-viewer-dual、render-texture-uploads、render-pressure、
+granit_version_cache 六项定向测试通过，原有纹理和材质检查未放宽。
+
+独立双视图诊断：60 帧预热、300 帧采样，184 个有效 GPU 样本、0 次 unavailable；
+队列拒绝/替换为 0，关闭排空后命令和帧载荷均为 0。仍为单次 Pipeline 时间，非多视图合计，
+不据此更改预算默认值。
+
+此前标准 PBR 可见阴影缺口已在 Gneiss 消费链路验证修复。不扩展公开 receive_shadows 接口，
+不声称独立关闭接收已由 Gneiss 验收；PLAN-115 的真实设备丢失和跨硬件预算等剩余项不因此关闭。
+
+
+Windows Clang Debug static 的查看器、像素测试和场景测试构建通过，同样六项定向测试全部通过。
+clang-format 与 git diff --check 通过。本轮未执行 Linux/Web、安装包 Consumer 或 Release 性能矩阵，
+未推送或发布 Gneiss；结果仅覆盖上述本地共享/静态链路。

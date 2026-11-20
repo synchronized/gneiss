@@ -766,9 +766,23 @@ void run_material_states() {
   check(opaque_shadow == mask_shadow && opaque_shadow != invisible_mask);
   std::vector<std::byte> no_shadow;
   const auto visible = state_pixel({.receiver = true, .disable_shadow_cast = true}, &no_shadow);
-  // 标准 PBR 尚未采样阴影贴图；这里只验证关闭投射不会隐藏主视图实例。
-  check(no_shadow != invisible_mask);
+  // 关闭投射应改变接收面的阴影，同时保留主视图实例。
+  check(no_shadow != opaque_shadow && no_shadow != invisible_mask);
   check(visible[0] > visible[2] + 30U);
+  // 蓝色接收面在关闭投射后应有像素变亮，避免只因提交差异就误判为阴影生效。
+  bool receiver_brightened{};
+  check(no_shadow.size() == opaque_shadow.size());
+  for (std::size_t offset = 0; offset < no_shadow.size(); offset += 4) {
+    const auto red = std::to_integer<unsigned>(no_shadow[offset]);
+    const auto blue = std::to_integer<unsigned>(no_shadow[offset + 2]);
+    const auto shadow_red = std::to_integer<unsigned>(opaque_shadow[offset]);
+    const auto shadow_blue = std::to_integer<unsigned>(opaque_shadow[offset + 2]);
+    if (blue > red + 30U && shadow_blue > shadow_red + 30U && blue > shadow_blue + 3U) {
+      receiver_brightened = true;
+      break;
+    }
+  }
+  check(receiver_brightened);
 }
 
 void run_material_channels() {
