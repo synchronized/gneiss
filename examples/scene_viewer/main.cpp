@@ -499,6 +499,15 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure, bool 
                 static_cast<unsigned long long>(measured_queue.rejected_commands),
                 static_cast<unsigned long long>(measured_queue.replaced_frames),
                 static_cast<double>(measured_queue.maximum_frame_queue_wait_ms));
+    std::printf("{\"render_drained\":{\"command_bytes\":%zu,\"frame_bytes\":%zu},"
+                "\"gpu_timing\":{\"supported\":%s,\"latest_valid\":%s,\"samples\":%llu,"
+                "\"unavailable\":%llu,\"latest_frame_ms\":%.3f}}\n",
+                measured_queue.command_payload_bytes, measured_queue.frame_input_bytes,
+                measured_queue.gpu_timing_supported ? "true" : "false",
+                measured_queue.latest_gpu_timing_valid ? "true" : "false",
+                static_cast<unsigned long long>(measured_queue.gpu_timing_sample_count),
+                static_cast<unsigned long long>(measured_queue.gpu_timing_unavailable_count),
+                static_cast<double>(measured_queue.latest_gpu_frame_ms));
   }
   return 0;
 }
