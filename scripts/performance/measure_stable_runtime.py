@@ -24,6 +24,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path, help="稳定运行时样例可执行文件")
     parser.add_argument("--output", type=Path, required=True, help="输出 JSON 文件")
+    parser.add_argument("--dual-view", action="store_true", help="采集双视图模式")
     parser.add_argument("--samples", type=int, default=10, help="有效样本数，默认 10")
     parser.add_argument("--warmup-runs", type=int, default=1, help="不计入结果的预热进程数")
     parser.add_argument("--compiler", required=True, help="编译器及版本")
@@ -96,10 +97,10 @@ def current_rss_bytes(process_id: int) -> int | None:
     return None
 
 
-def run_sample(executable: Path) -> dict[str, Any]:
+def run_sample(executable: Path, dual_view: bool = False) -> dict[str, Any]:
     started = time.perf_counter()
     process = subprocess.Popen(
-        [str(executable), "--measure"],
+        [str(executable), "--measure", *(["--dual-view"] if dual_view else [])],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -126,12 +127,16 @@ def run_sample(executable: Path) -> dict[str, Any]:
         raise RuntimeError(
             f"样例退出码为 {process.returncode}：{stderr.strip() or stdout.strip()}"
         )
-    lines = [line for line in stdout.splitlines() if line.strip()]
-    if len(lines) != 1:
-        raise RuntimeError(f"样例必须输出一行 JSON，实际为 {len(lines)} 行")
-    result = json.loads(lines[0])
+    result: dict[str, Any] = {}
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        section = json.loads(line)
+        if not isinstance(section, dict) or result.keys() & section.keys():
+            raise RuntimeError("样例测量必须为 JSON 对象且顶层字段不能重复")
+        result.update(section)
     if result.get("schema") != 1:
-        raise RuntimeError("不支持的样例测量 Schema")
+        raise RuntimeError("不支持或缺失的样例测量 Schema")
     result["process_wall_ms"] = wall_ms
     result["peak_rss_bytes"] = peak_rss if peak_rss > 0 else None
     return result
@@ -144,6 +149,14 @@ def percentile(values: list[float], fraction: float) -> float:
 
 
 def summarize(samples: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    flattened = []
+    for sample in samples:
+        values = dict(sample)
+        for section in ("render_queue", "render_drained"):
+            for key, value in sample.get(section, {}).items():
+                values[f"{section}.{key}"] = value
+        flattened.append(values)
+    samples = flattened
     keys = sorted(
         key
         for key, value in samples[0].items()
@@ -174,8 +187,8 @@ def main() -> int:
         raise FileNotFoundError(f"找不到样例可执行文件：{executable}")
 
     for _ in range(arguments.warmup_runs):
-        run_sample(executable)
-    samples = [run_sample(executable) for _ in range(arguments.samples)]
+        run_sample(executable, arguments.dual_view)
+    samples = [run_sample(executable, arguments.dual_view) for _ in range(arguments.samples)]
     report = {
         "schema": 1,
         "environment": {
@@ -192,13 +205,16 @@ def main() -> int:
             "granit_revision": arguments.granit_revision,
             "executable": str(executable),
         },
+        "dual_view": arguments.dual_view,
         "warmup_runs": arguments.warmup_runs,
         "sample_count": arguments.samples,
         "samples": samples,
         "summary": summarize(samples),
     }
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
-    arguments.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    arguments.output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
     print(f"已写出 {arguments.samples} 个样本：{arguments.output}")
     return 0
 

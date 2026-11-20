@@ -174,6 +174,8 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 回归阈值。`scripts/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
 保存原始数据、汇总、进程峰值常驻内存及环境元数据；使用 `--help` 查看必填的版本标识参数。
 采样时必须显式填写 CPU、实际使用的 GPU 和驱动版本，不能仅凭系统枚举猜测 Vulkan 设备。
+脚本支持 `--dual-view`，保留查看器各段 JSON 并汇总队列峰值及排空后载荷；GPU 最新单帧指标仅保留
+在原始样本中，不混入宿主耗时汇总。实际 GPU 尚未确认的运行须明确标为诊断数据，不能作为硬件性能基线。
 
 Linux Clang/GCC 可使用 `GNEISS_ENABLE_SANITIZERS=ON` 为 Gneiss 自有目标启用 AddressSanitizer、
 LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 使用镜像已完整提供运行库的 GCC，

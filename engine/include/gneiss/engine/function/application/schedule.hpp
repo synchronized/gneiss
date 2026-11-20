@@ -40,8 +40,9 @@ using system_function = std::function<error(const frame_time&, const event_conte
 namespace detail {
 /** 同步适配，无参数、frame_time 或 event_context 参数；保留意外异常的传播语义。 */
 template <class F> system_function make_system(F function) {
-  return [function = std::move(function)](const frame_time& time,
-                                          const event_context& events) mutable -> error {
+  return [function =
+              std::move(function)]([[maybe_unused]] const frame_time& time,
+                                   [[maybe_unused]] const event_context& events) mutable -> error {
     auto invoke = [&]() -> decltype(auto) {
       if constexpr (std::is_invocable_v<F&, const frame_time&>)
         return std::invoke(function, time);
@@ -69,34 +70,34 @@ enum class start_progress { pending, complete };
 using start_function = std::function<result<start_progress>(const frame_time&)>;
 namespace detail {
 template <class F> start_function make_start_system(F function) {
-  return
-      [function = std::move(function)](const frame_time& time) mutable -> result<start_progress> {
-        auto invoke = [&]() -> decltype(auto) {
-          if constexpr (std::is_invocable_v<F&, const frame_time&>)
-            return std::invoke(function, time);
-          else
-            return std::invoke(function);
-        };
-        using R = decltype(invoke());
-        if constexpr (std::is_void_v<R>) {
-          invoke();
-          return start_progress::complete;
-        } else if constexpr (std::is_same_v<R, start_progress> ||
-                             std::is_same_v<R, result<start_progress>>) {
-          return invoke();
-        } else if constexpr (std::is_same_v<R, error>) {
-          auto status = invoke();
-          if (status.failed())
-            return status;
-          return start_progress::complete;
-        } else {
-          static_assert(std::is_same_v<R, result<void>>);
-          auto status = invoke();
-          if (!status)
-            return status.error();
-          return start_progress::complete;
-        }
-      };
+  return [function = std::move(function)](
+             [[maybe_unused]] const frame_time& time) mutable -> result<start_progress> {
+    auto invoke = [&]() -> decltype(auto) {
+      if constexpr (std::is_invocable_v<F&, const frame_time&>)
+        return std::invoke(function, time);
+      else
+        return std::invoke(function);
+    };
+    using R = decltype(invoke());
+    if constexpr (std::is_void_v<R>) {
+      invoke();
+      return start_progress::complete;
+    } else if constexpr (std::is_same_v<R, start_progress> ||
+                         std::is_same_v<R, result<start_progress>>) {
+      return invoke();
+    } else if constexpr (std::is_same_v<R, error>) {
+      auto status = invoke();
+      if (status.failed())
+        return status;
+      return start_progress::complete;
+    } else {
+      static_assert(std::is_same_v<R, result<void>>);
+      auto status = invoke();
+      if (!status)
+        return status.error();
+      return start_progress::complete;
+    }
+  };
 }
 } // namespace detail
 /** 停止步骤可等待既有任务完成；pending 不表示错误。 */
