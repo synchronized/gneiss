@@ -3,6 +3,7 @@
 
 #include "application.hpp"
 #include "documents/components/component_registration.hpp"
+#include "session.hpp"
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
 #include <gneiss/engine/core/meta/resolve.hpp>
@@ -122,25 +123,20 @@ struct editor_state {
   explicit editor_state(bool cooperative = false)
       : scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
                                        : gneiss::tasks::execution_mode::thread_pool}) {}
-  gneiss::world_owner world_owner;
-  std::unique_ptr<gneiss::world_render_binding> render_binding;
   gneiss::render::frame_request frame;
-  gneiss::editor::scene_viewport viewport;
+  std::unique_ptr<gneiss::editor::session> session;
   gneiss::editor::imgui_adapter ui;
   gneiss::tasks::scheduler scheduler;
-  gneiss::editor::editor_scene_loader scene_loader;
   bool smoke{};
   std::uint32_t smoke_frames{};
   std::uint32_t smoke_frame_limit{3U};
   std::uint64_t smoke_presented_start{};
   std::chrono::steady_clock::time_point smoke_scene_started{};
   std::chrono::steady_clock::time_point smoke_started{std::chrono::steady_clock::now()};
-  gneiss::editor::document_editing editing;
   gneiss::editor::material_editor_model material_editor;
   bool material_editor_visible = false;
   std::uint64_t material_edit_serial = 0;
   gneiss::error material_edit_status = gneiss::error::success;
-  gneiss::world* world = nullptr;
   gneiss::editor::runtime_scene_selection runtime_selection;
   gneiss::error inspector_error = gneiss::error::success;
   gneiss::error history_error = gneiss::error::success;
@@ -253,11 +249,12 @@ gneiss::error submit_editor_ui(editor_state& state) {
 
 gneiss::error submit_editor_grid(editor_state& state) {
   const auto* viewport = ImGui::GetMainViewport();
-  const auto& camera = state.viewport.camera().current_transform();
+  const auto& camera = state.session->viewport().camera().current_transform();
   auto lines = gneiss::editor::build_editor_grid(
       camera, gneiss::editor::build_gizmo_view_matrix(camera),
-      state.viewport.target() ? static_cast<float>(state.viewport.extent().height)
-                              : (bool(viewport) ? viewport->Size.y : 0.0F));
+      state.session->viewport().target()
+          ? static_cast<float>(state.session->viewport().extent().height)
+          : (bool(viewport) ? viewport->Size.y : 0.0F));
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
@@ -277,8 +274,8 @@ gneiss::error submit_editor_grid(editor_state& state) {
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
-  const auto view =
-      gneiss::editor::build_gizmo_view_matrix(state.viewport.camera().current_transform());
+  const auto view = gneiss::editor::build_gizmo_view_matrix(
+      state.session->viewport().camera().current_transform());
   const ImVec2 center{minimum.x + size.x - 54.0F, minimum.y + 48.0F};
   constexpr float length = 28.0F;
   constexpr std::array colors{IM_COL32(243, 139, 168, 255), IM_COL32(166, 227, 161, 255),
@@ -344,12 +341,12 @@ void report_startup_failure(std::string_view stage, gneiss::error operation,
 }
 
 gneiss::error undo_editor_command(editor_state& state) {
-  const auto result = state.editing.history().undo();
+  const auto result = state.session->editing().history().undo();
   return result;
 }
 
 gneiss::error redo_editor_command(editor_state& state) {
-  const auto result = state.editing.history().redo();
+  const auto result = state.session->editing().history().redo();
   return result;
 }
 
@@ -401,30 +398,30 @@ void restore_author_selection(editor_state& state, const author_selection& selec
   gneiss::result<gneiss::editor::prefab_node_record> prefab_node{gneiss::error::not_found};
   switch (selection.kind) {
   case author_selection_kind::scene_node:
-    scene_node = state.editing.document().find_node(selection.primary_uuid);
+    scene_node = state.session->editing().document().find_node(selection.primary_uuid);
     break;
   case author_selection_kind::prefab_root:
-    prefab_node = state.editing.document().find_prefab_root(selection.primary_uuid);
+    prefab_node = state.session->editing().document().find_prefab_root(selection.primary_uuid);
     break;
   case author_selection_kind::prefab_source:
-    prefab_node =
-        state.editing.document().find_prefab_source(selection.primary_uuid, selection.source_uuid);
+    prefab_node = state.session->editing().document().find_prefab_source(selection.primary_uuid,
+                                                                         selection.source_uuid);
     break;
   case author_selection_kind::none:
     break;
   }
   if (bool(scene_node)) {
-    (void)state.editing.document().select(scene_node->node);
+    (void)state.session->editing().document().select(scene_node->node);
   } else if (bool(prefab_node)) {
-    (void)state.editing.document().select(prefab_node->node);
+    (void)state.session->editing().document().select(prefab_node->node);
   }
 }
 
 [[nodiscard]] gneiss::error
 apply_author_snapshot(editor_state& state, const author_selection& selection,
                       const gneiss::editor::scene_document_snapshot& snapshot) {
-  const auto status = gneiss::editor::restore_scene_document(*state.application,
-                                                             state.editing.document(), snapshot);
+  const auto status = gneiss::editor::restore_scene_document(
+      *state.application, state.session->editing().document(), snapshot);
   if (status.ok()) {
     restore_author_selection(state, selection);
   }
@@ -437,12 +434,12 @@ adopt_author_documents(editor_state& state, std::string label,
                        const author_selection& redo_selection, bool history_boundary) {
   if (history_boundary) {
     // 共享来源已经保存；旧快照不能再通过普通撤销恢复旧来源投影。
-    (void)state.editing.history().clear(false);
+    (void)state.session->editing().history().clear(false);
   }
   if (history_boundary)
     return apply_author_snapshot(state, redo_selection, *after);
   return gneiss::editor::execute_scene_edit(
-      state.editing.history(), state.editing.document(), std::move(label),
+      state.session->editing().history(), state.session->editing().document(), std::move(label),
       [&] { return apply_author_snapshot(state, redo_selection, *after); });
 }
 
@@ -452,31 +449,31 @@ record_author_documents(editor_state& state, std::string label,
                         const author_selection& undo_selection,
                         const author_selection& redo_selection, bool save_source = false,
                         bool history_boundary = false, bool load_missing = false) {
-  if (state.editing.history().is_pending())
+  if (state.session->editing().history().is_pending())
     return gneiss::error::not_ready;
   if (load_missing) {
     if (save_source || state.pending_file_operation)
       return gneiss::error::invalid_state;
     auto operation = std::make_shared<gneiss::editor::scene_document_edit>();
     auto status =
-        operation->begin(*state.application, state.editing.document(), changes, std::move(label),
-                         [&state, undo_selection, redo_selection](bool undo) {
+        operation->begin(*state.application, state.session->editing().document(), changes,
+                         std::move(label), [&state, undo_selection, redo_selection](bool undo) {
                            restore_author_selection(state, undo ? undo_selection : redo_selection);
                          });
     if (status.failed())
       return status;
     state.file_operation_saves_scene = false;
     state.pending_file_operation = [&state, operation](gneiss::error& value) {
-      value =
-          operation->advance(*state.application, state.editing.document(), state.editing.history());
+      value = operation->advance(*state.application, state.session->editing().document(),
+                                 state.session->editing().history());
       if (value.ok())
         state.prefab_author_diagnostic = {};
       return value != gneiss::error::not_ready;
     };
     return gneiss::error::not_ready;
   }
-  auto captured =
-      gneiss::editor::capture_scene_document(*state.application, state.editing.document());
+  auto captured = gneiss::editor::capture_scene_document(*state.application,
+                                                         state.session->editing().document());
   if (!captured)
     return captured.error();
   auto prepared = gneiss::editor::prepare_scene_document(*captured, changes);
@@ -531,11 +528,11 @@ record_author_documents(editor_state& state, std::string label,
 
 [[nodiscard]] gneiss::error current_author_scene(editor_state& state,
                                                  author_scene_document& output) {
-  const auto& uri = state.editing.document().uri();
+  const auto& uri = state.session->editing().document().uri();
   if (!std::string_view(uri).starts_with("asset://"))
     return gneiss::error::invalid_state;
   output.relative_path = std::string_view(uri).substr(8);
-  auto scene_result = state.editing.document().serialize();
+  auto scene_result = state.session->editing().document().serialize();
   if (!scene_result)
     return scene_result.error();
   output.content = std::move(*scene_result);
@@ -562,12 +559,12 @@ gneiss::error restore_prefab_component(editor_state& state, gneiss::guid instanc
 void draw_prefab_overrides(editor_state& state) {
   using namespace gneiss;
   using namespace gneiss::editor;
-  const auto selected = state.editing.document().selected_prefab_node();
+  const auto selected = state.session->editing().document().selected_prefab_node();
   if (!selected)
     return;
   const auto instance = selected->instance_uuid;
   const auto selected_source = selected->source_node_uuid;
-  auto captured = state.editing.document().capture_prefab_header(instance);
+  auto captured = state.session->editing().document().capture_prefab_header(instance);
   if (!captured || !captured->author.prefab || !captured->source)
     return;
   const auto& author = captured->author;
@@ -581,7 +578,8 @@ void draw_prefab_overrides(editor_state& state) {
     return;
   std::optional<prefab_override_entry> restore;
   ImGui::BeginDisabled(entries->empty() || state.runtime.is_busy() ||
-                       state.editing.history().is_pending() || state.editing.assets().active() ||
+                       state.session->editing().history().is_pending() ||
+                       state.session->editing().assets().active() ||
                        static_cast<bool>(state.pending_file_operation));
   const bool restore_all = ImGui::Button("Restore All Overrides");
   int index = 0;
@@ -589,11 +587,11 @@ void draw_prefab_overrides(editor_state& state) {
     ImGui::PushID(index++);
     ImGui::TextWrapped("%s: %s", entry.component ? (entry.added ? "Added" : "Removed") : "Modified",
                        entry.label.c_str());
-    const auto node =
-        state.editing.document().find_prefab_source(instance, entry.key.target.source_node_uuid);
+    const auto node = state.session->editing().document().find_prefab_source(
+        instance, entry.key.target.source_node_uuid);
     ImGui::BeginDisabled(!node);
     if (ImGui::SmallButton("Locate") && node)
-      (void)state.editing.document().select(node->node);
+      (void)state.session->editing().document().select(node->node);
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::SmallButton("Restore"))
@@ -638,7 +636,7 @@ void draw_prefab_conflict(editor_state& state) {
   const auto type = read_id("/components/");
   if (!instance || !object || !type)
     return;
-  auto captured = state.editing.document().capture_prefab_header(*instance);
+  auto captured = state.session->editing().document().capture_prefab_header(*instance);
   if (captured && captured->source && captured->author.prefab) {
     const auto& author = captured->author;
     const auto& source = captured->source;
@@ -658,17 +656,17 @@ void draw_prefab_conflict(editor_state& state) {
         }
       }
   }
-  auto node = state.editing.document().find_prefab_source(*instance, *object);
+  auto node = state.session->editing().document().find_prefab_source(*instance, *object);
   if (!node)
-    node = state.editing.document().find_prefab_root(*instance);
+    node = state.session->editing().document().find_prefab_root(*instance);
   ImGui::BeginDisabled(!node);
   if (ImGui::Button("Locate Prefab Conflict") && node)
-    (void)state.editing.document().select(node->node);
+    (void)state.session->editing().document().select(node->node);
   ImGui::EndDisabled();
 }
 
 bool has_prefab_overrides(editor_state& state, gneiss::guid instance) {
-  auto captured = state.editing.document().capture_prefab_header(instance);
+  auto captured = state.session->editing().document().capture_prefab_header(instance);
   if (!captured || !captured->author.prefab)
     return false;
   const auto& prefab = *captured->author.prefab;
@@ -678,7 +676,8 @@ bool has_prefab_overrides(editor_state& state, gneiss::guid instance) {
 [[nodiscard]] gneiss::error apply_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
                                                   gneiss::guid source_uuid,
                                                   std::optional<std::string> source_content = {}) {
-  const auto selected = state.editing.document().find_prefab_source(instance_uuid, source_uuid);
+  const auto selected =
+      state.session->editing().document().find_prefab_source(instance_uuid, source_uuid);
   if (!selected || !has_prefab_overrides(state, instance_uuid) || state.runtime.is_busy()) {
     return gneiss::error::invalid_state;
   }
@@ -714,11 +713,11 @@ bool has_prefab_overrides(editor_state& state, gneiss::guid instance) {
 
 [[nodiscard]] gneiss::error unpack_selected_prefab(editor_state& state, gneiss::guid instance_uuid,
                                                    std::optional<std::string> source_content = {}) {
-  const auto root = state.editing.document().find_prefab_root(instance_uuid);
+  const auto root = state.session->editing().document().find_prefab_root(instance_uuid);
   if (!root || state.runtime.is_busy()) {
     return gneiss::error::invalid_state;
   }
-  auto query = state.editing.document().capture_nodes();
+  auto query = state.session->editing().document().capture_nodes();
   if (!query)
     return query.error();
   const auto prefab_uri = root->prefab_uri;
@@ -776,8 +775,8 @@ bool has_prefab_overrides(editor_state& state, gneiss::guid instance) {
 
 [[nodiscard]] gneiss::error create_prefab_from_selected(editor_state& state, gneiss::guid root_uuid,
                                                         std::string_view prefab_path) {
-  if (state.editing.document().find_node(root_uuid).failed() || state.runtime.is_busy() ||
-      prefab_path.empty()) {
+  if (state.session->editing().document().find_node(root_uuid).failed() ||
+      state.runtime.is_busy() || prefab_path.empty()) {
     return gneiss::error::invalid_state;
   }
   author_scene_document scene;
@@ -820,18 +819,18 @@ gneiss::error begin_scene_save(editor_state& state, std::string_view uri,
   if (state.pending_file_operation)
     return gneiss::error::not_ready;
   std::shared_ptr<gneiss::editor::scene_edit_session::save_receipt> receipt;
-  const auto status =
-      state.editing.document().begin_save(*state.application->async_files(), uri, mode, receipt);
+  const auto status = state.session->editing().document().begin_save(
+      *state.application->async_files(), uri, mode, receipt);
   if (status.failed())
     return status;
   state.file_operation_saves_scene = true;
   state.pending_file_operation = [&state, receipt](gneiss::error& value) {
     if (!receipt->complete)
       return false;
-    value = state.editing.document().accept_save(*receipt);
+    value = state.session->editing().document().accept_save(*receipt);
     if (value.ok()) {
-      if (!state.editing.document().is_dirty())
-        (void)state.editing.history().mark_saved();
+      if (!state.session->editing().document().is_dirty())
+        (void)state.session->editing().history().mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
       (void)state.author_assets.acknowledge(receipt->uri, receipt->content);
       (void)state.runtime.publish_asset_revision(std::span<const std::string>(&receipt->uri, 1U));
@@ -853,9 +852,9 @@ gneiss::error save_document_as(editor_state& state) {
                          : begin_scene_save(state, uri, gneiss::files::write_mode::create_new);
 }
 gneiss::error save_document(editor_state& state) {
-  if (state.editing.document().uri().empty())
+  if (state.session->editing().document().uri().empty())
     return save_document_as(state);
-  return begin_scene_save(state, state.editing.document().uri(),
+  return begin_scene_save(state, state.session->editing().document().uri(),
                           gneiss::files::write_mode::replace);
 }
 
@@ -869,8 +868,8 @@ gneiss::error launch_runtime(editor_state& state, bool save_changes) {
   gneiss::editor::runtime_launch_request request;
   auto operation = gneiss::error::success;
   if (operation == gneiss::error::success &&
-      gneiss::editor::inspect_runtime_launch(state.editing.document(), state.project_root,
-                                             request) !=
+      gneiss::editor::inspect_runtime_launch(state.session->editing().document(),
+                                             state.project_root, request) !=
           gneiss::editor::runtime_launch_state::ready) {
     operation = gneiss::error::invalid_state;
   }
@@ -887,8 +886,8 @@ gneiss::error launch_runtime(editor_state& state, bool save_changes) {
 
 void request_runtime_launch(editor_state& state) {
   gneiss::editor::runtime_launch_request request;
-  const auto launch_state =
-      gneiss::editor::inspect_runtime_launch(state.editing.document(), state.project_root, request);
+  const auto launch_state = gneiss::editor::inspect_runtime_launch(
+      state.session->editing().document(), state.project_root, request);
   if (launch_state == gneiss::editor::runtime_launch_state::requires_save) {
     state.pending_save_and_run = true;
     ImGui::OpenPopup("Save and Run");
@@ -913,7 +912,7 @@ gneiss::error perform_document_action(editor_state& state, gneiss::editor::docum
   gneiss::error operation = gneiss::error::success;
   switch (action) {
   case gneiss::editor::document_action::new_scene:
-    operation = state.editing.create_empty(*state.application, state.world);
+    operation = state.session->create_empty();
     break;
   case gneiss::editor::document_action::open_scene: {
     std::filesystem::path path;
@@ -923,7 +922,7 @@ gneiss::error perform_document_action(editor_state& state, gneiss::editor::docum
       operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
     }
     if (operation == gneiss::error::success) {
-      operation = state.scene_loader.request(*state.application, state.editing, uri);
+      operation = state.session->open_scene(uri);
     }
     break;
   }
@@ -938,7 +937,7 @@ gneiss::error perform_document_action(editor_state& state, gneiss::editor::docum
     return gneiss::error::success;
   }
   if (operation == gneiss::error::success && action == gneiss::editor::document_action::new_scene) {
-    state.editing.history().clear();
+    state.session->editing().history().clear();
   }
   return operation;
 }
@@ -956,7 +955,8 @@ void request_document_action(editor_state& state, gneiss::editor::document_actio
   }
   if (state.pending_file_operation)
     return;
-  const auto ready = state.document_actions.request(action, state.editing.document().is_dirty());
+  const auto ready =
+      state.document_actions.request(action, state.session->editing().document().is_dirty());
   if (ready != gneiss::editor::document_action::none) {
     state.history_error = perform_document_action(state, ready);
   }
@@ -964,7 +964,7 @@ void request_document_action(editor_state& state, gneiss::editor::document_actio
 
 bool reparent_with_history(editor_state& state, gneiss::guid source_uuid,
                            gneiss::object_address destination) {
-  auto& document = state.editing.document();
+  auto& document = state.session->editing().document();
   const auto source = document.find_node(source_uuid);
   if (!source)
     return false;
@@ -982,10 +982,9 @@ bool reparent_with_history(editor_state& state, gneiss::guid source_uuid,
   }
   if (source->node == parent || source->parent == parent)
     return false;
-  state.history_error =
-      gneiss::editor::execute_scene_edit(state.editing.history(), document, "移动节点", [&] {
-        return document.reparent_node(source->node, parent);
-      });
+  state.history_error = gneiss::editor::execute_scene_edit(
+      state.session->editing().history(), document, "移动节点",
+      [&] { return document.reparent_node(source->node, parent); });
   return true;
 }
 
@@ -996,7 +995,8 @@ make_runtime_inspector_actions(editor_state& state,
           .editable = state.runtime.supports_property_editing(),
           .can_apply_to_author =
               (node.uuid || node.prefab_instance_uuid) &&
-              state.editing.document()
+              state.session->editing()
+                  .document()
                   .find_node(node.prefab_instance_uuid ? node.prefab_instance_uuid : node.uuid)
                   .ok(),
           .find_edit =
@@ -1013,7 +1013,7 @@ make_runtime_inspector_actions(editor_state& state,
               [](void* context, const gneiss::editor::runtime_scene_node& selected) {
                 auto& editor = *static_cast<editor_state*>(context);
                 editor.history_error = gneiss::editor::apply_runtime_transform_to_author(
-                    editor.editing.document(), editor.editing.history(),
+                    editor.session->editing().document(), editor.session->editing().history(),
                     {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
                      selected.local_transform});
               },
@@ -1031,11 +1031,11 @@ void draw_component_descriptions(editor_state& state) {
   using namespace gneiss::editor;
   component_edit_target identity;
   entity_id node_id;
-  if (const auto node = state.editing.document().selected_prefab_node()) {
+  if (const auto node = state.session->editing().document().selected_prefab_node()) {
     identity.instance_uuid = node->instance_uuid;
     identity.source_uuid = node->source_node_uuid;
     node_id = node->node;
-  } else if (const auto selected = state.editing.document().selected_node()) {
+  } else if (const auto selected = state.session->editing().document().selected_node()) {
     identity.object_uuid = selected->uuid;
     node_id = selected->node;
   } else
@@ -1045,7 +1045,8 @@ void draw_component_descriptions(editor_state& state) {
   bool source_transform = false;
   if (identity.instance_uuid) {
     game_object_description author;
-    auto scenes_result = state.editing.document().capture_prefab_header(identity.instance_uuid);
+    auto scenes_result =
+        state.session->editing().document().capture_prefab_header(identity.instance_uuid);
     const auto captured = scenes_result ? gneiss::error::success : scenes_result.error();
     if (scenes_result) {
       author = std::move(scenes_result->author);
@@ -1070,8 +1071,8 @@ void draw_component_descriptions(editor_state& state) {
   };
   auto transform_source = source_view(source_transform ? &source_object->transform : nullptr);
   identity.component_type = math::transform::type_guid;
-  const auto ordinary = state.editing.document().query_node(node_id);
-  const auto prefab_node = state.editing.document().query_prefab_node(node_id);
+  const auto ordinary = state.session->editing().document().query_node(node_id);
+  const auto prefab_node = state.session->editing().document().query_prefab_node(node_id);
   if (!ordinary && !prefab_node) {
     state.inspector_error = error::not_found;
     return;
@@ -1082,26 +1083,28 @@ void draw_component_descriptions(editor_state& state) {
       transform_view, "Transform", state.property_edit_serial, state.inspector_error, {},
       transform_source ? &*transform_source : nullptr);
   if (transform_edit)
-    state.inspector_error =
-        edit_component_description(state.editing.document(), state.editing.history(), *state.world,
-                                   identity, *transform_edit, state.property_edit_serial);
+    state.inspector_error = edit_component_description(
+        state.session->editing().document(), state.session->editing().history(),
+        *state.session->world(), identity, *transform_edit, state.property_edit_serial);
   if (state.inspector_error.failed())
     ImGui::TextWrapped("%s", state.inspector_error.message().data());
-  auto components = state.editing.document().components(node_id);
+  auto components = state.session->editing().document().components(node_id);
   if (!components) {
     state.inspector_error = components.error();
     return;
   }
   if (identity.instance_uuid) {
     auto types = component_editor_types();
-    ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+    ImGui::BeginDisabled(state.session->editing().assets().active() ||
+                         state.session->editing().history().is_pending());
     if (ImGui::Button("Components"))
       ImGui::OpenPopup("prefab_components");
     if (ImGui::BeginPopup("prefab_components")) {
       if (types)
         for (const auto& type : *types) {
           auto metadata = meta::resolve(type.type);
-          auto change = state.editing.document().capture_component_override(node_id, type.type);
+          auto change =
+              state.session->editing().document().capture_component_override(node_id, type.type);
           if (!metadata || !change)
             continue;
           const bool exists = components->find(type.type) != nullptr;
@@ -1115,8 +1118,9 @@ void draw_component_descriptions(editor_state& state) {
                 action == prefab_component_action::restore_source
                     ? restore_prefab_component(state, identity.instance_uuid, identity.source_uuid,
                                                identity.component_type)
-                    : edit_prefab_component_structure(state.editing.document(),
-                                                      state.editing.history(), identity, action);
+                    : edit_prefab_component_structure(state.session->editing().document(),
+                                                      state.session->editing().history(), identity,
+                                                      action);
             acted = true;
           };
           if (exists && type.removable && ImGui::MenuItem(("Remove " + name).c_str()))
@@ -1159,18 +1163,20 @@ void draw_component_descriptions(editor_state& state) {
     }
     const bool asset = editor->route == component_editor_route::mesh_assets;
     ImGui::PushID(component->guid().string().c_str());
-    ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+    ImGui::BeginDisabled(state.session->editing().assets().active() ||
+                         state.session->editing().history().is_pending());
     auto edit = gneiss::editor::draw_reflected_properties(
         *view, std::string(type.name()).c_str(), state.property_edit_serial, state.inspector_error,
         {}, original ? &*original : nullptr);
     if (edit) {
-      state.inspector_error =
-          asset ? state.editing.assets().request_property(*state.application,
-                                                          state.editing.document(),
-                                                          state.editing.history(), identity, *edit)
-                : edit_component_description(state.editing.document(), state.editing.history(),
-                                             *state.world, identity, *edit,
-                                             state.property_edit_serial);
+      state.inspector_error = asset
+                                  ? state.session->editing().assets().request_property(
+                                        *state.application, state.session->editing().document(),
+                                        state.session->editing().history(), identity, *edit)
+                                  : edit_component_description(state.session->editing().document(),
+                                                               state.session->editing().history(),
+                                                               *state.session->world(), identity,
+                                                               *edit, state.property_edit_serial);
     }
     ImGui::EndDisabled();
     ImGui::PopID();
@@ -1297,9 +1303,9 @@ void execute_asset_browser_request(editor_state& state,
     if (entry != state.assets.entries().end() && is_mesh_asset(*entry)) {
       const auto* material = find_material_for_mesh(state.assets.entries(), *entry);
       if (bool(material)) {
-        state.asset_scene_result = state.editing.assets().request_add(
-            *state.application, state.editing.document(), state.editing.history(),
-            entry->display_name,
+        state.asset_scene_result = state.session->editing().assets().request_add(
+            *state.application, state.session->editing().document(),
+            state.session->editing().history(), entry->display_name,
             {.mesh_uri = entry->asset_uri, .material_uri = material->asset_uri});
         state.asset_scene_attempted = true;
       }
@@ -1307,28 +1313,30 @@ void execute_asset_browser_request(editor_state& state,
     break;
   case action::add_prefab:
     if (entry != state.assets.entries().end() && is_prefab_asset(*entry)) {
-      const auto node = state.editing.document().selected_node();
-      state.asset_scene_result = state.editing.prefabs().request(
-          *state.application, state.scheduler, state.editing.document(), state.editing.history(),
-          entry->display_name, entry->asset_uri, !node ? gneiss::entity_id{} : node->node);
+      const auto node = state.session->editing().document().selected_node();
+      state.asset_scene_result = state.session->editing().prefabs().request(
+          *state.application, state.scheduler, state.session->editing().document(),
+          state.session->editing().history(), entry->display_name, entry->asset_uri,
+          !node ? gneiss::entity_id{} : node->node);
       state.asset_scene_attempted = true;
     }
     break;
   case action::apply_to_node: {
     gneiss::editor::component_edit_target target;
     target.component_type = gneiss::mesh_component_description::type_guid;
-    if (const auto node = state.editing.document().selected_prefab_node()) {
+    if (const auto node = state.session->editing().document().selected_prefab_node()) {
       target.instance_uuid = node->instance_uuid;
       target.source_uuid = node->source_node_uuid;
-    } else if (const auto selected = state.editing.document().selected_node())
+    } else if (const auto selected = state.session->editing().document().selected_node())
       target.object_uuid = selected->uuid;
     if ((target.object_uuid || target.instance_uuid) && entry != state.assets.entries().end() &&
         (is_mesh_asset(*entry) || is_material_asset(*entry))) {
       gneiss::editor::property_edit edit;
       edit.path.emplace_back(gneiss::property_id{is_mesh_asset(*entry) ? 1U : 2U});
       edit.data = gneiss::value{entry->asset_uri};
-      state.asset_scene_result = state.editing.assets().request_property(
-          *state.application, state.editing.document(), state.editing.history(), target, edit);
+      state.asset_scene_result = state.session->editing().assets().request_property(
+          *state.application, state.session->editing().document(),
+          state.session->editing().history(), target, edit);
       state.asset_scene_attempted = true;
     }
     break;
@@ -1433,13 +1441,13 @@ void draw_asset_browser(editor_state& state) {
   view.author_uri = change.uri;
   view.author_message = change.message;
   gneiss::entity_id selected_node;
-  if (const auto node = state.editing.document().selected_prefab_node())
+  if (const auto node = state.session->editing().document().selected_prefab_node())
     selected_node = node->node;
-  else if (const auto ordinary_node = state.editing.document().selected_node())
+  else if (const auto ordinary_node = state.session->editing().document().selected_node())
     selected_node = ordinary_node->node;
   const bool has_renderer =
-      selected_node && state.world->find(selected_node).is_valid() &&
-      state.world->find(selected_node).try_component<gneiss::mesh_component>();
+      selected_node && state.session->world()->find(selected_node).is_valid() &&
+      state.session->world()->find(selected_node).try_component<gneiss::mesh_component>();
   if (selected != state.assets.entries().end()) {
     view.can_add_mesh = is_mesh_asset(*selected) &&
                         find_material_for_mesh(state.assets.entries(), *selected) != nullptr;
@@ -1448,8 +1456,8 @@ void draw_asset_browser(editor_state& state) {
                              !state.material_editor.saving() && !state.pending_file_operation;
     view.can_add_prefab = selected->kind == gneiss::editor::asset_browser_kind::authored_asset &&
                           is_prefab_asset(*selected);
-    view.can_apply = has_renderer && !state.editing.assets().active() &&
-                     !state.editing.history().is_pending() &&
+    view.can_apply = has_renderer && !state.session->editing().assets().active() &&
+                     !state.session->editing().history().is_pending() &&
                      (is_mesh_asset(*selected) || is_material_asset(*selected));
   }
   view.scene_edit_attempted = state.asset_scene_attempted;
@@ -1479,8 +1487,8 @@ gneiss::error update_editor_camera(editor_state& state, const gneiss::frame_time
     input.yaw_delta = -io.MouseDelta.x * look_sensitivity;
     input.pitch_delta = -io.MouseDelta.y * look_sensitivity;
   }
-  return state.viewport.update_camera(input, ImGui::IsKeyPressed(ImGuiKey_F, false), state.editing,
-                                      *state.world);
+  return state.session->viewport().update_camera(input, ImGui::IsKeyPressed(ImGuiKey_F, false),
+                                                 state.session->editing(), *state.session->world());
 }
 
 // 仅冒烟模式采样；显示计数和 GPU 回执来自异步渲染器，不能当作主循环 FPS。
@@ -1491,10 +1499,10 @@ gneiss::error advance_editor_smoke(editor_state& state) {
   if (std::chrono::steady_clock::now() - state.smoke_started > std::chrono::minutes{5}) {
     return gneiss::error::not_ready;
   }
-  if (state.scene_loader.visible() && !state.scene_loader.active()) {
-    return state.scene_loader.operation();
+  if (state.session->loading().visible() && !state.session->loading().active()) {
+    return state.session->loading().operation();
   }
-  if (!state.scene_loader.visible() && !state.environment_pending) {
+  if (!state.session->loading().visible() && !state.environment_pending) {
     ++state.smoke_frames;
     if (state.smoke_frames == 1U || state.smoke_frames % 120U == 0U ||
         state.smoke_frames == state.smoke_frame_limit) {
@@ -1530,7 +1538,7 @@ gneiss::error advance_editor_smoke(editor_state& state) {
 
 void draw_scene_loading(editor_state& state) {
   using phase = gneiss::editor::scene_open_state;
-  const auto phase_value = state.scene_loader.state();
+  const auto phase_value = state.session->loading().state();
   const char* stage = "Opening scene";
   switch (phase_value) {
   case phase::idle:
@@ -1553,26 +1561,26 @@ void draw_scene_loading(editor_state& state) {
                ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
   ImGui::TextUnformatted(stage);
-  const auto uri = state.scene_loader.uri();
+  const auto uri = state.session->loading().uri();
   ImGui::TextWrapped("%.*s", static_cast<int>(uri.size()), uri.data());
-  if (state.scene_loader.active()) {
+  if (state.session->loading().active()) {
     // 文件大小和组合工作量不构成可靠总进度，只显示不定进度。
     ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
     if (ImGui::Button("Cancel")) {
-      (void)state.scene_loader.cancel(*state.application);
+      (void)state.session->cancel_load();
     }
   } else {
     if (phase_value == phase::failed) {
-      const auto message = state.scene_loader.operation().message();
+      const auto message = state.session->loading().operation().message();
       ImGui::TextWrapped("%.*s", static_cast<int>(message.size()), message.data());
     }
     if (ImGui::Button("Retry")) {
       const std::string retry_uri{uri};
-      (void)state.scene_loader.request(*state.application, state.editing, retry_uri);
+      (void)state.session->open_scene(retry_uri);
     }
     ImGui::SameLine();
     if (ImGui::Button("Back to Editor")) {
-      state.scene_loader.dismiss();
+      state.session->dismiss_load();
     }
   }
   ImGui::End();
@@ -1608,7 +1616,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         if (saving) {
           state.save_result = status;
           state.save_attempted = true;
-          if (status.ok() && !state.editing.document().is_dirty()) {
+          if (status.ok() && !state.session->editing().document().is_dirty()) {
             close_save_dialogs = true;
             const auto action = state.document_actions.saved(status);
             if (action != gneiss::editor::document_action::none)
@@ -1643,14 +1651,13 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       return submit_editor_ui(state);
     }
     bool scene_changed{};
-    const auto loading = state.scene_loader.advance(*state.application, state.editing, *state.world,
-                                                    state.viewport.camera(), scene_changed);
+    const auto loading = state.session->update(scene_changed);
     if (loading != gneiss::error::success) {
       return loading;
     }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    if (state.author_reload_uri && !state.scene_loader.active()) {
-      auto operation = state.scene_loader.operation();
+    if (state.author_reload_uri && !state.session->loading().active()) {
+      auto operation = state.session->loading().operation();
       if (operation.ok())
         operation = state.runtime.publish_asset_revision(
             std::span<const std::string>(&*state.author_reload_uri, 1U));
@@ -1664,7 +1671,6 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     }
 #endif
     if (scene_changed) {
-      state.viewport.reset_interaction();
       state.rename_uuid = {};
       state.rename_previous.clear();
       state.pending_hierarchy_action = hierarchy_action::none;
@@ -1674,7 +1680,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       state.pending_prefab_source_uuid = {};
       state.pending_prefab_root_uuid = {};
       if (state.smoke) {
-        auto query = state.editing.document().capture_nodes();
+        auto query = state.session->editing().document().capture_nodes();
         if (!query)
           return query.error();
         std::fprintf(stdout, "Editor scene ready: nodes=%zu, prefab_nodes=%zu\n",
@@ -1686,14 +1692,15 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     if (smoke_result != gneiss::error::success) {
       return smoke_result;
     }
-    state.editing.prefabs().advance();
-    if (state.editing.history().is_pending()) {
-      const auto operation = state.editing.history().advance_pending();
-      if (!state.editing.history().is_pending()) {
+    state.session->editing().prefabs().advance();
+    if (state.session->editing().history().is_pending()) {
+      const auto operation = state.session->editing().history().advance_pending();
+      if (!state.session->editing().history().is_pending()) {
         state.asset_scene_result = operation;
       }
     }
-    if (state.editing.prefabs().visible() || state.editing.history().is_pending()) {
+    if (state.session->editing().prefabs().visible() ||
+        state.session->editing().history().is_pending()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun != gneiss::error::success) {
         return begun;
@@ -1704,11 +1711,12 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       ImGui::Begin("Prefab Operation", nullptr,
                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-      if (state.editing.prefabs().active() || state.editing.history().is_pending()) {
+      if (state.session->editing().prefabs().active() ||
+          state.session->editing().history().is_pending()) {
         const char* stage = "Updating scene";
-        if (state.editing.prefabs().active()) {
+        if (state.session->editing().prefabs().active()) {
           using phase = gneiss::editor::prefab_edit_phase;
-          switch (state.editing.prefabs().phase()) {
+          switch (state.session->editing().prefabs().phase()) {
           case phase::preparing:
             stage = "Reading Prefab";
             break;
@@ -1724,31 +1732,32 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           case phase::finished:
             break;
           }
-        } else if (!state.editing.history().can_cancel_pending()) {
+        } else if (!state.session->editing().history().can_cancel_pending()) {
           stage = "Finishing cleanup";
         }
         ImGui::TextUnformatted(stage);
         ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
-        const bool can_cancel = state.editing.history().is_pending()
-                                    ? state.editing.history().can_cancel_pending()
-                                    : state.editing.prefabs().can_cancel();
+        const bool can_cancel = state.session->editing().history().is_pending()
+                                    ? state.session->editing().history().can_cancel_pending()
+                                    : state.session->editing().prefabs().can_cancel();
         if (can_cancel && ImGui::Button("Cancel")) {
-          state.editing.prefabs().cancel();
-          state.editing.history().cancel_pending();
+          state.session->editing().prefabs().cancel();
+          state.session->editing().history().cancel_pending();
         }
       } else {
-        const auto message = state.editing.prefabs().operation().message();
+        const auto message = state.session->editing().prefabs().operation().message();
         ImGui::TextWrapped("%.*s", static_cast<int>(message.size()), message.data());
         if (ImGui::Button("Back to Editor")) {
-          state.editing.prefabs().dismiss();
+          state.session->editing().prefabs().dismiss();
         }
       }
       ImGui::End();
       return submit_editor_ui(state);
     }
-    state.editing.assets().advance(*state.application, state.editing.document(),
-                                   state.editing.history());
-    if (state.editing.assets().visible()) {
+    state.session->editing().assets().advance(*state.application,
+                                              state.session->editing().document(),
+                                              state.session->editing().history());
+    if (state.session->editing().assets().visible()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun != gneiss::error::success)
         return begun;
@@ -1758,8 +1767,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       ImGui::Begin("Loading Assets", nullptr,
                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
-      const auto& progress = state.editing.assets().progress();
-      if (state.editing.assets().active()) {
+      const auto& progress = state.session->editing().assets().progress();
+      if (state.session->editing().assets().active()) {
         ImGui::TextUnformatted("读取与解码资源");
         if (progress.total_assets != 0U) {
           ImGui::ProgressBar(static_cast<float>(progress.completed_assets) /
@@ -1769,17 +1778,17 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
         }
         if (ImGui::Button("Cancel"))
-          state.editing.assets().cancel(*state.application);
+          state.session->editing().assets().cancel(*state.application);
       } else {
-        const auto message = state.editing.assets().operation().message();
+        const auto message = state.session->editing().assets().operation().message();
         ImGui::TextWrapped("%.*s", static_cast<int>(message.size()), message.data());
         if (ImGui::Button("Back to Editor"))
-          state.editing.assets().dismiss();
+          state.session->editing().assets().dismiss();
       }
       ImGui::End();
       return submit_editor_ui(state);
     }
-    if (state.scene_loader.visible()) {
+    if (state.session->loading().visible()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun != gneiss::error::success) {
         return begun;
@@ -1826,19 +1835,20 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         state.author_watch_result = event.operation;
         continue;
       }
-      auto query = state.editing.document().capture_nodes();
+      auto query = state.session->editing().document().capture_nodes();
       if (!query) {
         state.author_watch_result = query.error();
         continue;
       }
       const auto candidate_uri = "asset://" + path_utf8(event.relative_path.lexically_normal());
       const auto affects_open_document =
-          candidate_uri == state.editing.document().uri() ||
+          candidate_uri == state.session->editing().document().uri() ||
           std::ranges::any_of(query->prefab_nodes, [&candidate_uri](const auto& node) {
             return node.prefab_uri == candidate_uri;
           });
       const auto change = state.author_assets.observe(
-          event.relative_path, state.editing.document().is_dirty() && affects_open_document);
+          event.relative_path,
+          state.session->editing().document().is_dirty() && affects_open_document);
       if (change.state != gneiss::editor::author_asset_change_state::changed) {
         continue;
       }
@@ -1846,15 +1856,14 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         state.author_assets.mark_failed(change.uri, change.operation);
         continue;
       }
-      const auto is_current_scene = change.uri == state.editing.document().uri();
+      const auto is_current_scene = change.uri == state.session->editing().document().uri();
       const auto is_used_prefab =
           std::ranges::any_of(query->prefab_nodes, [&change](const auto& node) {
             return node.prefab_uri == change.uri;
           });
       auto operation = gneiss::error::success;
       if (is_current_scene || is_used_prefab) {
-        operation = state.scene_loader.request(*state.application, state.editing,
-                                               state.editing.document().uri());
+        operation = state.session->open_scene(state.session->editing().document().uri());
         if (operation.ok()) {
           state.author_reload_uri = change.uri;
           // 暂停消费后续变更，保留本次指纹，加载完成后才确认并通知 Runtime。
@@ -1900,7 +1909,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
     }
 #endif
-    if (state.scene_loader.active()) {
+    if (state.session->loading().active()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun.failed())
         return begun;
@@ -1924,13 +1933,13 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     }
     gneiss::editor::begin_transform_gizmo_frame();
     // 先收尾再处理菜单、保存和撤销；折叠或隐藏面板也不能遗失已应用的拖动。
-    if (state.viewport.dragging() &&
+    if (state.session->viewport().dragging() &&
         (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::GetIO().KeyCtrl ||
          ImGui::IsKeyPressed(ImGuiKey_Delete, false))) {
-      state.history_error = state.viewport.finish_interaction(
-          state.editing, ImGui::IsMouseDown(ImGuiMouseButton_Left));
+      state.history_error = state.session->viewport().finish_interaction(
+          state.session->editing(), ImGui::IsMouseDown(ImGuiMouseButton_Left));
     }
-    const auto selection_result = state.editing.document().validate_selection();
+    const auto selection_result = state.session->editing().document().validate_selection();
     if (selection_result != gneiss::error::success &&
         selection_result != gneiss::error::invalid_handle) {
       return selection_result;
@@ -1945,8 +1954,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         const auto save_as_requested = ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
         ImGui::Separator();
 #if defined(GNEISS_EDITOR_HAS_RUNTIME)
-        ImGui::BeginDisabled(state.editing.document().is_dirty() || state.runtime.is_busy() ||
-                             state.package_process.is_running());
+        ImGui::BeginDisabled(state.session->editing().document().is_dirty() ||
+                             state.runtime.is_busy() || state.package_process.is_running());
         const auto package_requested = ImGui::MenuItem("Export Package...");
         ImGui::EndDisabled();
         ImGui::Separator();
@@ -1988,10 +1997,10 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         ImGui::EndMenu();
       }
       if (ImGui::BeginMenu("Edit")) {
-        ImGui::BeginDisabled(!state.editing.history().can_undo());
+        ImGui::BeginDisabled(!state.session->editing().history().can_undo());
         const auto undo_requested = ImGui::MenuItem("Undo", "Ctrl+Z");
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(!state.editing.history().can_redo());
+        ImGui::BeginDisabled(!state.session->editing().history().can_redo());
         const auto redo_requested = ImGui::MenuItem("Redo", "Ctrl+Shift+Z");
         ImGui::EndDisabled();
         if (undo_requested) {
@@ -2085,7 +2094,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
       ImGui::EndMainMenuBar();
     }
-    if (state.editing.history().is_pending() || state.pending_file_operation) {
+    if (state.session->editing().history().is_pending() || state.pending_file_operation) {
       return submit_editor_ui(state);
     }
     gneiss::editor::begin_editor_workspace();
@@ -2202,8 +2211,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
       ImGui::EndPopup();
     }
-    if (!state.pending_file_operation && !state.editing.active() && !state.scene_loader.active() &&
-        state.editing.document().is_dirty())
+    if (!state.pending_file_operation && !state.session->editing().active() &&
+        !state.session->loading().active() && state.session->editing().document().is_dirty())
       gneiss::editor::draw_document_action_panel(
           state.document_actions,
           {
@@ -2226,7 +2235,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     if (!material_focus && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
-    if (state.editing.history().is_pending() || state.pending_file_operation) {
+    if (state.session->editing().history().is_pending() || state.pending_file_operation) {
       return submit_editor_ui(state);
     }
 
@@ -2275,21 +2284,22 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
       ImGui::SeparatorText("Author Scene");
     }
-    if (!state.editing.document().is_open()) {
+    if (!state.session->editing().document().is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
       auto pending_action = state.pending_hierarchy_action;
       if (pending_action != hierarchy_action::none) {
-        if (const auto pending = state.editing.document().find_node(state.pending_hierarchy_uuid);
+        if (const auto pending =
+                state.session->editing().document().find_node(state.pending_hierarchy_uuid);
             bool(pending)) {
-          (void)state.editing.document().select(pending->node);
+          (void)state.session->editing().document().select(pending->node);
         } else {
           pending_action = hierarchy_action::none;
         }
         state.pending_hierarchy_action = hierarchy_action::none;
         state.pending_hierarchy_uuid = {};
       }
-      const auto selected = state.editing.document().selected_node();
+      const auto selected = state.session->editing().document().selected_node();
       const auto can_edit_selection = bool(selected);
       const auto hierarchy_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
       const auto keyboard_enabled = hierarchy_focused && !ImGui::GetIO().WantTextInput;
@@ -2321,10 +2331,13 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         if (ImGui::Button("Apply")) {
           const auto next = std::string{state.rename_buffer.data()};
           state.history_error = gneiss::editor::execute_scene_edit(
-              state.editing.history(), state.editing.document(), "重命名节点", [&] {
-                const auto current = state.editing.document().find_node(state.rename_uuid);
-                return !current ? gneiss::error::not_found
-                                : state.editing.document().rename_node(current->node, next);
+              state.session->editing().history(), state.session->editing().document(), "重命名节点",
+              [&] {
+                const auto current =
+                    state.session->editing().document().find_node(state.rename_uuid);
+                return !current
+                           ? gneiss::error::not_found
+                           : state.session->editing().document().rename_node(current->node, next);
               });
           ImGui::CloseCurrentPopup();
         }
@@ -2332,48 +2345,52 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
       if (create_requested) {
         state.history_error = gneiss::editor::execute_scene_edit(
-            state.editing.history(), state.editing.document(), "创建节点", [&] {
+            state.session->editing().history(), state.session->editing().document(), "创建节点",
+            [&] {
               gneiss::entity_id created;
-              return state.editing.document().create_node(
+              return state.session->editing().document().create_node(
                   "Node", selected ? selected->node : gneiss::entity_id{}, created);
             });
       }
       if (duplicate_requested) {
         state.history_error = gneiss::editor::execute_scene_edit(
-            state.editing.history(), state.editing.document(), "复制子树", [&] {
+            state.session->editing().history(), state.session->editing().document(), "复制子树",
+            [&] {
               gneiss::entity_id duplicate;
-              return state.editing.document().duplicate_subtree(selected->node, selected->parent,
-                                                                duplicate);
+              return state.session->editing().document().duplicate_subtree(
+                  selected->node, selected->parent, duplicate);
             });
       }
       if (delete_requested) {
         state.history_error = gneiss::editor::execute_scene_edit(
-            state.editing.history(), state.editing.document(), "删除节点", [&] {
+            state.session->editing().history(), state.session->editing().document(), "删除节点",
+            [&] {
               gneiss::editor::scene_subtree_snapshot discarded;
-              return state.editing.document().destroy_subtree(selected->node, discarded);
+              return state.session->editing().document().destroy_subtree(selected->node, discarded);
             });
       }
-      const auto prefab_selected = state.editing.document().selected_prefab_node();
+      const auto prefab_selected = state.session->editing().document().selected_prefab_node();
       if (bool(prefab_selected) && prefab_selected->is_instance_root) {
         if (ImGui::Button("Duplicate Prefab")) {
           state.history_error = gneiss::editor::execute_scene_edit(
-              state.editing.history(), state.editing.document(), "复制子树", [&] {
+              state.session->editing().history(), state.session->editing().document(), "复制子树",
+              [&] {
                 gneiss::entity_id duplicate;
-                return state.editing.document().duplicate_subtree(
+                return state.session->editing().document().duplicate_subtree(
                     prefab_selected->node, prefab_selected->parent, duplicate);
               });
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete Prefab")) {
-          state.history_error = state.editing.prefabs().request_remove(
-              *state.application, state.editing.document(), state.editing.history(),
-              prefab_selected->node);
+          state.history_error = state.session->editing().prefabs().request_remove(
+              *state.application, state.session->editing().document(),
+              state.session->editing().history(), prefab_selected->node);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Refresh Prefab") && !state.editing.prefabs().active()) {
-          state.history_error = state.editing.prefabs().request_refresh(
-              *state.application, state.scheduler, state.editing.document(),
-              state.editing.history(), prefab_selected->node);
+        if (ImGui::Button("Refresh Prefab") && !state.session->editing().prefabs().active()) {
+          state.history_error = state.session->editing().prefabs().request_refresh(
+              *state.application, state.scheduler, state.session->editing().document(),
+              state.session->editing().history(), prefab_selected->node);
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(state.runtime.is_busy());
@@ -2383,13 +2400,13 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         }
         ImGui::EndDisabled();
       }
-      auto query = state.editing.document().capture_nodes();
+      auto query = state.session->editing().document().capture_nodes();
       gneiss::editor::author_hierarchy_request tree_request;
       if (query) {
         tree_request = gneiss::editor::draw_author_hierarchy({
             .nodes = query->nodes,
             .prefab_nodes = query->prefab_nodes,
-            .selection = state.editing.document().selection(),
+            .selection = state.session->editing().document().selection(),
             .can_create_prefab = !state.runtime.is_busy(),
         });
       } else {
@@ -2401,7 +2418,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       case tree_action::none:
         break;
       case tree_action::select:
-        (void)state.editing.document().select(tree_request.node);
+        (void)state.session->editing().document().select(tree_request.node);
         state.runtime_selection = {};
         break;
       case tree_action::rename:
@@ -2492,20 +2509,20 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
     }
     ImGui::End();
-    if (state.editing.prefabs().active() || state.pending_file_operation) {
+    if (state.session->editing().prefabs().active() || state.pending_file_operation) {
       return submit_editor_ui(state);
     }
 
-    if (state.editing.document().is_open() &&
-        state.editing.document().projection_status().failed()) {
-      const auto status = state.editing.document().projection_status();
+    if (state.session->editing().document().is_open() &&
+        state.session->editing().document().projection_status().failed()) {
+      const auto status = state.session->editing().document().projection_status();
       ImGui::Begin("Scene synchronization", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
       ImGui::TextUnformatted("Edits are retained. The running scene is not synchronized.");
       const auto message = status.message();
       ImGui::TextUnformatted(message.data(), message.data() + message.size());
-      ImGui::BeginDisabled(state.editing.active());
+      ImGui::BeginDisabled(state.session->editing().active());
       if (ImGui::Button("Retry synchronization"))
-        (void)state.editing.document().synchronize();
+        (void)state.session->editing().document().synchronize();
       ImGui::EndDisabled();
       ImGui::End();
     }
@@ -2535,23 +2552,26 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     const auto scene_view_visible =
         scene_view_begun && ImGui::Begin("Scene View", &state.panel_visibility.scene_view);
     if (!scene_view_visible)
-      state.viewport.cancel_pick();
-    if (!scene_view_visible && state.viewport.dragging()) {
-      state.history_error = state.viewport.finish_interaction(
-          state.editing, ImGui::IsMouseDown(ImGuiMouseButton_Left));
+      state.session->viewport().cancel_pick();
+    if (!scene_view_visible && state.session->viewport().dragging()) {
+      state.history_error = state.session->viewport().finish_interaction(
+          state.session->editing(), ImGui::IsMouseDown(ImGuiMouseButton_Left));
     }
     if (scene_view_visible) {
       ImGui::TextUnformatted("Scene View");
-      if (ImGui::RadioButton("Move", state.viewport.operation() == gizmo_operation::translate)) {
-        state.viewport.set_operation(gizmo_operation::translate);
+      if (ImGui::RadioButton("Move",
+                             state.session->viewport().operation() == gizmo_operation::translate)) {
+        state.session->viewport().set_operation(gizmo_operation::translate);
       }
       ImGui::SameLine();
-      if (ImGui::RadioButton("Rotate", state.viewport.operation() == gizmo_operation::rotate)) {
-        state.viewport.set_operation(gizmo_operation::rotate);
+      if (ImGui::RadioButton("Rotate",
+                             state.session->viewport().operation() == gizmo_operation::rotate)) {
+        state.session->viewport().set_operation(gizmo_operation::rotate);
       }
       ImGui::SameLine();
-      if (ImGui::RadioButton("Scale", state.viewport.operation() == gizmo_operation::scale)) {
-        state.viewport.set_operation(gizmo_operation::scale);
+      if (ImGui::RadioButton("Scale",
+                             state.session->viewport().operation() == gizmo_operation::scale)) {
+        state.session->viewport().set_operation(gizmo_operation::scale);
       }
       ImGui::TextDisabled("LMB select | RMB look | Wheel dolly | F focus selection");
       ImGui::SameLine();
@@ -2560,7 +2580,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       ImGui::TextColored(ImVec4(0.35F, 0.90F, 0.45F, 1.0F), "Y");
       ImGui::SameLine(0.0F, 3.0F);
       ImGui::TextColored(ImVec4(0.35F, 0.55F, 1.0F, 1.0F), "Z");
-      if (const auto selected = state.editing.document().selected_node(); bool(selected)) {
+      if (const auto selected = state.session->editing().document().selected_node();
+          bool(selected)) {
         ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
                            selected->display_name.c_str());
         const auto minimum = ImGui::GetWindowPos();
@@ -2573,7 +2594,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       const auto gizmo_minimum = ImGui::GetCursorScreenPos();
       auto gizmo_size = ImGui::GetContentRegionAvail();
       const auto scale = ImGui::GetIO().DisplayFramebufferScale;
-      const auto resized = state.viewport.resize(
+      const auto resized = state.session->viewport().resize(
           state.application->render(),
           {static_cast<std::uint32_t>(std::clamp(gizmo_size.x * scale.x, 1.F, 16384.F)),
            static_cast<std::uint32_t>(std::clamp(gizmo_size.y * scale.y, 1.F, 16384.F))});
@@ -2582,13 +2603,13 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         return resized;
       }
       // 背压延迟缩放时保持图像比例，使相机和 Gizmo 使用同一投影比例。
-      const auto aspect =
-          static_cast<float>(state.viewport.extent().width) / state.viewport.extent().height;
+      const auto aspect = static_cast<float>(state.session->viewport().extent().width) /
+                          state.session->viewport().extent().height;
       gizmo_size.x = std::max(1.F, std::min(gizmo_size.x, gizmo_size.y * aspect));
       gizmo_size.y = gizmo_size.x / aspect;
-      ImGui::Image(static_cast<ImTextureID>(state.viewport.target()), gizmo_size);
+      ImGui::Image(static_cast<ImTextureID>(state.session->viewport().target()), gizmo_size);
       const auto scene_view_hovered = ImGui::IsItemHovered();
-      if (scene_view_hovered && !state.viewport.dragging() &&
+      if (scene_view_hovered && !state.session->viewport().dragging() &&
           !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         const auto camera_result = update_editor_camera(state, *time);
         if (camera_result != gneiss::error::success) {
@@ -2596,14 +2617,14 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           return camera_result;
         }
       }
-      const auto gizmo_active =
-          state.viewport.draw_gizmo(state.editing, state.history_error, gizmo_minimum, gizmo_size);
+      const auto gizmo_active = state.session->viewport().draw_gizmo(
+          state.session->editing(), state.history_error, gizmo_minimum, gizmo_size);
       if (scene_view_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         const auto mouse = ImGui::GetMousePos();
-        state.viewport.select_at(state.editing.document(),
-                                 {(mouse.x - gizmo_minimum.x) / gizmo_size.x,
-                                  (mouse.y - gizmo_minimum.y) / gizmo_size.y},
-                                 gizmo_active);
+        state.session->viewport().select_at(state.session->editing().document(),
+                                            {(mouse.x - gizmo_minimum.x) / gizmo_size.x,
+                                             (mouse.y - gizmo_minimum.y) / gizmo_size.y},
+                                            gizmo_active);
       }
       draw_view_axis(state, gizmo_minimum, gizmo_size);
     }
@@ -2613,18 +2634,18 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(260.0F, 220.0F), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("Inspector", &state.panel_visibility.inspector);
-    ImGui::BeginDisabled(!state.editing.document().is_open());
+    ImGui::BeginDisabled(!state.session->editing().document().is_open());
     const auto save_button_pressed = ImGui::Button("Save");
     ImGui::EndDisabled();
     const auto save_requested =
-        state.editing.document().is_open() &&
+        state.session->editing().document().is_open() &&
         (save_button_pressed ||
          (!material_focus && ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
           ImGui::IsKeyPressed(ImGuiKey_S, false)));
     ImGui::SameLine();
-    if (!state.editing.document().is_open()) {
+    if (!state.session->editing().document().is_open()) {
       ImGui::TextDisabled("No scene");
-    } else if (state.editing.document().is_dirty()) {
+    } else if (state.session->editing().document().is_dirty()) {
       ImGui::TextColored(gneiss::editor::theme_warning_color(), "Modified");
     } else {
       ImGui::TextColored(gneiss::editor::theme_success_color(), "Saved");
@@ -2645,7 +2666,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       state.inspector_error = gneiss::error::success;
       gneiss::editor::draw_runtime_inspector(
           *runtime_selected, make_runtime_inspector_actions(state, *runtime_selected));
-    } else if (const auto prefab = state.editing.document().selected_prefab_node(); bool(prefab)) {
+    } else if (const auto prefab = state.session->editing().document().selected_prefab_node();
+               bool(prefab)) {
       state.inspector_error = gneiss::error::success;
       ImGui::TextUnformatted(prefab->is_instance_root ? "Prefab Instance" : "Prefab Source Node");
       ImGui::Text("Name: %s", prefab->display_name.c_str());
@@ -2670,7 +2692,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
         const auto instance_uuid = prefab->instance_uuid;
         const auto source_uuid = prefab->source_node_uuid;
         const auto current =
-            state.editing.document().find_prefab_source(instance_uuid, source_uuid);
+            state.session->editing().document().find_prefab_source(instance_uuid, source_uuid);
         const bool has_override =
             bool(current) && current->has_overrides(gneiss::math::transform::type_guid);
         ImGui::BeginDisabled(!has_override);
@@ -2697,17 +2719,21 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           if (ImGui::Button("Apply")) {
             const auto next = std::string{state.rename_buffer.data()};
             state.history_error = gneiss::editor::execute_scene_edit(
-                state.editing.history(), state.editing.document(), "重命名 Prefab 实例", [&] {
-                  const auto current = state.editing.document().find_prefab_root(state.rename_uuid);
-                  return !current ? gneiss::error::not_found
-                                  : state.editing.document().rename_node(current->node, next);
+                state.session->editing().history(), state.session->editing().document(),
+                "重命名 Prefab 实例", [&] {
+                  const auto current =
+                      state.session->editing().document().find_prefab_root(state.rename_uuid);
+                  return !current
+                             ? gneiss::error::not_found
+                             : state.session->editing().document().rename_node(current->node, next);
                 });
             ImGui::CloseCurrentPopup();
           }
           ImGui::EndPopup();
         }
       }
-    } else if (const auto selected = state.editing.document().selected_node(); bool(selected)) {
+    } else if (const auto selected = state.session->editing().document().selected_node();
+               bool(selected)) {
       ImGui::Text("Name: %s", selected->display_name.c_str());
       ImGui::Text("UUID: %s", selected->uuid.string().c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(selected->entity.get()));
@@ -2715,9 +2741,10 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       const auto uuid = selected->uuid;
       const auto has_mesh =
           selected->components.get<gneiss::mesh_component_description>() != nullptr;
-      auto current = state.editing.document().components(selected->node);
+      auto current = state.session->editing().document().components(selected->node);
       auto choices = gneiss::editor::component_editor_types();
-      ImGui::BeginDisabled(state.editing.assets().active() || state.editing.history().is_pending());
+      ImGui::BeginDisabled(state.session->editing().assets().active() ||
+                           state.session->editing().history().is_pending());
       if (ImGui::Button("Components"))
         ImGui::OpenPopup("component_lifecycle");
       if (ImGui::BeginPopup("component_lifecycle")) {
@@ -2737,10 +2764,11 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
             if (ImGui::MenuItem(label.c_str())) {
               state.history_error =
                   exists ? gneiss::editor::remove_component_description(
-                               state.editing.document(), state.editing.history(), uuid, choice.type)
-                         : gneiss::editor::add_component_description(state.editing.document(),
-                                                                     state.editing.history(), uuid,
-                                                                     choice.type);
+                               state.session->editing().document(),
+                               state.session->editing().history(), uuid, choice.type)
+                         : gneiss::editor::add_component_description(
+                               state.session->editing().document(),
+                               state.session->editing().history(), uuid, choice.type);
               break;
             }
           }
@@ -2754,8 +2782,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       const auto remove_mesh_requested = ImGui::Button("Remove Mesh Renderer");
       ImGui::EndDisabled();
       if (remove_mesh_requested) {
-        state.history_error = state.editing.assets().request_remove(state.editing.document(),
-                                                                    state.editing.history(), uuid);
+        state.history_error = state.session->editing().assets().request_remove(
+            state.session->editing().document(), state.session->editing().history(), uuid);
       }
       if (!has_mesh) {
         ImGui::TextDisabled("Select a mesh in Asset Browser to add Mesh Renderer");
@@ -2809,16 +2837,16 @@ void advance_close_confirmation(editor_state& state) {
   }
   if (state.pending_file_operation)
     return;
-  if (state.scene_loader.active()) {
-    (void)state.scene_loader.cancel(*state.application);
+  if (state.session->loading().active()) {
+    (void)state.session->cancel_load();
     return;
   }
-  if (state.editing.active()) {
-    state.editing.cancel(*state.application);
-    state.editing.advance_cleanup(*state.application);
+  if (state.session->editing().active()) {
+    state.session->editing().cancel(*state.application);
+    state.session->advance_cleanup();
     return;
   }
-  if (!state.editing.document().is_dirty()) {
+  if (!state.session->editing().document().is_dirty()) {
     state.history_error = perform_document_action(state, state.document_actions.discard());
   }
 }
@@ -2899,13 +2927,14 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   }
   application = std::move(*created);
   state.application = application.get();
+  state.session = std::make_unique<gneiss::editor::session>(*application);
   application->init_state(close_phase::idle);
   application->add_system(gneiss::app::stage::events, "editor.close_request",
                           [&state](const gneiss::app::event_context& events) {
                             if (!events.close_requested())
                               return;
                             // 启动尚未建立文档，不需要等待业务状态进入或弹出确认框。
-                            if (!state.world)
+                            if (!state.session->world())
                               state.application->request_exit();
                             else
                               request_document_action(state,
@@ -2957,9 +2986,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
     // 停止已获批准（或主循环失败），这里不再走未保存内容的交互拦截。
     if (state.runtime.is_running())
       state.runtime_result = state.runtime.request_stop();
-    state.editing.cancel(*state.application);
-    if (state.scene_loader.active())
-      (void)state.scene_loader.cancel(*state.application);
+    state.session->cancel();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     state.asset_reimports.request_stop();
     state.author_assets.request_stop();
@@ -2972,9 +2999,9 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   application->on_stop("editor.await_sessions", [&state] {
     state.runtime.update();
     state.package_process.update();
-    state.editing.advance_cleanup(*state.application);
-    bool pending = state.editing.active() || state.scene_loader.active() || state.layout.saving() ||
-                   state.runtime.is_running() || state.package_process.is_running();
+    state.session->advance_cleanup();
+    bool pending = state.session->busy() || state.layout.saving() || state.runtime.is_running() ||
+                   state.package_process.is_running();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     std::vector<std::filesystem::path> ignored;
     (void)state.author_assets.poll_rescan(ignored);
@@ -2983,9 +3010,9 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
 #endif
     return pending ? gneiss::app::stop_progress::pending : gneiss::app::stop_progress::complete;
   });
-  application->on_stop("editor.close_viewport",
+  application->on_stop("editor.close_session",
                        [&state]() -> gneiss::result<gneiss::app::stop_progress> {
-                         auto status = state.viewport.close(state.application->render());
+                         auto status = state.session->close();
                          if (status == gneiss::error::not_ready)
                            return gneiss::app::stop_progress::pending;
                          if (status.failed())
@@ -3009,14 +3036,8 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
     if (state.author_asset_watcher.is_running())
       (void)state.author_asset_watcher.stop();
 #endif
-    state.editing.prefabs().dismiss();
-    const auto status = state.editing.close();
     state.frame = {};
-    state.viewport.cancel_pick();
-    state.render_binding.reset();
-    state.world_owner.reset();
-    state.world = nullptr;
-    return status;
+    return gneiss::error::success;
   });
 
   application->add_system(gneiss::app::stage::completions, "editor.tasks", [&state] {
@@ -3061,64 +3082,22 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
     return gneiss::error::success;
   });
   application->on_start("editor.open_document", [&]() -> gneiss::error {
-    auto world = gneiss::create_native();
-    operation = world ? gneiss::error::success : world.error();
-    if (world) {
-      state.world_owner = std::move(*world);
-      state.world = state.world_owner.get();
-      auto binding = gneiss::world_render_binding::create(*state.world, application->render());
-      operation = binding ? gneiss::error::success : binding.error();
-      if (binding)
-        state.render_binding = std::move(*binding);
+    auto initialized = state.session->initialize();
+    if (initialized.failed()) {
+      report_startup_failure("Editor 会话初始化", initialized);
+      return initialized;
     }
-    if (operation != gneiss::error::success) {
-      report_startup_failure("Editor World/Inspector 初始化", operation);
-    } else {
-      operation = state.editing.create_empty(*application, state.world);
-      if (operation != gneiss::error::success) {
-        report_startup_failure("启动场景打开", operation, project.startup_scene);
-      }
-    }
-    if (operation == gneiss::error::success) {
-      operation = state.viewport.initialize();
-      if (operation != gneiss::error::success) {
-        report_startup_failure("Editor Camera 初始化", operation);
-      }
-    }
-    if (operation != gneiss::error::success) {
-      return operation;
-    }
-    state.editing.history().clear();
-    return state.scene_loader.request(*application, state.editing, project.startup_scene);
+    return state.session->open_scene(project.startup_scene);
   });
-  application->add_system(gneiss::app::stage::synchronize, "editor.synchronize", [&state] {
-    state.world->flush_changes();
-    auto synced = state.render_binding->synchronize();
-    if (!synced)
-      return synced;
-    const auto picked = state.viewport.synchronize(
-        state.application->render(), *state.render_binding, state.editing, *state.world);
-    if (picked.failed())
-      state.inspector_error = picked;
-    return gneiss::result<void>{};
-  });
+  application->add_system(gneiss::app::stage::synchronize, "editor.synchronize",
+                          [&state] { return state.session->synchronize(state.inspector_error); });
   application->add_system(
       gneiss::app::stage::present, "editor.present", [&state]() -> gneiss::result<void> {
         auto frame = std::exchange(state.frame, {});
         frame.surface = state.application->window()->surface();
-        const auto extent =
-            state.viewport.target()
-                ? state.viewport.extent()
-                : gneiss::render::target_description{frame.surface.width, frame.surface.height};
-        if (extent.width && extent.height) {
-          auto view = state.viewport.view(*state.world, state.render_binding->scene(), extent);
-          if (!view)
-            return view.error();
-          if (*view)
-            frame.views.push_back(**view);
-        }
-        if (state.viewport.target() && frame.surface.width && frame.surface.height)
-          frame.views.push_back({});
+        auto prepared = state.session->append_views(frame);
+        if (!prepared)
+          return prepared;
         if (frame.views.empty())
           return {};
         auto submitted = state.application->render().render(std::move(frame));
@@ -3126,6 +3105,8 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
                                                                            : gneiss::result<void>{};
       });
   const auto ran = application->run();
+  // on_stop 已结束所有借用；会话对象先于 Application 析构。
+  state.session.reset();
   const auto run_result = ran ? gneiss::error::success : ran.error();
   if (run_result != gneiss::error::success) {
     report_startup_failure("Editor 运行时事件循环", run_result, path_utf8(project.project_root));

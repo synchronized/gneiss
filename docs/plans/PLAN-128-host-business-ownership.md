@@ -5,8 +5,9 @@
 
 ## 状态
 
-2026-11-22：实施中。P1 代码迁移与本地定向验收完成，手工高 DPI/连续交互待验收；P2–P4 待实施。
-证据见 [P1 验收记录](../records/2026-11-22-editor-viewport-extraction.md)。
+2026-11-22：实施中。P1 代码迁移与本地定向验收完成，手工高 DPI/连续交互待验收；P2 代码迁移与本地自动化范围已完成，P3–P4 待实施。
+证据见 [P1 验收记录](../records/2026-11-22-editor-viewport-extraction.md)及
+[P2 验收记录](../records/2026-11-22-editor-session-extraction.md)。
 属于 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，不包含远端操作或发布。
 长期边界见 [ADR-131](../decisions/ADR-131-host-business-ownership.md)。
 
@@ -136,8 +137,11 @@ Editor 与 Runtime 业务分别归 gneiss::editor、gneiss::runtime；宿主入�
   editor_state 已移除对应字段；同步 system 在 binding 成功后处理拾取，present 只汇总视图。
   相机、缩放、Gizmo、选择及关闭目标释放定向验证通过；手工高 DPI/连续交互仍待补。
   新视口与拾取、Gizmo 拖动实现复用 gneiss_editor_ui，已移出文档目标；不新增仅为目录服务的库。
-- [ ] P2：建立 Editor 会话。迁移 World、绑定、加载协调，明确投影与文档的借用关系。
-  退出条件：入口只装配与调度；打开/换场景/编辑撤销/关闭后重开完整闭环通过。
+- [x] P2：建立 Editor 会话（代码迁移与本地自动化范围）。迁移 World、绑定、加载协调，明确投影与文档的借用关系。
+  会话生命周期、打开/加载、同步与视图汇总已移入 editor::session，入口负责装配和阶段注册。
+  打开、失败保留、取消、关闭重开及既有编辑/保存测试通过；完整 GUI 保存确认/取消与连续重开仍待手工验收。
+  会话只借用 Application；当前没有工作区直接调用，不增加未使用的 project_workspace 构造依赖。
+  会话暂由既有 gneiss_editor_ui 生产目标编译，P4 再按实际消费者整理目标名；不向文档库引入 UI 依赖。
 - [ ] P3：建立 Runtime 会话，分离 IPC 与业务。保留显式请求和完成状态，不新增协议。
   退出条件：独立运行及 Editor 启动、暂停、恢复、停止都通过；IPC 不拥有游戏 World。
 - [ ] P4：整理工作区、目录、命名空间和 CMake 目标。同步迁移测试与文档。

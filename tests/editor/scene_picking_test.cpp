@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/editor_scene_loader.hpp"
+#include "session.hpp"
 #include "ui/viewport/scene_picking.hpp"
 #include "viewport/scene_viewport.hpp"
 #include <chrono>
@@ -8,6 +9,7 @@
 #include <gneiss/engine/core/tasks/scheduler.hpp>
 #include <gneiss/engine/function/application/application.hpp>
 #include <gneiss/engine/function/scene/rendering/render_camera.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
 #include <stdexcept>
 #include <thread>
 
@@ -151,6 +153,42 @@ int main() try {
   session.close();
   complete();
   binding.reset();
+  // 同一 Application 内关闭并重开编辑会话，不保留旧投影或请求状态。
+  gneiss::editor::session owned(app);
+  check(owned.close().ok());
+  const auto load_owned = [&] {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (owned.loading().active() || owned.loading().visual_loading()) {
+      check(std::chrono::steady_clock::now() < until);
+      (void)scheduler.run_ready();
+      check(bool(app.step()));
+      bool changed{};
+      check(owned.update(changed).ok());
+    }
+  };
+  for (unsigned round = 0; round < 2; ++round) {
+    check(owned.initialize().ok());
+    check(owned.open_scene("asset://scenes/triangle.scene.json").ok());
+    load_owned();
+    check(owned.loading().operation().ok());
+    auto stamp = owned.editing().document().current_version().stamp();
+    check(owned.open_scene("asset://scenes/missing.scene.json").ok());
+    load_owned();
+    check(owned.loading().operation().failed());
+    check(owned.editing().document().current_version().stamp() == stamp);
+    error interaction_error;
+    check(owned.synchronize(interaction_error).ok());
+    render::frame_request frame;
+    frame.surface = app.window()->surface();
+    check(owned.append_views(frame).ok() && !frame.views.empty());
+    check(owned.open_scene("asset://scenes/triangle.scene.json").ok());
+    owned.cancel();
+    owned.advance_cleanup();
+    check(!owned.busy());
+    check(owned.close().ok());
+    check(!owned.world() && !owned.editing().document().is_open());
+    check(owned.close().ok());
+  }
   std::puts("Editor picking: hit/background/latest/stale/close passed");
   return 0;
 } catch (const std::exception& exception) {

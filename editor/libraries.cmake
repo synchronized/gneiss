@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  session.cpp
+  session.hpp
   viewport/scene_viewport.cpp
   viewport/scene_viewport.hpp
   ui/viewport/scene_picking.cpp
