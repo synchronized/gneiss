@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "documents/editor_scene_loader.hpp"
 #include "ui/viewport/scene_picking.hpp"
+#include "viewport/scene_viewport.hpp"
 #include <chrono>
 #include <cstdio>
 #include <gneiss/engine/core/tasks/scheduler.hpp>
@@ -110,6 +111,41 @@ int main() try {
   check(session.rename_node(hit, "Renamed").ok());
   complete();
   check(session.selection() == hit);
+  // 真实视口消费者：目标缩放、相机取景、Gizmo 优先与关闭释放。
+  scene_viewport viewport;
+  check(viewport.initialize().ok());
+  check(viewport.resize(app.render(), extent).ok());
+  const auto first_target = viewport.target();
+  check(app.render().is_target(first_target));
+  check(viewport.update_camera({}, true, editing, *world).ok());
+  auto displayed = viewport.view(*world, binding->scene(), extent);
+  check(bool(displayed) && bool(*displayed) && (**displayed).target == first_target);
+  viewport.select_at(session, {.01F, .01F}, true);
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(app.render().finish_frames().ok());
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(session.selection() == hit);
+  viewport.select_at(session, {.01F, .01F}, false);
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(app.render().finish_frames().ok());
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(!session.selection());
+  viewport.select_at(session, {.5F, .5F}, false);
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(app.render().finish_frames().ok());
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(session.selection() == hit);
+  viewport.select_at(session, {.01F, .01F}, false);
+  check(viewport.resize(app.render(), {128, 64}).ok());
+  const auto second_target = viewport.target();
+  check(second_target != first_target && viewport.extent().width == 128);
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(app.render().finish_frames().ok());
+  check(viewport.synchronize(app.render(), *binding, editing, *world).ok());
+  check(session.selection() == hit);
+  check(viewport.close(app.render()).ok());
+  check(!app.render().is_target(first_target) && !app.render().is_target(second_target));
+  check(viewport.close(app.render()).ok());
   picking.queue(session, {}, extent, {.5F, .5F});
   update();
   session.close();

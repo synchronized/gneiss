@@ -455,3 +455,8 @@ Gizmo 交互优先。点击按实际图像区域换算为目标像素，场景�
 文档版本、原选择、目标尺寸或相机变化时丢弃待处理结果。选择不写入文档撤销历史。
 基础命中、背景、身份替换、尺寸变化及首次关闭资源归零已通过真实 GPU 验收，
 完整 MASK/遮挡与取消/失败矩阵仍由 PLAN-115 跟踪。
+
+Editor 视口状态由 editor::scene_viewport 拥有，包括编辑相机、当前/待释放目标、Gizmo 拖动和拾取请求。
+Application 的 synchronize system 先 flush_changes、同步 world_render_binding，再处理视口拾取；
+present 汇总视图与 UI 后统一提交。World 和 binding 仍由宿主拥有。
+视口关闭在 Render 服务有效期内显式释放目标；队列背压时由 on_stop 重试。

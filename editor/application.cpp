@@ -41,10 +41,10 @@
 #include "ui/viewport/editor_camera.hpp"
 #include "ui/viewport/editor_grid.hpp"
 #include "ui/viewport/editor_rotation_math.hpp"
-#include "ui/viewport/scene_picking.hpp"
 #include "ui/viewport/transform_gizmo_drag.hpp"
 #include "ui/viewport/transform_gizmo_math.hpp"
 #include "ui/viewport/transform_gizmo_view.hpp"
+#include "viewport/scene_viewport.hpp"
 #include <gneiss/engine/core/logging/default_service.hpp>
 #include <gneiss/engine/core/logging/service.hpp>
 #include <gneiss/engine/core/logging/sinks/console.hpp>
@@ -125,13 +125,8 @@ struct editor_state {
   gneiss::world_owner world_owner;
   std::unique_ptr<gneiss::world_render_binding> render_binding;
   gneiss::render::frame_request frame;
-  gneiss::view_camera view_camera;
+  gneiss::editor::scene_viewport viewport;
   gneiss::editor::imgui_adapter ui;
-  gneiss::rid scene_target{};
-  gneiss::rid retired_scene_target{};
-  gneiss::render::target_description scene_extent{};
-  gneiss::editor::editor_camera camera;
-  gneiss::editor::scene_picking picking;
   gneiss::tasks::scheduler scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
   bool smoke{};
@@ -190,9 +185,6 @@ struct editor_state {
   bool layout_save_started{};
   bool layout_initialized{};
   gneiss::error layout_status{gneiss::error::success};
-  gizmo_operation gizmo_mode = gizmo_operation::translate;
-  gneiss::editor::transform_gizmo_drag gizmo_drag;
-  bool gizmo_wait_release = false;
   std::uint64_t property_edit_serial = 0U;
   std::array<char, 128> rename_buffer{};
   gneiss::guid rename_uuid;
@@ -254,47 +246,18 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
-// 最多保留一个待退休目标；背压期间继续显示旧尺寸，不阻塞主线程。
-gneiss::error resize_scene_target(editor_state& state, const ImVec2& size) {
-  auto& renderer = state.application->render();
-  if (state.retired_scene_target) {
-    auto retired = renderer.destroy_target(state.retired_scene_target);
-    if (!retired)
-      return retired.error() == gneiss::error::not_ready ? gneiss::error::success : retired.error();
-    state.retired_scene_target = {};
-  }
-  const auto scale = ImGui::GetIO().DisplayFramebufferScale;
-  const auto width = static_cast<std::uint32_t>(std::clamp(size.x * scale.x, 1.F, 16384.F));
-  const auto height = static_cast<std::uint32_t>(std::clamp(size.y * scale.y, 1.F, 16384.F));
-  if (state.scene_target && state.scene_extent.width == width &&
-      state.scene_extent.height == height)
-    return gneiss::error::success;
-  auto target = renderer.create_target({width, height});
-  if (!target)
-    return target.error();
-  state.retired_scene_target = state.scene_target;
-  state.scene_target = *target;
-  state.scene_extent = {width, height};
-  return gneiss::error::success;
-}
 gneiss::error submit_editor_ui(editor_state& state) {
-  const auto& settings = state.camera.settings();
-  const auto& transform = state.camera.current_transform();
-  const gneiss::view_camera view{
-      .camera = {settings.fov, settings.near_plane, settings.far_plane},
-      .transform = {transform.translation, transform.rotation, transform.scale}};
-  state.view_camera = view;
   auto draw = state.ui.render();
   return draw ? state.frame.ui.replace(*draw, state.application->render()) : draw.error();
 }
 
 gneiss::error submit_editor_grid(editor_state& state) {
   const auto* viewport = ImGui::GetMainViewport();
-  const auto& camera = state.camera.current_transform();
+  const auto& camera = state.viewport.camera().current_transform();
   auto lines = gneiss::editor::build_editor_grid(
       camera, gneiss::editor::build_gizmo_view_matrix(camera),
-      state.scene_target ? static_cast<float>(state.scene_extent.height)
-                         : (bool(viewport) ? viewport->Size.y : 0.0F));
+      state.viewport.target() ? static_cast<float>(state.viewport.extent().height)
+                              : (bool(viewport) ? viewport->Size.y : 0.0F));
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
@@ -314,7 +277,8 @@ gneiss::error submit_editor_grid(editor_state& state) {
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
-  const auto view = gneiss::editor::build_gizmo_view_matrix(state.camera.current_transform());
+  const auto view =
+      gneiss::editor::build_gizmo_view_matrix(state.viewport.camera().current_transform());
   const ImVec2 center{minimum.x + size.x - 54.0F, minimum.y + 48.0F};
   constexpr float length = 28.0F;
   constexpr std::array colors{IM_COL32(243, 139, 168, 255), IM_COL32(166, 227, 161, 255),
@@ -1497,20 +1461,6 @@ void draw_asset_browser(editor_state& state) {
 
 #endif
 
-bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) {
-  return gneiss::editor::draw_transform_gizmo(
-      {
-          .session = state.editing.document(),
-          .history = state.editing.history(),
-          .drag = state.gizmo_drag,
-          .camera = state.camera.current_transform(),
-          .operation = state.gizmo_mode,
-          .wait_release = state.gizmo_wait_release,
-          .error = state.history_error,
-      },
-      minimum, size);
-}
-
 gneiss::error update_editor_camera(editor_state& state, const gneiss::frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
@@ -1529,21 +1479,8 @@ gneiss::error update_editor_camera(editor_state& state, const gneiss::frame_time
     input.yaw_delta = -io.MouseDelta.x * look_sensitivity;
     input.pitch_delta = -io.MouseDelta.y * look_sensitivity;
   }
-  if (ImGui::IsKeyPressed(ImGuiKey_F, false)) {
-    auto selected_node = gneiss::entity_id{};
-    if (const auto selected = state.editing.document().selected_node(); bool(selected)) {
-      selected_node = selected->node;
-    } else if (const auto prefab = state.editing.document().selected_prefab_node(); bool(prefab)) {
-      selected_node = prefab->node;
-    }
-    if (selected_node.is_valid()) {
-      auto target = state.world->object(selected_node);
-      if (!target)
-        return target.error();
-      return state.camera.focus(target->world_transform());
-    }
-  }
-  return state.camera.update(input);
+  return state.viewport.update_camera(input, ImGui::IsKeyPressed(ImGuiKey_F, false), state.editing,
+                                      *state.world);
 }
 
 // 仅冒烟模式采样；显示计数和 GPU 回执来自异步渲染器，不能当作主循环 FPS。
@@ -1707,7 +1644,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     }
     bool scene_changed{};
     const auto loading = state.scene_loader.advance(*state.application, state.editing, *state.world,
-                                                    state.camera, scene_changed);
+                                                    state.viewport.camera(), scene_changed);
     if (loading != gneiss::error::success) {
       return loading;
     }
@@ -1727,9 +1664,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     }
 #endif
     if (scene_changed) {
-      state.gizmo_drag = {};
-      state.gizmo_wait_release = false;
-      gneiss::editor::reset_transform_gizmo();
+      state.viewport.reset_interaction();
       state.rename_uuid = {};
       state.rename_previous.clear();
       state.pending_hierarchy_action = hierarchy_action::none;
@@ -1989,13 +1924,11 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     }
     gneiss::editor::begin_transform_gizmo_frame();
     // 先收尾再处理菜单、保存和撤销；折叠或隐藏面板也不能遗失已应用的拖动。
-    if (state.gizmo_drag.is_active() &&
+    if (state.viewport.dragging() &&
         (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::GetIO().KeyCtrl ||
          ImGui::IsKeyPressed(ImGuiKey_Delete, false))) {
-      state.history_error =
-          state.gizmo_drag.finish(state.editing.document(), state.editing.history());
-      state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-      gneiss::editor::reset_transform_gizmo();
+      state.history_error = state.viewport.finish_interaction(
+          state.editing, ImGui::IsMouseDown(ImGuiMouseButton_Left));
     }
     const auto selection_result = state.editing.document().validate_selection();
     if (selection_result != gneiss::error::success &&
@@ -2602,25 +2535,23 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     const auto scene_view_visible =
         scene_view_begun && ImGui::Begin("Scene View", &state.panel_visibility.scene_view);
     if (!scene_view_visible)
-      state.picking.cancel();
-    if (!scene_view_visible && state.gizmo_drag.is_active()) {
-      state.history_error =
-          state.gizmo_drag.finish(state.editing.document(), state.editing.history());
-      state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-      gneiss::editor::reset_transform_gizmo();
+      state.viewport.cancel_pick();
+    if (!scene_view_visible && state.viewport.dragging()) {
+      state.history_error = state.viewport.finish_interaction(
+          state.editing, ImGui::IsMouseDown(ImGuiMouseButton_Left));
     }
     if (scene_view_visible) {
       ImGui::TextUnformatted("Scene View");
-      if (ImGui::RadioButton("Move", state.gizmo_mode == gizmo_operation::translate)) {
-        state.gizmo_mode = gizmo_operation::translate;
+      if (ImGui::RadioButton("Move", state.viewport.operation() == gizmo_operation::translate)) {
+        state.viewport.set_operation(gizmo_operation::translate);
       }
       ImGui::SameLine();
-      if (ImGui::RadioButton("Rotate", state.gizmo_mode == gizmo_operation::rotate)) {
-        state.gizmo_mode = gizmo_operation::rotate;
+      if (ImGui::RadioButton("Rotate", state.viewport.operation() == gizmo_operation::rotate)) {
+        state.viewport.set_operation(gizmo_operation::rotate);
       }
       ImGui::SameLine();
-      if (ImGui::RadioButton("Scale", state.gizmo_mode == gizmo_operation::scale)) {
-        state.gizmo_mode = gizmo_operation::scale;
+      if (ImGui::RadioButton("Scale", state.viewport.operation() == gizmo_operation::scale)) {
+        state.viewport.set_operation(gizmo_operation::scale);
       }
       ImGui::TextDisabled("LMB select | RMB look | Wheel dolly | F focus selection");
       ImGui::SameLine();
@@ -2641,18 +2572,23 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       }
       const auto gizmo_minimum = ImGui::GetCursorScreenPos();
       auto gizmo_size = ImGui::GetContentRegionAvail();
-      const auto resized = resize_scene_target(state, gizmo_size);
+      const auto scale = ImGui::GetIO().DisplayFramebufferScale;
+      const auto resized = state.viewport.resize(
+          state.application->render(),
+          {static_cast<std::uint32_t>(std::clamp(gizmo_size.x * scale.x, 1.F, 16384.F)),
+           static_cast<std::uint32_t>(std::clamp(gizmo_size.y * scale.y, 1.F, 16384.F))});
       if (resized.failed()) {
         ImGui::End();
         return resized;
       }
       // 背压延迟缩放时保持图像比例，使相机和 Gizmo 使用同一投影比例。
-      const auto aspect = static_cast<float>(state.scene_extent.width) / state.scene_extent.height;
+      const auto aspect =
+          static_cast<float>(state.viewport.extent().width) / state.viewport.extent().height;
       gizmo_size.x = std::max(1.F, std::min(gizmo_size.x, gizmo_size.y * aspect));
       gizmo_size.y = gizmo_size.x / aspect;
-      ImGui::Image(static_cast<ImTextureID>(state.scene_target), gizmo_size);
+      ImGui::Image(static_cast<ImTextureID>(state.viewport.target()), gizmo_size);
       const auto scene_view_hovered = ImGui::IsItemHovered();
-      if (scene_view_hovered && !state.gizmo_drag.is_active() &&
+      if (scene_view_hovered && !state.viewport.dragging() &&
           !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         const auto camera_result = update_editor_camera(state, *time);
         if (camera_result != gneiss::error::success) {
@@ -2660,14 +2596,14 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           return camera_result;
         }
       }
-      const auto gizmo_active = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
-      if (gizmo_active || state.gizmo_wait_release) {
-        state.picking.cancel();
-      } else if (scene_view_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+      const auto gizmo_active =
+          state.viewport.draw_gizmo(state.editing, state.history_error, gizmo_minimum, gizmo_size);
+      if (scene_view_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         const auto mouse = ImGui::GetMousePos();
-        state.picking.queue(state.editing.document(), state.scene_target, state.scene_extent,
-                            {(mouse.x - gizmo_minimum.x) / gizmo_size.x,
-                             (mouse.y - gizmo_minimum.y) / gizmo_size.y});
+        state.viewport.select_at(state.editing.document(),
+                                 {(mouse.x - gizmo_minimum.x) / gizmo_size.x,
+                                  (mouse.y - gizmo_minimum.y) / gizmo_size.y},
+                                 gizmo_active);
       }
       draw_view_axis(state, gizmo_minimum, gizmo_size);
     }
@@ -3047,6 +2983,15 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
 #endif
     return pending ? gneiss::app::stop_progress::pending : gneiss::app::stop_progress::complete;
   });
+  application->on_stop("editor.close_viewport",
+                       [&state]() -> gneiss::result<gneiss::app::stop_progress> {
+                         auto status = state.viewport.close(state.application->render());
+                         if (status == gneiss::error::not_ready)
+                           return gneiss::app::stop_progress::pending;
+                         if (status.failed())
+                           return status;
+                         return gneiss::app::stop_progress::complete;
+                       });
   application->on_stop("editor.release_session", [&state, smoke = options.smoke] {
     if (!smoke && state.layout_initialized) {
       const auto status =
@@ -3065,10 +3010,9 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
       (void)state.author_asset_watcher.stop();
 #endif
     state.editing.prefabs().dismiss();
-    state.camera.shutdown();
     const auto status = state.editing.close();
     state.frame = {};
-    state.picking.cancel();
+    state.viewport.cancel_pick();
     state.render_binding.reset();
     state.world_owner.reset();
     state.world = nullptr;
@@ -3136,7 +3080,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
       }
     }
     if (operation == gneiss::error::success) {
-      operation = state.camera.initialize();
+      operation = state.viewport.initialize();
       if (operation != gneiss::error::success) {
         report_startup_failure("Editor Camera 初始化", operation);
       }
@@ -3149,40 +3093,31 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
   });
   application->add_system(gneiss::app::stage::synchronize, "editor.synchronize", [&state] {
     state.world->flush_changes();
-    return state.render_binding->synchronize();
+    auto synced = state.render_binding->synchronize();
+    if (!synced)
+      return synced;
+    const auto picked = state.viewport.synchronize(
+        state.application->render(), *state.render_binding, state.editing, *state.world);
+    if (picked.failed())
+      state.inspector_error = picked;
+    return gneiss::result<void>{};
   });
   application->add_system(
       gneiss::app::stage::present, "editor.present", [&state]() -> gneiss::result<void> {
         auto frame = std::exchange(state.frame, {});
         frame.surface = state.application->window()->surface();
         const auto extent =
-            state.scene_target
-                ? state.scene_extent
+            state.viewport.target()
+                ? state.viewport.extent()
                 : gneiss::render::target_description{frame.surface.width, frame.surface.height};
         if (extent.width && extent.height) {
-          auto camera = gneiss::select_render_camera(*state.world, extent.width, extent.height,
-                                                     &state.view_camera);
-          if (!camera)
-            return camera.error();
-          if (*camera) {
-            const auto& selected = **camera;
-            frame.views.push_back({.scene = state.render_binding->scene(),
-                                   .target = state.scene_target,
-                                   .view_matrix = selected.view,
-                                   .projection_matrix = selected.projection,
-                                   .camera_position = selected.transform.translation});
-            const auto picked =
-                state.picking.update(state.application->render(), *state.render_binding,
-                                     state.editing.document(), frame.views.back(), extent);
-            if (picked.failed())
-              state.inspector_error = picked;
-          } else {
-            state.picking.cancel();
-          }
-        } else {
-          state.picking.cancel();
+          auto view = state.viewport.view(*state.world, state.render_binding->scene(), extent);
+          if (!view)
+            return view.error();
+          if (*view)
+            frame.views.push_back(**view);
         }
-        if (state.scene_target && frame.surface.width && frame.surface.height)
+        if (state.viewport.target() && frame.surface.width && frame.surface.height)
           frame.views.push_back({});
         if (frame.views.empty())
           return {};

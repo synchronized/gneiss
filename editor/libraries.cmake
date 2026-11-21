@@ -3,6 +3,12 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  viewport/scene_viewport.cpp
+  viewport/scene_viewport.hpp
+  ui/viewport/scene_picking.cpp
+  ui/viewport/scene_picking.hpp
+  ui/viewport/transform_gizmo_drag.cpp
+  ui/viewport/transform_gizmo_drag.hpp
   ui/viewport/transform_gizmo_view.cpp
   ui/viewport/transform_gizmo_view.hpp
   ui/panels/author_hierarchy_panel.cpp
@@ -107,7 +113,7 @@ target_compile_features(gneiss_editor_model PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_model)
 gneiss_target_output_directories(gneiss_editor_model)
 
-# 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
+# 场景文档、投影与编辑操作；视口交互在 gneiss_editor_ui 中复用。
 add_library(
   gneiss_scene_document STATIC
   documents/document_actions.cpp
@@ -140,10 +146,6 @@ add_library(
   documents/scene_document_snapshot.hpp
   documents/scene_document.cpp
   documents/scene_document.hpp
-  ui/viewport/scene_picking.cpp
-  ui/viewport/scene_picking.hpp
-  ui/viewport/transform_gizmo_drag.cpp
-  ui/viewport/transform_gizmo_drag.hpp
 )
 target_link_libraries(gneiss_scene_document PUBLIC gneiss_editor_model gneiss_tasks)
 target_include_directories(gneiss_scene_document PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

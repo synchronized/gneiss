@@ -50,7 +50,7 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.editor.gizmo-input-replay COMMAND gneiss_editor_gizmo_input_replay_test)
   set_tests_properties(gneiss.editor.gizmo-input-replay PROPERTIES LABELS "cpu;integration")
   add_executable(gneiss_editor_transform_gizmo_drag_test "${PROJECT_SOURCE_DIR}/tests/editor/transform_gizmo_drag_test.cpp")
-  target_link_libraries(gneiss_editor_transform_gizmo_drag_test PRIVATE gneiss_scene_document)
+  target_link_libraries(gneiss_editor_transform_gizmo_drag_test PRIVATE gneiss_scene_document gneiss_editor_ui)
   target_compile_definitions(gneiss_editor_transform_gizmo_drag_test PRIVATE
     GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_drag_test)
