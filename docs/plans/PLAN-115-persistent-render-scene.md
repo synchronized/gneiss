@@ -27,7 +27,7 @@ World 管理游戏状态，Render 管理持久可渲染状态，通过单向批�
 | P1 持久场景与首个消费者 | 已完成（Windows 定向闭环） | scene_commands → Service → scene::apply/extract → Granit；查看器、pending/ready、纹理热重载及实例保活已有 CPU/GPU 证据 | 不新增平行预览接口；扩展产品流程验收归 P3 |
 | P2 版本与关闭 | 部分完成 | 资源发布/帧捕获共用有序执行器；旧版本保活；正常重载关闭与执行器失败回执已有证据 | 真实后端 UV1 不相容错误 → Service → Application 收尾已通过；真实设备丢失/在途 GPU 退休故障验收仍未完成 |
 | P3 World 与产品接入 | 代码迁移与定向产品回归完成 | Runtime/Editor 实际 synchronize/present System 均使用 world_render_binding 和 frame_request；旧 World 实例快照链路已删除 | 编辑会话撤销/Gizmo、Runtime 场景切换、资产工作流及原生窗口交互均已定向通过；完整手工 GUI 连续验收仍未执行 |
-| P4 多视图与回读/拾取 | 部分完成 | 多离屏目标、独立相机/尺寸、窗口合成、Granit 剔除和异步截图已接通；双视图 GPU 验收通过 | 独立 capture_request 的成功/取消/关闭后领取与失败终态已通过；Granit 0.74.0 已提供 ID 输出/异步回读，Gneiss 拾取实现验证中，Granit 拾取管线释放遗漏阻塞关闭验收，Editor 消费待接入 |
+| P4 多视图与回读/拾取 | 部分完成 | 多离屏目标、独立相机/尺寸、窗口合成、Granit 剔除和异步截图已接通；双视图 GPU 验收通过 | 独立 capture_request 的成功/取消/关闭后领取与失败终态已通过；Granit 0.74.0 已提供 ID 输出/异步回读，Gneiss 基础拾取与首次关闭验收已通过，Editor 消费及完整拾取矩阵待完成 |
 | P5 背压与消费 | 有界队列闭环完成，原阶段条件未全部完成 | 数量/字节预算、拒绝后保留输入、重试、替换帧、释放后回执、多线程消费及真实纹理压力测试已有证据 | 实际 GPU 饱和、单线程/浏览器非阻塞消费验收及代表性预算依据未完成 |
 | P6 清理与测试迁移 | 已完成（当前迁移范围） | 无旧 render_service 类型、render_scene_state、extract_render_snapshot 实现；现有测试使用正式场景/资源入口 | 已复核资源协议归属、删除无使用者的 render_snapshot 诊断项及公共 required completion 队列；定向验证通过 |
 | P7 文档与整体验收 | 部分完成 | Reference、架构边界和 Windows shared/static 渲染验收有记录；0.73.2 可见阴影通过 | 依赖 P2—P6 剩余项；新版 Release/实际 GPU 标识及动态更新量等测量尚未闭环；平台限制必须保留 |
@@ -45,8 +45,8 @@ World 管理游戏状态，Render 管理持久可渲染状态，通过单向批�
 Application 私有成员 render_service_ 不是旧服务类型，不为消除字符串改名。
 无使用者的 render_snapshot 诊断项已删除，现有 frame_capture 保留。
 Granit 0.74.0 已提供 object_id_view 和 Texture View 异步回读；
-Gneiss 正在验证独立拾取请求与逐帧身份映射；真实 GPU 测试发现 Granit 拾取管线释放遗漏，
-关闭验收未通过，Editor 消费待接入。复现和上游修复建议见 [UPSTREAM-052](UPSTREAM-052-granit-object-picking.md)。
+Gneiss 独立拾取请求与逐帧身份映射已通过基础 GPU 验收；Granit 0.74.1 已修复管线释放遗漏，
+首次关闭资源归零通过，Editor 消费待接入。证据见 [0.74.1 验收](../records/2026-11-21-granit-0.74.1-upgrade.md)。
 
 ## 当前边界与已解除阻塞
 
@@ -401,11 +401,11 @@ World 核心不依赖 Render，render 目录不反向包含 World/ECS。构建�
 推荐采用不透明及 MASK 物体的可见像素拾取，复用 Granit 的 object_id 与异步区域回读。
 完整接口范围、透明/MSAA 取舍、验收条件和 Gneiss 请求身份规则统一维护在
 [UPSTREAM-052：对象 ID 输出与异步像素拾取](UPSTREAM-052-granit-object-picking.md)。
-Granit 0.74.0 已提供主要底层能力；Gneiss 依赖升级验证已通过，尚未完成自身拾取链路。
+Granit 0.74.1 已提供底层能力并修复生命周期问题；Gneiss 基础拾取验收通过，Editor 链路待完成。
 
-### 当前拾取接入与验收阻塞
+### 当前拾取接入与剩余验收
 
-本轮新增的调用方式（关闭验收尚未通过，不作为完成能力）：
+当前独立拾取请求的调用方式（Editor 点击入口尚未接入）：
 
 ```cpp
 auto submitted = renderer.request_pick(view, {width, height}, pixel_x, pixel_y);
@@ -430,7 +430,7 @@ if (pending_pick.ready()) {
   GPU 的 32 位帧内序号只在该快照中解释。
 - 复用必达帧队列、完成通知与关闭排空；取消只放弃结果。当前 GPU 回读等待仍在渲染工作线程，
   与现有截图一致；尚未改成多请求在途回读调度。
-- 单像素命中、背景、身份替换、不同尺寸与场景删除后领取已通过；Granit 未释放拾取管线，
-  首次关闭资源归零失败。复现保持启用，不降低检查或把 Renderer 强制清理当作成功。
-- Editor 点击选择、MASK/遮挡的 Gneiss 端验收、取消/失败完整矩阵和静态构建待后续完成。
-  当前定向测试 7 通过、1 失败，失败项为 gneiss.render-picking。
+- 单像素命中、背景、身份替换、不同尺寸、场景删除后领取以及首次关闭资源归零已通过；
+  原关闭失败在 Granit 0.74.1 修复，未降低检查。
+- Editor 点击选择、MASK/遮挡的 Gneiss 端验收、取消/失败完整矩阵待后续完成。
+  当前共享与静态构建各 9 项定向测试通过。

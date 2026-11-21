@@ -37,10 +37,10 @@ function(gneiss_fetch_granit)
   if(FETCHCONTENT_SOURCE_DIR_GNEISS_GRANIT)
     # FetchContent 自行应用宿主提供的源码覆盖。
   elseif(GNEISS_GRANIT_GIT_REPOSITORY STREQUAL "https://github.com/synchronized/granit.git"
-      AND GNEISS_GRANIT_GIT_TAG STREQUAL "ae4d499c68d75d25fc49840c4b797d2a42a783a7")
+      AND GNEISS_GRANIT_GIT_TAG STREQUAL "c0bf848bdd8c19f98e85556c41047252b8e906ea")
     gneiss_cached_archive(granit
-      "https://codeload.github.com/synchronized/granit/tar.gz/ae4d499c68d75d25fc49840c4b797d2a42a783a7"
-      "3633605cb1292be329a1fb5f05ae35170738d0351e4d40c01d1545a5fd7be93f"
+      "https://codeload.github.com/synchronized/granit/tar.gz/c0bf848bdd8c19f98e85556c41047252b8e906ea"
+      "c3864309ecb90f6eeed1a304ad76c6295c9b92506455381052b3c8631aa4086b"
       CMakeLists.txt cached_granit_source)
     set(granit_source_options SOURCE_DIR "${cached_granit_source}")
   else()
@@ -114,7 +114,7 @@ function(gneiss_resolve_granit_runtime)
   if(TARGET granit::granit AND TARGET granit::window AND
      TARGET granit::render_pipeline)
     if(NOT granit_RENDER_PIPELINE_ASSET_DIR)
-      message(FATAL_ERROR "现有 Granit 0.74.0 targets 未提供 RenderPipeline 资产目录")
+      message(FATAL_ERROR "现有 Granit 0.74.1 targets 未提供 RenderPipeline 资产目录")
     endif()
     set(
       GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
@@ -136,7 +136,7 @@ function(gneiss_resolve_granit_runtime)
   endif()
 
   if(granit_provider STREQUAL "AUTO" OR granit_provider STREQUAL "PACKAGE")
-    find_package(granit 0.74.0 CONFIG QUIET COMPONENTS ${granit_components})
+    find_package(granit 0.74.1 CONFIG QUIET COMPONENTS ${granit_components})
     if(TARGET granit::granit AND TARGET granit::window AND
        TARGET granit::render_pipeline)
       set(
@@ -150,7 +150,7 @@ function(gneiss_resolve_granit_runtime)
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE")
-      message(FATAL_ERROR "未找到 Granit 0.74.0 runtime package（含 Window、RenderPipeline）")
+      message(FATAL_ERROR "未找到 Granit 0.74.1 runtime package（含 Window、RenderPipeline）")
     endif()
     if(TARGET granit::granit)
       message(FATAL_ERROR "现有 Granit targets 缺少 Window 或 RenderPipeline，无法回退到 FETCH")
@@ -171,7 +171,7 @@ function(gneiss_resolve_granit_runtime)
     FORCE
   )
   if(NOT granit_RENDER_PIPELINE_ASSET_DIR)
-    message(FATAL_ERROR "下载的 Granit 0.74.0 未提供 RenderPipeline 资产目录")
+    message(FATAL_ERROR "下载的 Granit 0.74.1 未提供 RenderPipeline 资产目录")
   endif()
   set(
     GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
@@ -191,19 +191,19 @@ function(gneiss_resolve_granit_tools)
     return()
   endif()
   if(TARGET granit::granit)
-    message(FATAL_ERROR "Gneiss 工具或测试需要 Granit 0.74.0 AssetTools 组件")
+    message(FATAL_ERROR "Gneiss 工具或测试需要 Granit 0.74.1 AssetTools 组件")
   endif()
   string(TOUPPER "${GNEISS_GRANIT_PROVIDER}" granit_provider)
   if(NOT granit_provider MATCHES "^(AUTO|PACKAGE|FETCH)$")
     message(FATAL_ERROR "GNEISS_GRANIT_PROVIDER 必须为 AUTO、PACKAGE 或 FETCH")
   endif()
   if(NOT granit_provider STREQUAL "FETCH")
-    find_package(granit 0.74.0 CONFIG QUIET COMPONENTS AssetTools)
+    find_package(granit 0.74.1 CONFIG QUIET COMPONENTS AssetTools)
     if(granit_FOUND AND TARGET granit::asset_tools AND TARGET granit::granit)
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE" OR TARGET granit::granit)
-      message(FATAL_ERROR "未找到 Granit 0.74.0 AssetTools package")
+      message(FATAL_ERROR "未找到 Granit 0.74.1 AssetTools package")
     endif()
   endif()
   gneiss_fetch_granit()

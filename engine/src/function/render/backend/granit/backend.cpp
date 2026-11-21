@@ -154,8 +154,9 @@ struct backend::implementation final {
 };
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 74,
-              "Gneiss requires Granit 0.74.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR > 74 ||
+                  (GRANIT_VERSION_MINOR == 74 && GRANIT_VERSION_PATCH >= 1),
+              "Gneiss requires Granit 0.74.1 or newer");
 
 gneiss::error map_result(::granit::result result) noexcept {
   switch (result.native()) {
