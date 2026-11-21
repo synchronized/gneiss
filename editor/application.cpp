@@ -41,6 +41,7 @@
 #include "ui/viewport/editor_camera.hpp"
 #include "ui/viewport/editor_grid.hpp"
 #include "ui/viewport/editor_rotation_math.hpp"
+#include "ui/viewport/scene_picking.hpp"
 #include "ui/viewport/transform_gizmo_drag.hpp"
 #include "ui/viewport/transform_gizmo_math.hpp"
 #include "ui/viewport/transform_gizmo_view.hpp"
@@ -130,6 +131,7 @@ struct editor_state {
   gneiss::rid retired_scene_target{};
   gneiss::render::target_description scene_extent{};
   gneiss::editor::editor_camera camera;
+  gneiss::editor::scene_picking picking;
   gneiss::tasks::scheduler scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
   bool smoke{};
@@ -2599,6 +2601,8 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
     const auto scene_view_begun = state.panel_visibility.scene_view;
     const auto scene_view_visible =
         scene_view_begun && ImGui::Begin("Scene View", &state.panel_visibility.scene_view);
+    if (!scene_view_visible)
+      state.picking.cancel();
     if (!scene_view_visible && state.gizmo_drag.is_active()) {
       state.history_error =
           state.gizmo_drag.finish(state.editing.document(), state.editing.history());
@@ -2618,7 +2622,7 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
       if (ImGui::RadioButton("Scale", state.gizmo_mode == gizmo_operation::scale)) {
         state.gizmo_mode = gizmo_operation::scale;
       }
-      ImGui::TextDisabled("RMB look | Wheel dolly | F focus selection");
+      ImGui::TextDisabled("LMB select | RMB look | Wheel dolly | F focus selection");
       ImGui::SameLine();
       ImGui::TextColored(ImVec4(0.95F, 0.35F, 0.35F, 1.0F), "X");
       ImGui::SameLine(0.0F, 3.0F);
@@ -2656,7 +2660,15 @@ gneiss::error update_editor(const gneiss::frame_time* time, void* user_data) {
           return camera_result;
         }
       }
-      (void)draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+      const auto gizmo_active = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+      if (gizmo_active || state.gizmo_wait_release) {
+        state.picking.cancel();
+      } else if (scene_view_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        const auto mouse = ImGui::GetMousePos();
+        state.picking.queue(state.editing.document(), state.scene_target, state.scene_extent,
+                            {(mouse.x - gizmo_minimum.x) / gizmo_size.x,
+                             (mouse.y - gizmo_minimum.y) / gizmo_size.y});
+      }
       draw_view_axis(state, gizmo_minimum, gizmo_size);
     }
     if (scene_view_begun) {
@@ -3056,6 +3068,7 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
     state.camera.shutdown();
     const auto status = state.editing.close();
     state.frame = {};
+    state.picking.cancel();
     state.render_binding.reset();
     state.world_owner.reset();
     state.world = nullptr;
@@ -3158,7 +3171,16 @@ int run_editor(int argc, char** argv, bool select_project, bool& reopen) {
                                    .view_matrix = selected.view,
                                    .projection_matrix = selected.projection,
                                    .camera_position = selected.transform.translation});
+            const auto picked =
+                state.picking.update(state.application->render(), *state.render_binding,
+                                     state.editing.document(), frame.views.back(), extent);
+            if (picked.failed())
+              state.inspector_error = picked;
+          } else {
+            state.picking.cancel();
           }
+        } else {
+          state.picking.cancel();
         }
         if (state.scene_target && frame.surface.width && frame.surface.height)
           frame.views.push_back({});

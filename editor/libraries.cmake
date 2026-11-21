@@ -140,6 +140,8 @@ add_library(
   documents/scene_document_snapshot.hpp
   documents/scene_document.cpp
   documents/scene_document.hpp
+  ui/viewport/scene_picking.cpp
+  ui/viewport/scene_picking.hpp
   ui/viewport/transform_gizmo_drag.cpp
   ui/viewport/transform_gizmo_drag.hpp
 )

@@ -191,3 +191,13 @@ if(TARGET gneiss_editor_ui)
   add_test(NAME gneiss.editor.material-editor COMMAND gneiss_material_editor_test)
   set_tests_properties(gneiss.editor.material-editor PROPERTIES LABELS "cpu;integration")
 endif()
+
+add_executable(gneiss_editor_scene_picking_test scene_picking_test.cpp)
+target_link_libraries(gneiss_editor_scene_picking_test PRIVATE gneiss_scene_document gneiss_tasks)
+target_compile_definitions(gneiss_editor_scene_picking_test PRIVATE
+  GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+gneiss_target_compile_warnings(gneiss_editor_scene_picking_test)
+gneiss_target_output_directories(gneiss_editor_scene_picking_test)
+set_target_properties(gneiss_editor_scene_picking_test PROPERTIES FOLDER "Tests")
+add_test(NAME gneiss.editor.scene-picking COMMAND gneiss_editor_scene_picking_test)
+set_tests_properties(gneiss.editor.scene-picking PROPERTIES LABELS "gpu;integration" TIMEOUT 60)
