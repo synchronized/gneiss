@@ -5,23 +5,39 @@
 
 ## 状态与用途
 
-2026-11-21：供用户向 Granit 提交的需求建议，尚未提交上游 Issue/PR，未修改 Granit。
-本文整理推荐方案；具体 API、透明材质和多重采样规则仍需上游评审确认，不表示能力已实现。
+2026-11-21 更新：Granit `v0.74.0` 标签已提供主要底层能力，Gneiss 依赖升级与共享/静态定向回归已通过。
+本代理只修改 Gneiss，没有修改或提交 Granit。下文保留原需求，实际新增契约见本节对照；
+上游能力可用不等于 Gneiss 已实现拾取。
 对应 [PLAN-115 的回读与拾取](PLAN-115-persistent-render-scene.md)。
+本地升级结果见 [0.74.0 升级验收](../records/2026-11-21-granit-0.74-upgrade.md)。
 
 建议 PR 标题：**RenderPipeline：增加可选的逐 View 对象 ID 输出，复用异步区域回读实现拾取**。
 
-## 目标与现有能力
+## 0.74.0 实现对照
+
+锁定提交 `ae4d499c68d75d25fc49840c4b797d2a42a783a7`，远端标签 `v0.74.0` 已确认。
+
+- 实际字段为 `granit_render_pipeline_output::object_id_view`，由调用方拥有；
+  C++ 对应 `render_pipeline_output::object_id_view`，通过 render_desc.outputs 传入。
+- 新增公共 R32_UINT；标准 Opaque/MASK 写入对象 ID，背景清零；BLEND、UI、Debug 不写入。
+  object_id 为 0 的物体仍参与深度遮挡。
+- 新增 `granit_readback_batch_read_texture_view()`；C++ 为 `readback_batch::read_texture_view()`。
+  区域回读保留整数原值，不翻转 Y，复用已有异步操作与结果布局查询。
+- 首期不支持 MSAA ID resolve、自定义 record 自动注入及透明拾取策略。
+- 上游记录了真实 GPU ID/背景/遮挡及生命周期验收；Gneiss 不将这些记录代替自身拾取验收。
+- Gneiss 当前仍需实现请求、ID 目标、逐请求身份映射和 Editor 消费，不能将 P4 标为完成。
+
+## 原需求基线与目标
 
 目标是从指定 View 的指定像素取得可见物体编号，供编辑器、模型查看器等上层使用。
 Granit 只处理渲染对象编号与纹理，不负责场景树、实体查找、编辑器选择或撤销。
 
-已核对 Gneiss 锁定的 Granit 0.73.2，提交 `8eb744482de1dbd380393e0d8a28ae5339e51fb2`：
+提出需求时核对的 Granit 0.73.2，提交 `8eb744482de1dbd380393e0d8a28ae5339e51fb2`：
 
-| 接口位置 | 当前能力 | 本次要求 |
+| 接口位置 | 0.73.2 能力 | 当时提出的要求 |
 | --- | --- | --- |
 | `include/granit/pipeline/scene.h` | `granit_scene_renderable` 已有 `uint32_t object_id` 和 `uint64_t payload` | 复用 object_id，不引入上层对象类型 |
-| `include/granit/pipeline/render_pipeline.h` | Pipeline 输出描述包含颜色目标、尺寸、Canvas 和 Debug Draw | 增加可选对象 ID 输出；当前没有公开的拾取附件入口 |
+| `include/granit/pipeline/render_pipeline.h` | Pipeline 输出描述包含颜色目标、尺寸、Canvas 和 Debug Draw | 增加可选对象 ID 输出；0.73.2 没有公开的拾取附件入口 |
 | `include/granit/renderer/readback_batch.h` | 已有纹理区域回读、异步提交、结果布局查询与复制 | 验证或补齐整数附件的单像素读回，不另建一套异步系统 |
 
 字段存在不代表对象 ID 已写入可读纹理；颜色截图也不能代替身份拾取。
