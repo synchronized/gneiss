@@ -6,6 +6,8 @@
 #include <gneiss/engine/core/events/signal.hpp>
 #include <gneiss/engine/export.hpp>
 #include <gneiss/engine/function/render/commands.hpp>
+#include <gneiss/engine/function/render/pick_request.hpp>
+#include <gneiss/engine/function/scene/game_object.hpp>
 #include <gneiss/engine/function/scene/object_change.hpp>
 #include <memory>
 namespace gneiss {
@@ -28,6 +30,8 @@ public:
   /** 创建时枚举已有网格对象；后续须由宿主先 flush_changes，再同步。失败保留待同步状态，可重试。
    * 缺失 mesh/material 的对象暂不创建实例，资源换绑通知后重新判断。 */
   [[nodiscard]] GNEISS_ENGINE_API result<void> synchronize();
+  /** 将拾取身份解析为仍存活的对象；其他场景、已删除实例或未命中返回空句柄。 */
+  [[nodiscard]] GNEISS_ENGINE_API game_object resolve(const render::pick_result&) const;
 
 private:
   world_render_binding(world&, render::service&);

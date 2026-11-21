@@ -9,6 +9,7 @@
 #include <gneiss/engine/function/render/camera.hpp>
 #include <gneiss/engine/function/render/debug_draw_list.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
+#include <gneiss/engine/function/render/pick_request.hpp>
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 #include <gneiss/engine/function/render/ui_draw_list.hpp>
 #include <gneiss/engine/platform/window/surface_state.hpp>
@@ -69,6 +70,7 @@ struct draw_instance {
   math::matrix4 normal_matrix{1.F};
   std::uint64_t layers{~UINT64_C(0)};
   bool casts_shadows{true};
+  instance_key key{};
 };
 struct draw_scene {
   render_camera_snapshot camera{};
@@ -84,6 +86,11 @@ struct draw_view {
   draw_scene scene;
 };
 
+struct pick_readback {
+  std::uint32_t x{};
+  std::uint32_t y{};
+  pick_result result{};
+};
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
 struct frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
@@ -95,6 +102,7 @@ struct frame_packet final {
   debug_draw_list debug;
   frame_capture_metrics capture;
   std::shared_ptr<gneiss::render::frame_image> readback;
+  std::shared_ptr<pick_readback> pick;
 };
 
 } // namespace gneiss::render::detail

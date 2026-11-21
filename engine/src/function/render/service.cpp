@@ -47,6 +47,41 @@ result<frame_image> capture_request::take() {
   state_->consumed = true;
   return std::move(state_->image);
 }
+struct pick_request::state {
+  std::mutex mutex;
+  bool finished{};
+  bool consumed{};
+  error status{error::not_ready};
+  pick_result value;
+};
+bool pick_request::ready() const {
+  if (!state_)
+    return false;
+  std::lock_guard lock(state_->mutex);
+  return state_->finished;
+}
+void pick_request::cancel() const {
+  if (!state_)
+    return;
+  std::lock_guard lock(state_->mutex);
+  if (state_->finished)
+    return;
+  state_->finished = true;
+  state_->status = error::cancelled;
+}
+result<pick_result> pick_request::take() {
+  if (!state_)
+    return error::invalid_state;
+  std::lock_guard lock(state_->mutex);
+  if (state_->consumed)
+    return error::invalid_state;
+  if (!state_->finished)
+    return error::not_ready;
+  if (state_->status.failed())
+    return state_->status;
+  state_->consumed = true;
+  return state_->value;
+}
 namespace {
 void log_shutdown(const queue_stats& render_stats, const device_stats& stats,
                   error shutdown_result) {
@@ -357,10 +392,42 @@ result<capture_request> service::request_capture(render::frame_request&& request
     return accepted.error();
   return capture_request{std::move(state)};
 }
+result<pick_request> service::request_pick(const view& input, target_description size,
+                                           std::uint32_t x, std::uint32_t y) {
+  if (!size.width || !size.height || x >= size.width || y >= size.height)
+    return error::invalid_argument;
+  frame_request frame;
+  frame.surface.width = size.width;
+  frame.surface.height = size.height;
+  frame.views.push_back(input);
+  // 拾取创建自己的离屏附件，不读写调用方的颜色目标。
+  frame.views.back().target = {};
+  auto state = std::make_shared<pick_request::state>();
+  auto readback = std::make_shared<detail::pick_readback>();
+  readback->x = x;
+  readback->y = y;
+  readback->result.scene = input.scene;
+  auto accepted = submit_request(
+      frame, frame_policy::required, {}, {},
+      [state, readback](error status) {
+        std::lock_guard lock(state->mutex);
+        if (state->finished)
+          return;
+        state->status = status;
+        if (status.ok())
+          state->value = readback->result;
+        state->finished = true;
+      },
+      readback);
+  if (!accepted)
+    return accepted.error();
+  return pick_request{std::move(state)};
+}
 result<std::uint64_t> service::submit_request(render::frame_request& request, frame_policy policy,
                                               std::shared_ptr<frame_image> image,
                                               target_description capture_size,
-                                              std::function<void(error)> completed) {
+                                              std::function<void(error)> completed,
+                                              std::shared_ptr<detail::pick_readback> pick) {
   if (image && request.views.size() > 1 &&
       std::ranges::none_of(request.views, [](const auto& view) { return !view.target; }))
     return error::unsupported; // 多视图截图明确返回窗口合成结果。
@@ -424,7 +491,8 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
     return error::out_of_memory;
   auto accepted = impl_->submit(
       [capture = std::move(*capture), ui_resources = std::move(ui_resources),
-       image = std::move(image)]() mutable -> result<gneiss::render::detail::frame_packet> {
+       image = std::move(image),
+       pick = std::move(pick)]() mutable -> result<gneiss::render::detail::frame_packet> {
         auto packet = capture();
         if (!packet)
           return packet.error();
@@ -436,6 +504,7 @@ result<std::uint64_t> service::submit_request(render::frame_request& request, fr
             packet->ui.commands().size() * sizeof(ui_draw_command) +
             packet->debug.lines().size() * sizeof(debug_line);
         packet->readback = std::move(image);
+        packet->pick = std::move(pick);
         return packet;
       },
       policy, input_bytes, std::move(completed));

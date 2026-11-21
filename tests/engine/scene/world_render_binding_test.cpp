@@ -49,6 +49,10 @@ int main() {
   auto other_binding = world_render_binding::create(**owner, render);
   if (!binding || !other_binding || !(*binding)->synchronize() || !(*other_binding)->synchronize())
     return fail("建立两个绑定并首次同步");
+  const render::pick_result first_hit{(*binding)->scene(), {1}};
+  if ((*binding)->resolve(first_hit) != *child || (*other_binding)->resolve(first_hit) ||
+      (*binding)->resolve({(*binding)->scene(), {}}))
+    return fail("拾取身份限定绑定场景");
   math::transform transform;
   transform.translation.x = 5;
   if (root->set_local_transform(transform).failed() ||
@@ -74,6 +78,8 @@ int main() {
   (*owner)->flush_changes();
   if (!first.objects.at(child->entity()).components.at(type) || !(*binding)->synchronize())
     return fail("移除后重新添加保留身份失效信息");
+  if ((*binding)->resolve(first_hit))
+    return fail("组件重建使旧拾取身份失效");
   first.objects.clear();
   second.objects.clear();
   if (child->reparent({}).failed())
@@ -106,7 +112,12 @@ int main() {
   if (wrong_thread != error::invalid_state)
     return fail("拒绝其他线程同步");
   const auto old_id = child->entity();
+  const render::pick_result current_hit{(*binding)->scene(), {2}};
+  if ((*binding)->resolve(current_hit) != *child)
+    return fail("重建组件使用新拾取身份");
   child->destroy();
+  if ((*binding)->resolve(current_hit))
+    return fail("未同步的已删除对象也不能被拾取");
   (*owner)->flush_changes();
   if (!first.objects.at(old_id).destroyed || !(*binding)->synchronize() ||
       !(*other_binding)->synchronize())

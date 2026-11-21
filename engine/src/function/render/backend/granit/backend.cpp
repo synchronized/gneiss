@@ -1137,6 +1137,7 @@ gneiss::error
 backend::implementation::execute_view(gneiss::render::detail::frame_packet& packet,
                                       const gneiss::render::detail::draw_view& view_input,
                                       execution_result& output) {
+  const auto pick = packet.pick;
   const auto readback = packet.readback && (packet.views.size() == 1 || !view_input.target)
                             ? packet.readback
                             : nullptr;
@@ -1152,7 +1153,7 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
     return gneiss::error::success;
 
   const auto resource_prepare_started = std::chrono::steady_clock::now();
-  if (!view_input.target && !readback &&
+  if (!view_input.target && !readback && !pick &&
       (packet.surface.revision != applied_surface_revision_ || recreate_pending_)) {
     const auto recreate = swapchain_.recreate({.width = extent.width, .height = extent.height});
     if (recreate == ::granit::result::not_ready)
@@ -1277,9 +1278,10 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
                                    std::chrono::steady_clock::now() - resource_prepare_started)
                                    .count();
 
-  if (readback || view_input.target) {
+  if (readback || pick || view_input.target) {
     {
       target_mirror temporary;
+      target_mirror ids;
       auto& destination = view_input.target ? targets_[view_input.target] : temporary;
       auto& target = destination.texture;
       auto captured =
@@ -1296,9 +1298,32 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
         captured = target_view.initialize(renderer_, target,
                                           {.format = ::granit::texture_format::rgba8_unorm});
       }
+      if (captured.ok() && pick) {
+        if (snapshot.instances.size() > std::numeric_limits<std::uint32_t>::max())
+          return error::unsupported;
+        captured =
+            ids.texture.initialize(renderer_, {.format = ::granit::texture_format::r32_uint,
+                                               .usage = ::granit::texture_usage::color_attachment |
+                                                        ::granit::texture_usage::transfer_source,
+                                               .width = extent.width,
+                                               .height = extent.height});
+        if (captured.ok())
+          captured = ids.view.initialize(renderer_, ids.texture,
+                                         {.format = ::granit::texture_format::r32_uint});
+      }
       if (captured.ok()) {
+        ::granit::render_pipeline_output destination_output{
+            .view = target_view.ref(),
+            .format = ::granit::texture_format::rgba8_unorm,
+            .width = extent.width,
+            .height = extent.height,
+            .canvas = ui_canvas_.ref(),
+            .debug_draw = debug_draw_.ref(),
+            .object_id_view = ids.view.ref()};
         ::granit::render_pipeline_render_desc desc{};
         desc.scene = scene.ref();
+        if (pick)
+          desc.outputs = {&destination_output, 1};
         desc.output = target_view.ref();
         desc.output_format = ::granit::texture_format::rgba8_unorm;
         desc.width = extent.width;
@@ -1310,17 +1335,20 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
         desc.environment = &environment_info_.environment;
         captured = pipeline_.render(desc);
       }
-      if (!readback)
+      if (!readback && !pick)
         return map_result(captured);
       ::granit::readback_batch batch;
-      const auto byte_count = static_cast<std::uint64_t>(extent.width) * extent.height * 4U;
+      const auto byte_count =
+          pick ? UINT64_C(4) : static_cast<std::uint64_t>(extent.width) * extent.height * 4U;
       if (captured.ok()) {
         captured =
             batch.create(renderer_, {.max_result_bytes = byte_count, .max_operation_count = 1U});
       }
       std::uint32_t index{};
       if (captured.ok()) {
-        captured = batch.read_texture(target.ref(),
+        captured =
+            pick ? batch.read_texture_view(ids.view.ref(), {.x = pick->x, .y = pick->y}, index)
+                 : batch.read_texture(target.ref(),
                                       {.width = extent.width, .height = extent.height}, index);
       }
       ::granit::async_operation operation;
@@ -1349,6 +1377,22 @@ backend::implementation::execute_view(gneiss::render::detail::frame_packet& pack
       }
       if (captured.failed()) {
         return map_result(captured);
+      }
+      if (pick) {
+        if (info.required_size != sizeof(std::uint32_t) || info.bytes_per_row != 4U ||
+            info.format != ::granit::texture_format::r32_uint)
+          return error::internal;
+        std::array<std::byte, sizeof(std::uint32_t)> bytes{};
+        std::uint64_t required{};
+        captured = ::granit::copy_readback_result(operation, index, bytes, required);
+        if (captured.failed())
+          return map_result(captured);
+        std::uint32_t object_id{};
+        std::memcpy(&object_id, bytes.data(), sizeof(object_id));
+        if (object_id > snapshot.instances.size())
+          return error::internal;
+        pick->result.instance = object_id ? snapshot.instances[object_id - 1U].key : instance_key{};
+        return error::success;
       }
       if (info.required_size != byte_count || info.bytes_per_row != extent.width * 4U ||
           info.format != ::granit::texture_format::rgba8_unorm) {

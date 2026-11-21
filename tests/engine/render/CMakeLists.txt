@@ -290,3 +290,6 @@ set_tests_properties(gneiss.render-texture-uploads PROPERTIES TIMEOUT 90 LABELS 
 
 add_test(NAME gneiss.render-capture-failure COMMAND gneiss_asset_pixel_test --probe-capture-failure)
 set_tests_properties(gneiss.render-capture-failure PROPERTIES TIMEOUT 30 LABELS "gpu;integration")
+
+add_test(NAME gneiss.render-picking COMMAND gneiss_asset_pixel_test --probe-picking)
+set_tests_properties(gneiss.render-picking PROPERTIES TIMEOUT 60 LABELS "gpu;integration")

@@ -10,6 +10,7 @@
 #include <gneiss/engine/function/render/commands.hpp>
 #include <gneiss/engine/function/render/frame_request.hpp>
 #include <gneiss/engine/function/render/frame_result.hpp>
+#include <gneiss/engine/function/render/pick_request.hpp>
 #include <gneiss/engine/function/render/queue_options.hpp>
 #include <gneiss/engine/function/render/render_resource_data.hpp>
 #include <gneiss/engine/platform/window/native_handle.hpp>
@@ -20,6 +21,9 @@
 #include <vector>
 
 namespace gneiss::render {
+namespace detail {
+struct pick_readback;
+}
 struct memory_usage {
   std::uint64_t logical_bytes{};
   std::uint64_t cpu_data_bytes{};
@@ -77,6 +81,12 @@ public:
    * 返回独立请求；无需领取帧完成记录。关闭时排空已接受请求，结果仍可领取。 */
   [[nodiscard]] GNEISS_ENGINE_API result<capture_request>
   request_capture(render::frame_request&& request, target_description capture_size = {});
+
+  /** 指定相机与尺寸提交独立离屏拾取；不修改 View 的颜色目标。
+   * size 为物理像素尺寸，坐标以左上角为原点；越界返回 invalid_argument。
+   * 只拾取 Opaque/MASK。返回提交时的身份；取消不打断 GPU，关闭后仍可领取结果。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<pick_request>
+  request_pick(const view&, target_description size, std::uint32_t x, std::uint32_t y);
 
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_ENGINE_API void close_resources() noexcept;
@@ -150,7 +160,8 @@ private:
   result<std::uint64_t> submit_request(render::frame_request&, frame_policy,
                                        std::shared_ptr<frame_image>,
                                        target_description capture_size = {},
-                                       std::function<void(error)> completed = {});
+                                       std::function<void(error)> completed = {},
+                                       std::shared_ptr<detail::pick_readback> pick = {});
   template <typename Resource>
   result<std::shared_ptr<const Resource>>
   track(std::shared_ptr<const Resource> resource,

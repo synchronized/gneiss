@@ -46,7 +46,6 @@ result<void> scene::extract(const view& view, target_description size,
   output.scene.camera.viewport_height = size.height;
   output.scene.instances.reserve(instances_.size());
   for (const auto& [key, entry] : instances_) {
-    (void)key;
     const auto& value = entry.description;
     if (!value.visible || (value.layers & view.layers) == 0)
       continue;
@@ -59,8 +58,13 @@ result<void> scene::extract(const view& view, target_description size,
         if (handles[slot] != null_rid)
           packet.resources.textures_.try_emplace(handles[slot], std::move(versions.textures[slot]));
     }
-    output.scene.instances.push_back({value.mesh, value.material, value.world_matrix,
-                                      entry.normal_matrix, value.layers, value.casts_shadows});
+    output.scene.instances.push_back({value.mesh,
+                                      value.material,
+                                      value.world_matrix,
+                                      entry.normal_matrix,
+                                      value.layers,
+                                      value.casts_shadows,
+                                      {key}});
   }
   packet.capture.copied_payload_bytes += output.scene.instances.size() * sizeof(draw_instance);
   packet.views.push_back(std::move(output));

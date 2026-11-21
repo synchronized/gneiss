@@ -50,6 +50,17 @@ world_render_binding::create(world& source, gneiss::render::service& render) {
   value->scene_ = *scene;
   return value;
 }
+game_object world_render_binding::resolve(const render::pick_result& hit) const {
+  if (hit.scene != scene_ || !hit.instance)
+    return {};
+  for (const auto& [entity, key] : instances_) {
+    if (key == hit.instance) {
+      auto object = source_.find(entity);
+      return object.is_valid() ? object : game_object{};
+    }
+  }
+  return {};
+}
 result<void> world_render_binding::synchronize() {
   if (!source_.is_owner_thread())
     return error::invalid_state;

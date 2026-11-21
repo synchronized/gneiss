@@ -25,7 +25,45 @@
   区域回读保留整数原值，不翻转 Y，复用已有异步操作与结果布局查询。
 - 首期不支持 MSAA ID resolve、自定义 record 自动注入及透明拾取策略。
 - 上游记录了真实 GPU ID/背景/遮挡及生命周期验收；Gneiss 不将这些记录代替自身拾取验收。
-- Gneiss 当前仍需实现请求、ID 目标、逐请求身份映射和 Editor 消费，不能将 P4 标为完成。
+- Gneiss 请求、ID 目标及逐请求身份映射已进入实现验证；关闭验收发现以下上游缺口，Editor 消费待接入，P4 未完成。
+
+## Gneiss 接入发现的释放缺口（2026-11-21）
+
+Granit 0.74.0 的实际单像素拾取已经返回正确对象 ID，但首次启用后关闭 Renderer 前，
+Gneiss 检测到 `total_live_count=1`、`graphics_pipeline_count=1`，返回 invalid_state。
+纹理、Texture View、Shader 和异步操作计数为零；不是 ID 附件或请求引用未释放。
+
+源码核对（上述锁定提交）：
+
+- `src/pipeline/shadow_draw_recorder.cpp` 的 acquire_object_id_pipeline 创建原生
+  graphics pipeline，并保存在 `render_pipeline_state::object_id_pipelines`。
+- `src/pipeline/render_pipeline_api.cpp` 的 granit_render_pipeline_destroy 释放
+  shadow_pipelines，但未遍历销毁 object_id_pipelines。
+- 此缓存保存原生句柄；vector 析构不会代替 granit_graphics_pipeline_destroy。
+
+建议上游最小修复：
+
+1. 在销毁 RenderPipeline 时逐项销毁 object_id_pipelines 并清空，沿用现有首个错误保留规则；
+   在释放其依赖的 Shader、Layout 前完成。
+2. 审核初始化失败和缓存创建失败路径，避免同类遗漏。
+3. 用标准 draw_bindings 执行至少一次 Opaque 和一次 MASK 拾取，覆盖多个缓存变体；
+   销毁 Pipeline 及调用方资源后、Renderer 销毁前断言资源统计归零。
+   不以 Renderer 最终销毁能清理全部资源代替该检查。
+
+建议 PR 标题：**修复 RenderPipeline 销毁时遗漏 object_id_pipelines 的资源释放**。
+该修复属于 Granit 通用生命周期能力，不涉及 Gneiss 的场景、RID 或编辑器协议。
+Gneiss 不访问上游私有缓存，也不忽略关闭错误来绕过此问题。
+
+Gneiss 复现命令：
+
+```powershell
+cmake --build --preset windows-clang-debug --target gneiss_asset_pixel_test -j1
+ctest --preset windows-clang-debug -R '^gneiss.render-picking$' --output-on-failure -j1
+```
+
+当前测试保持失败，直至上游修复。GPU 命中、背景、高位 instance_key、旧请求映射、
+不同尺寸以及销毁场景后的结果领取已通过前置断言；最后的首次关闭资源归零断言失败。
+Editor 点击选择尚未接入，P4 不标记完成。
 
 ## 原需求基线与目标
 

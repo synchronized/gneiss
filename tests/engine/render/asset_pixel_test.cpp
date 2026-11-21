@@ -1156,6 +1156,72 @@ void run_texture_uploads() {
               static_cast<unsigned long long>(stats.total_live_count));
 }
 
+// 真实整数附件回读；高位 key、旧请求映射及关闭后领取不能由颜色截图代替。
+void run_picking() {
+  window::service window;
+  check(window.initialize({.title = "Gneiss picking", .width = 64, .height = 64, .visible = false})
+            .ok());
+  render::service renderer;
+  check(renderer.initialize(window.native(), window.surface()).ok());
+  const std::array vertices{mesh_vertex{{-.8F, -.8F, .5F}, {0, 0}},
+                            mesh_vertex{{.8F, -.8F, .5F}, {1, 0}},
+                            mesh_vertex{{0, .8F, .5F}, {.5F, 1}}};
+  const std::array<std::uint32_t, 3> indices{0, 1, 2};
+  mesh_view mesh_input;
+  mesh_input.vertices = vertices;
+  mesh_input.indices = indices;
+  auto mesh = renderer.create_mesh(mesh_input);
+  material_data material;
+  material.parameters.double_sided = true;
+  auto mat = renderer.create_material(material);
+  auto scene = renderer.create_scene();
+  check(bool(mesh) && bool(mat) && bool(scene));
+  const render::instance_key original{UINT64_C(0x1234567800000001)};
+  render::scene_commands commands{
+      .scene = *scene,
+      .entries = {render::create_instance{.id = original,
+                                          .description = {.mesh = *mesh, .material = *mat}}}};
+  check(bool(renderer.submit(std::move(commands))));
+  const render::view view{.scene = *scene};
+  auto invalid = renderer.request_pick(view, {64, 64}, 64, 0);
+  check(!invalid && invalid.error() == error::invalid_argument);
+  render::pick_request empty;
+  check(!empty.ready() && empty.take().error() == error::invalid_state);
+  auto hit = renderer.request_pick(view, {64, 64}, 32, 32);
+  check(bool(hit));
+  // 在旧请求之后替换实例，新身份不得污染旧请求的映射。
+  const render::instance_key replacement{original.value + 1};
+  commands = {
+      .scene = *scene,
+      .entries = {render::destroy_instance{original},
+                  render::create_instance{.id = replacement,
+                                          .description = {.mesh = *mesh, .material = *mat}}}};
+  check(bool(renderer.submit(std::move(commands))));
+  check(renderer.finish_frames().ok());
+  auto result = hit->take();
+  check(bool(result) && result->scene == *scene && result->instance == original);
+  check(hit->take().error() == error::invalid_state);
+  auto background = renderer.request_pick(view, {64, 64}, 0, 0);
+  check(bool(background));
+  check(renderer.finish_frames().ok());
+  auto missed = background->take();
+  check(bool(missed) && !missed->instance);
+  auto newer = renderer.request_pick(view, {128, 96}, 64, 48);
+  check(bool(newer));
+  // 旧场景身份立即失效，但已接受请求继续持有内容。
+  check(bool(renderer.destroy_scene(*scene)));
+  render::device_stats stats;
+  const auto closed = renderer.shutdown(stats);
+  auto latest = newer->take();
+  check(bool(latest) && latest->scene == *scene && latest->instance == replacement);
+  std::fprintf(stderr,
+               "拾取回读及旧身份验证通过；关闭 status=%d live=%llu graphics_pipeline=%llu\n",
+               closed.code(), static_cast<unsigned long long>(stats.total_live_count),
+               static_cast<unsigned long long>(stats.graphics_pipeline_count));
+  check(closed.ok() && stats.total_live_count == 0);
+  std::puts("GPU picking: hit/background/stable identity/resize/shutdown passed");
+}
+
 // 用有效但不相容的网格/材质触发真实后端错误，不模拟设备丢失。
 void run_capture_failure() {
   app::configuration config;
@@ -1342,6 +1408,10 @@ void run_queue_pressure() {
 
 }
 int main(int argc, char* argv[]) try {
+  if (argc == 2 && std::string_view{argv[1]} == "--probe-picking") {
+    run_picking();
+    return 0;
+  }
   if (argc == 2 && std::string_view{argv[1]} == "--probe-uploads") {
     run_texture_uploads();
     return 0;
