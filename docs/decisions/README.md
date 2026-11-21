@@ -141,3 +141,5 @@ Reference 和实现为准。
 - [ADR-127：静态类型表示能力](ADR-127-static-representation.md)
 
 - [ADR-129：Application 调度与宿主状态组合](ADR-129-application-scheduling.md)
+
+- [ADR-131：宿主会话与业务状态归属](ADR-131-host-business-ownership.md)

@@ -721,3 +721,6 @@
 
 - [PLAN-127：World 自有系统调度与宿主组合](plans/PLAN-127-world-system-scheduling.md)
 - [ADR-130：World 提供系统注册与更新入口](decisions/ADR-130-world-system-scheduling.md)
+
+- [PLAN-128：Editor、Runtime 与项目宿主业务归属](plans/PLAN-128-host-business-ownership.md)
+- [ADR-131：宿主会话与业务状态归属](decisions/ADR-131-host-business-ownership.md)
