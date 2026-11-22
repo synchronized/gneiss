@@ -18,14 +18,6 @@ add_library(
   ipc/runtime_commands.hpp
   ipc/runtime_ipc_session.cpp
   ipc/runtime_ipc_session.hpp
-  assets/runtime_asset_reloader.cpp
-  assets/runtime_asset_reloader.hpp
-  inspection/runtime_property_editor.cpp
-  inspection/runtime_property_editor.hpp
-  inspection/runtime_scene_inspection.cpp
-  inspection/runtime_scene_inspection.hpp
-  scene/runtime_scene_loader.cpp
-  scene/runtime_scene_loader.hpp
 )
 target_link_libraries(
   gneiss_runtime_ipc PUBLIC gneiss_protocol PRIVATE gneiss_project_config gneiss::engine
@@ -36,10 +28,29 @@ target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime_ipc)
 gneiss_target_output_directories(gneiss_runtime_ipc)
 
+# 运行场景、资源与检查业务不属于 IPC 传输目标。
+add_library(gneiss_runtime_host STATIC
+  session.cpp
+  session.hpp
+  assets/runtime_asset_reloader.cpp
+  assets/runtime_asset_reloader.hpp
+  inspection/runtime_property_editor.cpp
+  inspection/runtime_property_editor.hpp
+  inspection/runtime_scene_inspection.cpp
+  inspection/runtime_scene_inspection.hpp
+  scene/runtime_scene_loader.cpp
+  scene/runtime_scene_loader.hpp
+)
+target_link_libraries(gneiss_runtime_host PUBLIC gneiss::engine gneiss_protocol)
+target_include_directories(gneiss_runtime_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gneiss_runtime_host PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_runtime_host)
+gneiss_target_output_directories(gneiss_runtime_host)
+
 add_executable(gneiss_runtime "${PROJECT_SOURCE_DIR}/runtime/main.cpp" application.cpp application.hpp runtime_logging.cpp runtime_logging.hpp)
 target_link_libraries(
   gneiss_runtime
-  PRIVATE gneiss_logging_sinks gneiss_project_config gneiss::engine gneiss_runtime_ipc gneiss_tasks
+  PRIVATE gneiss_logging_sinks gneiss_project_config gneiss::engine gneiss_runtime_ipc gneiss_runtime_host gneiss_tasks
 )
 
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)

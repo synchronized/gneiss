@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application.hpp"
+#include "session.hpp"
 #include <deque>
 #include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/base/rid.hpp>
@@ -609,26 +610,18 @@ private:
     context.environment_pending = false;
   });
 
-  gneiss::world_owner world_owner;
-  gneiss::world* world{};
-  std::unique_ptr<gneiss::world_render_binding> render_binding;
+  gneiss::runtime::session session(*application);
+  gneiss::world* world{}; // 检查器与重载回调借用，停止时先解除。
   application->on_start("runtime.create_world", [&]() -> gneiss::result<void> {
-    auto created_world = gneiss::create_native();
-    if (!created_world)
-      return created_world.error();
-    world_owner = std::move(*created_world);
-    world = world_owner.get();
+    auto initialized = session.initialize();
+    if (!initialized)
+      return initialized;
+    world = &session.world();
     context.world = world;
-    auto binding = gneiss::world_render_binding::create(*world, application->render());
-    if (!binding)
-      return binding.error();
-    render_binding = std::move(*binding);
     return {};
   });
-  application->add_system(gneiss::app::stage::synchronize, "runtime.synchronize", [&] {
-    world->flush_changes();
-    return render_binding->synchronize();
-  });
+  application->add_system(gneiss::app::stage::synchronize, "runtime.synchronize",
+                          [&] { return session.synchronize(); });
   application->add_system(
       gneiss::app::stage::present, "runtime.present", [&]() -> gneiss::result<void> {
         const auto surface = application->window()->surface();
@@ -636,18 +629,9 @@ private:
           return {};
         gneiss::render::frame_request frame;
         frame.surface = surface;
-        auto camera = gneiss::select_render_camera(*world, surface.width, surface.height);
-        if (!camera)
-          return camera.error();
-        if (*camera) {
-          const auto& selected = **camera;
-          frame.views.push_back({.scene = render_binding->scene(),
-                                 .view_matrix = selected.view,
-                                 .projection_matrix = selected.projection,
-                                 .camera_position = selected.transform.translation});
-        } else {
-          frame.views.push_back({});
-        }
+        auto prepared = session.append_views(frame);
+        if (!prepared)
+          return prepared;
         auto submitted = application->render().render(std::move(frame));
         // 普通显示帧允许背压丢弃，下一轮重新生成当前视图。
         return !submitted && submitted.error() != gneiss::error::not_ready ? submitted
@@ -711,7 +695,7 @@ private:
   std::optional<gneiss::host::ipc_asset_revision> structural_reload;
   bool structural_ignored{};
   gneiss::ref<gneiss::host::scene_reload_state> scene_source;
-  std::optional<gneiss::host::runtime_scene_loader> scene_loader;
+  gneiss::host::runtime_scene_loader* scene_loader{}; // 会话拥有，宿主仅借用。
   gneiss::host::runtime_asset_reloader asset_reloader(
       [&, native_application = application](const gneiss::host::ipc_asset_reload_request& request) {
         const auto& first = request.assets.front();
@@ -910,8 +894,8 @@ private:
   });
 
   application->on_start("runtime.open_scene", [&] {
-    scene_loader.emplace(*application, *world);
-    context.scene_loader = &*scene_loader;
+    scene_loader = &session.loading();
+    context.scene_loader = scene_loader;
     scene_loader->after_activate = after_activate;
     return scene_loader->request({context.inspection_session_id, 1U, project.startup_scene}, 0U);
   });
@@ -919,10 +903,9 @@ private:
   // 运行所有者后创建先销毁，停止回调借用的会话局部对象覆盖关闭及异常展开。
   auto application_owner = std::move(*created);
   application->on_stop("runtime.release_session", [&] {
-    if (scene_loader)
-      scene_loader->stop();
+    session.stop_loading();
     context.scene_loader = nullptr;
-    scene_loader.reset();
+    scene_loader = nullptr;
     context.asset_request.reset();
     context.pending_assets.clear();
     context.asset_reloader = nullptr;
@@ -937,8 +920,8 @@ private:
     if (scene.is_valid())
       scene.unload();
     scene = {};
-    render_binding.reset();
-    world_owner.reset();
+    session.close();
+    world = nullptr;
     context.world = nullptr;
   });
   auto ran = application->run();

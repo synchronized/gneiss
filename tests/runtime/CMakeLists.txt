@@ -23,7 +23,7 @@ if(BUILD_TESTING)
   add_executable(
     gneiss_runtime_scene_inspection_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_scene_inspection_test.cpp"
   )
-  target_link_libraries(gneiss_runtime_scene_inspection_test PRIVATE gneiss_runtime_ipc EnTT::EnTT)
+  target_link_libraries(gneiss_runtime_scene_inspection_test PRIVATE gneiss_runtime_host EnTT::EnTT)
   target_compile_definitions(
     gneiss_runtime_scene_inspection_test
     PRIVATE GNEISS_RUNTIME_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
@@ -40,7 +40,7 @@ if(BUILD_TESTING)
   set_tests_properties(gneiss.runtime.scene-inspection PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_scene_loader_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_scene_loader_test.cpp")
-  target_link_libraries(gneiss_runtime_scene_loader_test PRIVATE gneiss_runtime_ipc gneiss_tasks gneiss::engine)
+  target_link_libraries(gneiss_runtime_scene_loader_test PRIVATE gneiss_runtime_host gneiss_tasks gneiss::engine)
   target_compile_definitions(gneiss_runtime_scene_loader_test PRIVATE GNEISS_RUNTIME_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   target_compile_features(gneiss_runtime_scene_loader_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_scene_loader_test)
@@ -50,7 +50,7 @@ if(BUILD_TESTING)
   set_tests_properties(gneiss.runtime.scene-loader PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_property_editor_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_property_editor_test.cpp")
-  target_link_libraries(gneiss_runtime_property_editor_test PRIVATE gneiss_runtime_ipc)
+  target_link_libraries(gneiss_runtime_property_editor_test PRIVATE gneiss_runtime_host)
   target_compile_features(gneiss_runtime_property_editor_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_property_editor_test)
   gneiss_target_output_directories(gneiss_runtime_property_editor_test)
@@ -59,7 +59,7 @@ if(BUILD_TESTING)
   set_tests_properties(gneiss.runtime.property-editor PROPERTIES LABELS "cpu;integration")
 
   add_executable(gneiss_runtime_asset_reloader_test "${PROJECT_SOURCE_DIR}/tests/runtime/runtime_asset_reloader_test.cpp")
-  target_link_libraries(gneiss_runtime_asset_reloader_test PRIVATE gneiss_runtime_ipc)
+  target_link_libraries(gneiss_runtime_asset_reloader_test PRIVATE gneiss_runtime_host)
   target_compile_features(gneiss_runtime_asset_reloader_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_asset_reloader_test)
   gneiss_target_output_directories(gneiss_runtime_asset_reloader_test)
@@ -148,7 +148,7 @@ endforeach()
 # 来源重载策略属于 Runtime 宿主；纯组合与实例化仍由 Engine 测试覆盖。
 if(BUILD_TESTING)
   add_executable(gneiss_scene_structural_reload_test "${PROJECT_SOURCE_DIR}/tests/runtime/scene_structural_reload_test.cpp")
-  target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_ipc)
+  target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_host)
   target_compile_definitions(
     gneiss_scene_structural_reload_test
     PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
@@ -160,7 +160,7 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.scene_structural_reload COMMAND gneiss_scene_structural_reload_test)
   set_tests_properties(gneiss.scene_structural_reload PROPERTIES LABELS "cpu;integration")
   add_executable(gneiss_prefab_structural_reload_test "${PROJECT_SOURCE_DIR}/tests/runtime/prefab_structural_reload_test.cpp")
-  target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_ipc)
+  target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine gneiss_tasks gneiss_runtime_host)
   target_compile_definitions(
     gneiss_prefab_structural_reload_test
     PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
