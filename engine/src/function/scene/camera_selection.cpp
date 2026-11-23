@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#include "function/scene/detail/camera_selection_state.hpp"
+#include "function/scene/world_state.hpp"
+#include <gneiss/engine/function/scene/camera_selection.hpp>
+namespace gneiss {
+error set_active_camera(world& owner, entity_id entity) {
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  auto& state = state_of(owner);
+  if (!state.is_alive(entity.get()))
+    return error::invalid_handle;
+  if (!state.get<camera_component>(entity.get()))
+    return error::not_ready;
+  state.context<detail::camera_selection_state>().entity = entity;
+  return error::success;
+}
+error get_active_camera(world& owner, entity_id& output) {
+  output = {};
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  auto& state = state_of(owner);
+  auto& selection = state.context<detail::camera_selection_state>();
+  if (!state.get<camera_component>(selection.entity.get())) {
+    selection.entity = {};
+    return error::not_ready;
+  }
+  output = selection.entity;
+  return error::success;
+}
+
+} // namespace gneiss

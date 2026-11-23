@@ -13,10 +13,12 @@ Editor。
 ## 前置条件
 
 - CMake 3.23 或更高版本。
+- libassert/cpptrace 通过锁定归档自动获取，支持 `GNEISS_DEPENDENCY_OFFLINE=ON` 复用缓存。
+  桌面 Unix 的断言符号解析使用运行时 PATH 中的 addr2line（macOS 为 atos）；Windows 使用 DbgHelp。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
 - GLM 1.0.1 为内部头文件依赖，由 CMake 获取锁定归档并校验 SHA-256；已有依赖缓存时可离线复用，无需单独安装 GLM。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.67.x`（本次验证为 `0.67.0`） 核心、Window 与 RenderPipeline
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.74.x`（锁定 `0.74.1`） 核心、Window 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。
 - 离线工具或测试还需要 Granit `AssetTools` 组件。FETCH 自动启用其 SDK；PACKAGE 或父工程模式
@@ -41,18 +43,17 @@ ctest --preset windows-clang-debug
 运行 version 示例：
 
 ```powershell
-./build/windows-clang-debug/bin/gneiss_version_example.exe
+./build/windows-clang-debug/bin/gneiss_version_test.exe
 ```
 
 运行无 UI 的属性检查示例：
 
 ```powershell
-./build/windows-clang-debug/bin/gneiss_property_inspector_example.exe
+./build/windows-clang-debug/bin/gneiss_property_inspector_test.exe
 ```
 
-该示例使用公共 C ABI，可由 C++20 消费：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
-修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它不依赖
-EnTT、Granit 类型或私有组件头，运行完成后会清理自己创建的临时目录。
+该检查程序使用仓内 C++20 原生接口：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
+修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它使用仓内反射与场景接口，运行完成后会清理自己创建的临时目录。
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 
@@ -102,25 +103,24 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 
 ### 安装并通过 CMake package 使用
 
-构建后可将库、公共头文件、CMake package 和示例资产安装到同一前缀：
+构建后可将库、CMake package、已启用的 Runtime、模板及运行资产安装到同一前缀；
+当前不安装原生 C++ 头文件，不提供可独立使用的对象 SDK：
 
 ```sh
 cmake --install build/windows-clang-debug --prefix build/gneiss-install
 ```
 
-下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine`。Windows 共享库 Consumer
-运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
-资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
-`Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
-如果 Granit 安装在另一个前缀，Windows 运行时还需把该前缀的 `bin` 加入 `PATH`；Gneiss 不会把
-外部 Granit package 复制进自身安装前缀。
-Linux Shared 构建应将 package 导出的 `GNEISS_LIBRARY_DIR` 及外部 Granit 前缀的 `lib` 加入动态库
-搜索路径；仓库安装 Consumer 会自动配置该测试环境。
+安装 package 导出 Engine 链接目标与运行目录。仓内原生 C++ 消费者仍使用各模块的
+include/src 契约，不能把 find_package 成功等同于公共 SDK 可用。
+共享 Runtime 安装会复制 Granit 共享依赖；静态 package 继续要求 libassert 与 Granit 的
+Window/RenderPipeline 依赖。安装输出与真实启动是两种验证：后者可能需要 GPU，不能当作
+纯 CPU 检查。具体安装规则以 cmake/package/install.cmake 为准。
 
 ### 启用 Granit 窗口与渲染适配
 
-普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
-Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
+Granit 是当前构建依赖；没有独立的可选 Granit 平台开关。是否创建窗口和 GPU 资源由运行
+配置与调用路径决定，核心测试按实际依赖选择。窗口应用通过 Granit 创建 Renderer、Surface
+和 Swapchain；无窗口运行不等同于 Granit headless 渲染。
 Granit 0.43 的标准 PBR 要求设备支持 `shaderDemoteToHelperInvocation`；后端查询并启用该特性，
 不支持时设备选择失败，不会继续执行依赖该能力的 Shader。
 Renderer 初始化时会查询设备的 Uniform Buffer 对齐与绑定范围；渲染服务按设备对齐创建逐帧
@@ -156,20 +156,16 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 刻意固定旧默认提交，同时设置 `GNEISS_GRANIT_UPDATE_DEFAULTS=OFF`。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
-启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转
-观察视角，按 `Esc` 或关闭窗口正常退出：
+启用 Granit 适配并完成构建后，统一使用场景查看器。默认显示神庙，A/D 环绕相机、Esc 退出：
 
 ```powershell
-./build/granit-platform/bin/gneiss_temple_example.exe
-./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --smoke
+./build/windows-clang-release/bin/gneiss_scene_viewer.exe --measure
+./build/windows-clang-debug/bin/gneiss_scene_viewer.exe --assets build/windows-clang-debug/examples/lantern_gallery/assets --scene asset://scenes/gallery.scene.json
 ```
 
-稳定运行时样例保留为仓内目标：
-
-```powershell
-./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
-./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
-```
+两个示例及参数说明见[示例入口](../../examples/README.md)。
 
 动态模块模板编译检查已撤销；场景模板与 Runtime 的安装检查保留。
 
@@ -178,6 +174,8 @@ Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 
 回归阈值。`scripts/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
 保存原始数据、汇总、进程峰值常驻内存及环境元数据；使用 `--help` 查看必填的版本标识参数。
 采样时必须显式填写 CPU、实际使用的 GPU 和驱动版本，不能仅凭系统枚举猜测 Vulkan 设备。
+脚本支持 `--dual-view`，保留查看器各段 JSON 并汇总队列峰值及排空后载荷；GPU 最新单帧指标仅保留
+在原始样本中，不混入宿主耗时汇总。实际 GPU 尚未确认的运行须明确标为诊断数据，不能作为硬件性能基线。
 
 Linux Clang/GCC 可使用 `GNEISS_ENABLE_SANITIZERS=ON` 为 Gneiss 自有目标启用 AddressSanitizer、
 LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 使用镜像已完整提供运行库的 GCC，
@@ -191,18 +189,14 @@ ASan/UBSan，并关闭 LSan。图形 Application 销毁时会先释放 Gneiss �
 后端无关的逻辑资源退出检查；仍有存活资源时，销毁返回 `invalid state`，诊断输出各资源类型数量。
 Granit 的后端待回收数量只用于诊断，不视为调用方泄漏。
 
-Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
-`examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
-更新 Camera Scene Node，并通过动作映射消费输入。示例资产完整位于
-`examples/temple/assets`，因此从任意工作目录启动构建产物都能运行；安装后的可执行文件会从
-`share/gneiss/examples/temple/assets` 定位配套资产。场景入口是
-`examples/temple/assets/scenes/temple.scene.json`。
+Linux 下运行同名且不带 `.exe` 后缀的可执行文件。查看器使用仓内原生接口，
+神庙数据及来源见[示例资产](../../examples/temple/assets/ASSET_ORIGINS.md)。
+安装路径为 `share/gneiss/examples/scene-viewer/assets`。
 
-Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导入构建目录，再叠加项目原创
-的地面、石柱、相机和场景描述。源码只保留原始 GLB、上游许可和原创资产，避免同时维护生成文件。
-来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
-`GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
-与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
+Lantern 工作流夹具由 `gneiss_assetc` 导入 CC0 GLB，再叠加原创场景数据；
+要求 `GNEISS_BUILD_TOOLS=ON`。来源与许可见
+[Lantern 资产说明](../../examples/lantern_gallery/assets/ASSET_ORIGINS.md)。
+同样使用查看器打开，不再构建独立灯廊程序。
 
 ### 构建 Runtime 宿主
 
@@ -239,7 +233,7 @@ Editor 默认不参与普通构建。启用时会下载并静态构建固定提�
 Editor 当前需要 Granit
 平台适配。Project Manager 与正式 Editor 统一使用以 Catppuccin Mocha 为基础、Peach 为主强调色
 的 `Gneiss Mocha` 主题，并使用 Inter Regular 与 Noto Sans SC 中文回退作为界面字体；上游配色许可见
-`src/editor/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `src/editor/fonts/README.md`：
+`editor/resources/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `editor/resources/fonts/README.md`：
 
 ```sh
 cmake --preset windows-clang-debug \
@@ -367,9 +361,9 @@ Request、手动远端验证、修复阻塞问题、合并到 `main`、创建并
 本机验证工具链为 Emscripten 5.0.6；保留 C++ 异常处理，显式禁用工作线程后端。
 
 ```sh
-emcmake cmake -S tests/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
+emcmake cmake -S tests/engine/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build/task-web
-python tests/task_web/run_browser.py --build build/task-web --browser <Chrome或Chromium可执行文件>
+python tests/engine/task_web/run_browser.py --build build/task-web --browser <Chrome或Chromium可执行文件>
 ```
 
 Windows 的 Emscripten PowerShell 入口需要 `EMSDK_PYTHON` 指向 SDK 的 Python，并按 SDK 配置
@@ -395,6 +389,17 @@ Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序�
 普通加载只包含 I/O/CPU 阶段，取消用例不等待 GPU 上传；GPU 生命周期单独验收。
 资产身份和门槛见 [0.49 基线记录](../records/M-312-loading-stability-baseline.md)。
 
+当前基准直接加载场景资产并实例化，不再经过候选激活协议。`activation_ms` 测量组合、
+实例化、相机选择及旧场景卸载的同步耗时；不能与历史候选交换耗时直接比较。
+`cancel-prepare` 表示提交后放弃本请求观察者，`cancel-ready` 表示 CPU 内容就绪后、实例化前放弃；
+`cancel_ms` 只测量取消调用，`request_released` 只证明观察者释放，不证明共享任务或 GPU 已回收。
+取消是否执行由 `cancel_requested` 判断，耗时允许为零。两个测量脚本默认只记录实例化耗时；
+需要门槛时显式传入 `--activation-budget-ms`，该预算写入报告，功能模式不执行性能门槛。
+生命周期脚本不再提供 `cancel-gpu`。`failure` 使用损坏的场景 JSON；视觉依赖缺失不属于结构打开失败。
+旧候选内存、上传预算、异步回滚清理统计不再输出或校验；仍保留进程峰值、图像、资源数量、
+关闭后保留任务数及响应性检查。GPU 与内存预算验收须单独测量，不能从删除的指标推断通过。
+
+
 诊断后台加载的长间隔时，可单独运行测量程序并追加 `trace`：
 
 ```powershell
@@ -404,7 +409,8 @@ Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序�
 输出前缀的父目录须存在。常规 JSON 额外记录样本数、P50/P99 和超过
 16.7/33.3/50/100 ms 的次数及比例；旧 P95/最大值定义保持。
 可选 `.loop.csv` 保存每次更新回调的起点、此前已观测场景阶段、回调总耗时、
-协作调度、场景推进及实际睡眠耗时。后三项嵌套于回调总耗时，不能相加后再加总耗时。
+协作调度、场景工作（`scene_work_ms`）及实际睡眠耗时。阶段值 0/1/2 分别表示
+CPU 加载、视觉批次和完成。后三项嵌套于回调总耗时，不能相加后再加总耗时。
 `outside_callback_ms` 是直到下一回调的剩余时间，含渲染、下一轮事件处理和观测开销，
 尚不能归因于某个引擎调用；最后一行未闭合，使用 -1。墙钟耗时包含线程失去调度的时间。
 详细记录在测量完成后批量写出，默认关闭；开启时会增加内存与计时开销，须另作开关对照。
@@ -605,8 +611,36 @@ Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
 ## 测试源码目录
 
 测试源码、脚本及专用夹具统一存放在根目录 `tests/`，`src/` 下不再放置 tests 子目录。
-宿主测试分为 `tests/host/common`、`tests/host/editor` 和 `tests/host/runtime`；
-IPC 与 libuv 测试分别位于 `tests/platform/ipc` 和 `tests/platform/io/uv`。
+共享项目配置与协议测试分别位于 `tests/project` 和 `tests/protocol`；
+Runtime 与 Editor 宿主测试分别位于 `tests/runtime` 和 `tests/editor`；
+IPC 与 libuv 测试分别位于 `tests/engine/platform/ipc` 和 `tests/engine/platform/io`。
 
-测试目标仍由对应模块的 CMake 文件按既有条件声明，依赖和编译权限保持在模块边界内。
+项目配置与协议测试由各自测试目录的 CMake 声明；其他测试按现有模块条件启用，依赖和编译权限保持在模块边界内。
 目录迁移不改变目标名、CTest 名称或测试运行命令。
+
+测试目标的 IDE 分组、目录归属和维护规则见[测试维护指南](testing.md#测试目标的-cmake-约定)。
+
+## CMake 文件与装配入口
+
+根 `CMakeLists.txt` 负责选项、依赖解析和生产模块装配；生产目标仍在所属模块声明。
+`cmake/` 按职责组织：
+
+- `dependencies/`：第三方依赖解析、源码缓存与版本选择。
+- `targets/`：跨模块目标约定与可选 profiling 配置。
+- `package/`：安装、导出与 package 配置模板；不安装内部 C++ 头文件。
+- `scripts/`：构建阶段执行的代码/数据生成脚本。
+- `testing/`：CMake 验收脚本及其专用配置夹具。
+
+所有生产模块建立后，根目录只通过 `add_subdirectory(tests)` 装配测试。
+模块测试是否启用由 `tests/CMakeLists.txt` 按生产模块选项决定，具体测试目标仍在对应领域目录声明。
+移动脚本时同步检查 `-P`、自定义命令 `DEPENDS`、独立测试工程和 CI 缓存键，
+不保留只转发旧路径的兼容脚本。
+
+基础模块依赖随真实 target 传播，不增加转发接口目标。Base、Math、Data、Meta、Serialization、
+JSON、Resource、Logging、Tasks、IO、Files、Window 均提供完整实现和专属导出控制。
+纯反射/序列化消费者不链接 Engine；Runtime 与 Editor 继续链接运行领域的 Engine。
+共享构建的身份表与默认服务仅由所属 DLL 持有，IO 消费者共享 libuv 动态库；静态构建复用
+同一依赖图和上游 uv_a，安装包保留链接闭包，不重复编译实现。
+安装包包含这些运行模块，不新增头文件 SDK。源码归属见
+[目录与模块所有权](../concepts/repository-layout.md)，验收见
+[PLAN-124](../plans/PLAN-124-foundation-modules.md)。

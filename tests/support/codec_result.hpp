@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/result.hpp"
+#include <gneiss/engine/core/base/result.hpp>
 #include <optional>
 #include <string>
 namespace gneiss::test_support {
 template <class T, class D, class Diagnostic>
-auto take_codec(engine::result<T, D> value, T& output, Diagnostic& diagnostic)
+auto take_codec(gneiss::result<T, D> value, T& output, Diagnostic& diagnostic)
     -> std::optional<decltype(value.error().error)> {
   if (!value) {
     auto failure = std::move(value).error();

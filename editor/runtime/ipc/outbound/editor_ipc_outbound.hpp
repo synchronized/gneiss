@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
+#define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
+
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/ipc/envelope.hpp>
+#include <gneiss/protocol/ipc_asset_protocol.hpp>
+#include <gneiss/protocol/ipc_property_protocol.hpp>
+
+namespace gneiss::host {
+
+[[nodiscard]] gneiss::error make_pause_command(std::uint32_t request_id,
+                                               gneiss::ipc::envelope& output) noexcept;
+[[nodiscard]] gneiss::error make_resume_command(std::uint32_t request_id,
+                                                gneiss::ipc::envelope& output) noexcept;
+[[nodiscard]] gneiss::error make_stop_command(std::uint32_t request_id,
+                                              gneiss::ipc::envelope& output) noexcept;
+[[nodiscard]] gneiss::error make_inspection_resync_command(std::uint32_t request_id,
+                                                           gneiss::ipc::envelope& output) noexcept;
+
+} // namespace gneiss::host
+
+#endif

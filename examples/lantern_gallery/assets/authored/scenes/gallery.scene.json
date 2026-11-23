@@ -5,7 +5,7 @@
   "objects": [
     {
       "uuid": "20000000-0000-4000-8000-000000000040",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Lantern Pivot",
       "transform": {
         "translation": [
@@ -29,7 +29,7 @@
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000001",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Gallery Camera",
       "transform": {
         "translation": [
@@ -50,18 +50,12 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
-          "$content": {
-            "settings": {"fov": 1.04719755, "near": 0.1, "far": 100},
-            "is_primary": true
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings":{"fov":1.04719755,"near":0.1,"far":100},"is_primary":true,"uuid":"8281422c-fcd2-47b0-bc8b-abd6058d798d"}}
       ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000002",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Stone Floor",
       "transform": {
         "translation": [
@@ -82,18 +76,12 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
-          "$content": {
-            "mesh": "asset://models/gallery-box.mesh.json",
-            "material": "asset://materials/gallery-stone.material.json"
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json","uuid":"6bc56f6c-ded2-4a3c-b8eb-f58c1d58baec"}}
       ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000003",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Northwest Pillar",
       "transform": {
         "translation": [
@@ -114,18 +102,12 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
-          "$content": {
-            "mesh": "asset://models/gallery-box.mesh.json",
-            "material": "asset://materials/gallery-stone.material.json"
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json","uuid":"7c661126-2088-4d12-a541-102e366bab30"}}
       ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000004",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Northeast Pillar",
       "transform": {
         "translation": [
@@ -146,18 +128,12 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
-          "$content": {
-            "mesh": "asset://models/gallery-box.mesh.json",
-            "material": "asset://materials/gallery-stone.material.json"
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json","uuid":"c4bce9d5-252d-4d4c-89a1-c5b4fd821e7b"}}
       ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000005",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Southwest Pillar",
       "transform": {
         "translation": [
@@ -178,18 +154,12 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
-          "$content": {
-            "mesh": "asset://models/gallery-box.mesh.json",
-            "material": "asset://materials/gallery-stone.material.json"
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json","uuid":"c731a90d-3eaa-426b-91f4-72059524ff8c"}}
       ]
     },
     {
       "uuid": "20000000-0000-4000-8000-000000000006",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "name": "Southeast Pillar",
       "transform": {
         "translation": [
@@ -210,33 +180,36 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
-          "$content": {
-            "mesh": "asset://models/gallery-box.mesh.json",
-            "material": "asset://materials/gallery-stone.material.json"
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json","uuid":"4e37a888-a2ff-4885-baf0-e644c504b72b"}}
       ]
     },
     {
-      "parent": "20000000-0000-4000-8000-000000000040",
+      "parent": {"object":"20000000-0000-4000-8000-000000000040","source":null},
       "name": "Left Lantern",
       "prefab": {
         "uri": "asset://prefabs/lantern.prefab.json",
         "overrides": [
           {
-            "source_node_uuid": "21000000-0000-4000-8000-000000000002",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
-            "property_id": 1,
-            "value": {
-              "kind": "vec3",
-              "value": [
+            "key": {
+              "target": {
+                "source_node_uuid": "21000000-0000-4000-8000-000000000002",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 1
+                }
+              ]
+            },
+            "operation":{"$kind":"set","$content":{"content":{
+              "$kind": "vec3",
+              "$content": [
                 -5,
                 13.0160303,
                 0
               ]
-            }
+            }}}
           }
         ]
       },
@@ -261,23 +234,32 @@
       "uuid": "20000000-0000-4000-8000-000000000010"
     },
     {
-      "parent": "20000000-0000-4000-8000-000000000040",
+      "parent": {"object":"20000000-0000-4000-8000-000000000040","source":null},
       "name": "Center Lantern",
       "prefab": {
         "uri": "asset://prefabs/lantern.prefab.json",
         "overrides": [
           {
-            "source_node_uuid": "21000000-0000-4000-8000-000000000003",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
-            "property_id": 3,
-            "value": {
-              "kind": "vec3",
-              "value": [
+            "key": {
+              "target": {
+                "source_node_uuid": "21000000-0000-4000-8000-000000000003",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 3
+                }
+              ]
+            },
+            "operation":{"$kind":"set","$content":{"content":{
+              "$kind": "vec3",
+              "$content": [
                 1.15,
                 1.15,
                 1.15
               ]
-            }
+            }}}
           }
         ]
       },
@@ -302,23 +284,32 @@
       "uuid": "20000000-0000-4000-8000-000000000020"
     },
     {
-      "parent": "20000000-0000-4000-8000-000000000040",
+      "parent": {"object":"20000000-0000-4000-8000-000000000040","source":null},
       "name": "Right Lantern",
       "prefab": {
         "uri": "asset://prefabs/lantern.prefab.json",
         "overrides": [
           {
-            "source_node_uuid": "21000000-0000-4000-8000-000000000004",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
-            "property_id": 1,
-            "value": {
-              "kind": "vec3",
-              "value": [
+            "key": {
+              "target": {
+                "source_node_uuid": "21000000-0000-4000-8000-000000000004",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 1
+                }
+              ]
+            },
+            "operation":{"$kind":"set","$content":{"content":{
+              "$kind": "vec3",
+              "$content": [
                 -9.58200741,
                 20,
                 0
               ]
-            }
+            }}}
           }
         ]
       },

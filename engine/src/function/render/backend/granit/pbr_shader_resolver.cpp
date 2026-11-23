@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "function/render/backend/granit/pbr_shader_resolver.hpp"
+
+#include <granit/renderer/shader_library.h>
+
+#include <cstdint>
+
+namespace gneiss {
+namespace {
+
+constexpr std::uint8_t shader_library_bytes[] = {
+#include "pbr_standard.grshlib.inc"
+};
+constexpr std::uint8_t material_archive_bytes[] = {
+#include "pbr_standard.grmat.inc"
+};
+
+} // namespace
+
+granit_result pbr_shader_resolver::validate() noexcept {
+  granit_shader_library_info info = GRANIT_SHADER_LIBRARY_INFO_INIT;
+  if (granit_shader_library_inspect(archive_.data(), archive_.size(), &info) != GRANIT_SUCCESS) {
+    reset();
+    return GRANIT_ERROR_INITIALIZATION_FAILED;
+  }
+  return GRANIT_SUCCESS;
+}
+
+granit_result pbr_shader_resolver::initialize(std::span<const std::byte> bytes) {
+  reset();
+  try {
+    archive_.assign(bytes.begin(), bytes.end());
+    return validate();
+  } catch (...) {
+    reset();
+    throw;
+  }
+}
+
+granit_result pbr_shader_resolver::initialize_embedded() {
+  reset();
+  try {
+    const auto bytes = std::as_bytes(std::span{shader_library_bytes});
+    archive_.assign(bytes.begin(), bytes.end());
+    return validate();
+  } catch (...) {
+    reset();
+    throw;
+  }
+}
+
+void pbr_shader_resolver::reset() noexcept { archive_.clear(); }
+
+bool pbr_shader_resolver::valid() const noexcept { return !archive_.empty(); }
+
+std::span<const std::byte> pbr_shader_resolver::shader_archive() const noexcept { return archive_; }
+
+std::span<const std::byte> pbr_shader_resolver::material_archive() noexcept {
+  return std::as_bytes(std::span{material_archive_bytes});
+}
+
+} // namespace gneiss

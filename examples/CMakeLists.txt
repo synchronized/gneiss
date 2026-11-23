@@ -1,74 +1,31 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_executable(gneiss_version_example version.cpp)
-target_link_libraries(gneiss_version_example PRIVATE gneiss::engine gneiss_value_interface)
-gneiss_target_compile_warnings(gneiss_version_example)
-gneiss_target_output_directories(gneiss_version_example)
+add_executable(gneiss_minimal_example minimal/main.cpp)
+target_link_libraries(gneiss_minimal_example PRIVATE gneiss_base gneiss::engine)
+gneiss_target_compile_warnings(gneiss_minimal_example)
+gneiss_target_output_directories(gneiss_minimal_example)
+set_target_properties(gneiss_minimal_example PROPERTIES FOLDER "Examples")
 
-add_executable(gneiss_application_world_example
-  application_world/main.cpp application_world/scene_update.cpp)
-target_link_libraries(gneiss_application_world_example PRIVATE gneiss::engine gneiss_native_interface)
-gneiss_target_compile_warnings(gneiss_application_world_example)
-gneiss_target_output_directories(gneiss_application_world_example)
+add_executable(gneiss_scene_viewer scene_viewer/main.cpp)
+target_link_libraries(gneiss_scene_viewer PRIVATE gneiss_base gneiss::engine gneiss_tasks)
+target_compile_definitions(gneiss_scene_viewer PRIVATE
+  GNEISS_VIEWER_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets")
+gneiss_target_compile_warnings(gneiss_scene_viewer)
+gneiss_target_output_directories(gneiss_scene_viewer)
+set_target_properties(gneiss_scene_viewer PROPERTIES FOLDER "Examples")
+install(TARGETS gneiss_scene_viewer RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/scene-viewer/assets")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/editor_demo/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo")
 if(BUILD_TESTING)
-  add_test(NAME gneiss.application_world_example COMMAND gneiss_application_world_example)
-endif()
-
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/editor_demo/"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo"
-)
-
-add_executable(gneiss_property_inspector_example property_inspector/main.cpp)
-target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
-target_compile_definitions(
-  gneiss_property_inspector_example
-  PRIVATE
-    GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/property_inspector/assets"
-)
-gneiss_target_compile_warnings(gneiss_property_inspector_example)
-gneiss_target_output_directories(gneiss_property_inspector_example)
-install(TARGETS gneiss_property_inspector_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/property_inspector/assets/"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/property-inspector/assets"
-)
-if(BUILD_TESTING)
-  add_test(NAME gneiss.property_inspector_example COMMAND gneiss_property_inspector_example)
-endif()
-
-add_executable(gneiss_stable_runtime_example stable_runtime/main.cpp)
-target_link_libraries(gneiss_stable_runtime_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
-target_compile_definitions(
-  gneiss_stable_runtime_example
-  PRIVATE GNEISS_STABLE_RUNTIME_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
-)
-gneiss_target_compile_warnings(gneiss_stable_runtime_example)
-gneiss_target_output_directories(gneiss_stable_runtime_example)
-install(TARGETS gneiss_stable_runtime_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/stable-runtime/assets"
-)
-if(BUILD_TESTING)
-  add_test(NAME gneiss.stable_runtime_example COMMAND gneiss_stable_runtime_example --smoke)
-endif()
-add_executable(gneiss_temple_example temple/main.cpp)
-target_link_libraries(gneiss_temple_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
-target_compile_definitions(
-  gneiss_temple_example
-  PRIVATE GNEISS_TEMPLE_SOURCE_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
-)
-gneiss_target_compile_warnings(gneiss_temple_example)
-gneiss_target_output_directories(gneiss_temple_example)
-install(TARGETS gneiss_temple_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-install(
-  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/temple/assets/"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/temple/assets"
-)
-if(BUILD_TESTING)
-  add_test(NAME gneiss.temple_example COMMAND gneiss_temple_example --smoke)
+  add_test(NAME gneiss.minimal-example COMMAND gneiss_minimal_example)
+  set_tests_properties(gneiss.minimal-example PROPERTIES LABELS "cpu")
+  add_test(NAME gneiss.scene-viewer COMMAND gneiss_scene_viewer --smoke)
+  set_tests_properties(gneiss.scene-viewer PROPERTIES LABELS "gpu;integration" TIMEOUT 60)
+  add_test(NAME gneiss.scene-viewer-dual COMMAND gneiss_scene_viewer --smoke --dual-view)
+  set_tests_properties(gneiss.scene-viewer-dual PROPERTIES LABELS "gpu;integration" TIMEOUT 60)
 endif()
 
 if(TARGET gneiss_assetc)
@@ -110,16 +67,6 @@ if(TARGET gneiss_assetc)
     VERBATIM
   )
   add_custom_target(gneiss_lantern_gallery_assets ALL DEPENDS "${lantern_gallery_stamp}")
-  add_executable(gneiss_lantern_gallery_example lantern_gallery/main.cpp)
-  add_dependencies(gneiss_lantern_gallery_example gneiss_lantern_gallery_assets)
-  target_link_libraries(gneiss_lantern_gallery_example PRIVATE gneiss::engine gneiss_native_interface gneiss_tasks)
-  target_compile_definitions(
-    gneiss_lantern_gallery_example
-    PRIVATE GNEISS_LANTERN_GALLERY_ASSET_ROOT="${lantern_gallery_asset_root}"
-  )
-  gneiss_target_compile_warnings(gneiss_lantern_gallery_example)
-  gneiss_target_output_directories(gneiss_lantern_gallery_example)
-  install(TARGETS gneiss_lantern_gallery_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
   install(
     DIRECTORY "${lantern_gallery_asset_root}/"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery/assets"
@@ -132,14 +79,16 @@ if(TARGET gneiss_assetc)
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery"
   )
   if(BUILD_TESTING)
-    add_test(NAME gneiss.lantern_gallery_example COMMAND gneiss_lantern_gallery_example --smoke)
+    add_test(NAME gneiss.viewer-lantern COMMAND gneiss_scene_viewer --smoke
+      --assets "${lantern_gallery_asset_root}" --scene "asset://scenes/gallery.scene.json")
+    set_tests_properties(gneiss.viewer-lantern PROPERTIES LABELS "gpu;integration" TIMEOUT 60)
     if(TARGET gneiss_runtime AND TARGET gneiss_lantern_gallery_game)
       add_dependencies(gneiss_runtime gneiss_lantern_gallery_game)
       add_test(
         NAME gneiss.runtime.lantern-gallery
         COMMAND gneiss_runtime --smoke --project "${lantern_gallery_project_root}"
       )
-      set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES TIMEOUT 30)
+      set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES LABELS "gpu;integration" TIMEOUT 30)
       if(TARGET gneiss_corrupt_texture_fixture)
         add_dependencies(gneiss_runtime gneiss_corrupt_texture_fixture)
         add_test(
@@ -150,9 +99,9 @@ if(TARGET gneiss_assetc)
             -DGNEISS_CORRUPT=$<TARGET_FILE:gneiss_corrupt_texture_fixture>
             -DGNEISS_PROJECT=${lantern_gallery_project_root}
             -DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/lantern-cooked-test
-            -P "${PROJECT_SOURCE_DIR}/cmake/check_lantern_cooked.cmake"
+            -P "${PROJECT_SOURCE_DIR}/cmake/testing/check_lantern_cooked.cmake"
         )
-        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES TIMEOUT 210)
+        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES LABELS "gpu;integration" TIMEOUT 210)
       endif()
     endif()
     if(TARGET gneiss_editor)
@@ -160,12 +109,13 @@ if(TARGET gneiss_assetc)
         NAME gneiss.editor.lantern-gallery-project
         COMMAND gneiss_editor --smoke --project "${lantern_gallery_project_root}"
       )
+      set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES LABELS "gpu;integration")
       set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES
         TIMEOUT 30 FAIL_REGULAR_EXPRESSION "资产监听启动失败"
       )
       add_executable(
         gneiss_editor_lantern_workflow_test
-        "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/editor/lantern_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_workflow_test
@@ -177,14 +127,15 @@ if(TARGET gneiss_assetc)
           GNEISS_EDITOR_LANTERN_PROJECT="${lantern_gallery_project_root}"
           GNEISS_EDITOR_LANTERN_SOURCE="${lantern_gallery_source_root}/source/Lantern.glb"
       )
-      target_include_directories(gneiss_editor_lantern_workflow_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
       add_dependencies(gneiss_editor_lantern_workflow_test gneiss_lantern_gallery_assets)
       gneiss_target_compile_warnings(gneiss_editor_lantern_workflow_test)
       gneiss_target_output_directories(gneiss_editor_lantern_workflow_test)
+      set_target_properties(gneiss_editor_lantern_workflow_test PROPERTIES FOLDER "Tests")
       add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
+      set_tests_properties(gneiss.editor.lantern-workflow PROPERTIES LABELS "cpu;integration")
       add_executable(
         gneiss_editor_lantern_prefab_authoring_workflow_test
-        "${PROJECT_SOURCE_DIR}/tests/host/editor/lantern_prefab_authoring_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/tests/editor/lantern_prefab_authoring_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_prefab_authoring_workflow_test PRIVATE gneiss_editor_host
@@ -198,14 +149,16 @@ if(TARGET gneiss_assetc)
       )
       gneiss_target_compile_warnings(gneiss_editor_lantern_prefab_authoring_workflow_test)
       gneiss_target_output_directories(gneiss_editor_lantern_prefab_authoring_workflow_test)
+      set_target_properties(gneiss_editor_lantern_prefab_authoring_workflow_test PROPERTIES FOLDER "Tests")
       add_test(
         NAME gneiss.editor.lantern-prefab-authoring-workflow
         COMMAND gneiss_editor_lantern_prefab_authoring_workflow_test
       )
+      set_tests_properties(gneiss.editor.lantern-prefab-authoring-workflow PROPERTIES LABELS "cpu;integration")
       if(TARGET gneiss_runtime AND TARGET gneiss_lantern_gallery_game)
         add_executable(
           gneiss_editor_lantern_runtime_workflow_test
-          lantern_gallery/runtime_workflow_test.cpp
+          "${PROJECT_SOURCE_DIR}/tests/editor/lantern_runtime_workflow_test.cpp"
         )
         target_link_libraries(
           gneiss_editor_lantern_runtime_workflow_test PRIVATE gneiss_editor_host
@@ -223,11 +176,12 @@ if(TARGET gneiss_assetc)
         )
         gneiss_target_compile_warnings(gneiss_editor_lantern_runtime_workflow_test)
         gneiss_target_output_directories(gneiss_editor_lantern_runtime_workflow_test)
+        set_target_properties(gneiss_editor_lantern_runtime_workflow_test PROPERTIES FOLDER "Tests")
         add_test(
           NAME gneiss.editor.lantern-runtime-workflow
           COMMAND gneiss_editor_lantern_runtime_workflow_test
         )
-        set_tests_properties(gneiss.editor.lantern-runtime-workflow PROPERTIES TIMEOUT 20)
+        set_tests_properties(gneiss.editor.lantern-runtime-workflow PROPERTIES LABELS "gpu;integration" TIMEOUT 20)
       endif()
     endif()
   endif()

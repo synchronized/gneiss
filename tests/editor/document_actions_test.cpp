@@ -16,13 +16,12 @@ int main() {
       !actions.pending())
     return 2;
   // 保存出错、用户取消文件对话框或异步工作尚未完成，都不能丢掉待执行动作。
-  for (auto status : {gneiss::engine::error::io, gneiss::engine::error::not_ready,
-                      gneiss::engine::error::invalid_state}) {
+  for (auto status : {gneiss::error::io, gneiss::error::not_ready, gneiss::error::invalid_state}) {
     if (actions.saved(status) != document_action::none || !actions.pending())
       return 3;
   }
-  if (actions.saved(gneiss::engine::error::success) != document_action::open_scene ||
-      actions.pending() || actions.saved(gneiss::engine::error::success) != document_action::none)
+  if (actions.saved(gneiss::error::success) != document_action::open_scene || actions.pending() ||
+      actions.saved(gneiss::error::success) != document_action::none)
     return 4;
   actions.defer(document_action::exit_editor);
   actions.cancel();
@@ -36,7 +35,19 @@ int main() {
   (void)actions.request(document_action::new_scene, true);
   (void)actions.request(document_action::open_scene, true);
   if (actions.request(document_action::none, true) != document_action::none ||
-      actions.saved(gneiss::engine::error::success) != document_action::open_scene)
+      actions.saved(gneiss::error::success) != document_action::open_scene)
     return 7;
+  // 关闭工程必须经过同一确认流程；取消不能留下重开项目选择的请求。
+  (void)actions.request(document_action::close_project, true);
+  actions.cancel();
+  if (actions.pending() || actions.saved(error::success) != document_action::none)
+    return 8;
+  (void)actions.request(document_action::close_project, true);
+  if (actions.saved(error::io) != document_action::none ||
+      actions.saved(error::success) != document_action::close_project || actions.pending())
+    return 9;
+  (void)actions.request(document_action::close_project, true);
+  if (actions.discard() != document_action::close_project || actions.pending())
+    return 10;
   return 0;
 }

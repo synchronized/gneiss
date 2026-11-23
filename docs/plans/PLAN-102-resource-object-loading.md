@@ -1,0 +1,657 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# PLAN-102：资源对象与统一加载生命周期
+
+## 状态
+
+2026-11-08：已由 [PLAN-107](PLAN-107-asset-model-loading-protocol.md) 承接并完成本轮实现收尾。
+五类资产、统一索引、依赖图与 CPU/后端生命周期边界以 PLAN-107 和当前 Reference 为准。
+早期缺口与保留项见[收尾审计](../records/2026-11-08-asset-boundary-audit.md)，保留为历史证据；
+完整跨平台/GPU 验收仍归 [DEV-052](DEV-052-architecture-cleanup.md)。
+架构决策见 [ADR-107](../decisions/ADR-107-resource-object-loading.md)。以下 API、格式和目录均为目标示意，不代表现有能力。
+
+## 现状与目标
+
+PLAN-100 已合并管理器，PLAN-101 已分离场景结构与视觉完成，但管理器仍暴露描述准备、渲染预留及 RID 查询等职责。
+现有引用、缓存和异步文件服务可复用；不再以给管理器增加外观类作为收敛方式。
+目标是资源对象为中心：管理器协调身份和加载，类型加载器装配资源，World 实例化场景，渲染服务管理 GPU。
+
+## 非目标
+
+不实现流送、自动文件监听、资源驱逐预算、跨资产事务、多文件保存事务、通用对象图存档或 GC。
+不重写 ECS，不修改 Granit，不顺带实现未知组件或缺失 Prefab 的占位实例化。
+不保留旧格式兼容分支；受影响仓库样例和工具必须同步更新。
+
+## 对象与所有权
+
+- 引入薄 asset 基类用于混合资产索引和运行类型检查；复用既有引用控制块，不叠加第二套引用计数。
+- texture、mesh、material、scene、prefab 是具体逻辑资产类型，上层持有类型化强引用。
+- 不再要求每个类型同时具有 description/data/resource/prepared；确有不同语义的导入设置、像素与顶点负载仍独立。
+- 场景资产保存对象树描述和组件属性；运行实例属于 World。一个场景资产可实例化多次，实例 ID 不写回共享资产。
+- 资源属性默认只读；修改通过所属线程的显式操作，触发必要更新。工作线程不直接修改已共享对象。
+- 同一资产身份的对象稳定；重载先生成局部内容，成功后在所属线程采用。失败保留旧内容，不引入跨资源版本协议。
+- 场景资产重载不自动改写所有 World 实例；实例是否更新由场景层明确发起。
+- 纹理、网格的大块 CPU 负载允许在后端完成消费后释放；可编辑或需重新编码的资源须保留负载或可重新读取的来源。
+
+## 单一资产记录与迁移主线
+
+最终对象名称表示对象，而不是引用别名；上层使用 `ref<const texture>`、`ref<const mesh>`、
+`ref<const material>`、`ref<const scene>`、`ref<const prefab>`。共享资源默认只读，受控修改入口另行定义。
+
+最终内部结构示意：
+
+```cpp
+struct asset_entry {
+  asset_key key;
+  weak_ref<const asset> cached;
+  std::shared_ptr<load_operation> loading;
+};
+```
+
+一个管理器只维护一张按 asset_key 索引的资产记录表；key 包含来源域、URI、目标类型与影响产物的选项。
+缓存只弱持有最终资产。loading 强持有当前工作，工作保活构建对象；请求是观察者，取消一个请求不取消其他观察者。
+推进用工作列表可以保留，但只是执行队列，不能再作为第二张身份表或扫描去重入口。
+完成、全部观察者取消或停止时清空 loading；清理缓存不得删除仍在加载的记录。
+显式采用新内容后，旧工作可以向自己的观察者返回结果，但不能覆盖当前记录；以当前 operation 身份校验，
+不恢复跨资源版本或事务协议。
+
+落实顺序和独立验收：
+
+- [x] A. 将缓存和 CPU/渲染在途工作归入同一记录表；删除 requests 身份表和渲染 pending 扫描去重。
+- [x] B. texture/mesh/material 改为对象类型，上层统一 ref<const T>；删除同名引用别名及重复描述装配入口。
+  - [x] 三类对象及调用方完成命名迁移，删除同名引用别名，反射注册使用对象类型。
+  - [x] 三类资源的程序化创建与文件装配共用内容准备和更新；文件路径保留来源校验，借用视图保留输入校验与复制。
+- [x] C. scene/prefab 成为 asset 派生类型；共享内容与 World 实例分离。
+  - [x] 顶层资产对象与专用 Loader 接入，场景准备通过资产取得描述快照；成功重载保留身份和旧快照。
+  - [x] 加载准备结果、World 实例及编辑快照保留来源资产强引用，同时固定实例化描述快照。
+  - [x] Scene/Prefab 描述的文件加载与 Decoder 注册入口关闭，文件加载只返回资产对象。
+  - [x] 关闭描述 store/find_loaded 入口；纯内存编辑持有独立快照，不登记第二份 URI 缓存。
+  - [x] 文件 Loader 与编辑器替换共用只读描述快照解码；运行捕获仍构造独立内存描述，统一交给 prepare_loaded_scene，编辑不写回来源资产或 URI 缓存。
+- [x] D. 记录 cached 统一为最终资产弱引用；取消 CPU 描述缓存条目、临时 payload 身份键及兼容桥接。
+  - [x] 删除 asset_cache_value 控制块包装，直接弱持有实际对象；统计归入 asset_entry。
+  - [x] 内部 CPU 解码不登记资产记录，删除临时 payload 身份键。
+  - [x] 关闭 mesh_data/texture_data/material_description 的公开加载与缓存入口，内部解码不受影响。
+  - [x] ActionMap 拆分为共享资产和描述快照；输入服务继续采用独立描述。
+  - [x] 公开 load/find_loaded/store 只接受 asset 派生类型；测试自定义资产同步迁移。
+  - [x] 内部缓存与查询结果收窄为 asset，写入校验实际类型；解码边界保留类型化指针转换。
+- [x] E. 类型加载器共用 load_operation 生命周期；覆盖去重、单观察者取消、旧操作迟到、重载失败、清理与关闭。
+  - [x] 操作记录关联、观察者检查及只清理自身记录统一；CPU/渲染/场景准备共用基类。
+  - [x] CPU/渲染/场景准备统一终态提交与完成通知；重复完成或停止不覆盖已有结果。
+  - [x] 渲染装配队列、推进与停止归入管理器；asset_construction 不再管理加载生命周期。
+  - [x] CPU、场景准备和渲染队列共用 advance_load_operations；统一观察者检查、取消和终态清理，类型步骤由回调推进。
+
+缓存槽位使用 weak_ptr<const asset>，直接共享最终资产控制块；描述与负载不登记资产索引。
+内部解码请求仍允许擦除值，由类型化转换进入资产缓存。不得新增另一份永久资产索引。
+A—E 是资源身份与生命周期主线；全部通过不等于整个计划完成。目录验收及后文实施顺序中的旧入口删除等仍须逐项核对。
+
+## 职责和目录
+
+| 模块 | 目标职责 |
+| --- | --- |
+| file_service | 异步字节、路径路由、后端与范围读取 |
+| asset_manager | 身份索引、弱缓存、请求去重、类型加载器调度、停止 |
+| 类型加载器 | 内存解析、依赖声明与装配、类型校验、完成条件 |
+| render_service | RID 与后端资源、提交更新、占位显示、线程内释放 |
+| 场景逻辑 | 资产到 World 实例、对象层级、活动场景切换 |
+
+```text
+engine/function/asset/
+  asset_manager.hpp/.cpp
+  asset_request.hpp
+  asset_loader.hpp
+  detail/
+    asset_entry.hpp
+    load_operation.hpp
+  loaders/
+    texture_loader.cpp
+    mesh_loader.cpp
+    material_loader.cpp
+    scene_loader.cpp
+engine/resource/
+  asset.hpp
+  texture.hpp/.cpp
+  mesh.hpp/.cpp
+  material.hpp/.cpp
+  scene.hpp/.cpp
+  prefab.hpp/.cpp
+  texture/ mesh/ material/ scene/  # 必要负载、编解码与私有辅助
+engine/function/render/
+  render_service.hpp/.cpp
+  detail/...
+engine/function/scene/
+  scene_instantiation.hpp/.cpp
+  ...
+```
+
+上述清单是最终布局验收，不只是示意目录。texture/mesh/material/scene/prefab 主头定义对象类型，
+上层使用 ref<const T>；不以同名引用别名或转发头冒充迁移完成。资源子目录保留像素、顶点、
+二进制格式及私有访问器等有独立语义的辅助文件。
+
+布局迁移验收：
+
+- [x] 管理模块迁至 function/asset；代码、构建、测试、现行指南不再使用 function/resource。
+- [x] asset_entry、load_operation 分别定义于 detail 对应头，不再嵌套于缓存类或请求头。
+- [x] 五个具体资产主头位于 resource 顶层；类型名称与上层 ref<const T> 同步迁移。
+  - [x] 五个资产主头与对象类型已落地，Scene/Prefab 加载返回 ref<const T>。
+  - [x] Scene/Prefab 入口使用资产引用；固定描述快照用于隔离后续重载，纯内存编辑允许无文件资产。
+- [x] 类型加载器收进 function/asset/loaders；asset_loader.hpp 只定义实际共用的加载契约。
+  - [x] 共用字节加载契约抽出，mesh/texture/object 解码实现移入独立 .cpp，三类渲染资源内容采用按类型归档。
+  - [x] Scene/Prefab 加载和依赖装配迁入类型加载器，最终结果统一为资产对象。
+- [ ] 旧路径零引用且无转发头；边界检查、整库编译和资源生命周期回归通过。
+
+asset_loader.hpp 定义共用字节加载契约；类型实现位于 loaders。
+Scene Loader 负责必要 Prefab 加载与固定内容装配，场景层校验并实例化。
+网格、纹理解码临时负载不登记最终缓存，最终对象身份仍由统一 asset_entry 管理。
+
+加载器放 function 层，避免 resource 数据层反向依赖服务；修正讨论示意中 resource/loaders 的依赖风险。
+序列化框架不依赖 asset_manager 或 render_service，类型描述和转换由资源注册提供。
+
+## 目标入口
+
+概念示意，保留现有 result 错误风格：
+
+```cpp
+template<class T> result<asset_request<T>> load(asset_uri uri);
+template<class T> ref<const T> find(asset_uri uri) const;
+template<class T, class... Args> result<ref<const T>> create(Args&&... args);
+template<class T> result<asset_request<T>> reload(const ref<const T>& resource);
+void collect_unused();
+```
+
+load 返回的外层错误表示请求无法提交；请求终态区分可用、带诊断可用、失败及取消。
+find 只返回已有逻辑可用对象，不执行加载；未就绪身份通过请求的 resource 访问，不能把非空引用当成加载成功。
+request 保存每项依赖的 URI、属性路径、错误码和消息；复制请求共享工作，取消仅放弃当前观察者。
+内部仍需 advance/stop 等生命周期能力，但不新增配置组合或多个服务所有者。
+删除对外 request_data、prepare_scene/prepare_prefab、渲染 reserve_* 与 RID 反查入口；最后移除迁移桥接。
+原始字节直接使用 file_service；程序化资产 create 不强制拥有文件 URI。
+
+## 序列化：对象属性与资源引用
+
+### 保存什么
+
+- 保存注册为持久属性的逻辑数据，使用已有 context-first 序列化入口。
+- 不保存指针地址、控制块、RID、请求状态、错误日志、线程对象、GPU 数据和加载缓存。
+- JSON 与二进制共享属性及引用语义；各自编码，不把 C++ 内存直接 dump 到磁盘。
+- root 保存格式头、版本和内容；目标类型由加载入口/格式确定，不为已知具体类型重复写类型 GUID。
+- 内嵌多态对象继续使用已有 $type_guid/$content，普通 variant 使用 $kind/$content；不混用三类身份。
+
+### 引用格式
+
+资源引用按属性类型识别，不以任意字符串外观猜测 URI。目标 JSON 示意：
+
+```json
+{
+  "format": "gneiss.material",
+  "version": 7,
+  "parameters": {"color": [1, 1, 1, 1]},
+  "base_color_texture": {"$asset": "asset://textures/brick.texture.json"}
+}
+```
+
+示例版本仅为示意，实施时统一分配实际版本。明确无引用写 null；资源自身的逻辑 nil GUID 规则不变。
+ref<texture> 引用不嵌入纹理像素，也不使用多态内嵌对象格式。动态基类资源引用必要时携带类型 GUID并校验实际类型。
+同一 URI 多次出现由管理器合并到同一资源对象；保存不递归写其他文件，也不保证跨文件同时保存成功。
+
+### 缺失引用不能变成 null
+
+加载请求取得稳定的资源身份对象，包含来源定位；失败时父资源仍可保留该引用，内容可未就绪。
+空引用表示用户未指定；非空但加载失败表示用户指定的资源无法取得。保存后者仍写原 URI。
+该身份对象不是失败时冒充成功的内容：请求保留错误，渲染侧检查可用内容后采用占位策略。
+匿名程序化资源若被持久化引用，必须先显式保存并赋予来源；否则返回带属性路径的错误，不自动生成文件。
+另存为写新文件，不隐式重绑定全部既有共享引用；重新加载新 URI 得到新身份。
+
+### 反序列化与依赖解析
+
+通用序列化遍历字段，不读文件、不等待任务。资源层通过 context 扩展的窄引用解析接口处理 $asset：
+解码时规范化定位、取得或预留资源身份、记录目标类型和属性路径；编码时提取 URI。
+接口由资产层实现，Core 不直接包含资产服务头文件。精确签名在第一阶段原型中定稿。
+加载器在字段解码完成后异步提交依赖，必要时采用依赖内容；不为每种资源重复写字段编解码。
+Scene/Prefab 中普通组件仍是可持久化对象值；资源引用用同一个规则，运行 ECS 组件转换单独处理。
+
+## 加载时序与依赖
+
+1. 规范化 URI，形成来源域、路径、目标类型和影响产物的选项组成的 key；同 URI 请求错误类型返回类型错误。
+2. 可用弱缓存命中直接返回；在途命中共享 operation；否则建立 entry 和稳定身份。
+3. file_service 异步读取，工作线程解析私有临时内容；所属线程负责索引和共享对象变更。
+4. 类型加载器收集引用并提交依赖；记录依赖边，检测直接和间接循环。
+5. 按类型规定的必要条件完成 CPU 资源装配，在所属线程采用内容、通知观察者。
+6. 渲染接入提交 GPU 创建或更新；CPU 完成不等待 GPU 完成。
+7. 操作释放临时字节和依赖请求；父资源保留自身真正需要的资源强引用。
+
+缓存仅保存最终资产弱引用；operation 强持有正在构建的结果，结束后释放。解码临时值不形成第二套公开缓存。
+取消一个观察者不影响其他观察者和依赖使用者；全部放弃后可停止工作，迟到回调不得访问已销毁管理器。
+首版拒绝资源依赖环并给出 URI 链；包括并发根请求之间的环。采用依赖前检测，避免形成强引用环或永久等待。
+不通过延迟标记把循环引用偷偷转换成成功。
+
+| 失败位置 | 父资源规则 |
+| --- | --- |
+| 根文件读取/格式/类型错误 | 当前请求失败；已有内容保持有效 |
+| 材质的纹理缺失 | 首次可用默认贴图，带依赖诊断；更新失败保留旧可用内容 |
+| 场景引用的视觉资源缺失 | 场景结构可用，视觉独立完成；保留定位和诊断 |
+| Prefab 描述缺失、层级非法 | 首版仍阻断对应场景准备，不宣称已有占位实例能力 |
+| 循环依赖 | 对应请求报告循环；是否影响父资源按上述必需/可选边界处理 |
+
+必要依赖由类型加载器明确规定，不让所有资源统一承担“依赖全部成功”的条件。
+同一批次独立资源继续处理；诊断集合和结果均可供上层读取，不只输出日志。
+
+## 渲染与销毁
+
+渲染资源对象可持有私有 RID 所有权令牌，不保存裸 render_service 借用指针；令牌通过受控释放通道提交销毁。
+render_service 不持有资产对象和 URI 缓存；加载器/接入代码提取提交数据，后端只管理 RID 和自身数据。
+最后一个资源强引用释放时 CPU 数据正常析构；需要线程归属的 GPU 释放进入渲染释放队列。
+先停止新资产请求、处理在途回调、释放 World/资产引用、消费释放队列，再关闭渲染后端。
+服务关闭后迟到令牌释放必须安全；GPU 在途使用由渲染后端保证，不以 CPU 引用计数代替 GPU 同步。
+
+## 实施顺序与删除条件
+
+- [ ] 1. 原型：薄 asset、类型化引用、请求结果、资源引用序列化上下文；确定身份与线程契约。
+  - [x] texture_resource、mesh_resource、material_resource 共享 asset 身份基类。
+  - [x] 混合渲染引用改为 ref<const asset>，类型转换校验进程 type_id 并共享原控制块。
+  - [x] 引用位置专用编解码与 context 解析器；纹理、网格、材质通过 `$asset` 往返，预留身份并去重收集依赖，不读取文件。
+  - [x] 材质既有描述加载接入引用解析；所属线程预留全部纹理身份，去重提交依赖并保留失败引用。
+  - [ ] 请求结果、通用依赖调度与属性路径收集；具体类型重命名及 Scene/Prefab 接入后续阶段。
+- [ ] 2. 纹理闭环：文件→资源→渲染，缺失引用往返、弱缓存和销毁；保留二进制专用编解码。
+- [ ] 3. 材质与网格：反射字段、依赖诊断及重载；删除重复描述/装配入口，仅保留必要负载类型。
+- [x] 4. Scene/Prefab 作为资产接入统一 load；场景准备迁到场景侧，复用相同引用解析，不新建第二个管理器。
+- [x] 5. 迁移编辑器、导入器、工具、示例和测试；移除旧 request_data、管理器 prepare_scene/prepare_prefab、公开 reserve_* 和 RID 反查；场景纯内存校验与私有构建能力保留。
+  - [x] 删除 asset_manager 的 find_mesh/find_texture/find_material(RID)；ImGui 字体直接传递已有强引用。
+  - [x] 删除 asset_manager 的匿名 reserve_mesh/texture/material；程序化资产通过 create_* 创建。
+  - [x] 删除公开 reserve_resource；引用解析与场景绑定统一提交 load。私有构建器及 Render 的预留仍为内部实现能力。
+- [ ] 6. 更新现行 Reference，检查旧入口零引用、缓存唯一、跨层依赖，完成整体编译和针对性回归。
+
+同一特性分支持续实施；阶段桥接只作为短期实现，不以两套入口并存作为完成。
+实施不覆盖用户已有修改；本计划不包含推送或发布。
+
+## 验收
+
+- JSON/二进制持久语义一致；资源引用重复共享、null、缺失、类型不匹配和匿名引用均有覆盖。
+- 保存不包含 RID/状态；缺失纹理保存后 URI 不丢失，修复文件后可重试。
+- 并发相同请求只读一次；不同选项不错误复用；单观察者取消和停止时迟到回调安全。
+- 材质依赖部分失败不阻断其他项；重载失败保持旧内容；循环依赖快速失败并报告路径。
+- 同一 scene 资产多次实例化生成不同节点身份；卸载一份实例不销毁其他实例引用的资产。
+- 缓存不保活；无资源双重释放；工作线程最后释放和服务关闭后释放安全。
+- 每阶段编译及必要回归；完成架构统一后再安排完整平台验证，大场景、流送和远端 CI 不在此次默认范围。
+
+## 风险与待定细节
+
+资源对象反射不能允许绕过更新入口直接修改共享 GPU 相关状态；需定义可写属性和提交边界。
+CPU 负载释放与再次保存不能冲突；首版优先保留必要数据，优化驻留留待流送。
+薄基类不是通用对象系统；不强迫数学值、组件或任意 C++ 类型继承 asset。
+精确类名、context 扩展签名和 Scene 内容采用方式由阶段 1 原型验证，不能以此提前扩展完整插件 ABI。
+
+## 阶段验证记录
+
+2026-11-06：共同身份基类与混合引用接入完成，Windows Clang Debug 完整构建及 8 项资源、场景、
+关闭和头文件边界回归通过。新增测试验证类型匹配/拒绝、空引用、控制块共享和最后一次释放。
+格式检查与 git diff --check 通过；未运行 GPU 大场景、跨平台或远端 CI。
+日志：build/asset-object-build-final.log、build/asset-object-tests.log（不入库）。
+资源类型命名、请求终态和真实加载器引用接入尚未迁移，不代表阶段 1 或整个计划已完成。
+
+2026-11-06：资源引用上下文原型完成。通用遍历通过引用位置专用 binding 调用资源 codec，
+Core 只依赖窄解析器接口；资产侧预留身份、收集去重依赖，不启动 I/O。纹理、网格、材质的
+`$asset` JSON 往返、重复引用共享、空引用、缺失来源身份保留、匿名资源拒绝、非法格式及缺少
+解析上下文的属性路径诊断均已验证。Windows Clang Debug 完整构建与 6 项序列化、Scene/Prefab、
+资源加载回归通过；未运行大场景、跨平台、远端 CI 或二进制格式验证。
+日志：build/asset-reference-build-final.log、build/asset-reference-build-verified.log、
+build/asset-reference-tests.log（不入库）。实际类型加载器尚未消费该上下文，依赖异步提交、
+成功引用路径收集、全局类型冲突和依赖环检测留待后续闭环，不将原型描述为统一加载已完成。
+
+2026-11-06：材质加载消费引用解析上下文。删除逐槽等待游标，先预留各槽位强引用，再提交全部
+唯一依赖；请求观察权与材质持有的引用分开保存。首次纹理失败保留身份，文件恢复后重试更新同一
+对象；已有材质重载失败保持旧参数与依赖。新增集成用例覆盖缺失、重复槽位、URI 保存、恢复和
+失败重载。完整 Windows Clang Debug 构建及 7 项资源、场景和序列化回归通过，
+`git diff --check` 通过。日志：build/asset-dependencies-build.log、build/asset-dependencies-tests.log、
+build/asset-dependencies-integration-tests.log（不入库）。未运行大场景、跨平台或远端 CI。
+当前仍由工作线程解码 material_description 的 URI 字段，在所属线程解析为引用；材质文件改用
+`$asset`、删除旧描述转换及通用依赖环检测尚未完成，不能将这一桥接步骤视为整体迁移完成。
+
+2026-11-06：主线 A 完成。resource_cache 的单一索引现在保存 asset_entry，缓存槽位与当前
+load_operation 同属一条记录；CPU operation 和渲染 pending_load 共用操作观察状态。
+删除独立 requests 表、CPU 请求 generation 和渲染 pending 身份扫描；推进列表只承担调度。
+显式 store 后以当前操作身份拒绝旧工作更新缓存；记录不强持有资产，加载中记录不会被清理。
+缓存槽位暂以 optional<weak_ptr<const resource_cache::entry>> 区分尚未缓存和已过期缓存，保持
+cached_count 统计口径；这是旧描述/包装层的迁移表示，不是最终 weak_ref<const asset>。
+完整 Windows Clang Debug 构建及 8 项资产、材质、场景、销毁回归通过；补充加载中清理、
+操作释放及 store 后迟到结果的回归。日志：build/asset-entry-build-final.log、
+build/asset-entry-build-verified.log、build/asset-entry-tests.log（不入库）。
+未运行大场景、跨平台或远端 CI。下一阶段按 B/C/D 迁移具体对象、Scene/Prefab 和缓存值，
+E 的通用类型加载生命周期仍未完成。
+
+2026-11-06：布局迁移首批完成。管理模块从 function/resource 整体迁至 function/asset；
+asset_entry 与 load_operation 拆入 detail 对应头，旧缓存包装以 asset_cache_value 命名，
+不再混用 entry。纹理、网格、材质主定义及实现迁至 resource/texture、mesh、material 的
+顶层同名 .hpp/.cpp；辅助负载和私有访问器仍在领域子目录。同步更新调用方、工具、示例、
+测试、CMake 和现行文档，无旧路径转发头。边界检查禁止旧管理目录，并验证新路径下的
+私有实现和 CPU 解码隔离。完整 Windows Clang Debug 构建、9 项资源/头文件回归及 2 项
+边界正反例通过；git diff --check 通过。日志：build/asset-layout-build.log、
+build/asset-layout-tests.log、build/asset-layout-boundary.log（不入库）。
+本次不改变资源类型名称：类仍为 *_resource，texture/mesh/material 仍是引用别名；
+Scene/Prefab 主对象、最终 asset_loader 契约及 loaders 拆分尚未完成。未运行大场景、跨平台或远端 CI。
+
+2026-11-06：类型加载器拆分首批完成。删除 detail/asset_loader.hpp，抽出 function/asset/asset_loader.hpp
+字节加载契约；具体 mesh_loader、texture_loader、object_loader 隐藏在 loaders 对应 .cpp 的私有
+命名空间，内部 loader_factory 负责现有类型分派。网格、纹理、材质的内容采用实现分别迁至
+mesh_loader.cpp、texture_loader.cpp、material_loader.cpp；材质字段解码仍复用 object_loader。
+管理器不再通过头文件编译各类型解码实现。共用操作、观察者、缓存与加载顺序保持原语义。
+完整 Windows Clang Debug 构建、11 项资源/生命周期/边界回归、改动文件格式检查和 git diff --check
+通过。日志：build/asset-loaders-build.log、build/asset-loaders-build-final.log、
+build/asset-loaders-tests.log（不入库）。未运行大场景、跨平台或远端 CI。
+本步尚未移除 CPU 中间结果、asset_construction::adopt 入口或材质依赖推进逻辑；
+Scene/Prefab Loader、具体资产类型改名与最终 load_operation 契约继续按主线推进。
+
+2026-11-06：纹理、网格、材质具体对象命名迁移完成。texture/mesh/material 现在是 asset 派生类，
+删除同名引用别名；管理器、ECS、场景绑定、UI 与测试显式持有 ref<const T>。反射注册与资源引用
+编解码使用新对象类型，既有类型 GUID 保持不变。私有构造、控制块共享、弱索引、重载身份与延迟
+销毁行为保持原语义，无旧类名兼容别名。同步更新现行资源和渲染参考。
+Windows Clang Debug 完整构建、15 项资源/场景/序列化/边界回归、改动行格式检查及 git diff --check
+通过。日志：build/asset-types-build.log、build/asset-types-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。B 的描述装配清理、C 的 Scene/Prefab 对象、D 的最终弱资产
+缓存及 E 的统一加载终态仍未完成，本步不代表 PLAN-102 整体完成。
+
+2026-11-06：Scene/Prefab 资产加载首批接入。新增 resource/scene.hpp、prefab.hpp 的 asset 派生
+对象，scene_loader 复用描述格式与反射解码；场景准备改为 load<scene/prefab> 后取得快照。
+成功重载在所属线程采用内容并保持资产身份；旧快照独立存活，失败不采用，迟到操作无权修改
+当前记录对应对象。增加私有访问器边界和反例。旧描述加载及实例来源接口仍保留，快照不会
+保活资产身份，统一缓存最终值、资源引用持久化和实例来源接口仍需后续迁移。
+Windows Clang Debug 完整构建、13 项资源/场景/序列化/边界回归及改动行格式检查通过。
+新增回归覆盖来源身份、类型匹配与拒绝、成功重载身份稳定、快照隔离、失败重载保留内容。
+日志：build/scene-assets-build-final.log、build/scene-assets-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；本步不代表 C 或整个计划已完成。
+
+2026-11-06：Scene/Prefab 来源保活贯通。准备输入/结果、运行实例、场景捕获与 Prefab 子树历史
+显式保留来源资产引用；描述快照继续固定实例采用内容，纯内存编辑输入允许无来源资产。
+编辑恢复和 Prefab 放置传递来源引用，不修改共享资产。修复同对象重载重新创建缓存控制块导致
+旧引用仍存活但弱索引失效的问题：仅在资源指针和所有权均相同时复用原缓存包装，更新统计。
+Windows Clang Debug 完整构建、17 项场景/Prefab/编辑/资源/边界回归、改动行格式检查与
+git diff --check 通过。新增断言覆盖准备与实例捕获保留来源身份、释放重载结果后旧引用继续
+命中缓存。日志：build/scene-source-build-final.log、build/scene-source-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。旧描述加载接口与最终缓存包装清理仍未完成。
+
+2026-11-06：缓存控制块包装移除。删除 asset_cache_value 与 enable_shared_from_this/别名引用，
+asset_entry 直接弱持有实际对象，保存统计和同步递归保护；在途操作直接保活旧对象。
+缓存查询返回 cached_asset 值快照，不建立额外控制块。原同对象重载控制块复用分支随之删除。
+新增回归验证查询引用与原对象共享控制块、释放查询结果但原拥有者仍存活时缓存命中、最后拥有者
+释放后立即失效。Windows Clang Debug 完整构建、12 项资源/场景/生命周期/边界回归通过；
+改动行格式化和 git diff --check 通过。日志：build/asset-cache-direct-build-final.log、
+build/asset-cache-direct-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+生产场景准备已无直接 load<scene_description/prefab_description> 调用；通用模板仍允许旧描述
+和其他 CPU 类型，后续清理入口后再将 weak_ptr<const void> 收窄为 asset。D 尚未整体完成。
+
+2026-11-06：关闭 Scene/Prefab 描述的文件加载入口。load<scene_description/prefab_description>
+及对应解码器注册返回 unsupported，拒绝请求不会触发文件读取；调用方通过 scene/prefab 资产
+取得描述快照。迁移相关测试，缓存与重载测试直接持有资产引用并验证身份稳定。描述反射编解码
+以及纯内存 create/store/find_loaded 暂时保留，后者仍需随编辑输入归属继续清理。
+Windows Clang Debug 完整构建、14 项资源/场景/Prefab/编辑/边界回归与 git diff --check 通过。
+日志：build/scene-load-entry-build-final.log、build/scene-load-entry-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；C、D 与整个 PLAN-102 尚未完成。
+
+2026-11-06：Scene/Prefab 描述不再登记 URI 缓存。store/find_loaded 对描述类型返回 unsupported；
+剩余测试改为直接持有不可变编辑快照，生产代码没有此类缓存调用。保留不登记缓存的 create，
+不将编辑快照伪装为文件资产。回归覆盖拒绝登记/查询、不增加文件读取与缓存条目、不覆盖已加载
+资产、编辑与原快照隔离，以及资产释放后旧快照仍可用。Windows Clang Debug 完整构建和
+14 项资源/场景/Prefab/编辑/边界回归通过，git diff --check 通过。
+日志：build/scene-description-cache-build-final.log、build/scene-description-cache-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。其他 CPU 类型与临时 payload 缓存仍需迁移，计划尚未完成。
+
+2026-11-06：删除内部 CPU 解码的 :payload 身份键及额外 asset_entry。渲染资产记录继续负责
+同身份在途请求合并；其内部解码仅进入现有执行队列，由父操作持有请求，不建立第二份索引。
+解码完成直接交付中间结果，取消、任务收尾和诊断继续复用现有实现；最终资源登记与重载采用
+保持原路径。新增断言覆盖在途材质只有一条记录、相同依赖复用、失败依赖重试不增加中间记录。
+Windows Clang Debug 完整构建、11 项资源/场景/生命周期/边界回归与 git diff --check 通过。
+日志：build/asset-payload-index-build.log、build/asset-payload-index-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。CPU 非资产类型兼容与两阶段操作统一仍未完成。
+
+2026-11-06：关闭 mesh_data、texture_data、material_description 的公开 load/store/find_loaded，
+返回 unsupported 且不读取文件或新增索引。渲染 Loader 内部解码保留，材质显式 Decoder 继续有效。
+CPU 测试调用迁移为最终 mesh/texture/material 资产；内存准备夹具直接使用格式解码，不再通过
+管理器建立材质描述缓存。保留并迁移请求合并、单观察者取消、共享结果、统计与关闭回归。
+Windows Clang Debug 完整构建、11 项资源/场景/生命周期/边界回归通过，改动行格式化和
+git diff --check 通过。日志：build/asset-intermediate-formatted-build.log、
+build/asset-intermediate-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+ActionMap 及自定义 CPU 类型兼容仍在，最终弱资产引用和统一操作生命周期尚未完成。
+
+2026-11-06：ActionMap 接入资产对象。action_map 继承 asset，action_map_description 承担原生值、
+反射和 input-map 文件格式；描述 GUID 与文件布局不变。专用 Loader 允许描述显式 Decoder，
+默认走反射；成功重载保持身份并替换快照，失败不采用。Runtime 从快照复制描述给 InputService，
+输入状态不跟随资产自动重载。描述的公开 load/store/find_loaded 返回 unsupported。
+新增回归覆盖身份、来源、成功重载、旧快照隔离与描述入口拒绝，原失败重载、显式 Decoder、
+格式限制和 Runtime 采用回归保持通过。Windows Clang Debug 完整构建、12 项输入/资产/场景/
+Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
+日志：build/action-map-asset-build-final.log、build/action-map-asset-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。自定义 CPU 类型兼容与统一加载生命周期仍待处理。
+
+2026-11-06：关闭公开任意 CPU 值入口。load/find_loaded/store<T> 统一检查 asset 派生关系，
+普通值和描述返回 unsupported；删除逐类型排除中间描述的运行期名单。内部 Decoder 继续处理
+描述，create(value) 仍只构造不登记缓存的不可变值。测试自定义值改为 asset 派生类型，保留
+反射/显式解码、弱缓存、请求合并、迟到操作、失败重载和关闭回归，新增普通字符串入口拒绝且
+不触发 I/O/缓存的断言。Windows Clang Debug 完整构建、12 项资产/场景/输入/Runtime/边界
+回归通过；改动行格式化和 git diff --check 通过。
+日志：build/asset-public-types-build-final.log、build/asset-public-types-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI。内部缓存仍为擦除弱引用，收窄类型与统一操作尚未完成。
+
+2026-11-06：最终缓存类型收窄完成。asset_entry 使用 weak_ptr<const asset>，cached_asset、
+缓存创建回调、store/find_loaded 内部接口使用资产基类强引用；写入验证实际类型与键一致，
+不匹配时保留旧值。异步解码的擦除结果通过模板生成的双向转换与缓存交接，正确处理多重继承
+基类偏移并共享原控制块；内部描述请求不建立缓存转换或记录。
+缓存测试改为资产对象并补充类型不匹配拒绝；集成测试的自定义资产采用多重继承，覆盖加载、
+缓存命中、显式存储、重载和生命周期。Windows Clang Debug 完整构建、13 项资产/输入/
+场景/生命周期/Runtime/边界回归通过；改动行格式化与 git diff --check 通过。
+日志：build/asset-typed-cache-build-final.log、build/asset-typed-cache-tests.log（不入库）。
+D 项完成；B/C 的采用路径及 E 的统一操作生命周期仍未完成。未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：操作关联与收尾规则收敛。load_operation 共用 entry 弱关联、观察者检查、当前身份
+检查、detach 与 stop；CPU 解码、渲染装配和场景准备使用同一基类。删除派生类重复记录和观察
+状态，渲染采用前拒绝已失去当前记录的操作。具体 I/O、任务和依赖取消继续由对应阶段处理。
+新增回归覆盖单观察者取消、最后观察者释放、旧操作停止不清除替代操作及重复收尾。
+Windows Clang Debug 完整构建、13 项资产/场景/输入/Runtime/生命周期/边界回归通过；
+改动行格式化与 git diff --check 通过。日志：build/asset-operation-lifecycle-build.log、
+build/asset-operation-lifecycle-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+E 仍需统一阶段推进与完成通知；本步不代表 PLAN-102 整体完成。
+
+2026-11-06：统一终态提交与完成通知。CPU 加载、渲染装配和场景准备共用 load_operation::complete，
+提交结果后解除当前记录并唤醒宿主；重复完成、完成后停止和停止后的迟到完成不会覆盖原结果。
+删除渲染装配额外扫描终态并通知的逻辑及闲置通知入口；具体取消仍由所属阶段执行。
+新增回归覆盖 not_ready 拒绝、成功结果/字节数保留、重复完成、停止后迟到以及通知次数。
+Windows Clang Debug 完整构建与构建结束后的 13 项相关回归通过；场景实例化额外连续 10 次通过。
+构建重叠期间的一次场景实例化崩溃未在后续运行复现，不据此认定其根因。
+日志：build/asset-completion-build.log、build/asset-completion-tests-final.log、
+build/asset-completion-scene-repeat.log（不入库）。改动行格式化与 git diff --check 通过。
+未运行 GPU 大场景、跨平台或远端 CI；E 的阶段推进收敛及 B/C 剩余采用路径仍未完成。
+
+2026-11-06：渲染装配生命周期迁入管理器。asset_construction 删除 pending 队列、advance 和
+stop_loading，单操作装配移入 render_load_operation；管理器统一持有与停止渲染执行队列。
+推进时固定本轮操作数量并保活当前操作，材质提交的新纹理依赖留待下一轮。
+补充协作执行与线程池下的在途重载停止、重复停止及既有成功请求保留回归。
+Windows Clang Debug 完整构建、13 项资产/输入/场景/生命周期/边界回归通过；
+改动行格式化和 git diff --check 通过。日志：build/asset-render-operation-build-final.log、
+build/asset-render-operation-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+CPU、场景与渲染仍按类型推进，E 的通用调度及 B/C 剩余采用路径尚未完成。
+
+2026-11-06：统一执行队列推进。三类操作使用 advance_load_operations，固定本轮范围并保活当前
+操作，未完成工作保留，失去全部观察者时执行类型取消回调并停止，终态操作统一解除记录和移除。
+保留类型化执行队列和装配步骤，不引入新的身份索引、虚拟阶段协议或跨资产事务。
+新增队列扩容、延迟执行新增操作、无人观察取消与成功/失败终态清理回归。
+Windows Clang Debug 完整构建、13 项相关回归及 git diff --check 通过；改动行已格式化。
+日志：build/asset-queue-build.log、build/asset-queue-tests.log（不入库）。
+E 项完成；B/C 的重复内容采用路径仍待收敛。未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：材质内容采用路径收敛。程序化 create_material 与文件 adopt 共用 prepare_material，
+统一纹理归属检查、RID 转换及后端数据准备；程序化创建预留身份后也通过 update_material
+更新参数与依赖强引用。文件路径只额外校验描述 URI 与依赖来源一致。
+补充程序化材质参数、纹理引用与后端内容一致性，以及无效参数不改变已有材质回归。
+Windows Clang Debug 完整构建与 14 项相关回归通过；改动行格式化、git diff --check 通过。
+日志：build/asset-material-adoption-build.log、build/asset-material-adoption-tests.log（不入库）。
+B/C 尚未完成；未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：网格与纹理程序化创建收敛。Render 提取借用视图 prepare 重载，复用原有校验、
+复制和纹理行填充处理，不分配 RID；资产创建先准备内容、预留身份，再复用文件加载的
+update_mesh/update_texture，同步后端内容与上层元信息。文件负载继续共享原缓冲。
+新增回归覆盖借用数据独立复制、纹理填充行打包、网格元信息、非法输入与引用释放后的回收。
+Windows Clang Debug 完整构建与 16 项相关回归通过；改动行格式化、git diff --check 通过。
+日志：build/asset-content-adoption-build-final.log、build/asset-content-adoption-tests.log（不入库）。
+B 项完成；C 的 Scene/Prefab 内存编辑与文件资产采用路径仍未完成。
+未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：Scene/Prefab 快照采用路径统一。asset_file::deserialize_ref 直接返回解码对象的
+只读引用，文件 Loader 与编辑器替换共用格式校验、诊断和控制块，不再移动到第二个描述对象。
+运行捕获保持独立内存描述，三者复用 prepare_loaded_scene；编辑不更新来源资产或 URI 缓存。
+新增只读快照独立解码、释放输入/原引用后保活以及失败输入回归。
+Windows Clang Debug 完整构建、16 项资产/场景/Prefab/编辑器文档/边界回归通过；
+改动行格式化与 git diff --check 通过。日志：build/scene-snapshot-adoption-build.log、
+build/scene-snapshot-adoption-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+C 项完成，A—E 主线完成；计划中的布局验收、场景准备归属与旧入口删除条件仍需核查，
+不将主线完成等同于整个 PLAN-102 完成。
+
+2026-11-06：场景准备实现迁入 function/scene/detail。scene_description_request 文件迁移无转发头，
+scene_preparation_operation 封装结构依赖收集、CPU 准备任务、诊断和取消；asset_manager 的
+scene_work 仅保留通用请求状态及场景操作引用，通过结果适配保留队列调度和终态通知。
+prepare_scene/prepare_prefab 入口及其调度所有权暂留管理器，Runtime 调用迁移仍待完成；
+本步仅完成场景专属逻辑归属，不将旧入口删除项标为完成。
+
+该迁移不允许 Scene 引用 asset/detail：边界检查发现初版继承私有 load_operation 后，改为
+场景操作返回普通 result，资产侧薄适配器提交终态；保留原边界规则。
+Windows Clang Debug 完整构建、16 项资产/场景/编辑器文档/边界回归通过；改动格式化、
+git diff --check 通过，旧 scene_loading 路径在源码与测试中零引用。
+日志：build/scene-preparation-boundary-build-final.log、
+build/scene-preparation-boundary-tests-final.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+2026-11-06：公开场景准备入口迁至 function/scene/scene_preparation.hpp，调用形态为
+prepare_scene(assets, uri, reload) / prepare_prefab(assets, uri, reload)。Runtime 场景加载、
+重载、编辑器 Prefab 准备及测试驱动已迁移；asset_manager 删除对应公开成员和 URI/类型构造逻辑。
+场景侧校验 URI 并创建操作，管理器仅保留私有 enqueue_scene_preparation 及迁移期调度队列。
+这是入口迁移，不代表调度所有权已迁出资产管理器；下一步仍需处理执行器、scope 与关闭生命周期。
+
+Windows Clang Debug 完整构建、17 项资产/场景/Prefab/编辑器/Runtime 场景加载/边界回归通过；
+改动行格式化及 git diff --check 通过。源码与测试中旧成员调用零引用。
+日志：build/scene-entrypoints-build-final.log、build/scene-entrypoints-tests.log（不入库）。
+未运行 GPU 大场景、跨平台或远端 CI；PLAN-102 仍在实施中。
+
+2026-11-06：按用户确认简化场景准备，不再把旧调度搬到新服务。删除 asset.prepare-scene
+CPU 任务、task_handle、完成回执和 enable_shared_from_this；依赖异步加载完成后，所属线程
+一次执行 prepare_loaded_scene。取消只放弃依赖观察；已完成结果保持稳定。
+补充缓存依赖一次完成、无需驱动执行器、已完成结果保留和提前取消回归。
+后续仍需将结构依赖归入资产加载、隐藏公开准备请求并让上层直接实例化；本步未完成这些目标。
+
+Windows Clang Debug 完整构建、17 项资产/场景/编辑器/Runtime/边界回归通过，改动行格式化与
+ git diff --check 通过。日志：build/scene-sync-structure-build-final.log、
+build/scene-sync-structure-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+
+2026-11-06：Scene Loader 接管必要 Prefab 依赖加载，通过普通资产请求去重和共享工作；
+场景资产成功前等待结构依赖，不等待视觉资产。Scene 内容一次持有描述、Prefab 资产身份和
+固定描述快照，重载成功统一替换当前内容；独立 Prefab 重载不改变旧 Scene 内容快照。
+场景准备直接消费这些依赖，不再重复请求。保留根文件 source_bytes 统计，准备阶段按依赖
+快照累计结构源文件字节数；不新增依赖缓存或跨文件事务。
+
+Windows Clang Debug 完整构建、17 项相关回归通过；新增普通 Scene 请求共享/独立取消、
+内容快照保活依赖与最终回收、缺少视觉文件仍成功、必要依赖失败诊断与旧内容保留回归。
+补充生命周期测试后增量构建和场景准备测试通过，改动行格式化、git diff --check 通过。
+日志：build/scene-dependencies-build-final.log、build/scene-dependencies-tests.log、
+build/scene-dependencies-lifetime-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+剩余：将 Runtime/编辑器改为直接消费 Scene/Prefab 资产实例化，删除公开 prepare 请求和
+管理器的迁移期场景准备队列；本次仅完成结构依赖的加载与所有权迁移，PLAN-102 尚未完成。
+
+
+2026-11-06：Runtime 场景打开/重载与编辑器 Prefab 插入/刷新改用普通 Scene/Prefab
+资产请求；成功后同步调用 make_instantiation_data，保持视觉加载独立。删除公开
+prepare_scene/prepare_prefab、asset_manager 私有场景队列及 enqueue_scene_preparation、
+scene_description_request、scene_preparation_operation 和 Runtime prefab_preparation 包装。
+构建源清单与内部头导出清单同步删除，不保留兼容转发。
+
+实例化数据仍是同步算法结果：包含排序、覆盖和视觉资源清单，供 Runtime 预留引用及内存编辑使用；
+不是异步请求或第二份缓存。scene_instances 当前仍消费 instantiate_prepared 数据入口，
+尚未新增直接接收资产引用的便捷重载，不能将本步描述为整个 PLAN-102 完成。
+
+Windows Clang Debug 完整构建通过。17 项相关回归中 16 项首轮通过；场景准备测试的测试驱动
+在检查提前取消前提交了读取，修复为提交前检查后，该项重跑通过。覆盖普通资产请求取消、
+线程池/协作执行器、结构限制、重载、编辑器 Prefab 操作、模块边界与内部头可见性。
+改动行格式化及 git diff --check 通过。日志：build/scene-direct-build-final.log、
+build/scene-direct-build-fix.log、build/scene-direct-tests.log、build/scene-direct-tests-fix.log
+（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+
+2026-11-07：新增 scene_instances::instantiate(ref<const scene>, source_bytes)，所属线程一次
+完成结构整理、视觉身份预留与节点创建，返回实例 ID、节点计数及待加载视觉清单。
+Runtime 场景打开已接入，删除自身保存的实例化数据、绑定表、预留游标和独立实例化辅助函数；
+不重复整理结构、不读取文件或等待 GPU。取消边界保留加载中与 ready 后；预留不再跨帧，
+测试与基准工具移除 cancel-assets 阶段，视觉加载仍在激活后单独推进。
+
+Windows Clang Debug 完整构建、18 项相关回归通过；补充直接实例化不读文件、同资产独立实例、
+卸载隔离与空引用失败检查，应用测试覆盖取消、视觉失败及异步关闭。改动行格式化和
+ git diff --check 通过。日志：build/scene-instantiate-asset-build-final.log、
+build/scene-instantiate-asset-tests.log（不入库）。未运行 GPU 大场景、性能基准、跨平台或远端 CI。
+
+Scene 资产直接实例化入口已完成；Prefab 插入/刷新与独立内存编辑仍保留描述和绑定入口。
+本步不宣布 PLAN-102 全部完成，后续仍须审查 Prefab 入口和计划中的其他删除条件。
+
+
+2026-11-07：Prefab 插入/刷新的冻结入口改为接收现有 prefab_header_snapshot，统一传递
+实例属性、固定描述及资产身份；删除 prefab_instantiation_data 参数和单独 author 参数。
+编辑器只保留此快照和视觉引用，不再长期保存 scene_instantiation_data 的场景描述、Prefab 表、
+父节点顺序等无用状态。make_instantiation_data 暂作为加载完成时的同步校验与清单收集函数。
+
+Windows Clang Debug 完整构建和 14 项相关回归通过；新增捕获后独立重载再冻结回归，验证
+身份仍共享、冻结采用旧描述、覆盖材质保留及撤销/重做行为。补充身份断言后增量构建和
+editor.asset-edit 重跑通过。改动行格式化及 git diff --check 通过。
+日志：build/prefab-source-snapshot-build-verified.log、build/prefab-source-snapshot-tests.log、
+build/prefab-source-snapshot-identity-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+
+本步收敛编辑器快照边界，不改变 Prefab 逐实例应用和撤销语义；底层实例化仍有独立描述及
+绑定入口，纯内存编辑也仍需这些入口。PLAN-102 的其他删除条件尚未全部验收。
+
+
+2026-11-07：Runtime 的 Scene/Prefab 重载统一调用 scene_instances::reload(instance, asset_ref)。
+同步结构整理、视觉身份预留和实例采用收进场景层，成功返回视觉加载清单；Runtime 删除
+重复 URI/类型标记、scene_instantiation_data 和临时资源引用数组，只保存请求、实例及结果。
+纯内存编辑继续使用描述入口；不增加文件读取、GPU 等待或额外加载队列。
+
+Windows Clang Debug 完整构建、18 项场景/Prefab 结构重载、编辑器、Runtime 与边界回归通过。
+新增直接重载成功、无额外文件读取、无效实例、空 Scene/Prefab 引用及非所属线程拒绝检查。
+改动行格式化及 git diff --check 通过。日志：build/scene-reload-asset-build-final.log、
+build/scene-reload-asset-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。
+本步完成 Runtime 重载边界收敛，PLAN-102 整体删除条件仍未全部验收。
+
+2026-11-07：删除 asset_manager 公开 RID 反查入口；ImGui 字体与测试组件直接保存已有资源强引用，
+场景测试通过 URI 查询当前资产。私有 asset_construction 的索引与预留入口未删除。
+Windows Clang Debug 完整编译、9 项 UI/帧保活/加载/场景/头可见性回归通过。
+未运行 GPU 冒烟、像素测试、大场景或远端 CI；相关测试目标已编译。
+
+2026-11-07：删除 asset_manager 公开匿名 reserve_mesh/texture/material 入口及转发实现。
+普通测试采用 create_*；像素测试直接使用内部构建器，保留未就绪资源的验证场景。
+Windows Clang Debug 完整编译和 9 项资产、纹理、帧保活及头可见性回归通过。
+GPU 像素测试仅编译，未运行；未运行大场景或远端 CI。带来源 reserve_resource 仍待收敛。
+
+## 引用解析与加载入口收敛（已完成）
+
+- 引用收集只记录 URI、类型及属性路径，不创建资源、不读文件。通用反射先做收集遍历，丢弃临时对象；
+  加载器统一提交依赖后再绑定引用。首版接受两次内存遍历，避免保存易失效的容器元素地址。
+- 资源身份仅由 load 创建；加载请求的 resource 可在内容就绪前绑定组件，不能当作成功结果。
+- 请求或外部资源强引用任一存在即继续视觉加载；两者都释放后取消。request_stop 始终终止操作。
+- 场景与 Prefab 直接提交 load、绑定返回引用，不等待视觉完成。视觉资源后台读取在 advance 时启动，
+  同一帧内的重复请求复用操作；不增加独立身份预留入口。
+- 验收覆盖收集无副作用、路径、重复引用、缺失 URI 往返、场景创建不读文件、组件保活加载、
+  放弃全部拥有者后取消、关闭及迟到结果；删除公开 reserve_resource。
+
+2026-11-07：以上三项已落地。收集遍历检查格式与字段结构，注册的对象业务校验延后到绑定完成时执行；
+自定义解码函数仍须遵守收集阶段约束。Windows Clang Debug 完整构建、25 项加载/场景/序列化/编辑器
+及边界回归通过。日志：build/reference-load-final-build.log、build/reference-load-tests.log、
+build/reference-load-extra-tests.log（不入库）。未运行 GPU 大场景、跨平台或远端 CI。PLAN-102 整体仍未完成。
+
+## 2026-11-08：审计后剩余范围
+
+布局与旧入口检查已完成；场景准备数据的 parent_first/maximum_depth 已无运行消费者，本批删除。
+scene_instantiation_data 仍用于交接描述、固定来源、视觉需求和计数，不能等同于重复资产缓存。
+详细证据及验证见[审计记录](../records/2026-11-08-asset-boundary-audit.md)。
+
+未完成项不因目录整理而勾选：
+- asset_reference_context 目前只解析 texture/mesh/material，尚不支持任意 asset 派生类型的依赖解析。
+- object_loader 没有通用依赖调度与依赖边；并发根请求的直接/间接环检测尚未实现。
+- JSON/二进制资源引用一致性须按实际支持后端逐项验收，不能以纹理/网格二进制负载测试代替。
+- 描述/负载的保留边界和更新失败时旧内容语义需要完整验收矩阵；本次没有把所有剩余项标成完成。
+
+## 后续执行计划
+
+2026-11-08：用户确认的新资产模型与统一依赖协议由 [PLAN-107](PLAN-107-asset-model-loading-protocol.md)
+继续实施。本页保留历史与缺口审计，不再追加新模型的逐批实现日志。

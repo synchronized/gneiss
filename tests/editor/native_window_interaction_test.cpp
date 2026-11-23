@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "../support/value_result.hpp"
+#include "ui/imgui_adapter.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/render/service.hpp>
+#include <gneiss/engine/platform/window/service.hpp>
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+#include "assets/asset_background_worker.hpp"
+#include "ui/viewport/editor_camera.hpp"
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
+#endif
+
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/input/service.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <thread>
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+
+namespace {
+
+struct state final {
+  gneiss::app::application* application{};
+  gneiss::editor::imgui_adapter ui;
+  gneiss::render::frame_request frame;
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  gneiss::editor::asset_background_worker* assets{};
+  gneiss::editor::editor_camera camera;
+#endif
+  HWND window = nullptr;
+  std::uint32_t frames = 0U;
+  bool check_pointer = false;
+  std::uint32_t pointer_check_frame = 0U;
+};
+
+gneiss::error update(const gneiss::frame_time* time, void* data) {
+  auto& value = *static_cast<state*>(data);
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  if (!value.assets->status().active ||
+      value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) != gneiss::error::success) {
+    std::fprintf(stderr, "后台任务或相机状态无效\n");
+    return gneiss::error::invalid_state;
+  }
+#endif
+  RECT client{};
+  if (GetClientRect(value.window, &client) == 0) {
+    return gneiss::error::internal;
+  }
+  const auto surface = value.application->window()->surface();
+  const auto width = surface.width;
+  const auto height = surface.height;
+  if (width != static_cast<std::uint32_t>(client.right) ||
+      height != static_cast<std::uint32_t>(client.bottom)) {
+    std::fprintf(stderr, "窗口尺寸不同步：surface=%u,%u client=%ld,%ld\n", width, height,
+                 client.right, client.bottom);
+    return gneiss::error::invalid_state;
+  }
+  auto operation = value.ui.begin_frame(*value.application, *time);
+  if (operation != gneiss::error::success) {
+    return operation;
+  }
+  const auto& io = ImGui::GetIO();
+  const auto& pointer = value.application->input().pointer();
+  const auto aligned =
+      io.DisplaySize.x == static_cast<float>(std::max(width, 1U)) &&
+      io.DisplaySize.y == static_cast<float>(std::max(height, 1U)) &&
+      io.DisplayFramebufferScale.x == 1.0F && io.DisplayFramebufferScale.y == 1.0F &&
+      (!value.check_pointer || value.frames < value.pointer_check_frame ||
+       (pointer.x == 123.0F && pointer.y == 87.0F &&
+        (pointer.is_inside == 0U ? !ImGui::IsMousePosValid()
+                                 : (io.MousePos.x == pointer.x && io.MousePos.y == pointer.y))));
+  if (!aligned) {
+    std::printf("alignment failure: display=%.1f,%.1f client=%u,%u pointer=%.1f,%.1f\n",
+                static_cast<double>(io.DisplaySize.x), static_cast<double>(io.DisplaySize.y), width,
+                height, static_cast<double>(io.MousePos.x), static_cast<double>(io.MousePos.y));
+  }
+  ImGui::SetNextWindowPos(ImVec2(20.0F, 20.0F));
+  ImGui::Begin("Native interaction probe");
+  ImGui::Text("Frame %u: %u x %u", value.frames, width, height);
+  ImGui::End();
+  auto draw = value.ui.render();
+  operation = draw ? value.frame.ui.replace(*draw, value.application->render()) : draw.error();
+  ++value.frames;
+  return aligned ? operation : gneiss::error::invalid_state;
+}
+
+} // namespace
+
+int main() {
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  std::promise<void> release;
+  auto gate = release.get_future().share();
+  std::atomic_bool entered{};
+  gneiss::editor::asset_background_worker worker(
+      [&](const auto&, const auto&, const auto&, bool, const auto& control) {
+        entered = true;
+        gate.wait();
+        gneiss::editor::editor_import_report report;
+        report.import.result = control.cancelled()
+                                   ? gneiss::tooling::import_asset_result::cancelled
+                                   : gneiss::tooling::import_asset_result::invalid_argument;
+        return report;
+      });
+  struct release_guard {
+    std::promise<void>& value;
+    ~release_guard() { value.set_value(); }
+  } guard{release};
+  worker.start(std::filesystem::temp_directory_path(),
+               std::filesystem::temp_directory_path() / "unused-gneiss-assets");
+  (void)worker.import_asset("blocked-test-input");
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!entered && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  if (!entered) {
+    return 4;
+  }
+#endif
+  state value;
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  value.assets = &worker;
+#endif
+  gneiss::app::configuration config;
+  config.enable_window = true;
+  config.window.width = 640U;
+  config.window.height = 480U;
+  config.window.title = "Gneiss 0.37 interaction probe";
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create(config), application) !=
+      gneiss::error::success) {
+    return 1;
+  }
+  application->add_system(
+      gneiss::app::stage::update, "probe.update",
+      [&value](const gneiss::frame_time& time) { return update(&time, &value); });
+  value.application = application.get();
+  application->add_system(
+      gneiss::app::stage::present, "probe.present", [&]() -> gneiss::result<void> {
+        auto frame = std::exchange(value.frame, {});
+        frame.surface = application->window()->surface();
+        if (!frame.surface.width || !frame.surface.height)
+          return {};
+        frame.views.push_back({});
+        auto submitted = application->render().render(std::move(frame));
+        return !submitted && submitted.error() != gneiss::error::not_ready ? submitted
+                                                                           : gneiss::result<void>{};
+      });
+  application->on_start("probe.initialize_ui", [&]() -> gneiss::error {
+    const auto native = application->window()->native();
+    if (native.backend != gneiss::window::native_backend::win32)
+      return gneiss::error::initialization_failed;
+    value.window = static_cast<HWND>(native.data.win32.window);
+    if (value.window == nullptr || value.ui.initialize(*application) != gneiss::error::success) {
+      return gneiss::error::initialization_failed;
+    }
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+    if (value.camera.initialize() != gneiss::error::success) {
+      return gneiss::error::initialization_failed;
+    }
+#endif
+    return gneiss::error::success;
+  });
+  if (!application->step())
+    return 2;
+  gneiss::error foreign_result{};
+  std::thread foreign([&] { foreign_result = value.ui.begin_frame(*application, {}); });
+  foreign.join();
+  if (foreign_result != gneiss::error::invalid_state)
+    return 6;
+  // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
+  const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
+  const auto run = [&] {
+    for (unsigned frame = 0; frame < 3; ++frame) {
+      const auto status = application->step();
+      if (!status) {
+        std::fprintf(stderr, "窗口交互失败：frame=%u error=%d\n", value.frames,
+                     status.error().code());
+        return false;
+      }
+      if (*status == gneiss::app::lifecycle::stopping || *status == gneiss::app::lifecycle::stopped)
+        return false;
+    }
+    return application->render().finish_frames().ok();
+  };
+  bool success = run();
+  for (int index = 0; index < 18 && success; ++index) {
+    success = SetWindowPos(value.window, nullptr, -3000, -3000, 640 + (index * 19),
+                           480 + ((index % 5) * 31), SWP_NOACTIVATE | SWP_NOZORDER) != FALSE &&
+              run();
+  }
+  for (int index = 0; index < 3 && success; ++index) {
+    (void)ShowWindow(value.window, SW_MINIMIZE);
+    success = run();
+    (void)ShowWindow(value.window, SW_SHOWNOACTIVATE);
+    success = success && run();
+  }
+  // 合成 WM_DPICHANGED 验证消息路径；不声称覆盖物理显示器迁移。
+  for (const WORD dpi : {WORD{96}, WORD{120}, WORD{144}, WORD{192}, WORD{96}}) {
+    RECT target{.left = -3000, .top = -3000, .right = -2040, .bottom = -2280};
+    (void)SendMessageW(value.window, WM_DPICHANGED, MAKEWPARAM(dpi, dpi),
+                       reinterpret_cast<LPARAM>(&target));
+    (void)SendMessageW(value.window, WM_MOUSEMOVE, 0U, MAKELPARAM(123, 87));
+    TRACKMOUSEEVENT tracking{.cbSize = sizeof(TRACKMOUSEEVENT),
+                             .dwFlags = TME_CANCEL | TME_LEAVE,
+                             .hwndTrack = value.window,
+                             .dwHoverTime = 0U};
+    (void)TrackMouseEvent(&tracking);
+    value.check_pointer = true;
+    value.pointer_check_frame = value.frames + 2U;
+    success = success && run();
+    std::printf("synthetic DPI=%u, frames=%u, aligned=%d\n", static_cast<unsigned>(dpi),
+                value.frames, static_cast<int>(success));
+  }
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  value.camera.shutdown();
+  worker.request_stop();
+#endif
+  value.ui.shutdown(*application);
+  if (previous != nullptr) {
+    (void)SetThreadDpiAwarenessContext(previous);
+  }
+  std::printf("18 resizes, 3 minimize/restore cycles, 5 synthetic DPI changes: %s\n",
+              success ? "passed" : "failed");
+  return success ? 0 : 3;
+}

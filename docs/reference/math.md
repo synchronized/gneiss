@@ -3,12 +3,12 @@
 
 # 内部数学类型与边界转换
 
-`engine/core/math/types.hpp` 是内部统一入口，必须先于其他 GLM 头包含。`gneiss::engine::math` 提供
+`engine/core/math/types.hpp` 是内部统一入口，必须先于其他 GLM 头包含。`gneiss::math` 提供
 `vector2`、`vector3`、`vector4`、`quaternion`、`matrix3`、`matrix4`，均为 GLM 的 packed float 别名。
 不提供第二套数学对象包装，也不安装为公共 SDK。
 同目录的 `transform`、`camera_settings` 和数学辅助函数也位于该命名空间；
 调用示例为 `math::vector3`、`math::transform`、`math::perspective_rh_zo`（在 Engine 内）。
-不提供 `gneiss::engine` 下的旧数学类型或函数兼容别名。
+不提供 `gneiss` 下的旧数学类型或函数兼容别名。
 
 ## 运算与初始化
 
@@ -27,7 +27,7 @@ Gizmo 保持正缩放、无剪切的限制。
 
 ## 反射与数据边界
 
-反射属性直接使用 `engine::math::vector2/vector3/vector4` 和 `engine::math::quaternion`，
+反射属性直接使用 `gneiss::math::vector2/vector3/vector4` 和 `gneiss::math::quaternion`，
 不提供属性专用数学别名。向量按分量数组序列化；矩阵尚未提供内建反射值支持。
 具体边界见 [反射](reflection.md)。
 

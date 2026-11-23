@@ -18,7 +18,7 @@
     {
       "uuid": "00000000-0000-4000-8000-000000000002",
       "name": "Triangle",
-      "parent": null,
+      "parent": {"object": null, "source": null},
       "transform": {
         "translation": [
           0,
@@ -37,7 +37,7 @@
           1
         ]
       },
-      "components": [{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material"}}]
+      "components": [{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh","material":"asset://materials/default.material","uuid":"59bcf740-5382-4020-8d7f-ff064311bb09"}}]
     },
     {
       "name": "Lamp Instance",
@@ -46,17 +46,17 @@
         "uri": "asset://prefabs/lamp.prefab.json",
         "overrides": [
           {
-            "source_node_uuid": "10000000-0000-4000-8000-000000000002",
-            "value": {
-              "kind": "vec3",
-              "value": [
-                0,
-                1,
-                0
-              ]
+            "key": {
+              "target": {
+                "source_node_uuid": "10000000-0000-4000-8000-000000000002",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null
+              },
+              "path": [{"$kind":"property","$content":1}]
             },
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
-            "property_id": 1
+            "operation": {
+              "$kind":"set",
+              "$content":{"content":{"$kind":"vec3","$content":[0,1,0]}}
+            }
           }
         ]
       },
@@ -86,14 +86,17 @@
 
 ## 字段规则
 
-- UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
-  内存中的场景、对象、Prefab 来源及覆盖键使用 `engine::guid`；`object_description::parent_uuid`
-  使用 `std::optional<guid>`，`nullopt` 表示根，不能用 nil GUID 代替根。JSON 仍使用字符串和 `null`。
+- 身份 UUID 必须使用非零的 36 字符小写规范形式；对象 UUID 在场景内唯一。
+  内存中的场景、对象、Prefab 来源及覆盖键使用 `gneiss::guid`；`game_object_description::parent`
+  使用 `object_address {object, source}`。每个 GUID 非 nil 时写字符串，nil 写 null。
+  根的 parent 为 `{"object":null,"source":null}`，普通父对象为 `{"object":"<uuid>","source":null}`。
 - `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。
-- `parent` 必须是现有对象 UUID 或 `null`；层级不能形成循环。
+- `parent.object` 必须引用显式对象或为 nil；`source` 非 nil 时，object 必须是 Prefab 实例。
+  引用 Prefab 时，source 为 nil 表示来源根，非 nil 表示具体来源成员。禁止 source 非空而 object 为空。
+  文件检查显式对象层级；加载来源后组合再检查成员存在性及完整层级，缺失成员报错，不回退到根。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
-- `components` 是数组，可为空。每项包含 `$type_guid`（描述类型的规范 GUID）和 `$content`（JSON 对象）。
+- `components` 是数组，可为空。每项直接使用 `$type_guid`（描述类型）与 `$content`（属性对象）的多态信封；`$content.uuid` 是非空组件实例身份。
   根据默认 Meta 注册表查找对应 codec；同一对象同一 GUID 最多一项，未知类型和重复类型报错。
 - 内置 Camera 描述 GUID 为 `11a0217a-2eab-4f61-8011-4a63a26e0101`，MeshRenderer 描述 GUID 为
   `11a0217a-2eab-4f61-8011-4a63a26e0102`。它们与运行时组件 GUID 分离，进程内 type_id 不写入文件。
@@ -104,18 +107,27 @@
 - Mesh Renderer 的 `mesh` 与 `material` 必须是规范 `asset://` URI。
 - `objects` 是唯一对象列表。对象可通过 `prefab: {uri, overrides}` 引用模板；`uri` 必须是规范资产
   URI，`overrides` 必须是数组。此时组件来自模板，拒绝同时提供非空 `components`。
-- `parent` 可引用任意显式对象，包括 Prefab 根；不能引用来源内部节点 UUID。普通自有子对象正常保存，
-  模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
-- 每项覆盖以来源节点 UUID、32 字符小写十六进制 `type_guid` 和非零 uint32 `property_id` 定位字段。`value`
-  使用显式 `kind` 与值；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
-  `type_id`、`vec3` 和 `quaternion`。同一实例内的完整覆盖键不能重复。
-- 覆盖可带 `path` 后缀数组，继续定位首个 `property_id` 下的嵌套字段或序列元素；
-  每步为 `{"property_id": 1}` 或 `{"index": 0}`，下标为非负整数，后缀最多 64 步。
-  缺省或空数组表示直接属性，后缀属于完整覆盖键。实例化时校验字段类型与下标范围；
-  不通过覆盖改变序列长度。相互约束的字段覆盖合并后才执行组件校验。
+  `prefab` 缺失或为 null 表示普通对象；保存普通对象时写出 `prefab: null`。
+- 普通自有对象可挂到任意 Prefab 成员，parent 使用实例 UUID 和来源节点 UUID 共同定位。
+  复制实例只重映射 parent.object，来源 UUID 保持；解包将完整父地址转换为新普通对象地址。
+  自有子对象正常保存，模板生成的子节点不重复写入列表。模板文件自身暂不允许嵌套 Prefab 引用。
+- 每项覆盖包含必填 `key` 和 `operation`。`key.target` 保存非零 `source_node_uuid` 与
+  `target_type_guid`；`key.path` 是从目标根开始的完整路径，首步必须是属性 ID，最多 64 步。
+  同一路径允许多条有序操作。
+- 路径步统一为 `$kind/$content`：`property` 使用非零属性 ID；`key` 使用映射字符串键；
+  `element` 使用序列元素的非零 GUID；`index` 仅允许固定长度序列的位置下标。
+  序列必须显式声明身份能力才能使用 `element`；目标丢失、身份为空或重复均失败，不回退下标。
+- `operation` 使用带标签联合：`{"$kind":"set","$content":{"content":...}}` 保存替换值；
+  其内容直接使用 Value 的 `$kind/$content` 格式。其他分支为 insert、erase、move、put_entry、erase_entry。
+  有身份的可变序列按元素 GUID 增删移动；nil 的 before 表示末尾，缺失锚点拒绝应用，已删除元素的 erase 成功。
+  无身份可变列表整体 set，不生成持久化下标；来源新增元素会被实例的整列表替换。
+  同一组件的操作在候选值树上依次执行，再恢复为描述并校验，不经过 JSON 快照。
+- 路径展示文本只用于诊断，不解析为存档地址。旧覆盖键和值格式不再读取。
+  相互约束的字段覆盖合并后才执行组件校验；失效覆盖仍保留在来源引用中供用户修复。
 - Prefab 实例身份就是引用对象的 UUID，覆盖键不重复携带实例身份。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
-- 普通对象需要 `components`，模板引用对象需要 `prefab`；`name` 可选。当前受支持版本中的未知字段不会参与运行时
+- `components` 缺失时使用空列表，保存时始终输出（包括模板引用对象）；非数组仍报错。
+  模板引用对象需要非空 `prefab`；`name` 可选。当前受支持版本中的未知字段不会参与运行时
   实例化；对象和组件外壳的未知扩展字段忽略，保存时不保留。
   `$content` 由对应 codec 完整输出，不与旧内容合并，避免已删除或省略的字段重新出现；
   需要保留内容扩展字段的类型须由自身 codec 读写这些字段。
@@ -127,13 +139,14 @@ settings、其三个参数及 is_primary 均必填。
 共用实现，Scene 允许多根森林，Prefab 按显式根要求单树。
 
 解析成功只产生中间描述，不修改 World。语法错误诊断使用 UTF-8 文档的零起始字节偏移，字段错误
-使用类似 `/objects/0/transform` 的 JSON 路径。未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。
+使用类似 `/objects/0/transform` 的 JSON 路径。格式头错误规则见下节。
 
 ## Prefab 根语义
 
 Prefab v1 顶层必须包含 `prefab_uuid`、`root_uuid` 和 `objects`。`prefab_uuid` 是资产身份，
 `root_uuid` 是对象树入口，两者独立；内存中均为 `guid`，文件中为非零规范小写 UUID。
-`root_uuid` 必须指向唯一 `parent: null` 的对象，其他对象沿父链必须能到达该根。
+`root_uuid` 必须指向唯一 parent.object/source 均为 null 的对象，其他对象沿父链必须能到达该根。
+Prefab 文件内父关系只使用本地对象 UUID，parent.source 必须为 null。
 拒绝缺失根、多个根、孤立对象、缺失父节点、重复 UUID 和环。对象数组不要求父对象在前，
 根身份不由数组顺序决定。未发布的旧文件直接补充该字段，不提供缺失时的推断回退。
 
@@ -145,20 +158,46 @@ Prefab v1 顶层必须包含 `prefab_uuid`、`root_uuid` 和 `objects`。`prefab
 
 ## 版本兼容
 
-项目尚未对场景 Schema 作出外部兼容承诺。当前只接受 v5：旧版本返回
-`GNEISS_ERROR_INVALID_ARGUMENT`，未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。仓库内作者场景、示例
+项目尚未对场景 Schema 作出外部兼容承诺。Scene 只接受 v5，Prefab 只接受 v1。
+合法正整数版本与当前版本不同（旧版本或未来版本）统一返回 `unsupported`；
+缺失、零、负数、非整数或错误类型返回 `invalid_argument`。格式名错误及重复格式头也返回
+`invalid_argument`，与材质及输入映射共用规则。仓库内作者场景、示例
 和测试随格式直接升级，不维护尚无真实消费者的迁移链。解析或校验失败时场景实例化尚未开始，现有
 World 保持不变。旧顶层 `prefab_instances` 也被明确拒绝，不作为扩展字段忽略。
 
 ## 内存描述与初始化
 
-`object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
+对象描述定义在 `engine/resource/scene/game_object_description.hpp`，Scene 与 Prefab 共用，
+与反射基类 `meta::object` 分开命名。
+
+`game_object_description::transform` 直接使用 `math::transform`，表示相对父对象的局部变换，默认单位变换。
 文件中的 `transform` 及其 translation、rotation、scale 仍全部必填，默认值不代替格式校验。
 
-`object_description::components` 使用 `component_descriptions`，内部保存不可变的类型化描述条目。
+`game_object_description::components` 使用 `component_descriptions`，内部直接保存 `ref<const component_description_base>`。实例 UUID 由基类持有，具体描述继承基类并注册 Meta 继承关系，
+通用引用序列化负责 `$type_guid` / `$content`，列表负责实例 UUID 非空且不重复、每种组件至多一项。新建描述生成 UUID，替换描述保留集合中的 UUID；显式复制对象/子树时重新生成身份。
+基类 UUID 使用保留属性编号 `0xffffffff`，参与持久化但设置 property_edit_policy 的 read_only，不能生成普通属性覆盖。
+自定义 codec 须自行保存和恢复基类 UUID；反射字段编解码自动包含该字段。
+`with_component_identity` 在身份不同时通过已注册编解码创建独立副本，需要冻结的默认注册表；
+不修改原引用，相同身份直接共享不可变描述。有类型的 set 在构造不可变引用前调整候选身份。
+Scene 的 components 直接注册成员；component_descriptions 通过 sequence_traits 提供只读
+序列访问与整组校验替换。IPC 使用同一 Meta 数组解码，不再依赖组件专用 DOM 适配函数。
+`game_object_description.prefab` 注册为 optional，引用描述的 uri、overrides、component_overrides
+由反射遍历。组件增删及属性操作均按成员反射；URI、操作内容和跨列表冲突由
+引用描述校验器统一验证。属性操作保持写入顺序，允许同一集合路径上的多条操作，不再排序。
+操作使用 set、insert、erase、move、put_entry、erase_entry 稳定分支名；具体语义见
+[值树编辑](serialization.md#值树编辑)。
+game_object_description 使用通用反射编解码，不再注册专用 encode/decode；独立 validate_object
+检查 UUID 非空及 Prefab 与非空组件互斥，保存和读取都经反射校验钩子调用。
+父节点存在性和层级循环仍由场景整体校验。
+两者均先完成临时数组解码，再由 component_descriptions::replace 检查非空和类型唯一，成功才替换。
+组件列表校验错误定位到 components 属性；嵌套内容解码错误保留具体子路径。
+多态信封仅允许 `$type_guid` 和 `$content`，类型 GUID 使用规范小写形式。
 `get<T>()` 借用只读指针，错误类型返回 nullptr；`set(T)` 替换对应类型，`erase<T>()` 删除，
 `update<T>(callback)` 在副本上修改后替换。借用指针不得跨对应条目替换或列表销毁。
-复制列表共享不可变内容；修改副本不改变模板、其他实例或编辑器撤销快照。
+复制列表共享描述引用；`component_descriptions::update<T>` 使用反射值创建独立候选，
+回调成功后再次冻结和校验才替换整项。回调支持 `void` 或 `error` 返回值；缺少组件返回
+`not_found`，无法捕获的自定义 codec 类型返回 `unsupported`，意外异常直接传播。
+失败保留原集合；成功也不会保留回调传入的可写引用别名。直接 `set` 接收整项引用，调用方负责其共享语义。
 
 解析/编码前由宿主完成 `initialize_meta`。文件解析只生成 CPU 描述，不创建 World 或 GPU 对象。
 场景功能层解析资产依赖并安装运行时组件；Meta 不依赖 World。
@@ -176,12 +215,42 @@ Transform、组件和 Prefab 覆盖生成文件；删除或修改的字段不会
 
 ## Prefab 组件结构覆盖
 
-`prefab.component_overrides` 是可省略数组，缺省为空。每项包含 `source_node_uuid` 和 `$type_guid`：
-含 `$content` 对象表示新增组件（由该类型 codec 编解码）；不含 `$content` 表示移除来源组件。
-`$content: null` 无效。相同目标键不能重复，也不能同时出现在属性覆盖中。
+`prefab.component_overrides` 是可省略数组，缺省为空。每项必须包含 `source_node_uuid`、
+`type_guid`、`component_uuid` 和 `added`。`added` 为 `{ "$type_guid": "...", "$content": {...} }` 表示新增组件，
+内层类型必须匹配外层 `type_guid`；`added: null` 表示移除来源组件。
+按原生成员反射读写，拒绝未知字段和旧的同层多态信封，不做旧格式兼容。
+相同目标键不能重复，也不能同时出现在属性覆盖中。
 新增组件编辑直接修改完整描述，不另写属性覆盖；新增后删除直接清除新增记录。
 
-来源同类型组件与新增记录相撞、来源对象消失、属性目标不存在或类型/路径改变时返回冲突。
+来源同类型组件与新增记录相撞、来源对象消失、属性目标不存在或类型/路径改变时记录冲突。
+加载和重载继续应用其他可用覆盖；冲突按结构/属性列表及原索引定位，原覆盖保留。
+组合结果的 `composed_scene::conflicts` 提供当前冲突，包括已消失节点上的记录；运行节点不保存冲突。
+相同来源对象和组件 UUID 的目标重新出现后再次回放原操作，成功则清除对应冲突。仅类型相同但 UUID 不同的新组件不继承旧覆盖。
+同一组件的值树操作合并后执行领域校验；不满足跨字段约束时保留该来源组件，
+不回滚其他组件和对象。内存分配与意外异常向执行边界传播；显式内部错误仍返回失败。编辑入口对本次修改保持严格校验，
+不把新的非法修改保存为冲突。
 移除记录允许来源组件不存在，保存时仍保留；来源再次出现同类型组件时仍隐藏。
 属性覆盖优先于来源默认值，未覆盖属性跟随来源。名称或父关系变化不改变 UUID 定位。
 恢复来源清除该组件的结构/属性覆盖，采用当前来源；不猜测名称、不隐式转换、不自动三方合并。
+
+## 局部修改
+
+完整描述中的 parent 始终给出值。局部修改通过已有属性 ID/路径操作或场景层级指令表达：
+没有操作表示不修改；设置 nil 表示解除父子关联成为根节点，不表示删除对象。
+删除对象使用独立指令。重新挂接必须通过场景层级入口，保持环校验、运行时同步和撤销语义。
+不再使用 optional<guid> 区分“不修改”和“清空”。GUID 编解码接受 null 和规范 UUID 字符串（含全零字符串），保存 nil 时统一输出 null。
+
+
+## 编解码与校验职责
+
+Scene/Prefab 文件通过 asset_file::deserialize/serialize 读写，错误使用 serialization::diagnostic。
+资源格式包装负责 format/version、文件字节上限与已移除字段检查，并显式调用 scene_validation
+检查场景身份、整体层级和主相机约束。文档领域的 restore_scene_record/restore_prefab_record
+同样显式校验，保存和加载采用相同领域规则。
+普通 serialization::json 仅读写内容，不检查上述整体场景约束，不应作为文件加载或文档提交的替代。
+局部对象和组件约束暂仍由各自注册校验器检查，尚未完成全部领域校验迁移。
+Prefab 不再维护派生 dependencies 或 source_schema_version 字段；运行时依赖继续由
+component_dependencies 收集，不在反序列化中硬编码扫描 MeshRenderer。
+
+属性覆盖的 key/operation 直接注册反射；key 校验身份、字段编号及路径，通用序列化处理 variant 路径。
+旧平铺覆盖字段及旧路径格式不再接受。覆盖值统一使用 `$kind/$content`，不读取旧 kind/value。

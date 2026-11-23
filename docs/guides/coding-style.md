@@ -10,8 +10,8 @@
 项目采用以下语言分层：
 
 - 当前不提供公共 C ABI；以后如新增公共 `.h`，必须能被 C11 编译器独立包含。
-- 不安装公共 `.hpp`；共享值与迁移期转换辅助位于 `src/`，不提供对象 SDK。
-- `src/` 下 `.hpp` 声明内部原生 C++ 接口与类型，由 `.cpp` 实现；不要求经过 C ABI。
+- 不安装公共 `.hpp`，不提供对象 SDK；模块 `include/` 是仓内跨目标使用的原生契约。
+- 模块 `src/` 保存实现与私有头；原生 C++ 调用不要求经过 C ABI。
 - `.c` 使用 C11；`.cpp`、`.cc` 和 `.cxx` 使用 C++20。
 - C++ 包装层不得建立与 C API 平行的第二套运行时状态。
 
@@ -58,11 +58,11 @@ clang-format -i <files...>
 
 | 对象 | 规则 | 示例 |
 | --- | --- | --- |
-| 文件和目录 | 小写下划线 | `render_service.cpp` |
+| 文件和目录 | 小写下划线 | `service.cpp` |
 | C 函数和类型 | `gneiss_` 前缀、小写下划线 | `gneiss_world_create` |
-| C 宏 | `GNEISS_` 前缀、大写下划线 | `GNEISS_API` |
+| C 宏 | `GNEISS_` 前缀、大写下划线 | `GNEISS_ENGINE_API` |
 | C++ 命名空间 | 小写 | `gneiss` |
-| C++ 类型 | 小写下划线 | `render_service` |
+| C++ 类型 | 小写下划线 | `render::service` |
 | 函数和变量 | 小写下划线 | `create_entity`、`entity_count` |
 | 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`error::ok` |
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
@@ -80,11 +80,11 @@ clang-format -i <files...>
 - `*_view` 强调借用数据，必须注明有效期；`*_snapshot` 表示自有快照。
   混合借用字段和自有快照的查询结果使用 `*_info`，逐项说明所有权。
 - `*_request` 表示请求及其观察状态；`*_metrics` 表示统计；`*_record` 表示一次操作记录。
-- `asset_manager` 负责 CPU 资产加载，`resource_service` 组织运行时资源，
-  `render_service` 管理渲染后端；对应局部参数优先使用 `assets`、`resources`、`renderer`。
+- `asset_manager` 统一负责描述加载与运行资源装配，
+  `render::service` 管理渲染后端；对应局部参数优先使用 `assets`、`renderer`。
 - `render_resource_kind` 只描述渲染资源类别，不用于枚举所有 CPU 资产类型。
 - 文件名体现主要对象或职责；拆分实现优先沿用所属类前缀，如
-  `resource_service_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。
+  `asset_construction_loading.cpp`。相关小结构可以集中定义，不要求每个类型一个文件。
 - 不保留仅为兼容旧名称而增加的别名；不因字段相同就合并所有权或职责不同的类型。
 
 ### 布尔值和动作命名
@@ -129,7 +129,7 @@ typedef enum gneiss_result_t {
   GNEISS_RESULT_INVALID_ARGUMENT = 1
 } gneiss_result_t;
 
-GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
+GNEISS_ENGINE_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 
 #ifdef __cplusplus
 }
@@ -170,8 +170,59 @@ GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 
 - C ABI 永不抛出异常。
 - 引擎运行时的可预期失败使用结果类型或错误码。
-- C++ 包装层可以将不可恢复的构造失败表达为显式结果；是否启用异常必须由项目级 ADR 统一决定。
+- 内部 C++ 用 `result/error` 表达非法输入、缺失资源、取消、预算拒绝等预期失败；
+  `std::bad_alloc` 和意外异常直接传播，不逐函数转换为 `out_of_memory/internal`。
+- 自有宿主、线程入口和 C 回调通过 `fatal_current_exception()` 输出固定诊断并终止；
+  宿主显式安装 terminate 兜底，库不得擅自替换嵌入方的全局处理器。
+- `noexcept` 仅用于真正不抛出的查询、移动和清理；有分配或用户回调的完整调用链不承诺它。
+  局部 catch 只用于必要清理后重抛，或转换已知可恢复的具体第三方异常。
+- 进程堆耗尽与显式容量/预算拒绝、GPU 内存不足分开处理；致命日志不调用普通日志队列。
+  详细契约见 [ADR-114](../decisions/ADR-114-exception-boundaries.md)。
 - 不使用异常完成普通流程控制。
+
+### 返回值、契约与终止的选择
+
+以下是新增代码与后续迁移的评审规则，不表示现有接口已全部完成收敛。
+现有 API 在迁移前仍遵循其当前契约；迁移进度见
+[PLAN-118](../plans/PLAN-118-error-contracts.md)。
+
+先判断失败的来源与调用方应采取的动作，再选择返回类型。某一层不能恢复，不代表整个进程
+必须退出：上层仍可能报告错误、保留旧文档、跳过对象、显示占位资源或重试。
+不得按 `internal`、`invalid_state`、`out_of_memory` 的枚举名称批量替换。
+
+| 情况 | 表达方式 |
+| --- | --- |
+| 所有合法调用都能产生值；没有可预期失败 | 直接返回值或借用引用；无结果则返回 void |
+| 正常查询可能没有结果，且无需区分缺失原因 | 空句柄、指针或 optional，按现有对象语义选择 |
+| 调用方需要区分并处理失败原因 | result/error，保留路径等必要诊断 |
+| 明确的调用契约违例或内部不变量损坏 | GNEISS_ASSERT，发现时终止，不逐层返回 internal |
+| 由内部状态机保证不可能到达的分支 | GNEISS_PANIC，不返回伪造成功值或默认值 |
+| 进程堆耗尽或意外异常 | 既有执行边界与 fatal 路径，见上述异常规则 |
+
+**边界校验与内部操作：** 文件、IPC、脚本、用户配置、动态注册和异步完成数据须在进入领域逻辑时
+检查。拒绝无效输入应返回诊断，不把数据合法性建立在断言上。内部只重复检查真正需要持续维护的
+不变量；不要为相同事实逐层增加失败返回。校验与使用间可能发生删除、重载、取消或线程切换时，
+先解决保活、版本或同步，再决定能否省略检查；先调用 valid() 不会自动消除竞争或延长生命周期。
+
+**句柄与线程：** 从外部 ID/RID 查找时，零值、过期 generation、跨服务身份可能是正常拒绝。
+借用对象的普通操作若明确要求对象存活且在所属线程调用，违反要求属于编程错误；但这种前置条件
+必须写在接口契约中，不能悄悄把原来可处理的失效改成退出。对象已析构后，不能指望对悬空 owner
+调用 valid() 或断言提供保护。跨线程调用约束也不等同于所有 invalid_state 都应断言：服务关闭期间
+拒绝新请求可能是合法生命周期行为。
+
+**断言级别：** 新迁移的契约检查默认使用全配置有效的 GNEISS_ASSERT。DEBUG_ASSERT 仅用于
+冗余、昂贵的开发期验证，必须说明 Release 下为何仍满足前置条件；不能把它当作生产错误处理，
+也不能仅为省一次判断让正常输入触发未定义行为。没有必要副作用的规则同样适用于诊断参数。
+外部未知枚举值、无法识别的序列化标签与第三方返回值不属于天然不可达分支。
+
+**返回类型收敛：** 删除唯一的失败来源时，同步评估去掉 result 和调用方传播分支；不能保留永远成功
+的 result<void>。仍有实际拒绝原因的操作继续返回 result，例如改父节点形成循环、跨场景关系非法、
+属性类型不匹配、队列已满。未注册反射类型或缺少可选 ops 通常是可查询能力，不一概视作注册损坏。
+第三方回调返回不符合约定的类型与实际数据值不合法必须拆开判断，不能将组合条件整体改为断言。
+
+**迁移与验证：** 每条链记录旧失败来源、新契约、校验责任、调用者迁移和测试变化。修改成功返回类型
+不改变所有权或失败原子性；不随意删除错误枚举。可恢复失败继续做行为测试，明确改变为终止的契约
+在必要处用子进程覆盖，不为每个断言新建测试。遵循[测试维护指南](testing.md)，不以删除判断数量衡量完成度。
 
 ### 并发
 
@@ -204,8 +255,9 @@ GNEISS_API gneiss_result_t gneiss_world_create(gneiss_world_t* out_world);
 ## 目录与边界
 
 ```text
-src/engine/core/       内部共享值与符号可见性定义，不安装公共头
-src/                    内部 C++20 实现和平台后端
+engine/include/         仓内原生契约，不安装公共 SDK 头
+engine/src/             引擎实现与私有头
+runtime/ editor/ tooling/ 宿主及工具模块
 tests/                  C11、C++20 与行为测试
 examples/               可独立运行的最小示例
 docs/                   项目文档
@@ -239,20 +291,61 @@ docs/                   项目文档
 
 ## 模块命名空间
 
-内部业务类型按架构层使用 `gneiss::engine`、`gneiss::runtime`、`gneiss::editor`、
-`gneiss::tooling`、`gneiss::host`，目录不再逐级映射为命名空间。
-单文件辅助实现使用匿名命名空间，头文件实现细节允许 `detail`。
-不保留旧领域命名空间兼容别名。目录、头文件可见性与 CMake 依赖继续约束分层。
-该命名空间迁移不改变 C ABI；旧共享值的后续收敛见 PLAN-051。决策见 [ADR-079](../decisions/ADR-079-flat-namespaces.md)。
-
-Meta 是上述平铺规则的明确例外：反射描述、注册、查询和编解码接口位于
-`gneiss::engine::meta`，避免通用名称与业务模块冲突。基础值类型和 traits 定制点仍在
-`gneiss::engine`；不为旧 Meta 限定名保留兼容别名。
+引擎基础值与业务对象位于 `gneiss`；独立功能域使用 `gneiss::meta`、`gneiss::math`、
+`gneiss::serialization`、`gneiss::events`、`gneiss::logging`、`gneiss::files`、`gneiss::tasks` 等。
+宿主与工具保留 `gneiss::runtime`、`gneiss::editor`、`gneiss::tooling`、`gneiss::host`。
+目录不逐级映射命名空间；不再使用 `gneiss::engine`，也不提供旧命名空间兼容别名。
+单文件辅助实现使用匿名命名空间，头文件实现细节使用所属领域的 `detail`。
+目录、头文件可见性与 CMake 依赖继续约束分层。
+显式类型 GUID 不随命名空间更改；C++ 消费方需要重新编译。
+决策见 [ADR-120](../decisions/ADR-120-domain-namespaces.md)。
 
 ## UTF-8 校验复用
 
 通用 UTF-8 编码校验使用 `engine/core/utf8.hpp` 中的
-`gneiss::engine::utf8::is_valid(std::string_view)`，不分配内存，不依赖平台。
+`gneiss::utf8::is_valid(std::string_view)`，不分配内存，不依赖平台。
 空串和嵌入 NUL 均是合法编码；路径禁用控制字符、名称或 Prefab 字符串禁用 NUL 等规则
 由对应调用层另行校验。不要在各模块重复实现字节序列解析。
 原生文件路径转换及平台字符转换仍属于路径/平台适配，不加入 Core 编码校验工具。
+
+
+## 实现隐藏与状态封装
+
+默认让对象直接拥有其数据与行为。`private` 控制访问权限；PImpl 用于隔离完整实现类型、
+第三方/平台依赖或有实际收益的编译传播，不是缩短头文件、减少公共方法数量的必要手段。
+
+- 小型基础工具、值类型与模板默认直接实现，不机械配套 `impl/state`。
+- 新增 PImpl 时说明具体隔离的依赖及分配、间接访问、转发成本；没有独立职责的转发不另建服务。
+- `*_state` 表示明确的状态集合或状态机，不作为订阅管理、资源管理、调度等职责的通用名称。
+  有完整业务行为的对象按职责命名；不要仅改后缀来掩盖职责混杂。
+- 共享控制块仅承载必须独立于对象存活的身份、失效检测或异步保活数据；不能仅因需要弱引用，
+  就把对象全部数据和行为转移进去。区分拥有业务对象与保持控制块可访问。
+- 适配第三方组件时，不同时维护两套等价身份、订阅表或队列。若新增语义需要另一套管理，
+  优先只复用其底层能力，或明确委托唯一所有者。
+- 简化包装前核查真实调用者和生命周期契约。不能为减少层数移除源销毁保护、线程约束或
+  独立订阅身份；需要改变契约时先明确影响和迁移方式。
+
+评审用初始化、使用、失败与销毁的完整调用链验证收益，不以文件数量、类数量或行数作为目标。
+例如 Render 的后端依赖适合隐藏；Signal 的订阅列表可直接属于 Signal，连接失效检测另用轻量控制块。
+
+## 运行时断言
+
+内部实现通过 `engine/core/assert.hpp` 使用 libassert；CMake 目标私有链接 `gneiss_libassert`。
+不要在普通接口中暴露 libassert 类型，也不要向公共值头批量引入该依赖。
+
+```cpp
+GNEISS_ASSERT(index < entries.size(), "内部索引越界", index, entries.size());
+GNEISS_DEBUG_ASSERT(object.is_valid(), "借用句柄失效");
+GNEISS_PANIC("到达不可执行的状态分支");
+```
+
+- `GNEISS_ASSERT` 与 `GNEISS_PANIC` 在 Debug/Release 均有效。
+- `GNEISS_DEBUG_ASSERT` 在定义 `NDEBUG` 时不求值；断言和诊断参数不要包含业务必需的副作用。
+- 断言用于编程错误与内部不变量；文件损坏、用户输入、队满、取消等仍通过 `result/error` 表达。
+- 沿用 libassert 默认失败处理：输出诊断并 abort，不抛异常、不调用业务日志队列。
+  诊断可能分配内存；OOM 继续走现有无分配 fatal 路径。
+- 不提供具有 Release 未定义行为假设的 ASSUME 包装，不替换标准 assert 宏。
+- 子进程断言测试覆盖 Debug/Release 求值与诊断；测试专用 handler 退出，避免系统崩溃弹窗。
+  生产默认 abort 是否产生系统报告由运行环境决定。
+
+依赖版本、平台差异和安装影响见[第三方声明](../../THIRD_PARTY_NOTICES.md)。

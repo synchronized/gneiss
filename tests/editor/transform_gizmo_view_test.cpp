@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/error.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/world/world.hpp"
-#include "runtime/application.hpp"
-#include "viewport/transform_gizmo_view.hpp"
+#include "../support/value_result.hpp"
+#include "ui/viewport/transform_gizmo_view.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
 
-#include "engine/core/error.hpp"
-#include "engine/core/math/transform.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
 
 #include <imgui.h>
 
@@ -17,24 +18,27 @@
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
-  std::shared_ptr<gneiss::runtime::application> app;
-  gneiss::engine::world* world_handle = nullptr;
-  scene_document session;
+  std::shared_ptr<gneiss::app::application> app;
+  gneiss::world_owner world_owner;
+  gneiss::world* world_handle = nullptr;
+  scene_edit_session session;
   editor_command_history history;
   transform_gizmo_drag drag;
-  scene_node_id first;
-  scene_node_id second;
-  gneiss::runtime::application_configuration desc;
-  if (gneiss::engine::error{gneiss::runtime::application::create(desc, app)}.failed() ||
-      (world_handle = app->native_world()) == nullptr ||
+  entity_id first;
+  entity_id second;
+  gneiss::app::configuration desc;
+  if (gneiss::error{gneiss::test_support::assign_value(gneiss::app::application::create(desc), app)}
+          .failed() ||
+      gneiss::test_support::assign_value(gneiss::create_native(), world_owner).failed() ||
+      (world_handle = world_owner.get()) == nullptr ||
       session.create_empty(*app, world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {
     return 1;
   }
   bool wait_release = false;
-  gneiss::engine::error error = gneiss::engine::error::success;
-  gneiss::engine::math::transform camera = {};
+  gneiss::error error = gneiss::error::success;
+  gneiss::math::transform camera = {};
   camera.translation[2] = 5.0F;
   const transform_gizmo_context context{
       .session = session,
@@ -54,6 +58,7 @@ int main() try {
   int width = 0;
   int height = 0;
   io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+  const auto first_uuid = session.query_node(first)->uuid;
   const auto draw = [&](ImVec2 size) {
     ImGui::NewFrame();
     begin_transform_gizmo_frame();
@@ -69,7 +74,7 @@ int main() try {
     ImGui::DestroyContext();
     return 2;
   }
-  gneiss::engine::math::transform moved = {};
+  gneiss::math::transform moved = {};
   moved.translation[0] = 2.0F;
   gizmo_matrix matrix{};
   if (transform_to_gizmo_matrix(moved, matrix).failed() || drag.begin(session).failed() ||
@@ -83,9 +88,10 @@ int main() try {
     ImGui::DestroyContext();
     return 4;
   }
-  gneiss::engine::math::transform actual = {};
-  if (session.get_world_transform(first, actual).failed() ||
-      std::abs(actual.translation[0]) > 0.0001F || session.select(first).failed() ||
+  gneiss::math::transform actual = {};
+  if (session.get_world_transform(session.find_node(first_uuid)->node, actual).failed() ||
+      std::abs(actual.translation[0]) > 0.0001F ||
+      session.select(session.find_node(first_uuid)->node).failed() ||
       drag.begin(session).failed() || drag.preview(session, matrix).failed()) {
     ImGui::DestroyContext();
     return 5;

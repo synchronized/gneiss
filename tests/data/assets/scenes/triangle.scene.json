@@ -6,7 +6,7 @@
     {
       "uuid": "00000000-0000-4000-8000-000000000002",
       "name": "Camera",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "transform": {
         "translation": [
           0.0,
@@ -26,18 +26,12 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0101",
-          "$content": {
-            "settings": {"fov": 1.04719755, "near": 0.1, "far": 1000.0},
-            "is_primary": true
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0101","$content":{"settings":{"fov":1.04719755,"near":0.1,"far":1000.0},"is_primary":true,"uuid":"6f7c568f-eaf3-4f56-bd41-b502e23a489f"}}
       ]
     },
     {
       "uuid": "00000000-0000-4000-8000-000000000003",
-      "parent": "00000000-0000-4000-8000-000000000002",
+      "parent": {"object":"00000000-0000-4000-8000-000000000002","source":null},
       "transform": {
         "translation": [
           0.0,
@@ -57,13 +51,7 @@
         ]
       },
       "components": [
-        {
-          "$type_guid": "11a0217a-2eab-4f61-8011-4a63a26e0102",
-          "$content": {
-            "mesh": "asset://models/triangle.mesh.json",
-            "material": "asset://materials/triangle.material.json"
-          }
-        }
+        {"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/triangle.mesh.json","material":"asset://materials/triangle.material.json","uuid":"957e0d46-e71e-4b49-9013-b53ab56ff17a"}}
       ]
     }
   ]

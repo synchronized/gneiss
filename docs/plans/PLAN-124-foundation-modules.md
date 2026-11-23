@@ -1,0 +1,140 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# PLAN-124：基础模块、平台边界与构建归属
+
+状态：已完成（2026-11-19，本地验收；跨平台限制见最终验收）。决策见 [ADR-128](../decisions/ADR-128-foundation-modules.md)。
+
+## 目标与范围
+
+保留 core/platform/resource/function 分层导航；领域模块具有完整实现目标，基础消费者不链接
+Engine 或渲染资源。迁移头文件、实现、实际消费者、测试、安装装配与文档，不保留旧路径转发层。
+不改变资产格式、运行服务生命周期或异常策略，不新增公共 SDK，不进行远端发布。
+
+## 已确认设计
+
+- Core：base、math、events、tasks、logging、data、meta、serialization、通用 diagnostics。
+- Platform：io、window（包含原始输入契约）、process、dynamic_library。
+- Function：files（挂载、请求、预算）、ipc（传输与封装）、asset、scene、render、application。
+- Resource 保持 CPU 资产与描述；依赖服务的加载器由 Asset 目标拥有。
+- Base 不依赖数学、反射或平台；Data 依赖 Base/Math；Meta 依赖 Data；Serialization 依赖 Meta。
+- 具体格式独立适配；JSON 依赖通用 Serialization，不反向依赖。
+- CMake 依赖脚本只建立第三方目标；不注入 Engine 业务源码。
+
+## 实施顺序与退出条件
+
+- [x] P1：基础目标与符号归属。完整 Math；Base 纳入基础值与身份实现；模块独立导出控制。
+- [x] P2：Data/Meta。分离 property_path 的数据定义与运行时解析，移出 Data 的反射 traits；
+  独立 Meta/Serialization/JSON 目标，迁移基础测试链接。
+- [x] P3：Logging/Tasks。日志完整实现独立，默认服务仅有一个所有者；后端可选。
+- [x] P4：Platform/Files/IPC。统一窗口输入契约，迁移文件和 IPC 服务；消除 IO 重复装配。
+- [x] P5：领域归属。entity_id、业务诊断、编辑策略移回领域，Resource/功能目标各自管理源码。
+- [x] P6：最终装配。静态/共享、安装包、真实消费者、跨模块身份与全量相关回归；同步当前文档。
+
+每阶段源码只属于一个生产目标。不能仅完成文件搬移就勾选独立模块化。
+
+## 链接与生命周期
+
+有共享状态的模块在共享构建中必须由唯一动态库拥有，使用模块专属导出宏；不得宿主与 Engine
+各静态嵌入一份字符串池、类型身份表、默认注册表或日志默认服务。静态构建使用同一依赖图，
+安装包保留必要的链接闭包；不通过重新编译第三方源文件伪装闭包。
+模块拆分不新增运行时初始化协议。服务仍由 Application 或工具显式创建、使用和关闭。
+
+最小消费者：反射工具仅链接 Meta/JSON，注册类型、编码解码、处理非法输入并释放注册表；
+文件工具链接 Files/Native，创建 IO、挂载、初始化、读取、分发完成、关闭 Files 后关闭 IO。
+
+## 验证
+
+阅读 testing/building 指南，优先复用行为测试；模块测试直接链接被测模块，不复制生产源码。
+验证 Math/Meta/JSON 独立消费者、文件初始化与关闭、日志订阅、线程任务和 IPC。
+共享/静态构建及安装链接验证是 P6 必需项；跨 DLL 比较字符串身份、type_id 和默认注册表。
+独立头文件检查与边界检查更新到新路径，测试目标保持 FOLDER "Tests"。
+
+## 风险与处理
+
+Data 当前混有 Meta 适配，必须拆分而不是倒置目标依赖；value 对象引用的生命周期需独立核查。
+现有 GNEISS_API 仅描述 Engine，不能直接用于多个共享库。先处理模块导出再移动有状态实现。
+所有剩余事项在本计划维护，不将阶段构建通过写成整体完成。
+
+## 阶段验收
+
+2026-11-19：Math 的 transform/camera 实现移入独立目标，专属导出宏，安装目标包含 Math。
+Clang Debug 共享与静态 Math 构建测试通过；共享 Engine 重新链接后的 render_camera 测试通过。
+MSVC Release Math 构建测试通过。Math 消费测试不链接 Engine，并实际调用两份实现。
+随后完成 Base 独立实现与专属导出：错误/Fatal、GUID、字符串池、运行类型身份与 SHA-256。
+Engine 不重复编译这些实现，旧 core 目标引用全部迁为 base；Web 独立任务宿主也复用生产 Base。
+新增共享库夹具验证跨 DLL 字符串身份与类型 ID，夹具与宿主直接链接 Base，不链接 Engine。
+删除日志/Value 测试重复编译的字符串池/GUID 源码，以及三个数学测试重复编译的 transform 源码。
+
+Clang Debug 共享全量构建通过，214 项 CPU 测试通过；静态 Base/Math、Fatal 与 Engine
+render_camera 定向构建及测试通过。MSVC Release Base/Math 和跨 DLL 身份测试通过。
+共享安装树 Runtime --smoke 完成场景加载、首帧与正常关闭，Base/Math DLL 随包安装。
+core-boundary 和 git diff --check 通过。静态安装消费者、Web 和跨平台验收仍未完成。
+该阶段 P2—P6 尚未完成；Base 头文件与实现的物理路径归位随 P5 完成，不将目标独立等同目录迁移完毕。
+
+2026-11-19：P2 完成。Data 独立持有 value、值编辑操作和属性路径数据，Meta 保留反射解析与
+variant traits。Meta/Serialization/JSON 分别有独立目标和导出控制；Engine 不重复编译其实现。
+纯反射及 JSON 消费者直接链接对应模块，资源注册集成测试继续链接 Engine。
+共享相关 14 项测试、静态 Archive/JSON 两项测试与 Engine 集成构建通过；跨 DLL 默认注册表
+身份检查通过。完整安装和平台矩阵仍随 P6 验收。
+
+2026-11-19：P3 完成。Logging 与 Tasks 独立动态/静态目标，拥有专属导出与安装归属。
+默认日志服务仅由 Logging 拥有；普通服务测试链接生产模块。libassert 的静态失败处理器不能
+跨 DLL 注入，故仅断言死亡测试使用同模块源码夹具，明确区别于普通行为测试。
+Tasks 只使用通用 timing，不再包含场景/渲染阶段；线程后端头移入 src。
+共享/静态日志和调度行为测试、共享断言契约测试、Engine 接入构建通过。
+
+2026-11-19：P4 完成。Files/IPC 迁入 Function；窗口 ID 与原始输入归属 Platform/Window。
+Files 和 IO 独立目标；删除依赖脚本的 Engine 源码注入及 libuv 二次编译，文件测试链接真实目标。
+共享构建的 IO、Files、IPC 统一使用 libuv 动态库，修复两份静态 libuv 跨 DLL 混用造成的连接失败；
+静态构建复用 uv_a 并纳入安装链接闭包。共享 Files/Native/IPC、静态 Native 测试通过。
+边界检查更新窗口值契约许可，保持平台实现禁入 Input；正反边界测试通过。
+
+2026-11-19：P5 完成。基础值头及实现归入 core/base；实体身份与标识转换回到 Scene，
+业务诊断回到 Function，编辑策略回到 Resource，服务初始化装配回到 Application。
+新增完整 Resource 目标，Granit 载荷准备移到 Asset loaders；Window 也提供独立实现目标。
+Function 自己维护运行领域源码，继续统一部署为 Engine，不为每个目录机械新增运行库。
+移除三个格式测试和动作校验测试重复编译的资源实现。Engine 构建、独立 Resource 格式测试与
+Core 边界检查通过，全部消费者和安装验收继续在 P6 完成。
+
+观测调整：平台窗口不再写入业务主循环的 window_pump/window_events/input_events 阶段，
+删除对应空计数列；Application 总体 events 阶段仍保留。窗口行为与输入交付语义不变。
+
+## 最终验收
+
+2026-11-19：P6 完成。解码器迁移后的边界规则与负例同步更新，仍拒绝 CPU 解码依赖
+Render 服务和 PNG 解码依赖 Granit；未放宽原有职责限制。
+
+- Clang Debug 共享全量构建通过，最终 214/214 CPU 测试通过。
+- 静态 Runtime/Project 构建、反射及 Native 文件测试通过；前述各模块定向静态测试通过。
+- 共享及静态安装 Runtime、普通发布包与 Shipping 包启动/关闭验收通过。
+- 静态安装树的独立 find_package(gneiss) 消费者配置、链接与运行通过，链接 Base、JSON、Files、
+  Resource、Tasks 安装目标；显式使用仓库内部头验证链接闭包，不代表新增公共 C++ SDK。
+- MSVC Release 反射、日志服务和 Native 文件构建及 3 项测试通过；跨 DLL 身份验收见前述记录。
+- 目录归属与构建指南已更新，生产源码归属和安装目标与计划一致。
+
+未验证项：本次未执行 Web、Linux、macOS 构建，也未执行完整 MSVC 测试矩阵；不据 Windows
+本地结果宣称这些平台通过。未推送分支、触发远端 CI 或发布版本。
+
+### 属性路径归属收尾
+
+2026-11-19：property_id/property_step/property_path 及路径辅助函数统一迁入 gneiss 命名空间，
+Meta 的路径解析头改为 resolve_path.hpp。资源覆盖数据和编辑器路径数据头只引用 Data 契约，
+实际使用 resolve_path 的实现显式包含 Meta 头；全部代码消费者迁移，不保留旧别名或转发头。
+值编辑操作、路径标签、字段编号及持久化格式不变，容错重放注释改为通用语义。
+Clang Debug 完整构建和 214/214 CPU 测试通过，git diff --check 通过；本次收尾未重跑其他平台矩阵。
+
+### 基础错误契约与导出归属收尾
+
+2026-11-19：error/result/assert 头迁至 core/base，全部消费者改用新路径，不保留转发头。
+error 不再间接包含 Engine 导出头；Engine 声明显式包含 engine/export.hpp，使用
+GNEISS_ENGINE_API/GNEISS_ENGINE_LOCAL，构建配置统一为 GNEISS_BUILDING_ENGINE 和
+GNEISS_ENGINE_STATIC_DEFINE。Base 只传播自身静态宏，纯基础/资源测试删除多余 Engine 配置。
+断言仍由使用目标显式依赖 libassert；本次未更改错误码、result 或断言的行为。
+
+Clang Debug 共享全量构建、静态 Engine 构建及类型身份/渲染相机测试通过。
+共享安装 Runtime、普通与 Shipping 发布包验收通过。静态安装树的 Base/Engine 独立消费者
+均配置、编译、链接并运行通过，同时校验 Base 头不泄漏 Engine 导出宏，以及各自静态宏的归属。
+CPU 全量回归 213/214 首次通过；Lantern 导入目录重命名收到 Windows 拒绝访问，未修改代码或
+测试，单独复跑该项通过。未确定首次文件访问失败的具体占用来源。
+基础头格式检查及 git diff --check 通过。本次未重跑 MSVC、Web、Linux、macOS 矩阵。

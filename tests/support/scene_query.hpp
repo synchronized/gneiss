@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "documents/scene_document.hpp"
+#include "documents/scene_edit_session.hpp"
 #include <stdexcept>
 namespace gneiss::test_support {
-inline editor::scene_query_snapshot scene_query(const editor::scene_document& document) {
+inline editor::scene_query_snapshot scene_query(const editor::scene_edit_session& document) {
   if (!document.is_open())
     return {};
   auto snapshot = document.capture_nodes();

@@ -5,23 +5,23 @@
 
 ## 版本
 
-仓内使用 `gneiss::engine::library_version()` 返回运行时库版本，
+仓内使用 `gneiss::library_version()` 返回运行时库版本，
 `library_version_string()` 返回静态存储的版本字符串。声明位于
-`src/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
+`engine/include/gneiss/engine/core/version.hpp`。构建版本头仅供内部实现与版本用例使用，不安装。
 游戏模块协议已撤销，不再发布模块 ABI 版本。
 
 ## 错误状态与值结果
 
-`gneiss::engine::error`（`engine/core/error.hpp`）保存一个 32 位状态码，提供
+`gneiss::error`（`engine/include/gneiss/engine/core/base/error.hpp`）保存一个 32 位状态码，提供
 `ok()`、`failed()`、`code()`、`message()`，不提供布尔或隐式整数转换。
 默认构造产生 unknown；非负值成功，负值失败。无返回值的操作直接返回 error。
 `message()` 返回静态英文文本，未知数值返回 `unrecognized result`。
 整数仅在协议等边界显式构造或通过 `code()` 读取，旧状态类型 result 不再保留。
 
-`gneiss::engine::result<T, E = error>`（`engine/core/result.hpp`）互斥持有成功值或失败原因：
+`gneiss::result<T, E = error>`（`engine/include/gneiss/engine/core/base/result.hpp`）互斥持有成功值或失败原因：
 
 ```cpp
-auto loaded = resources.load<texture_resource>(uri);
+auto loaded = resources.load<texture>(uri);
 if (!loaded)
   return loaded.error();
 auto request = std::move(*loaded);
@@ -31,6 +31,8 @@ auto request = std::move(*loaded);
 失败时不构造 T；允许仅移动、不可默认构造的值。结果本身不额外分配堆内存，
 值或错误类型自身的分配行为不受影响。E 可使用带路径、位置与文本的解析诊断，
 不要求每一个轻量 error 都携带动态字符串。`result<void>` 支持泛型代码，无值业务操作优先使用 error。
+需要独立诊断类型时使用 `result<void, E>`：默认构造成功且不构造 E，传入 E 表示失败；
+支持仅可移动、不可默认构造的诊断，error() 只在失败时访问。
 
 当前资源查询、创建、提交加载、领取、身份查询及内存解码入口使用值结果；底层缓冲区写入、
 就地编辑及其他领域既有接口仍按各自契约使用引用参数，不以本次调整宣称全引擎已消除 out 参数。
@@ -38,12 +40,12 @@ auto request = std::move(*loaded);
 
 ## 内部符号可见性
 
-共享库的导入/导出宏定义在 `src/engine/core/export.hpp`，由受限内部头清单提供给仓内目标。
+共享库的导入/导出宏定义在 `engine/include/gneiss/engine/export.hpp`，由目标的包含目录直接提供给仓内消费者。
 公共 include 目录和 C 结果码副本已删除，不再安装头文件；需要新的对外接口时另行设计。
 
 ## 内部基础身份类型
 
-以下类型位于 `src/engine/core`，命名空间为 `gneiss::engine`，不属于公共 C ABI。
+以下类型位于 `engine/include/gneiss/engine/core/types`，命名空间为 `gneiss`，不属于公共 C ABI。
 来源及许可见 [第三方声明](../../THIRD_PARTY_NOTICES.md)。
 
 - `string_name`：驻留字符串，相同文本共享稳定条目；空串和空指针生成无效值。
@@ -51,7 +53,11 @@ auto request = std::move(*loaded);
   Engine 内只有一张带锁字符串表，不逐条回收。`view()` 借用表内文本，所有引用必须在
   Engine 卸载前停止使用；构造与查询线程安全，可能抛出分配异常。
 - `guid`：16 字节值，默认 nil。解析严格的 36 字符 UUID 文本，接受大小写十六进制，输出小写；
-  不提供随机生成，也不替换当前场景 UUID 字符串。
+  `guid::literal("…")` 在编译期解析，格式错误导致编译失败；适用于固定 type_guid 声明。
+  `guid::parse(text)` 为 constexpr/noexcept，运行期非法输入返回空 optional，与 literal 共用解析。
+  `guid::from_bytes(bytes)` 用于二进制及动态字节输入。不提供随机生成。
+- 新增类型身份生成一次标准 UUID v4 后使用 `guid::literal` 固定到源码，不按短编号手工分配；
+  不随类型重命名或每次构建重新生成。
 - 稳定类型身份直接使用 `guid`，不再提供 `type_guid` 包装或兼容别名；不从地址或名称哈希推导。
 - `core/traits` 下的 `type_name<T>` 与 `type_identity<T>`：名称与稳定 GUID 定制点。内置类型提供名称，默认 GUID
   为 nil；未定制用户类型名称为空。可显式特化 `type_identity<T>`；泛型调用方应先用
@@ -71,7 +77,7 @@ auto request = std::move(*loaded);
 
 ## 数学类型与运算
 
-`engine/core/math` 使用 `gneiss::engine` 命名空间，按职责组织，不依赖渲染后端：
+`engine/core/math` 使用 `gneiss::math` 命名空间，按职责组织，不依赖渲染后端：
 
 | 文件 | 内容 |
 | --- | --- |
@@ -107,10 +113,16 @@ auto request = std::move(*loaded);
 
 `binary_writer.hpp` 的 `binary_writer` 借用 `std::vector<std::byte>`，追加小端无符号整数、
 32 位浮点数、字节区间及零填充。容器仍归调用方所有；输入区间不得引用输出容器存储。
-分配异常由 codec 捕获，不承诺多次写入的事务性。
+分配异常直接传播至执行边界，不承诺多次写入的事务性。
 `binary_reader.hpp` 的 `binary_reader` 借用只读 span，顺序读取维护游标，按偏移读取不改变游标。
 读取返回 result，越界为 invalid_argument；失败不推进游标，范围检查避免加法溢出。
 返回的字节 span 不拥有数据，不能超过源存储生命周期。浮点读写保留位模式，有限性由 codec 校验。
 
 两者均为无 I/O、无线程同步的内存工具。纹理容器、Mesh Binary 和 KTX2 使用它们共享字节读写，
 magic、schema、对齐规则和数据区合法性仍由各 codec 负责，文件格式不变。
+
+## 任务命名空间
+
+`engine/core/tasks/scheduler.hpp` 的任务调度类型统一位于 `gneiss::tasks`，
+例如 `gneiss::tasks::scheduler`、`executor`、`handle` 和 `scope`。
+目录和 CMake 目标不变；调度器私有后端位于 `gneiss::tasks::detail`。

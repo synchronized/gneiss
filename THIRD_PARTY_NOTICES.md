@@ -9,7 +9,10 @@ Gneiss Runtime 的源码或二进制包含下列第三方软件。安装树在 `
 | 软件 | 版本 | 用途 | 许可证 |
 | --- | --- | --- | --- |
 | GLM | 1.0.1 | 内部向量、四元数和矩阵运算 | MIT（双许可中选择 MIT） |
-| EnTT | 3.15.0 | ECS 内部实现 | MIT |
+| EnTT | 3.15.0 | ECS 与同步对象通知的内部实现 | MIT |
+| spdlog | 1.15.3 | 同步文件日志输出适配器（宿主/测试构建，尚未替换 Runtime 输出） | MIT |
+| libassert | 2.2.1 | 内部断言及表达式诊断 | MIT |
+| cpptrace | 1.0.4 | libassert 的栈回溯依赖 | MIT |
 | yyjson | 0.12.0 | JSON 解析与写出 | MIT |
 | libspng | 0.7.4 | PNG 解码 | BSD-2-Clause |
 | miniz | 3.1.2 | libspng 的 Deflate 实现 | MIT |
@@ -21,6 +24,11 @@ Granit 是 Gneiss 的外部运行时依赖，由父工程、已安装 package �
 
 可选离线工具使用锁定提交的 `bc7enc_rdo` BC7 编码与解码核心文件，按 MIT 许可证使用。该依赖只
 链接资产工具，不进入 Runtime、Gneiss 安装 SDK 或公共 ABI；单独分发资产工具时必须携带其许可证。
+
+spdlog 以 SHA-256 锁定归档，复用项目离线缓存；仅同步 Sink 的实现私有使用其头文件，
+采用 C++20 `std::format`，不引入 fmt、异步线程池或第二个日志队列。
+许可证安装为 `spdlog-LICENSE`。替代方案是继续维护自有文件输出与轮转；复用上游输出能力以减少维护，
+结构化记录与调度仍由 Gneiss 负责。不安装 spdlog SDK，不改变引擎 ABI。
 
 libuv 在核心原生线程构建中私有内嵌，不向普通公共头或安装 package 暴露其类型和目标。
 无线程/Web 核心构建保留标准库文件回退；无需自行维护平台 I/O 是采用 libuv 的主要原因，
@@ -48,3 +56,13 @@ GLM 锁定提交 `0af55ccecd98d4e5a8d1fad7de25ba429d60e863`，源码归档由 SH
 通过 `gneiss_math_dependency` 传播给仓内消费者；不构建或安装 GLM SDK。它不增加运行时动态库依赖，
 但包含数学值类型的内部 C++ 消费者需要重新编译。替代方案为复制 Granit 数学代码或自建数学库；
 选择 GLM 以减少重复算法维护，具体约束见 [ADR-083](docs/decisions/ADR-083-unified-math.md)。
+
+libassert 与 cpptrace 固定版本及归档 SHA-256，复用项目源码缓存和离线开关。
+二者静态链接，Engine 私有依赖，不增加运行时 DLL，也不进入普通接口声明。
+上游安装规则保留静态库、头文件和 CMake package，供静态 Engine 消费者解析链接依赖；
+共享 Engine 的消费者不需要包含这些头文件。许可证另安装为 libassert-LICENSE、cpptrace-LICENSE。
+Windows 使用系统 DbgHelp；桌面 Unix 使用运行环境中的 addr2line（macOS 为 atos），
+不下载 libdwarf/zstd。Web 配置不启用本地栈展开和符号解析，仍保留表达式诊断。
+未启用额外枚举库、上游测试、工具或 C++ Modules。
+替代方案是标准 assert 或自写诊断；选择 libassert 是为了表达式操作数和调用栈信息，
+不替代业务错误码、日志服务或无分配的 fatal 路径。

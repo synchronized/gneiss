@@ -1,32 +1,82 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "runtime/application.hpp"
+#include "scene/runtime_scene_loader.hpp"
 #include <chrono>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
 #include <thread>
 namespace gneiss::test_support {
-inline engine::error reload_scene_for_test(runtime::application& app, engine::task_scheduler& tasks,
-                                           scene_instance_id scene, std::string_view uri,
-                                           bool prefab) {
-  auto status = app.request_scene_reload(scene, uri, prefab);
+inline gneiss::error activate_scene_for_test(app::application& app, gneiss::world& world,
+                                             gneiss::tasks::scheduler& tasks, std::string_view uri,
+                                             host::scene_open_result& output) {
+  host::runtime_scene_loader loader(app, world);
+  loader.after_activate = [&](const auto& result) {
+    output = result;
+    return gneiss::error{gneiss::error::success};
+  };
+  auto status = loader.request({.session = 1, .revision = 1, .uri = std::string(uri)}, 1);
   if (status.failed())
     return status;
-  if (app.request_scene_reload(scene, uri, prefab) != engine::error::not_ready ||
-      app.can_activate_scene())
-    return engine::error::internal;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (loader.busy() || loader.visual_loading()) {
+    (void)tasks.run_ready();
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
+    auto stepped = loader.advance();
+    if (stepped.failed())
+      return stepped;
+    if (std::chrono::steady_clock::now() >= deadline)
+      return gneiss::error::internal;
+    std::this_thread::yield();
+  }
+  return loader.last_result();
+}
+inline gneiss::error
+reload_scene_for_test(app::application& app, gneiss::tasks::scheduler& tasks,
+                      gneiss::ref<host::scene_reload_state> source, std::string_view uri,
+                      bool prefab, std::vector<gneiss::scene_object_binding>* objects = nullptr) {
+  host::runtime_scene_loader loader(app, *source->instance.owner());
+  auto submitted = loader.reload(source, uri, prefab);
+  if (submitted.failed())
+    return submitted;
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   for (;;) {
     (void)tasks.run_ready();
-    bool ready{};
-    engine::error result;
-    status = app.poll_scene_reload(result, ready);
-    if (status.failed())
-      return status;
-    if (ready)
-      return result;
+    const auto frame = app.step();
+    if (!frame)
+      return frame.error();
+    if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+      return error::cancelled;
+    auto stepped = loader.advance();
+    if (stepped.failed())
+      return stepped;
+    auto completed = loader.take_reload();
+    if (!completed && completed.error() != gneiss::error::not_ready)
+      return completed.error();
+    if (completed) {
+      while (loader.visual_loading()) {
+        if (std::chrono::steady_clock::now() >= deadline)
+          return gneiss::error::internal;
+        (void)tasks.run_ready();
+        const auto visual_frame = app.step();
+        if (!visual_frame)
+          return visual_frame.error();
+        if (*visual_frame == app::lifecycle::stopping || *visual_frame == app::lifecycle::stopped)
+          return error::cancelled;
+        if (const auto advanced = loader.advance(); advanced.failed())
+          return advanced;
+        std::this_thread::yield();
+      }
+      if (objects)
+        *objects = std::move(completed->objects);
+      return completed->result;
+    }
     if (std::chrono::steady_clock::now() >= deadline)
-      return engine::error::internal;
+      return gneiss::error::internal;
     std::this_thread::yield();
   }
 }

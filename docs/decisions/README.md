@@ -109,3 +109,37 @@ Reference 和实现为准。
 - [ADR-100：加载保护边界](ADR-100-loading-limits.md)
 
 - [ADR-101：通用组件检查](ADR-101-component-inspection.md)
+
+- [ADR-102：导入工具复用 Engine 描述与编码](ADR-102-importer-engine-codecs.md)
+
+- [ADR-103：显式多态与引用按值持久化](ADR-103-inline-polymorphic-references.md)
+
+- [ADR-104：Value 的受约束对象强引用](ADR-104-value-object-reference.md)
+
+- [ADR-106：统一资产服务与场景实例化分离](ADR-106-unified-asset-service.md)
+
+- [ADR-113：Meta 借用访问与序列化策略边界](ADR-113-meta-serialization-boundaries.md)
+
+- [ADR-114：预期错误、异常边界与进程 OOM](ADR-114-exception-boundaries.md)
+
+- [ADR-115：World 运行对象入口与场景归属](ADR-115-world-scene-ownership.md)
+
+- [ADR-116：加载请求与执行推进分离](ADR-116-loading-request-api.md)
+
+- [ADR-118：持久渲染场景、增量同步与帧视图边界](ADR-118-persistent-render-scene.md)
+
+- [ADR-119：对象级通知与独立结构化日志](ADR-119-events-and-logging.md)
+
+- [ADR-120 领域命名空间](ADR-120-domain-namespaces.md)
+
+- [ADR-121：基础模块的构建与符号归属](ADR-121-foundation-build-boundaries.md)
+
+- [ADR-125：类型结构与整体值转换独立](ADR-125-meta-value-conversion.md)
+
+- [ADR-126：格式无关的值类型适配](ADR-126-serialization-adapters.md)
+
+- [ADR-127：静态类型表示能力](ADR-127-static-representation.md)
+
+- [ADR-129：Application 调度与宿主状态组合](ADR-129-application-scheduling.md)
+
+- [ADR-131：宿主会话与业务状态归属](ADR-131-host-business-ownership.md)

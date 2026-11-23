@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include <gneiss/engine/core/base/assert.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/scene/scene_types.hpp>
+
+#include "function/scene/detail/identifier_conversion.hpp"
+#include "function/scene/world_state.hpp"
+#include <gneiss/engine/function/scene/world.hpp>
+
+#include <algorithm>
+#include <cstdint>
+#include <ranges>
+
+namespace gneiss {
+error world::validate_scene(scene_instance_id id) const noexcept {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  return state_of(*this).scene_slots.get(id, resource_type::scene_instance) ? error::success
+                                                                            : error::invalid_handle;
+}
+
+result<scene_instance> scene_instance::borrow(world& owner, scene_instance_id id) noexcept {
+  if (!owner.is_owner_thread())
+    return error::invalid_state;
+  auto status = owner.validate_scene(id);
+  if (status.failed())
+    return status;
+  scene_instance result;
+  result.owner_ = &owner;
+  result.id_ = id;
+  return result;
+}
+bool scene_instance::is_valid() const noexcept {
+  return owner_ && owner_->validate_scene(id_).ok();
+}
+std::uint64_t scene_instance::size() const noexcept {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
+  std::uint64_t count{};
+  state_of(*owner_).each_scene_member(id_, [&](entity_id) { ++count; });
+  return count;
+}
+std::vector<game_object> scene_instance::objects() const {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
+  std::vector<game_object> objects;
+  state_of(*owner_).each_scene_member(id_, [&](entity_id id) {
+    if (state_of(*owner_).get<detail::object_state>(id.get()))
+      objects.push_back(owner_->find(id));
+  });
+  return objects;
+}
+std::vector<game_object> scene_instance::roots() const {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
+  std::vector<game_object> objects;
+  state_of(*owner_).each_scene_member(id_, [&](entity_id id) {
+    const auto* object = state_of(*owner_).get<detail::object_state>(id.get());
+    if (object && !object->parent)
+      objects.push_back(owner_->find(id));
+  });
+  return objects;
+}
+error scene_instance::visit_objects(const std::function<error(game_object)>& visitor,
+                                    bool roots_only) const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto status = owner_->validate_scene(id_);
+  if (status.failed())
+    return status;
+  if (!visitor)
+    return error::invalid_argument;
+  state_of(*owner_).each_scene_member(id_, [&](entity_id node) {
+    const auto* data = state_of(*owner_).get<detail::object_state>(node.get());
+    if (status.failed() || (roots_only && data && data->parent))
+      return;
+    auto object = owner_->object(entity_id{node.get()});
+    if (!object && object.error() == error::not_found)
+      return;
+    if (!object) {
+      status = object.error();
+      return;
+    }
+    status = visitor(*object);
+  });
+  return status;
+}
+error world::transfer_subtree(game_object root, scene_instance destination, game_object parent) {
+  if (!is_owner_thread())
+    return error::invalid_state;
+  if (root.owner() != this || destination.owner() != this ||
+      (parent.owner() && parent.owner() != this))
+    return error::invalid_handle;
+  auto status = validate_scene(destination.id());
+  if (status.failed())
+    return status;
+  if (!root.is_valid())
+    return error::invalid_handle;
+  const auto source = root.scene();
+  if (parent.owner()) {
+    if (!destination.contains(parent))
+      return error::invalid_argument;
+  }
+  std::vector<entity_id> nodes{entity_id{root.entity().get()}};
+  for (std::size_t i = 0; i < nodes.size(); ++i) {
+    if (parent.owner() && nodes[i].get() == parent.entity().get())
+      return error::invalid_argument;
+    GNEISS_ASSERT(state_of(*this).scene_of(nodes[i]) == source.id(),
+                  "对象子树必须属于同一存活场景");
+    const auto* object = state_of(*this).get<detail::object_state>(nodes[i].get());
+    GNEISS_ASSERT(object, "对象层级不得包含失效子对象");
+    nodes.insert(nodes.end(), object->children.begin(), object->children.end());
+  }
+  // 已有归属组件原位更新，不在提交阶段分配组件存储。
+  auto assign = [&](scene_instance_id id) {
+    for (auto node : nodes)
+      state_of(*this).assign_scene(node, id);
+  };
+  assign(destination.id());
+  try {
+    status = root.reparent(parent);
+  } catch (...) {
+    assign(source.id());
+    throw;
+  }
+  if (status.failed())
+    assign(source.id());
+  return status;
+}
+bool scene_instance::contains(game_object object) const noexcept {
+  GNEISS_ASSERT(is_valid(), "场景查询要求有效句柄及所属线程");
+  if (object.owner() != owner_)
+    return false;
+  return state_of(*owner_).is_alive(object.entity().get()) &&
+         state_of(*owner_).scene_of(object.entity()) == id_;
+}
+
+void scene_instance::unload() const noexcept try {
+  GNEISS_ASSERT(is_valid(), "场景卸载要求有效句柄及所属线程");
+  state_of(*owner_).destroy_scene_members(id_);
+  const auto status = state_of(*owner_).scene_slots.destroy(id_, resource_type::scene_instance);
+  GNEISS_ASSERT(status.ok(), "有效场景槽位必须能够释放");
+} catch (...) {
+  fatal_current_exception();
+}
+
+result<game_object> scene_instance::create_object(const object_options& options,
+                                                  game_object parent) const {
+  if (!owner_)
+    return error::invalid_handle;
+  auto status = owner_->validate_scene(id_);
+  if (status.failed())
+    return status;
+  if (parent.owner()) {
+    if (!contains(parent))
+      return error::invalid_handle;
+  }
+  // 创建实体可能移动层级组件；先复制可能借自已有对象的名称。
+  std::string name(options.name);
+  auto& state = state_of(*owner_);
+  auto created = state.create_object(parent.entity());
+  if (!created)
+    return created.error();
+  try {
+    status = owner_->find(*created).set_local_transform(options.transform);
+    if (status.ok())
+      owner_->find(*created).set_name(name);
+    if (status.failed()) {
+      (void)state.destroy_entity(created->get());
+      return status;
+    }
+    state.assign_scene(*created, id_);
+  } catch (...) {
+    (void)state.destroy_entity(created->get());
+    throw;
+  }
+  return owner_->find(*created);
+}
+}

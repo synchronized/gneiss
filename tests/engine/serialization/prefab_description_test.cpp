@@ -1,0 +1,353 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "../../support/async_asset.hpp"
+#include "../../support/memory_file_fixture.hpp"
+#include "../../support/value_result.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
+
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace {
+
+constexpr std::string_view valid_prefab = R"({
+  "format":"gneiss.prefab",
+  "version":1,
+  "prefab_uuid":"10000000-0000-4000-8000-000000000001","root_uuid":"10000000-0000-4000-8000-000000000002",
+  "objects":[
+    {
+      "uuid":"10000000-0000-4000-8000-000000000002",
+      "name":"Prefab Root",
+      "parent":{"object":null,"source":null},
+      "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[1,1,1]},
+      "components":[{"$type_guid":"11a0217a-2eab-4f61-8011-4a63a26e0102","$content":{"mesh":"asset://models/lantern.mesh","material":"asset://materials/lantern.material","uuid":"f2157104-7e8c-43f5-94d9-7658da5c5361"}}]
+    },
+    {
+      "uuid":"10000000-0000-4000-8000-000000000003",
+      "name":"Child",
+      "parent":{"object":"10000000-0000-4000-8000-000000000002","source":null},
+      "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+      "components":[]
+    }
+  ]
+})";
+
+[[nodiscard]] std::string replace_once(std::string text, std::string_view source,
+                                       std::string_view replacement) {
+  const auto position = text.find(source);
+  if (position != std::string::npos) {
+    text.replace(position, source.size(), replacement);
+  }
+  return text;
+}
+
+class memory_file_system final : public gneiss::test_support::memory_file_fixture {
+public:
+  explicit memory_file_system(std::string content) : content_(std::move(content)) {}
+
+  [[nodiscard]] gneiss::error
+  read(std::string_view path, std::vector<std::byte>& out_bytes) const noexcept override {
+    if (path != "lamp.prefab.json") {
+      return gneiss::error::not_found;
+    }
+    try {
+      ++read_count;
+      out_bytes.resize(content_.size());
+      for (std::size_t index = 0; index < content_.size(); ++index) {
+        out_bytes[index] = static_cast<std::byte>(content_[index]);
+      }
+      return gneiss::error::success;
+    } catch (...) {
+      return gneiss::error::out_of_memory;
+    }
+  }
+
+  mutable std::size_t read_count = 0;
+
+  gneiss::error read_bounded(std::string_view path, std::size_t limit,
+                                     std::vector<std::byte>& output) const noexcept override {
+    if (content_.size() > limit)
+      return gneiss::error::invalid_argument;
+    return read(path, output);
+  }
+
+private:
+  std::string content_;
+};
+
+} // namespace
+
+bool prepared_description_contract() {
+  using namespace gneiss;
+  gneiss::test_support::fixture_files files;
+  auto backend = std::make_shared<memory_file_system>(std::string(valid_prefab));
+  if (files.mount("asset://prefabs/", backend) != error::success)
+    return false;
+  asset_manager assets(gneiss::test_support::test_files(files));
+  constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
+  ref<const prefab> loaded;
+  if (gneiss::test_support::load_asset(assets, uri, loaded).failed())
+    return false;
+  auto original = loaded->snapshot();
+  auto edited = *original;
+  edited.objects[0].transform.translation[0] = 37.0F;
+  auto local = assets.create(std::move(edited));
+  if (!local || (*local)->snapshot()->objects[0].transform.translation[0] != 37.0F)
+    return false;
+  // 编辑快照不进入 URI 缓存，不覆盖文件资产，也不修改旧快照。
+  if (assets.store<prefab_description>(
+                uri, std::make_shared<const prefab_description>(*(*local)->snapshot()))
+              .error() != error::unsupported ||
+      assets.find<prefab_description>(uri).error() != error::unsupported ||
+      assets.store<scene_description>(uri, std::make_shared<const scene_description>()).error() !=
+          error::unsupported ||
+      assets.find<scene_description>(uri).error() != error::unsupported)
+    return false;
+  auto cached = assets.find<prefab>(uri);
+  if (!cached || cached->get() != loaded.get() || backend->read_count != 1U ||
+      assets.cached_count() != 1U || original->objects[0].transform.translation[0] != 1.0F)
+    return false;
+  cached = error::not_found;
+  loaded.reset();
+  assets.collect_unused();
+  return assets.cached_count() == 0U && original->objects[0].transform.translation[0] == 1.0F;
+}
+
+bool explicit_root_contract() {
+  namespace e = gneiss;
+  auto parsed = gneiss::asset_file::deserialize<e::prefab_description>(valid_prefab);
+  if (!parsed || parsed->root_uuid != parsed->objects.front().uuid)
+    return false;
+  const auto root = parsed->root_uuid;
+  const auto child = parsed->objects.back().uuid;
+  std::swap(parsed->objects[0], parsed->objects[1]);
+  auto text = gneiss::asset_file::serialize(*parsed);
+  if (!text)
+    return false;
+  auto restored = gneiss::asset_file::deserialize<e::prefab_description>(*text);
+  if (!restored || restored->root_uuid != root || restored->objects[0].uuid != child)
+    return false;
+  // 根选择写回文件，不能保留 输入文件中的旧 root_uuid。
+  parsed->root_uuid = child;
+  parsed->objects[0].parent.object = {};
+  parsed->objects[1].parent.object = child;
+  text = gneiss::asset_file::serialize(*parsed);
+  if (!text)
+    return false;
+  restored = gneiss::asset_file::deserialize<e::prefab_description>(*text);
+  if (!restored || restored->root_uuid != child)
+    return false;
+  parsed->root_uuid = root; // 有父节点的对象不能被指定为根。
+  if (gneiss::asset_file::serialize(*parsed))
+    return false;
+  for (const auto invalid :
+       {"00000000-0000-0000-0000-000000000000", "10000000-0000-4000-8000-000000000099",
+        "10000000-0000-4000-8000-000000000003", "INVALID"}) {
+    auto broken = replace_once(std::string(valid_prefab),
+                               R"("root_uuid":"10000000-0000-4000-8000-000000000002")",
+                               std::string(R"("root_uuid":")") + invalid + "\"");
+    if (gneiss::asset_file::deserialize<e::prefab_description>(broken))
+      return false;
+  }
+  auto missing = replace_once(std::string(valid_prefab),
+                              R"("root_uuid":"10000000-0000-4000-8000-000000000002",)", "");
+  if (gneiss::asset_file::deserialize<e::prefab_description>(missing))
+    return false;
+  const auto cycle =
+      replace_once(std::string(valid_prefab), R"("parent":{"object":null,"source":null})",
+                   R"("parent":{"object":"10000000-0000-4000-8000-000000000003","source":null})");
+  if (gneiss::asset_file::deserialize<e::prefab_description>(cycle))
+    return false;
+  const auto duplicate =
+      replace_once(std::string(valid_prefab), R"("uuid":"10000000-0000-4000-8000-000000000003")",
+                   R"("uuid":"10000000-0000-4000-8000-000000000002")");
+  return !gneiss::asset_file::deserialize<e::prefab_description>(duplicate);
+}
+
+bool save_tree_contract() {
+  namespace e = gneiss;
+  auto parsed = gneiss::asset_file::deserialize<e::prefab_description>(valid_prefab);
+  if (!parsed)
+    return false;
+  const auto rejects = [&](auto change) {
+    auto candidate = *parsed;
+    change(candidate);
+    auto encoded = gneiss::asset_file::serialize_bytes(candidate);
+    return !encoded && encoded.error().error == e::error::invalid_argument;
+  };
+  return rejects([](auto& prefab) { prefab.root_uuid = {}; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent.object = {}; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent.object = prefab.objects[1].uuid; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].parent.object = prefab.uuid; }) &&
+         rejects([](auto& prefab) { prefab.objects[1].uuid = prefab.objects[0].uuid; });
+}
+
+int main() try {
+  if (gneiss::initialize_meta().failed())
+    return 99;
+  const auto nested = replace_once(std::string(valid_prefab), R"("components":[])",
+                                   R"("prefab":{"uri":"asset://nested.prefab","overrides":[]})");
+  const auto parsed_nested =
+      gneiss::asset_file::deserialize<gneiss::prefab_description>(nested);
+  if (parsed_nested || parsed_nested.error().error != gneiss::error::unsupported)
+    return 95;
+  // 反射 codec 忽略未知字段；解码失败不覆盖旧对象。
+  {
+    namespace e = gneiss;
+    auto text = std::string(valid_prefab);
+    text.insert(1, R"("codec_unknown":{"keep":7},)");
+    const auto source = std::as_bytes(std::span{text.data(), text.size()});
+    e::prefab_description value;
+    gneiss::serialization::diagnostic detail;
+    std::vector<std::byte> encoded;
+    if (gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(value)>>(source),
+            value, detail)
+            .failed() ||
+        gneiss::test_support::assign_decoded(gneiss::asset_file::serialize_bytes(value),
+                                             encoded, detail)
+            .failed())
+      return 91;
+    e::prefab_description restored;
+    if (gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
+                encoded),
+            restored, detail)
+            .failed() ||
+        restored.objects.size() != value.objects.size() ||
+        (*gneiss::asset_file::serialize(restored)).find("codec_unknown") !=
+            std::string::npos)
+      return 92;
+    const auto saved = (*gneiss::asset_file::serialize(restored));
+    const std::string broken = "{";
+    if (gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
+                std::as_bytes(std::span{broken.data(), broken.size()})),
+            restored, detail)
+            .ok() ||
+        (*gneiss::asset_file::serialize(restored)) != saved)
+      return 93;
+    std::vector<std::byte> oversized(e::prefab_description::maximum_source_bytes + 1U);
+    if (gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(restored)>>(
+                oversized),
+            restored, detail) != e::error::invalid_argument ||
+        (*gneiss::asset_file::serialize(restored)) != saved)
+      return 94;
+  }
+
+  if (!save_tree_contract())
+    return 96;
+  if (!explicit_root_contract())
+    return 95;
+  if (!prepared_description_contract()) {
+    return 9;
+  }
+  gneiss::prefab_description prefab;
+  gneiss::serialization::diagnostic diagnostic;
+  if (gneiss::test_support::assign_decoded(
+          gneiss::asset_file::deserialize<gneiss::prefab_description>(valid_prefab),
+          prefab, diagnostic) != gneiss::error::success ||
+      prefab.objects.size() != 2U || prefab.objects[1].parent.object != prefab.objects[0].uuid) {
+    return 1;
+  }
+  std::string serialized;
+  gneiss::prefab_description round_trip;
+  const auto author_with_unknown = replace_once(std::string(valid_prefab), R"("version":1,)",
+                                                R"("version":1,"editor_unknown":{"kept":true},)");
+  if (gneiss::test_support::assign_decoded(
+          gneiss::asset_file::deserialize<gneiss::prefab_description>(
+              author_with_unknown),
+          prefab, diagnostic) != gneiss::error::success) {
+    return 7;
+  }
+  prefab.objects[1].name = "Serialized Child";
+  if (gneiss::test_support::assign_value(gneiss::asset_file::serialize(prefab),
+                                         serialized) != gneiss::error::success ||
+      serialized.find("Serialized Child") == std::string::npos ||
+      serialized.find("editor_unknown") != std::string::npos ||
+      serialized.find("prefab_instances") != std::string::npos ||
+      gneiss::test_support::assign_decoded(
+          gneiss::asset_file::deserialize<gneiss::prefab_description>(serialized),
+          round_trip, diagnostic) != gneiss::error::success ||
+      round_trip.objects[1].name != "Serialized Child") {
+    return 8;
+  }
+
+  // 新建描述不依赖原文件；非法根节点仍须拒绝保存。
+  auto fresh = prefab;
+  auto fresh_bytes = gneiss::asset_file::serialize_bytes(fresh);
+  if (!fresh_bytes)
+    return 40;
+  auto fresh_copy =
+      gneiss::asset_file::deserialize<gneiss::prefab_description>(*fresh_bytes);
+  if (!fresh_copy || fresh_copy->root_uuid != fresh.root_uuid ||
+      fresh_copy->objects.size() != fresh.objects.size())
+    return 41;
+  fresh.root_uuid = {};
+  if (gneiss::asset_file::serialize_bytes(fresh))
+    return 42;
+  const auto multiple_roots =
+      replace_once(std::string(valid_prefab),
+                   R"("parent":{"object":"10000000-0000-4000-8000-000000000002","source":null})",
+                   R"("parent":{"object":null,"source":null})");
+  auto rejected =
+      gneiss::asset_file::deserialize<gneiss::prefab_description>(multiple_roots);
+  if (rejected || rejected.error().error != gneiss::error::invalid_argument ||
+      rejected.error().path != "/objects") {
+    return 3;
+  }
+
+  const auto future = replace_once(std::string(valid_prefab), "\"version\":1", "\"version\":2");
+  if (gneiss::test_support::assign_decoded(
+          gneiss::asset_file::deserialize<gneiss::prefab_description>(future),
+          prefab, diagnostic) != gneiss::error::unsupported ||
+      diagnostic.path != "/version") {
+    return 4;
+  }
+
+  auto mounted = std::make_shared<memory_file_system>(std::string(valid_prefab));
+  gneiss::test_support::fixture_files file_system;
+  if (file_system.mount("asset://prefabs/", mounted).failed())
+    return 7;
+  gneiss::asset_manager assets(gneiss::test_support::test_files(file_system));
+  auto& cache = assets;
+  gneiss::ref<const gneiss::prefab> first;
+  gneiss::ref<const gneiss::prefab> second;
+  if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", first) !=
+          gneiss::error::success ||
+      gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", second) !=
+          gneiss::error::success ||
+      first.get() == nullptr || first.get() != second.get() || mounted->read_count != 1U ||
+      cache.cached_count() != 1U) {
+    return 7;
+  }
+  gneiss::ref<const gneiss::prefab> reloaded;
+  if (gneiss::test_support::load_asset(assets, "asset://prefabs/lamp.prefab.json", reloaded,
+                                       true) != gneiss::error::success ||
+      !reloaded || reloaded.get() != first.get() || mounted->read_count != 2U ||
+      cache.cached_count() != 1U) {
+    return 7;
+  }
+  gneiss::ref<const gneiss::prefab> invalid;
+  if (gneiss::test_support::load_asset(assets, "asset://prefabs/../lamp.prefab.json", invalid) !=
+          gneiss::error::invalid_argument ||
+      invalid) {
+    return 8;
+  }
+  return 0;
+} catch (...) {
+  return 99;
+}

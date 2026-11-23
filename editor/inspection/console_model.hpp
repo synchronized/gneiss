@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
+#define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
+
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/events/signal.hpp>
+#include <gneiss/engine/core/logging/record.hpp>
+
+#include <cstddef>
+#include <cstdint>
+#include <deque>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace gneiss::editor {
+
+enum class console_entry_kind : std::uint8_t {
+  structured,
+  raw,
+};
+
+/** 控制台持有的日志值；不含传输版本或协议对象，字符串由该值拥有。 */
+struct console_event final {
+  std::uint32_t severity = static_cast<std::uint32_t>(gneiss::logging::level::info);
+  std::uint64_t sequence = 0U;
+  std::uint64_t timestamp_ns = 0U;
+  std::uint64_t thread_id = 0U;
+  std::uint64_t context = 0U;
+  std::string source;
+  std::string category;
+  std::string message;
+  gneiss::error operation = gneiss::error::success;
+};
+
+struct console_entry final {
+  std::uint64_t id = 0U;
+  console_entry_kind kind = console_entry_kind::raw;
+  std::uint64_t session_id = 0U;
+  console_event event;
+  std::string raw_text;
+  bool was_truncated = false;
+};
+
+struct console_filter final {
+  std::uint32_t severity_mask = UINT32_C(0x7E);
+  bool include_structured = true;
+  bool include_raw = true;
+  bool current_session_only = false;
+  std::string source;
+  std::string category;
+  std::string search;
+};
+
+class console_model final {
+public:
+  explicit console_model(std::size_t capacity = 4096U);
+
+  /** 所属线程通知，提交已完成；监听者不得在回调中修改本模型。 */
+  events::sink<void()> changed() const { return changed_.sink(); }
+  /** Editor 本地记录使用保留会话零，不改变当前 Runtime 会话。 */
+  error append_local_event(console_event event);
+  /** 开始新 Runtime 会话；已有记录保留原会话标识。 */
+  [[nodiscard]] std::uint64_t begin_session();
+  [[nodiscard]] gneiss::error append_event(std::uint64_t session_id, console_event event);
+  [[nodiscard]] gneiss::error append_raw(std::uint64_t session_id, std::string_view text,
+                                         bool was_truncated = false);
+  void clear();
+
+  [[nodiscard]] std::uint64_t current_session_id() const noexcept;
+  [[nodiscard]] std::uint64_t dropped_count() const noexcept;
+  [[nodiscard]] const std::deque<console_entry>& entries() const noexcept;
+  [[nodiscard]] bool matches(const console_entry& entry,
+                             const console_filter& filter) const noexcept;
+  [[nodiscard]] gneiss::error visible_indices(const console_filter& filter,
+                                              std::vector<std::size_t>& output) const;
+
+private:
+  error append_event_impl(std::uint64_t, console_event);
+  void make_room() noexcept;
+  events::signal<void()> changed_;
+
+  std::size_t capacity_;
+  std::uint64_t current_session_id_ = 0U;
+  std::uint64_t next_entry_id_ = 1U;
+  std::uint64_t dropped_count_ = 0U;
+  std::deque<console_entry> entries_;
+};
+
+} // namespace gneiss::editor
+
+#endif

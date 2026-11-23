@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/function/input/service.hpp>
+
+#include <algorithm>
+#include <atomic>
+#include <cmath>
+
+namespace {
+std::atomic_uint32_t next_action_generation{1};
+}
+
+namespace gneiss::input {
+
+void service::begin_frame() noexcept {
+  read_index_ = 0;
+  events_.clear();
+  for (auto& state : action_states_) {
+    state.pressed = false;
+    state.released = false;
+  }
+}
+
+bool service::push(const event& event) {
+  if (event.type > event_type::pointer_left ||
+      (event.type == event_type::text && event.data.text.length > sizeof(event.data.text.utf8)) ||
+      (event.type == event_type::key && event.data.key.action > key_action::repeated)) {
+    return false;
+  }
+  events_.push_back(event);
+  apply(event);
+  update_actions();
+  return true;
+}
+
+error service::poll(event& out_event) noexcept {
+  out_event = {};
+  if (read_index_ == events_.size()) {
+    return error::not_ready;
+  }
+  out_event = events_[read_index_++];
+  return error::success;
+}
+
+void service::clear_focus() noexcept {
+  keyboard_ = {};
+  pointer_.buttons = 0;
+  pointer_.is_inside = false;
+  update_actions();
+}
+
+error service::replace_action_map(action_map_description map) {
+  if (const auto valid = validate_action_map(map); valid.error.failed()) {
+    return valid.error;
+  }
+  std::vector<action_state> states;
+  {
+    states.assign(map.actions.size(), action_state{});
+  }
+  action_map_ = std::move(map);
+  action_states_ = std::move(states);
+  action_generation_ = next_action_generation.fetch_add(1, std::memory_order_relaxed);
+  if (action_generation_ == 0U) {
+    action_generation_ = next_action_generation.fetch_add(1, std::memory_order_relaxed);
+  }
+  update_actions();
+  return error::success;
+}
+
+error service::find_action(std::string_view name, action_id& out_action) const noexcept {
+  out_action = action_id{};
+  for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
+    if (action_map_.actions[index].name == name) {
+      out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
+      return error::success;
+    }
+  }
+  return error::not_found;
+}
+
+error service::get_action_state(action_id action, action_state& out_state) const noexcept {
+  out_state = action_state{};
+  const auto generation = static_cast<std::uint32_t>(action.value >> 32U);
+  const auto slot = static_cast<std::uint32_t>(action.value);
+  if (generation == 0U || generation != action_generation_ || slot == 0U ||
+      slot > action_states_.size()) {
+    return error::invalid_handle;
+  }
+  out_state = action_states_[slot - 1U];
+  return error::success;
+}
+
+void service::update_actions() noexcept {
+  for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
+    auto& state = action_states_[index];
+    const bool was_held = state.held;
+    float value = 0.0F;
+    for (const auto& binding : action_map_.actions[index].bindings) {
+      const bool down = (keyboard_.pressed_keys[binding.physical_key / 64U] &
+                         (UINT64_C(1) << (binding.physical_key % 64U))) != 0U;
+      const float contribution = down ? binding.scale : 0.0F;
+      if (std::abs(contribution) > std::abs(value)) {
+        value = contribution;
+      }
+    }
+    const bool is_held = value != 0.0F;
+    state.pressed = state.pressed || (!was_held && is_held);
+    state.released = state.released || (was_held && !is_held);
+    state.held = is_held;
+    state.value = std::clamp(value, -1.0F, 1.0F);
+  }
+}
+
+void service::apply(const event& event) {
+  if (event.type == event_type::key && event.data.key.physical_key < 256U) {
+    const auto key = event.data.key.physical_key;
+    const auto mask = UINT64_C(1) << (key % 64U);
+    auto& word = keyboard_.pressed_keys[key / 64U];
+    if (event.data.key.action == key_action::released) {
+      word &= ~mask;
+    } else {
+      word |= mask;
+    }
+    keyboard_.modifiers = event.data.key.modifiers;
+  } else if (event.type == event_type::pointer_moved) {
+    pointer_.x = event.data.pointer_moved.x;
+    pointer_.y = event.data.pointer_moved.y;
+    pointer_.buttons = event.data.pointer_moved.buttons;
+  } else if (event.type == event_type::pointer_button) {
+    pointer_.x = event.data.pointer_button.x;
+    pointer_.y = event.data.pointer_button.y;
+    pointer_.buttons = event.data.pointer_button.buttons;
+  } else if (event.type == event_type::pointer_wheel) {
+    pointer_.x = event.data.pointer_wheel.x;
+    pointer_.y = event.data.pointer_wheel.y;
+    pointer_.buttons = event.data.pointer_wheel.buttons;
+  } else if (event.type == event_type::pointer_entered) {
+    pointer_.is_inside = true;
+  } else if (event.type == event_type::pointer_left) {
+    pointer_.is_inside = false;
+  }
+}
+
+} // namespace gneiss::input

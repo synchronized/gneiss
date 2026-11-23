@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "../support/async_document.hpp"
+#include "../support/async_editor_save.hpp"
+#include "../support/scene_query.hpp"
+#include "../support/value_result.hpp"
+#include "documents/commands/runtime_author_apply.hpp"
+#include "project/project_workspace.hpp"
+#include "runtime/runtime_launch.hpp"
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/scene/world.hpp>
+
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+
+#include <chrono>
+#include <filesystem>
+#include <string>
+
+using namespace gneiss::host;
+
+namespace {
+
+[[nodiscard]] gneiss::error create_application(const std::filesystem::path& asset_root,
+                                               std::shared_ptr<gneiss::app::application>& output) {
+  const auto root = asset_root.generic_string();
+  gneiss::app::configuration desc;
+  desc.executor = &gneiss::test_support::application_tasks();
+  desc.asset_root = root;
+  return gneiss::error{
+      gneiss::test_support::assign_value(gneiss::app::application::create(desc), output)};
+}
+
+} // namespace
+
+int main() try {
+  const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
+  const auto root = std::filesystem::temp_directory_path() /
+                    ("gneiss-runtime-launch-test-" + std::to_string(suffix));
+  const auto project_root = root / "project";
+  gneiss::host::editor_project project;
+  if (gneiss::host::create_editor_project(project_root, "Runtime Launch", project) !=
+      gneiss::error::success) {
+    return 1;
+  }
+
+  std::shared_ptr<gneiss::app::application> author_application;
+  gneiss::world_owner author_world_owner;
+  gneiss::world* author_world = nullptr;
+  gneiss::editor::scene_edit_session author_session;
+  if (create_application(project.asset_root, author_application) != gneiss::error::success ||
+      gneiss::test_support::assign_value(gneiss::create_native(), author_world_owner).failed() ||
+      (author_world = author_world_owner.get()) == nullptr ||
+      gneiss::test_support::open_document(author_session, *author_application, author_world,
+                                          project.startup_scene) != gneiss::error::success) {
+    return 2;
+  }
+
+  gneiss::editor::runtime_launch_request request;
+  if (gneiss::editor::inspect_runtime_launch(author_session, project_root, request) !=
+          gneiss::editor::runtime_launch_state::ready ||
+      request.project_root != project_root) {
+    return 3;
+  }
+
+  gneiss::entity_id author_node;
+  if (author_session.create_node("Author Node", {}, author_node) != gneiss::error::success ||
+      !author_session.is_dirty() ||
+      gneiss::editor::inspect_runtime_launch(author_session, project_root, request) !=
+          gneiss::editor::runtime_launch_state::requires_save ||
+      !request.project_root.empty()) {
+    return 4;
+  }
+  if (gneiss::test_support::save_document(author_session, project.asset_root).failed() ||
+      gneiss::editor::inspect_runtime_launch(author_session, project_root, request) !=
+          gneiss::editor::runtime_launch_state::ready ||
+      author_session.is_dirty() || request.project_root != project_root) {
+    return 5;
+  }
+  const auto author_node_count = gneiss::test_support::scene_query(author_session).nodes.size();
+
+  const auto created_author = author_session.find_node(author_session.selected_node()->uuid);
+  if (!created_author) {
+    return 6;
+  }
+  const gneiss::guid author_uuid = created_author->uuid;
+  gneiss::editor::runtime_author_transform runtime_snapshot;
+  runtime_snapshot.uuid = author_uuid;
+  runtime_snapshot.local_transform = created_author->local_transform;
+  runtime_snapshot.local_transform.translation[0] = 4.0F;
+  gneiss::editor::editor_command_history history;
+  if (gneiss::editor::apply_runtime_transform_to_author(
+          author_session, history, runtime_snapshot) != gneiss::error::success ||
+      !history.is_dirty() || !author_session.is_dirty() ||
+      author_session.find_node(runtime_snapshot.uuid)->local_transform.translation[0] != 4.0F ||
+      gneiss::test_support::save_document(author_session, project.asset_root) !=
+          gneiss::error::success) {
+    return 6;
+  }
+  history.mark_saved();
+  if (author_session.is_dirty() || history.is_dirty() || history.undo() != gneiss::error::success ||
+      !history.is_dirty() ||
+      author_session.find_node(runtime_snapshot.uuid)->local_transform.translation[0] == 4.0F ||
+      history.redo() != gneiss::error::success || history.is_dirty() ||
+      author_session.find_node(runtime_snapshot.uuid)->local_transform.translation[0] != 4.0F) {
+    return 6;
+  }
+  author_session.clear_dirty();
+  gneiss::editor::runtime_author_transform unmapped;
+  unmapped.uuid = *gneiss::guid::parse("cc520326-13d2-5754-85c7-d4dbcd1dcd97");
+  if (gneiss::editor::apply_runtime_transform_to_author(author_session, history, unmapped) !=
+      gneiss::error::not_found) {
+    return 6;
+  }
+
+  std::shared_ptr<gneiss::app::application> runtime_application;
+  gneiss::world_owner runtime_world_owner;
+  gneiss::world* runtime_world = nullptr;
+  gneiss::editor::scene_edit_session runtime_session;
+  if (create_application(project.asset_root, runtime_application) != gneiss::error::success ||
+      gneiss::test_support::assign_value(gneiss::create_native(), runtime_world_owner).failed() ||
+      (runtime_world = runtime_world_owner.get()) == nullptr ||
+      gneiss::test_support::open_document(runtime_session, *runtime_application, runtime_world,
+                                          project.startup_scene) != gneiss::error::success) {
+    return 6;
+  }
+  gneiss::entity_id runtime_node;
+  if (runtime_session.create_node("Runtime Only", {}, runtime_node) != gneiss::error::success ||
+      gneiss::test_support::scene_query(author_session).nodes.size() != author_node_count ||
+      author_session.is_dirty()) {
+    return 7;
+  }
+
+  runtime_session.close();
+  author_session.close();
+  std::filesystem::remove_all(root);
+  return 0;
+} catch (...) {
+  return 99;
+}

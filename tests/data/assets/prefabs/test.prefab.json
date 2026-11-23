@@ -7,7 +7,7 @@
     {
       "uuid": "30000000-0000-4000-8000-000000000004",
       "name": "Prefab Root",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "transform": {
         "translation": [
           0,
@@ -31,7 +31,7 @@
     {
       "uuid": "30000000-0000-4000-8000-000000000002",
       "name": "Prefab Source Root",
-      "parent": "30000000-0000-4000-8000-000000000004",
+      "parent": {"object":"30000000-0000-4000-8000-000000000004","source":null},
       "transform": {
         "translation": [
           1,

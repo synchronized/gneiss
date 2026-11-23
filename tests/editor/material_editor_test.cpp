@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/meta/serialization.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/platform/files/memory_file_backend.hpp"
-#include "engine/resource/material/material_codec.hpp"
-#include "panels/material_editor_panel.hpp"
+#include "gneiss/engine/function/files/backends/memory.hpp"
+#include "ui/panels/material_editor_panel.hpp"
 #include <cstdio>
+#include <gneiss/engine/core/meta/capabilities/enumeration.hpp>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 #include <imgui.h>
 #include <stdexcept>
-namespace e = gneiss::engine;
+#include <gneiss/engine/core/meta/resolve.hpp>
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 void check(bool good, const char* message) {
   if (!good)
@@ -20,9 +24,15 @@ std::string text(const std::vector<std::byte>& bytes) {
 int main() try {
   check(e::initialize_meta().ok(), "initialize");
   e::files::service files;
-  auto backend = std::make_shared<e::files::memory_backend>();
+  auto backend = e::files::create_backend_memory();
   check(files.mount({.prefix = "asset://", .readers = {backend}, .writer = backend}).ok(), "mount");
-  auto encoded = e::encode_material(e::material_description{});
+  {
+    e::error initialized = e::error::not_ready;
+    if (files.initialize([&](e::error status) { initialized = status; }).failed() ||
+        files.dispatch_completions(64).failed() || initialized.failed())
+      throw std::runtime_error("文件服务初始化失败");
+  }
+  auto encoded = gneiss::asset_file::serialize_bytes(e::material_description{});
   check(bool(encoded), "encode fixture");
   const auto original = text(*encoded);
   const std::string uri = "asset://materials/test.material.json";
@@ -64,54 +74,78 @@ int main() try {
   write(original);
   ed::material_editor_model model;
   check(model.open(uri, original).ok() && !model.is_dirty(), "open material");
-  using p = e::meta::property_id;
+  using p = e::property_id;
   const ed::material_property_path rough{p{1}, p{3}};
   {
     auto parameters = model.description().parameters;
     parameters.roughness = 0.6F;
-    auto source = e::meta::instance::from(parameters);
-    check(bool(source) && model.replace_object({p{1}}, *source).ok(), "replace object");
+    auto source = e::meta::view(std::as_const(parameters));
+    check(model.replace_object({p{1}}, source).ok(), "replace object");
     check(model.description().parameters.roughness == 0.6F && parameters.roughness == 0.6F,
           "copy does not consume source");
     check(model.undo().ok() && !model.is_dirty(), "replacement undo");
     check(model.redo().ok() && model.description().parameters.roughness == 0.6F,
           "replacement redo");
     parameters.roughness = -1;
-    check(model.replace_object({p{1}}, *source).failed() &&
+    check(model.replace_object({p{1}}, source).failed() &&
               model.description().parameters.roughness == 0.6F,
           "invalid replacement atomic");
-    auto wrong = e::meta::instance::from(model.description());
-    check(model.replace_object({p{1}}, *wrong) == e::error::invalid_argument, "wrong type");
-    check(model.replace_object({p{1}, p{3}}, *source) == e::error::unsupported,
+    auto wrong = e::meta::view(std::as_const(model.description()));
+    check(model.replace_object({p{1}}, wrong) == e::error::invalid_argument, "wrong type");
+    check(model.replace_object({p{1}, p{3}}, source) == e::error::unsupported,
           "scalar replacement rejected");
-    auto defaults = e::meta::deserialize<e::material_parameters>(
+    auto defaults = gneiss::serialization::json::decode<e::material_parameters>(
         std::as_bytes(std::span{"{}", std::size_t{2}}));
     check(bool(defaults), "decode defaults");
-    auto default_view = e::meta::instance::from(*defaults);
-    check(model.replace_object({p{1}}, *default_view).ok() && !model.is_dirty(),
+    auto default_view = e::meta::view(std::as_const(*defaults));
+    check(model.replace_object({p{1}}, default_view).ok() && !model.is_dirty(),
           "reset object defaults");
     check(model.undo().ok() && model.description().parameters.roughness == 0.6F, "reset undo");
     e::texture_sampling sampling;
     sampling.uv_set = 1;
-    auto sampling_view = e::meta::instance::from(sampling);
-    check(model.replace_object({p{1}, p{10}, std::size_t{2}}, *sampling_view).ok() &&
+    auto sampling_view = e::meta::view(std::as_const(sampling));
+    check(model.replace_object({p{1}, p{10}, std::size_t{2}}, sampling_view).ok() &&
               model.description().parameters.sampling[2].uv_set == 1,
           "replace array object");
     check(model.discard().ok(), "restore fixture");
-    auto metadata = e::meta::describe_type(e::runtime_type_of<e::material_parameters>());
-    check(bool(metadata) && metadata->properties[6].type.enum_entries()->size() == 3 &&
-              (*metadata->properties[6].type.enum_entries())[2].name == "blend",
-          "owned enum metadata");
-    auto sampling_type = e::meta::describe_type(e::runtime_type_of<e::texture_sampling>());
-    check(bool(sampling_type) &&
-              sampling_type->properties[1].type.id() == e::runtime_type_of<e::texture_filter>() &&
-              sampling_type->properties[1].type.enum_entries()->data() ==
-                  sampling_type->properties[2].type.enum_entries()->data() &&
-              sampling_type->properties[4].type.enum_entries()->data() ==
-                  sampling_type->properties[5].type.enum_entries()->data(),
+    auto metadata = e::meta::resolve(e::runtime_type_of<e::material_parameters>());
+    check(bool(metadata), "material metadata");
+    auto alpha_entries = metadata.template capability<gneiss::meta::cap::object>()
+                             .properties()[6]
+                             .type()
+                             .capability<e::meta::cap::enumeration>()
+                             .entries();
+    check(alpha_entries.size() == 3 && alpha_entries[2].name == "blend", "owned enum metadata");
+    auto sampling_type = e::meta::resolve(e::runtime_type_of<e::texture_sampling>());
+    check(bool(sampling_type), "sampling metadata");
+    auto min_filter = sampling_type.template capability<gneiss::meta::cap::object>()
+                          .properties()[1]
+                          .type()
+                          .capability<e::meta::cap::enumeration>();
+    auto mag_filter = sampling_type.template capability<gneiss::meta::cap::object>()
+                          .properties()[2]
+                          .type()
+                          .capability<e::meta::cap::enumeration>();
+    auto wrap_u = sampling_type.template capability<gneiss::meta::cap::object>()
+                      .properties()[4]
+                      .type()
+                      .capability<e::meta::cap::enumeration>();
+    auto wrap_v = sampling_type.template capability<gneiss::meta::cap::object>()
+                      .properties()[5]
+                      .type()
+                      .capability<e::meta::cap::enumeration>();
+    check(sampling_type.template capability<gneiss::meta::cap::object>()
+                      .properties()[1]
+                      .type()
+                      .id() == e::runtime_type_of<e::texture_filter>() &&
+              min_filter.entries().data() == mag_filter.entries().data() &&
+              wrap_u.entries().data() == wrap_v.entries().data(),
           "shared enum options");
   }
   const auto initial = model.description().parameters.roughness;
+  check(model.set_value(rough, e::value{e::ref<e::meta::object>{}}) == e::error::unsupported &&
+            !model.can_undo(),
+        "object reference is not a snapshot");
   check(model.set_value(rough, e::value{0.2F}, 7).ok() &&
             model.set_value(rough, e::value{0.4F}, 7).ok(),
         "merged edits");
@@ -145,7 +179,8 @@ int main() try {
   check(!model.saving() && model.save_status().ok() && model.is_dirty(),
         "save does not clear newer edits");
   auto disk = read();
-  auto disk_material = e::decode_material(std::as_bytes(std::span{disk.data(), disk.size()}));
+  auto disk_material = gneiss::asset_file::deserialize<e::material_description>(
+      std::as_bytes(std::span{disk.data(), disk.size()}));
   check(disk_material && disk_material->parameters.roughness == 0.4F &&
             disk_material->texture_uris[0] == "asset://textures/a.texture.json",
         "saved snapshot content");

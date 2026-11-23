@@ -1,0 +1,190 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# PLAN-105：Game Object 运行模型与 Prefab 编辑边界
+
+## 状态与范围
+
+2026-11-08：已完成，本地构建及相关回归通过。归属 [DEV-052](DEV-052-architecture-cleanup.md)，
+决策见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
+承接已完成的 [PLAN-104](PLAN-104-value-document-prefab-overrides.md)，历史与投影由
+[PLAN-106](PLAN-106-document-history-projection.md) 完成；本计划不代表整个版本发布。
+
+## 目标
+
+- 文档保存普通对象、Prefab 来源和覆盖；运行组件只保存组合后的有效数据。
+- component_description_base 自有实例 UUID，删除 component_entry 的重复身份包装。
+- 场景对象统一命名 game_object，明确区别于 meta::object。
+- World 拥有 ECS 实体、组件及场景成员；game_object 和 scene_instance 是非拥有访问句柄。
+- 场景树使用同一实体上的层级信息，删除独立节点槽位到实体的第二套生命周期。
+- 文档历史与投影算法解耦；按 PLAN-106 保留增量同步，不新增通用事务服务。
+
+## 迁移结果
+
+World 拥有实体、层级和场景成员；借用句柄负责访问，不再保留独立 Scene Tree 生命周期。
+组件身份归 component_description_base。运行实例只保存有效成员，旧 prefab_binding、
+来源覆盖缓存、作者捕获及专用运行 Prefab 创建/删除/重载接口均已删除。
+Editor 管理文档和历史，Runtime 热重载协调器持有显式固定来源和地址回执。
+持久父关系已使用 object_address，普通自有对象可以引用具体 Prefab 成员。
+
+## 已确认模型
+
+### 文档
+
+- game_object_description 保留 uuid、name、局部 transform、components 和 optional prefab。
+  普通对象的 components 为有效描述；prefab 非空时 components 必须为空，
+  新增组件通过结构覆盖表达。不引入 scene_entry variant。
+- component_description_base::uuid 表示组件实例，类型身份仍由 Meta 提供。
+  普通数学值及 meta::object 不增加领域 UUID。
+- 新建生成 UUID，属性修改和历史恢复保持 UUID，复制对象生成新组件 UUID。
+  UUID 与所属对象地址组合定位；允许不同 Prefab 实例复用来源组件 UUID。
+- 反射注册必须包含基类身份字段；集合校验 nil/重复 UUID 及当前每类型唯一约束。
+  不通过 const_cast 改写共享描述，修改身份也要创建新描述。
+- Scene 为森林，Prefab 有明确根。父关系最终使用明确的 object_address；
+  普通对象地址为 UUID，Prefab 内对象地址为实例路径与来源 UUID。
+  先完成普通/单层 Prefab 地址，嵌套组合仍是后续独立能力。
+
+### 组合
+
+输入文档与固定来源内容，输出完整有效对象描述、来源映射和诊断。
+组合函数不访问 World、文件、历史或 GPU；来源缺失和覆盖冲突不得吞掉原记录。
+组合结果是可重算的中间值，不形成第三份可编辑权威状态。
+
+### 运行对象和场景
+
+game_object 借用 world* 与带 generation 的 entity_id，不继承 meta::object，不持有强引用；
+World 销毁后禁止再调用借用句柄，World 存活期间删除对象使旧句柄失效。
+跨 World 操作必须拒绝，不能仅凭底层 EnTT 数值判断有效性。
+场景卸载由 World 统一删除所属实体，句柄持有者不阻止删除。
+
+实体数据：
+- game_object_identity：场景实例内 UUID、名称、scene_instance_id。
+- hierarchy_component：父、子和兄弟关联，所有修改经 World 校验。
+- 层级组件保存 local；world 按查询即时派生，保留现有 TRS 数学语义。
+  本次不引入未经性能需求验证的 world/dirty 缓存，避免增加第二套需要同步的变换状态。
+- component_identities：组件类型到组件实例 UUID；只存身份，不复制属性。
+- camera/mesh_renderer 等实际组件：有效值和资源强引用，不保存覆盖。
+
+World 持有 scene_instance_state：来源场景 UUID、成员索引、根索引、对象 UUID 查询索引。
+索引不是独立对象拥有者。scene_instance 对外仅借用 World 与受校验实例 ID。
+同一场景可以实例化多次，通过 scene_instance_id 区分同名 UUID。
+跨场景重新挂接首版拒绝，迁移成员归属需显式操作，不暗中改变卸载责任。
+无场景成员的纯 ECS 实体仍允许存在。
+
+### 编辑器关联
+
+scene_document 持有不可变版本、历史、来源和诊断；
+scene_projection 仅保存文档地址到实体的关联与同步状态，不复制组件内容。
+Prefab 来源查询、Apply/Revert、来源刷新从文档和组合结果获得信息。
+运行时 instantiate(prefab) 创建普通对象；运行时组件赋值不得自动生成覆盖。
+来源热更新如继续提供，由外部协调组合/应用，不放回 game_object 或组件 setter。
+
+## 已确认的迁移主线（2026-11-08 调整）
+
+本节替代按旧接口逐项包装的实施顺序；历史完成项保留，不表示下列整链迁移已完成。
+
+1. 建立 Engine 纯组合入口和共享 object_address；Editor 只适配固定来源输入。
+   Runtime 首次实例化与编辑投影共用组合规则，先消除独立的展开实现。
+2. 贯通完整有效对象的统一应用入口；空基线用于首次创建，已同步基线用于增量更新。
+   对象地址存在则原地更新，消失则删除，新增则创建，不设置 Prefab 专用运行更新分支。
+3. 调用方全部切换后，整体删除运行作者捕获、来源重载及长期 prefab_binding。
+   需要来源热更新的外部协调方提供固定来源和目标结果，不由 World 反推作者内容。
+4. 持久父关系使用同一 object_address，贯通反射、文件、校验、组合、复制和编辑。
+   普通对象与单层 Prefab 成员均可定位；不为未发布格式维护兼容包装。
+5. 集中编译和相关 CPU 回归，按存活身份、来源独立、资源释放、历史恢复与失败边界验收。
+
+职责划分以 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md) 为准。
+
+共享组合与通用应用已覆盖 Runtime 首次加载、独立实例化、来源刷新及 Editor 重建/增量投影。
+`apply_scene` 只接收前后有效对象、地址关联和显式资源引用；来源协调归调用方。
+持久父地址已贯通反射、文件、校验、复制、解包、创建与重挂接，以及局部历史恢复。
+
+组合类型是可丢弃中间数据，不作为第二份文档；不为了减少结构数量而混合作者与运行语义。
+
+## 文件与接口方向
+
+- resource/scene/game_object_description.hpp：对象与组件描述的领域入口。
+- resource/scene/scene_description.hpp、prefab_description.hpp：文档外壳。
+- function/scene：纯组合、来源地址、实例化输入适配；移除运行实例覆盖状态。
+- function/world/game_object.hpp：轻量对象访问入口。
+- function/world/scene_instance.hpp：场景实例访问入口。
+- function/world：实体、层级、场景归属及生命周期实现；EnTT 留在私有实现。
+- editor/documents：文档、版本及编辑投影关联。
+
+文件按实际依赖拆分，不为每个辅助结构创建类或 Service。
+旧 node/scene_instance 接口在调用方迁移后删除，不永久保留同义别名。
+
+## 实施顺序与验收
+
+### 1：命名与文档描述入口
+
+- [x] object_description 改为 game_object_description，迁移注册、校验、Loader、导入器、编辑器和测试。
+- [x] 拆出独立描述头，Scene/Prefab 共用；保留已有 optional prefab 结构和互斥校验。
+- [x] 更新当前接口参考；反射类型 GUID 与文件字段语义不因 C++ 改名改变。
+
+### 2：组件身份归属
+
+组件 UUID 迁移先补齐 Meta 的继承属性访问，再调整描述集合与编辑/恢复路径。
+
+- [x] 补齐继承属性枚举、读写、捕获/恢复与 JSON 编解码；通过 upcast 访问基类字段，拒绝继承链中的属性 ID/名称冲突，不静默遗漏字段。
+- [x] UUID 迁入 component_description_base，删除 component_entry。
+- [x] 迁移反射基类字段、集合访问、文件、多态恢复和覆盖目标。
+- [x] 保证编辑/撤销身份保持、新建/复制生成新身份，共享来源不被修改。
+- [x] 更新样例与工具产物，不兼容未发布旧包装格式。
+
+### 3：Prefab 组合与编辑边界
+
+- [x] 组合结果使用明确文档对象地址，表达普通对象及单层 Prefab 成员的父关系。
+- [x] 纯内存组合输出有效描述、来源信息和覆盖冲突，供编辑定位与层级查询共用。
+- [x] 实例化回执显式交付对象地址与实体关联；文档侧维护独立投影映射，删除运行来源反查。
+- [x] 将对象地址贯穿持久文档父关系。
+- [x] 编辑器查询/覆盖/保存/刷新不反向读取 prefab_binding；结构更新统一按组合对象地址增量投影。
+- [x] 删除运行组件编辑中的覆盖生成；编辑器下发组合后的有效组件与变换。
+- [x] 迁移来源查询与刷新后，删除运行实例的覆盖表和冲突状态。
+- [x] 验证 Prefab 实例化后是普通对象，游戏修改组件不改写来源或文档。
+
+#### 本批迁移顺序（2026-11-08）
+
+1. 删除 prefab_binding 的直接覆盖执行及冲突缓存，运行更新只接收已经组合的有效描述。
+2. 编辑器首次接管改为加载回执传入固定内容和实际资源身份，不再通过运行捕获还原作者数据。
+3. 将来源节点增量更新迁入通用投影；移除运行层来源覆盖记录、旧刷新和作者捕获入口。
+
+三项均已落地：正式和手动实例化均消费共享组合结果；删除 prefab_binding、专用 Prefab
+运行创建/删除/重载、私有捕获基线和 persistent 分类。运行集合只保存普通成员。
+Runtime 需要热重载时持有显式来源与地址关联，Editor 查询/保存/历史只读取文档。
+详见[运行路径统一记录](../records/2026-11-08-flat-runtime-scene-members.md)。
+持久父地址已贯通，阶段 3 已完成；整链验证见阶段 5。
+
+### 4：统一运行存储
+
+- [x] 实现 game_object 借用句柄及跨 World/generation 校验，场景创建接入该入口。
+- [x] scene_instance 改为借用句柄，场景集合及其成员记录移交 World 拥有。
+- [x] 层级和变换迁入实体存储，删除独立 scene_tree 节点槽位。
+- [x] World 拒绝不同场景已登记成员的重挂接，包含中间对象与移动子树绕过检查。
+- [x] 场景访问统一校验线程与句柄，清理 World 已删除成员；借用句柄提供动态成员创建。
+- [x] 运行修改接口统一按场景成员校验，移除 Prefab 特有的改名、重挂接、删除和相机限制。
+- [x] 移除旧运行捕获与来源重载对作者/来源成员分类的依赖。
+- [x] 迁移渲染采集、Runtime/IPC、编辑器和测试，删除旧接口。
+
+### 5：验收与清理
+
+- [x] 文件往返、覆盖冲突、历史恢复、来源刷新与资源保活。
+- [x] 空句柄、跨 World、generation、重复删除、场景卸载、非法层级。
+- [x] 核查 Runtime 不依赖 Editor 文档或覆盖写入协议。
+- [x] 更新 Reference/Record，完成默认构建与相关回归；不运行 GPU 大场景或远端 CI。
+
+阶段 1 默认 Windows Clang Debug 构建与 34 项定向回归通过；依赖边界检查通过，
+阶段 2 已完成继承支持和组件 UUID 归属迁移，删除 component_entry；
+最终默认构建与 45 项定向回归通过。详见[阶段记录](../records/2026-11-07-game-object-model.md)。
+层级实体存储、场景成员归属、Prefab 编辑边界及持久父地址均已迁移。
+最终验收覆盖 86 项相关回归；首轮遗留失败修复后按受影响测试复验通过，默认构建通过。
+详见[最终验收记录](../records/2026-11-08-game-object-model-complete.md)。
+
+## 非目标与代价
+
+不同时实现嵌套 Prefab、脚本绑定、流送、通用对象 GC 或跨文件事务。
+2026-11-08：历史与增量投影改由 [PLAN-106](PLAN-106-document-history-projection.md) 推进，
+其新决策替代本计划原先延后精细增量同步的安排。
+本次会改变内部接口与未发布格式，接受广泛调用方迁移，不修改 Granit。
+层级转入 ECS 后必须保证引用失效规则和变换更新顺序，不能把可移动组件地址当稳定对象指针。
+本地提交按连贯验收组进行；没有本次远端发布授权。

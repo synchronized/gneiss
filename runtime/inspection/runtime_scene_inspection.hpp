@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
+#define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
+
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/math/camera.hpp>
+#include <gneiss/engine/core/math/transform.hpp>
+#include <gneiss/engine/function/scene/scene_instance.hpp>
+#include <gneiss/engine/resource/scene/component_description.hpp>
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
+
+#include <gneiss/engine/core/base/rid.hpp>
+
+#include <array>
+#include <cstdint>
+#include <map>
+#include <span>
+#include <string>
+#include <vector>
+
+namespace gneiss::host {
+
+inline constexpr std::size_t runtime_inspection_max_nodes = 4096U;
+inline constexpr std::size_t runtime_inspection_max_changes = runtime_inspection_max_nodes * 2U;
+inline constexpr std::size_t runtime_inspection_max_string_size = 16U * 1024U;
+
+struct runtime_scene_source_node final {
+  std::uint64_t native_node = 0U;
+  std::uint64_t native_parent = 0U;
+  std::uint64_t native_entity = UINT64_C(0);
+  gneiss::guid uuid;
+  gneiss::guid prefab_instance_uuid;
+  gneiss::guid prefab_source_node_uuid;
+  std::string name;
+  gneiss::math::transform local_transform;
+  gneiss::component_descriptions components{};
+};
+
+using runtime_scene_snapshot_node = ipc_inspection_node;
+using runtime_scene_change_type = ipc_inspection_change_type;
+using runtime_scene_change = ipc_inspection_change;
+using runtime_scene_snapshot = ipc_inspection_batch;
+
+/** 仅由 Runtime 主线程调用，将场景状态折叠为确定性的完整快照或增量。 */
+class runtime_scene_inspection final {
+public:
+  explicit runtime_scene_inspection(std::uint64_t session_id) noexcept;
+
+  [[nodiscard]] gneiss::error capture(std::span<const runtime_scene_source_node> nodes,
+                                      bool force_full, runtime_scene_snapshot& output);
+  [[nodiscard]] gneiss::error capture_scene(gneiss::scene_instance scene, bool force_full,
+                                            runtime_scene_snapshot& output);
+  [[nodiscard]] gneiss::error resolve_entity(ipc_runtime_object_id object,
+                                             std::uint64_t& output) const noexcept;
+  /** 接收加载/重载协调方的地址回执；只保存身份，不从运行节点反推 Prefab 来源。 */
+  [[nodiscard]] gneiss::error set_source_bindings(std::span<const gneiss::scene_object_binding>);
+  void reset(std::uint64_t session_id) noexcept;
+
+private:
+  std::uint64_t session_id_ = 0U;
+  std::uint64_t next_sequence_ = 1U;
+  std::uint64_t next_object_value_ = 1U;
+  std::map<std::pair<std::array<gneiss::guid, 3>, std::uint64_t>, ipc_runtime_object_id>
+      identities_;
+  std::map<std::uint64_t, std::uint32_t> generations_;
+  std::vector<std::uint64_t> free_values_;
+  std::map<std::uint64_t, runtime_scene_snapshot_node> previous_;
+  std::map<std::uint64_t, std::pair<ipc_runtime_object_id, std::uint64_t>> entities_;
+  std::map<std::uint64_t, gneiss::scene_object_binding> sources_;
+  bool is_initialized_ = false;
+};
+
+} // namespace gneiss::host
+
+#endif

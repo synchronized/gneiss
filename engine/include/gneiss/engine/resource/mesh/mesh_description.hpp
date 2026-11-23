@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#pragma once
+#include <gneiss/engine/resource/export.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/math/types.hpp>
+#include <gneiss/engine/core/serialization/diagnostic.hpp>
+#include <string>
+#include <string_view>
+#include <vector>
+namespace gneiss {
+/** JSON 网格文件描述；转换为运行期 mesh_data 前校验各数组对应关系。 */
+struct mesh_description {
+  static constexpr std::string_view type_name = "mesh_description";
+  static constexpr guid type_guid = guid::literal("8ce68485-5d9b-477f-9572-db18840e3393");
+  std::string topology;
+  std::vector<math::vector3> vertices;
+  std::vector<math::vector2> uvs;
+  std::vector<math::vector3> normals;
+};
+/** 文件读写及原生采用前的领域校验；不修改输入。 */
+[[nodiscard]] GNEISS_RESOURCE_API serialization::diagnostic
+validate_mesh_description(const mesh_description&);
+}

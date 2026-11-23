@@ -1,0 +1,80 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# 测试组件读取 API 审查
+
+## 已完成修改
+
+核查 scene 与编辑属性测试发现 read_component_value 仍把 try_component 的借用结果转换成
+错误码和输出参数，并用成员名探测选择 settings/value。这不是夹具或断言，而是旧接口形态的
+适配。删除该辅助及全部四处调用，三个测试直接检查借用并读取 camera_component::settings。
+
+- native-world-lifecycle：直接验证新增相机的值，随后仍验证跨 World、移除与活动相机生命周期。
+- component_reflection：保留反射编辑链；组件替换后重新借用，分别检查成功结果与失败保留值。
+- editor.author-property-edit：局部读取返回设置副本，不跨撤销/重做持有组件指针。
+
+正式 try_component API 已足够，本轮不增加生产接口，也不创建替代测试包装。
+
+## 重复覆盖判断
+
+以上三处都有相机值检查，但分别验证生命周期、反射修改及编辑历史，不能仅因读取相同字段
+就合并。保留原有行为断言，删除的是接口绕路，不宣称删除了重复行为用例。
+Prefab 覆盖用例的路径稳定性、候选隔离和覆盖应用尚需与 Meta/编辑器用例逐项比较，
+本轮没有完成整个 tests 目录的重复性审核。value_result.hpp 中其他输出参数适配仍待按
+真实调用逐项迁移，不将其整体替换为另一套隐藏失败的辅助。
+
+## 验证
+
+Windows Clang Debug 共享、静态分别构建上述三个目标；对应三项测试均通过。
+全仓搜索已无 read_component_value。未运行全量、GPU、跨平台或发布验收。
+版本任务仍由 [PLAN-119](../plans/PLAN-119-engine-build-test-layout.md) 承接。
+
+## World 创建与对象调用续审
+
+world_service_test 与 native_world_lifecycle_test 已移除 value_result.hpp 依赖。
+create_native 直接检查结果并移动所有权；已成功创建的对象直接获取 entity，
+变换操作直接使用 game_object，删除旧 node 变量及嵌套 entity_id 转换。
+
+合并 world_service_test::native_operations 中重复的 world::object 跨线程错误检查：
+同文件 scene_object_storage 仍覆盖该错误，主函数保留所有者移动后的线程边界验证，
+native_world_lifecycle 也保留生命周期流程中的跨线程检查。count/flush 的断言子进程
+测试不变，未用查询错误测试替代断言契约测试。
+
+两个目标在共享/静态 Windows Clang Debug 下构建通过；native-world-lifecycle、
+world-service-boundary、world-thread-contract 三项在两种配置下均通过。
+只格式化受修改的两个测试源文件，未调整生产 API、超时或测试启用条件。
+
+## 层级变换测试续审
+
+scene_tree_transform_test 删除自写 rotate/reference_combine：此前测试维护了第二套
+四元数及 TRS 算法，现改用固定夹具的手算预期，并解释计算过程。没有改成调用生产
+compose_transform 生成预期，避免实现与测试共用算法掩盖错误。
+
+保留三层组合、重新挂接、实体身份不变、非法变换不污染结果、环检测与递归删除断言。
+此用例针对 world_transform 的逐级 TRS 语义，不宣称验证 world_matrix 的剪切结果。
+四个对象直接通过 create_object 值返回创建，不再依赖 value_result.hpp。
+
+Windows Clang Debug 共享、静态目标构建和 gneiss.scene_tree_transform 均通过；
+未修改生产代码，未运行全量或跨平台测试。
+
+## 共享辅助与资产加载续审
+
+本次集中检查 tests/support 的职责及其场景、Prefab、文档、资产消费者：
+
+- 异步宿主传播 application::run、dispatch_completions、reload 推进失败，避免真实错误被超时掩盖。
+- reload 等待辅助不再偷偷提交第二个请求；重复请求拒绝由 runtime.scene-loader 的显式用例覆盖。
+- application 场景夹具一次提交完整视觉资产批次，直接等待批次结果，不逐项重新实现批次调度。
+- mesh 对象夹具直接添加运行组件；保留资源强引用，不为安装组件绕经描述构造和反射装配。
+- native-scene-lifecycle 直接使用创建结果及对象句柄；保留卸载、跨场景与失效身份检查。
+- author_scene 序列化失败明确报错，不再用空字符串掩盖；查询计数共用一次快照。
+- 删除 decode_fixture 自行模拟的输出预算和对应“预算拒绝后重试”断言，以及只命中内存夹具的输入限额断言。
+  这些并未验证生产预算逻辑；生产预算、解码选择、摘要校验、缓存与资源生命周期不变。
+
+保留可控 I/O、任务驱动、数据构造和失败注入辅助。它们用于建立测试条件，不能仅因位于 support
+就全部展开。旧 value_result 输出适配仍按真实调用逐项处理，本次没有机械替换全仓剩余引用。
+同样读取相机或资源的上层用例，若分别验证撤销、投影与生命周期，仍保留其不同的行为断言。
+
+共享 Windows Clang Debug 完整构建通过；按 scene/prefab/document/asset_manager/
+render_asset_loader/author/save/texture-load 名称选择并排除 scene-viewer/lantern 的 42 项测试全部通过。
+静态 Windows Clang Debug 完整构建及同一 42 项测试也全部通过。最后修改的三个场景用例在两种配置下均复测通过。
+本次不含 GPU、跨平台和发布矩阵，不代表 PLAN-119 全部完成。

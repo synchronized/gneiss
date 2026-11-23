@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../../support/value_result.hpp"
-#include "engine/core/meta/instance.hpp"
-#include "engine/function/resource/detail/asset_decode.hpp"
-#include "engine/function/world/world_reflection.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
-#include "engine/resource/material/material_codec.hpp"
+#include "function/asset/detail/asset_decode.hpp"
 #include <cstdio>
 #include <cstring>
+#include <gneiss/engine/core/meta/capabilities/object.hpp>
+#include <gneiss/engine/core/meta/instance.hpp>
+#include <gneiss/engine/core/meta/registration.hpp>
+#include <gneiss/engine/core/serialization/builtin_registration.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
+#include <gneiss/engine/resource/material/material_description.hpp>
 #include <stdexcept>
 #include <type_traits>
-using namespace gneiss::engine;
+using namespace gneiss;
 static_assert(!std::is_polymorphic_v<material_description>);
 namespace {
 void check(bool ok) {
@@ -25,26 +29,41 @@ std::vector<std::byte> bytes(std::string_view text) {
 void native_material_contract() {
   auto input = bytes(
       R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":["","","","",""]})");
-  auto material = decode_material(input);
+  auto material = gneiss::asset_file::deserialize<material_description>(input);
   check(material.ok());
-  auto root = meta::mutable_instance::from(*material);
-  check(root.ok());
-  auto parameters = root->property("parameters");
+  auto root = meta::view(*material);
+  auto parameters = root.template capability<gneiss::meta::cap::object>()->member("parameters");
   check(parameters.ok());
-  auto color = parameters->property("color");
+  auto color = parameters->template capability<gneiss::meta::cap::object>()->member("color");
   check(color && color->read_value()->kind() == value_kind::vec4);
-  check(color->write_value(value{math::vector4{0.2F, 0.4F, 0.6F, 1}}).ok());
-  auto sampling = parameters->property("sampling")->as_sequence();
-  check(sampling && !sampling->is_resizable() && *sampling->size() == 5);
+  check(color->assign(value{math::vector4{0.2F, 0.4F, 0.6F, 1}}).ok());
+  auto sampling_field = parameters->capability<meta::cap::object>()->member("sampling");
+  check(sampling_field.ok());
+  auto sampling_type = sampling_field->type().capability<meta::cap::sequence>();
+  auto sampling = sampling_field->as_sequence();
+  check(sampling && !sampling_type.is_resizable() && sampling->size() == 5);
   check(sampling->resize(4) == error::invalid_argument && sampling->resize(5).ok());
-  auto uv = sampling->at(0)->property("uv_set");
+  auto uv = sampling->at(0)->template capability<gneiss::meta::cap::object>()->member("uv_set");
   check(uv.ok());
-  check(uv->write_value(value{std::uint64_t{1} << 32}) == error::invalid_argument);
+  check(uv->assign(value{std::uint64_t{1} << 32}) == error::invalid_argument);
   check(material->parameters.sampling[0].uv_set == 0);
-  auto encoded = encode_material(*material);
+  auto encoded = gneiss::asset_file::serialize_bytes(*material);
   check(encoded.ok());
-  auto restored = decode_material(*encoded);
+  auto restored = gneiss::asset_file::deserialize<material_description>(*encoded);
   check(restored && restored->parameters.color == material->parameters.color);
+  // 同一资源描述作为普通对象或嵌套元素时不携带文件头。
+  auto plain = serialization::json::encode(*material);
+  check(plain && plain->find("\"format\"") == std::string::npos &&
+        plain->find("\"version\"") == std::string::npos);
+  auto plain_copy = serialization::json::decode<material_description>(std::string_view{*plain});
+  check(plain_copy && plain_copy->parameters.color == material->parameters.color);
+  check(!asset_file::deserialize<material_description>(std::string_view{*plain}));
+  auto nested = serialization::json::encode(std::vector<material_description>{*material});
+  check(nested && nested->find("\"format\"") == std::string::npos);
+  auto nested_copy =
+      serialization::json::decode<std::vector<material_description>>(std::string_view{*nested});
+  check(nested_copy && nested_copy->size() == 1 &&
+        nested_copy->front().parameters.color == material->parameters.color);
   const std::string text(reinterpret_cast<const char*>(encoded->data()), encoded->size());
   check(text.find("\"parameters\"") != std::string::npos &&
         text.find("base_color_texture") == std::string::npos);
@@ -59,18 +78,19 @@ void native_material_contract() {
        R"({"format":"gneiss.material","version":6,"parameters":{"color":[1,1,1]},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"parameters":{"unknown":1},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"parameters":{},"parameters":{},"texture_uris":["","","","",""]})"})
-    check(!decode_material(bytes(malformed)));
+    check(!gneiss::asset_file::deserialize<material_description>(bytes(malformed)));
   for (
       const auto malformed :
       {R"({"format":"gneiss.material","format":"gneiss.material","version":6,"parameters":{},"texture_uris":["","","","",""]})",
        R"({"format":"gneiss.material","version":6,"version":6,"parameters":{},"texture_uris":["","","","",""]})",
        R"({"format":"other","version":6})", R"({"format":"gneiss.material","version":0})",
        R"({"format":"gneiss.material","version":"6"})", R"([])"})
-    check(!decode_material(bytes(malformed)));
-  auto obsolete = decode_material(bytes(R"({"format":"gneiss.material","version":5})"));
+    check(!gneiss::asset_file::deserialize<material_description>(bytes(malformed)));
+  auto obsolete = gneiss::asset_file::deserialize<material_description>(
+      bytes(R"({"format":"gneiss.material","version":5})"));
   check(!obsolete && obsolete.error().error == error::unsupported &&
         obsolete.error().path == "/version");
-  auto length_error = decode_material(
+  auto length_error = gneiss::asset_file::deserialize<material_description>(
       bytes(R"({"format":"gneiss.material","version":6,"parameters":{},"texture_uris":[]})"));
   check(!length_error && length_error.error().path == "/texture_uris");
 }
@@ -80,13 +100,18 @@ void run(std::size_t limit) {
   text.resize(limit, ' ');
   auto old = std::make_shared<material_description>();
   asset_diagnostic diagnostic;
-  meta::serialization_diagnostic codec_diagnostic;
+  serialization::diagnostic codec_diagnostic;
   auto input = bytes(text);
-  check(gneiss::test_support::assign_decoded(decode_material(input), *old, codec_diagnostic).ok());
+  check(gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<material_description>(input), *old,
+            codec_diagnostic)
+            .ok());
   input = bytes(
       R"({"format":"gneiss.material","version":6,"parameters":{"metallic":0,"roughness":1,"color":[0,1,0,1]},"texture_uris":["asset://missing","","","",""]})");
   auto current = std::make_shared<material_description>();
-  check(gneiss::test_support::assign_decoded(decode_material(input), *current, codec_diagnostic)
+  check(gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<material_description>(input), *current,
+            codec_diagnostic)
             .ok());
   decoded_asset prepared;
   const render_resource_source source{"asset://material.json", render_resource_kind::material};
@@ -113,14 +138,15 @@ void run(std::size_t limit) {
   check(std::get<asset_ref<const material_description>>(prepared.content) == retained &&
         std::get<asset_ref<const material_description>>(prepared.content)->parameters.color[1] ==
             1);
-  check(
-      gneiss::test_support::assign_decoded(decode_material(bytes("{}")), *current, codec_diagnostic)
-          .failed());
+  check(gneiss::test_support::assign_decoded(
+            gneiss::asset_file::deserialize<material_description>(bytes("{}")), *current,
+            codec_diagnostic)
+            .failed());
   check(current->parameters.color[1] == 1 && current->texture_uris[0] == "asset://missing");
 }
 }
 int main() try {
-  check(register_reflection().ok());
+  check(gneiss::serialization::register_builtin_types().ok());
   check(register_builtin_resource_types().ok());
   check(meta::freeze().ok());
   native_material_contract();

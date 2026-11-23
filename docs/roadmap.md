@@ -21,6 +21,24 @@
 
 ## 阶段概览
 
+基础模块独立构建与平台职责迁移已完成本地验收，验证范围见 [PLAN-124](plans/PLAN-124-foundation-modules.md)。
+
+0.52 冻结范围已交付，见[版本归档](versions/0.52.0.md)；下一轮设计与转入事项以
+[PLAN-129](plans/PLAN-129-next-architecture-baseline.md) 为准。
+
+- [PLAN-129](plans/PLAN-129-next-architecture-baseline.md)：下一轮设计与转入尾项，基线为 v0.52.0，具体方案待确认。
+- [PLAN-128](plans/PLAN-128-host-business-ownership.md)：按阶段成果收尾、尾项转入 PLAN-129；视口与 Editor 会话已完成本地自动化范围，Runtime 会话所有权与构建边界已提取，后续为业务调度、工作区整理及手工验收。
+- [PLAN-127](plans/PLAN-127-world-system-scheduling.md)：本地范围完成；World 自有系统及宿主接入已验证，Application 继续管理共享服务与应用阶段。
+- [PLAN-119](plans/PLAN-119-engine-build-test-layout.md)：模块目录与多轮目标/测试迁移已落地，本地范围和版本跨平台验收已完成，见 0.52 归档。
+- [PLAN-118](plans/PLAN-118-error-contracts.md)：P0–P4 本地实施与验收已完成；跨平台和完整版本矩阵见 0.52 归档。
+- [PLAN-115](plans/PLAN-115-persistent-render-scene.md)：持久场景、双视图与标准 PBR 阴影已接通并定向验收；专项故障、压力/预算和交互尾项转入 PLAN-129，不标记为完成。
+- [PLAN-116](plans/PLAN-116-events-and-logging.md)、[PLAN-117](plans/PLAN-117-domain-namespaces.md)、[PLAN-120](plans/PLAN-120-ipc-protocol-boundaries.md)：已完成各自本地实施与验收范围。
+- [PLAN-110](plans/PLAN-110-world-scene-ownership.md)、[PLAN-113](plans/PLAN-113-application-scene-boundaries.md)：对象/场景边界迁移已完成本地范围。
+
+异常边界与进程 OOM 收敛已完成，验证范围及跨平台限制见 [PLAN-109](plans/PLAN-109-exception-boundaries.md)。
+
+统一资产服务已完成本地编译及针对性验收，见 [PLAN-100](plans/PLAN-100-unified-asset-service.md)。
+
 渲染资源对象模型阶段一、二实现与编译已完成，运行验收待架构统一后执行；CPU 数据释放策略与流送为后续阶段，见 [PLAN-054](plans/PLAN-054-render-resource-model.md)。
 
 当前实现中的文件服务收敛见 [PLAN-051：统一异步文件服务](plans/PLAN-051-async-file-service.md)。
@@ -78,6 +96,7 @@
 | 0.49.0 大场景加载响应性与生命周期稳定性 | 当前基线、协作模式响应、资源回收与 IPC 稳定性 | 已发布 |
 | 0.50.0 后台加载主线程延迟 | 异步 I/O、Editor 加载与延迟观测，接受已记录遗留项 | 已发布 |
 | 0.51.0 源码架构与模块边界收敛 | 原生 C++、资源/场景所有权、Meta 与构建约束 | 已完成 |
+| 0.52.0 原生接口与模块职责整理 | 接口一致性、生命周期、宿主职责与依赖边界 | 冻结范围已发布，尾项转 PLAN-129 |
 | 1.0.0 稳定运行时 | 冻结首批稳定公共能力和兼容承诺 | 待开始 |
 
 ## 0.1.0：最小运行时
@@ -841,9 +860,34 @@ Scene/World、Prefab 与编辑器 Document 的所有权已收敛，Meta 与通�
 [版本计划](plans/VER-051-0.51.0-architecture-boundaries.md)保留早期决策演进；
 0.50 性能遗留问题仍以[原版本归档](versions/0.50.0.md)为准。
 
+## 0.52.0：原生接口与模块职责整理
+
+2026-11-23 冻结范围已发布，交付与限制见[版本归档](versions/0.52.0.md)。
+整理了原生值返回、异步契约、资源/场景生命周期、宿主职责及文件与编译依赖边界。
+不恢复已删除 SDK 或事务体系，不扩大到流送、插件和大场景性能。
+版本范围与完成条件见 [VER-052](plans/VER-052-0.52.0-architecture-cleanup.md)，
+实施顺序见 [DEV-052](plans/DEV-052-architecture-cleanup.md)。
+
+Application 调度与宿主状态组合已完成本地实施与共享/静态验收，见
+[PLAN-126](plans/PLAN-126-application-scheduling.md)。项目选择界面、Runtime、Editor 与示例已迁移；本版矩阵证据见版本归档。
+
 ## 未排期：大型场景视口性能
 
 保留原性能讨论与 M-325～M-328 编号，不分配版本号或承诺启动顺序。
 架构整理可能跨多个版本，按审计结果拆分阶段，后续再确认本事项优先级。
 范围见 [未排期范围](plans/editor-render-performance-backlog.md)，
 实施见 [未排期调查步骤](plans/editor-render-performance-investigation.md)。
+
+## 未排期：Web 应用导出
+
+2026-11-17 确认：在后续应用导出能力扩展阶段评估并接入 Emscripten/Web，
+不作为当前架构整理或 Granit 升级的完成条件，不预先承诺版本号。
+
+- 以“导出应用并在浏览器运行”为完整闭环，统一考虑工具链、浏览器主循环、Canvas 呈现、
+  输入、异步资产加载与部署资源路径，以及停止和资源回收。
+- 启动时建立独立开发计划，复核届时 Granit 的能力及引擎依赖，明确线程、文件访问和渲染限制。
+- 验收使用实际导出产物，覆盖启动、场景加载、交互、尺寸变化与失败诊断；
+  不以原生句柄分支、单模块编译或上游支持代替端到端验收。
+- SDL3 当前没有实际需求，不安排接入，也不作为 Web 导出的前置条件；未来出现明确用途再评估。
+
+当前升级及未验证边界见 [Granit 0.71 升级记录](records/2026-11-17-granit-0.71-upgrade.md)。

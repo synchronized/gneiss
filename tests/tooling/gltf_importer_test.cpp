@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_import/gltf_importer.hpp"
+#include <gneiss/tooling/import/gltf_importer.hpp>
 
 #include <array>
 #include <filesystem>
@@ -49,14 +49,14 @@ bool checks_material_states(const std::filesystem::path& root) {
       const auto& material = report.data.materials[0];
       if (case_index == 6U && (material.emissive[0] != 1.0F || report.diagnostic.empty()))
         return false;
-      if ((case_index == 0U && material.alpha_mode != gneiss::engine::material_alpha_mode::blend) ||
-          (case_index == 1U && material.alpha_mode != gneiss::engine::material_alpha_mode::mask) ||
+      if ((case_index == 0U && material.alpha_mode != gneiss::material_alpha_mode::blend) ||
+          (case_index == 1U && material.alpha_mode != gneiss::material_alpha_mode::mask) ||
           (case_index == 2U && material.double_sided != 1U) ||
           (case_index == 4U && (!report.data.meshes[0].primitives[0].has_color ||
                                 report.data.meshes[0].primitives[0].vertices[0].color !=
                                     std::array<float, 4>{0, 0, 1, 1})) ||
           (case_index == 5U &&
-           material.sampling[0].address_u != gneiss::engine::texture_address::clamp))
+           material.sampling[0].address_u != gneiss::texture_address::clamp))
         return false;
     }
     ++case_index;
@@ -95,8 +95,8 @@ int main() { // NOLINT(bugprone-exception-escape)
       valid.data.meshes[0].primitives[0].index_accessor != 3U ||
       valid.data.meshes[0].primitives[0].vertices.size() != 3U ||
       valid.data.meshes[0].primitives[0].indices != std::vector<std::uint32_t>{0U, 1U, 2U} ||
-      valid.data.nodes[0].translation != gneiss::engine::math::vector3{1.0F, 2.0F, 3.0F} ||
-      valid.data.nodes[0].scale != gneiss::engine::math::vector3{2.0F, 2.0F, 2.0F} ||
+      valid.data.nodes[0].translation != gneiss::math::vector3{1.0F, 2.0F, 3.0F} ||
+      valid.data.nodes[0].scale != gneiss::math::vector3{2.0F, 2.0F, 2.0F} ||
       valid.data.materials.size() != 1U ||
       valid.data.materials[0].base_color != std::array<float, 4>{0.5F, 0.6F, 0.7F, 1.0F} ||
       valid.data.materials[0].base_color_image_index != 0U ||

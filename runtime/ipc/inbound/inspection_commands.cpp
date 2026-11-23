@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include <gneiss/engine/core/base/error.hpp>
+#include "ipc/runtime_commands.hpp"
+
+#include <gneiss/protocol/ipc_inspection_protocol.hpp>
+
+namespace gneiss::host {
+namespace {
+
+gneiss::error handle_resync(const gneiss::ipc::envelope& envelope,
+                                    runtime_command_context& context) noexcept {
+  const auto operation = decode_ipc_inspection_resync(envelope);
+  if (operation == gneiss::error::success) {
+    context.actions().request_inspection_resync = true;
+  }
+  return operation;
+}
+
+} // namespace
+
+gneiss::error
+register_runtime_inspection_commands(runtime_command_router& router) noexcept {
+  return router.bind(gneiss::protocol::domain::inspection,
+                     static_cast<std::uint16_t>(ipc_inspection_operation::resync), handle_resync);
+}
+
+} // namespace gneiss::host

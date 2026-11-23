@@ -27,6 +27,7 @@
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
+- [测试设计与维护](guides/testing.md)
 - [Tracy CPU 与任务时间线采集](guides/profiling.md)
 - [从 0.47 迁移到 0.48](guides/migrating-0.47-to-0.48.md)
 - [Application 与 World 的最小 C++ 示例](guides/application-world-example.md)
@@ -55,7 +56,9 @@
 - [输入动作映射格式 v1](reference/input-map-format.md)
 - [诊断回调](reference/diagnostics.md)
 - [日志消息契约](reference/logging.md)
+- [同步对象通知](reference/events.md)
 - [Type Registry 与反射元数据](reference/reflection.md)
+- [序列化接口与格式后端](reference/serialization.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v4](reference/scene-format.md)
@@ -73,6 +76,8 @@
 - [源码目录、模块所有权与演进规则](concepts/repository-layout.md)
 
 ## 版本归档
+
+- [0.52.0 版本归档](versions/0.52.0.md)
 
 - [版本索引](versions/README.md)
 - [0.49.0：大场景加载响应性与生命周期稳定性](versions/0.49.0.md)
@@ -107,9 +112,13 @@
 - [C51-08～10：CAORS VFS 缓存一致性、分块读取与快照成本研究](plans/UPSTREAM-051-caors-vfs-followups.md)
 - [C51-07：CAORS 统一 VFS 与异步读取实施方案](plans/UPSTREAM-051-caors-async-vfs.md)
 - [UPSTREAM-051：CAORS 接入约束与上游改进建议](plans/UPSTREAM-051-caors-integration-contracts.md)
+- [UPSTREAM-052：Granit 对象 ID 输出与异步像素拾取（基础拾取已验收，Editor 待接入）](plans/UPSTREAM-052-granit-object-picking.md)
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
 - [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
+- [VER-052：0.52.0 原生接口与模块职责整理](plans/VER-052-0.52.0-architecture-cleanup.md)
+- [DEV-052：原生接口与模块职责整理实施计划](plans/DEV-052-architecture-cleanup.md)
+- [0.52 收尾审计（2026-11-18）](records/2026-11-18-version052-closeout-audit.md)
 - [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
 - [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
 - [共享资产与场景实例实施设计](plans/asset-scene-ownership.md)
@@ -290,6 +299,8 @@
 
 ## 实施与验收记录
 
+- [0.52 发布验收](records/2026-11-23-0.52-release-validation.md)
+
 - [CAORS 输入资源加载到 InputService 生效闭环](records/2026-10-20-caors-input-application.md)
 
 - [CAORS 私有适配模块与强类型输入映射验证](records/2026-10-20-caors-private-adapter.md)
@@ -300,6 +311,9 @@
 
 - [CAORS 单资源加载接入验证](records/2026-10-20-caors-resource-probe.md)
 
+- [Granit 0.74.1 拾取释放修复验收](records/2026-11-21-granit-0.74.1-upgrade.md)
+- [Granit 0.74.0 升级验收](records/2026-11-21-granit-0.74-upgrade.md)
+- [Granit 0.71.0 升级与原生窗口联合体](records/2026-11-17-granit-0.71-upgrade.md)
 - [Granit 0.67.0 升级验收](records/2026-10-19-granit-0.67-upgrade.md)
 - [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
 - [M-305：旧转发头移除](records/M-305-remove-forwarding-headers.md)
@@ -632,3 +646,87 @@
 - [统一 CPU 资源加载](plans/PLAN-094-unified-asset-loading.md)
 
 - [简化资源加载额度](plans/PLAN-095-loading-limits.md)
+
+- [PLAN-100：统一资产服务与场景加载边界](plans/PLAN-100-unified-asset-service.md)
+- [统一资产服务验收](records/2026-11-05-unified-asset-service.md)
+- [ADR-106：统一资产服务与场景实例化分离](decisions/ADR-106-unified-asset-service.md)
+
+- [PLAN-102：资源对象与统一加载生命周期](plans/PLAN-102-resource-object-loading.md)
+- [ADR-107：以资源对象为中心的加载与持久化](decisions/ADR-107-resource-object-loading.md)
+
+- [PLAN-104：结构化值、文档版本与 Prefab 覆盖](plans/PLAN-104-value-document-prefab-overrides.md)
+- [ADR-109：不可变文档与操作式覆盖](decisions/ADR-109-value-document-model.md)
+
+- [PLAN-105：Game Object 运行模型与 Prefab 编辑边界](plans/PLAN-105-game-object-runtime-model.md)
+- [ADR-110：统一 Game Object 存储](decisions/ADR-110-game-object-runtime-model.md)
+
+- [PLAN-108：Meta 访问 API 与序列化策略收敛](plans/PLAN-108-meta-serialization-api.md)
+- [PLAN-108 最终 CPU 与头文件验收](records/2026-11-09-plan108-final-acceptance.md)
+- [ADR-113：Meta 借用访问与序列化策略边界](decisions/ADR-113-meta-serialization-boundaries.md)
+
+- [PLAN-108 首批属性句柄迁移](records/2026-11-09-meta-property-handles.md)
+
+- [PLAN-108 实例读写 API 迁移](records/2026-11-09-meta-instance-api.md)
+- [PLAN-108 生产元数据查询迁移](records/2026-11-09-meta-query-handles.md)
+- [PLAN-108 旧元数据查询删除](records/2026-11-09-meta-query-removal.md)
+- [PLAN-108 注册入口收敛](records/2026-11-09-meta-registration.md)
+- [PLAN-108 冻结查询索引](records/2026-11-09-meta-frozen-index.md)
+- [PLAN-108 运行期类型身份](records/2026-11-09-meta-runtime-identity.md)
+- [PLAN-108 视图访问边界](records/2026-11-09-meta-access-boundary.md)
+- [PLAN-108 扩展元数据基础](records/2026-11-09-meta-extension-metadata.md)
+- [PLAN-108 序列化策略存储迁移](records/2026-11-09-serialization-policy-storage.md)
+- [PLAN-108 策略拆分与默认字段遍历](records/2026-11-09-serialization-policy-split.md)
+
+- [PLAN-109：异常边界与进程内存耗尽策略收敛](plans/PLAN-109-exception-boundaries.md)
+- [ADR-114：预期错误、异常边界与进程 OOM](decisions/ADR-114-exception-boundaries.md)
+
+- [PLAN-110 定向 CPU 验收](records/2026-11-10-plan110-cpu-acceptance.md)
+
+- [PLAN-111 加载请求与主循环推进分离](plans/PLAN-111-loading-request-api.md)
+
+- [PLAN-112 文件、任务及资产就绪队列](plans/PLAN-112-loading-ready-queues.md)
+
+- [PLAN-113 应用装配与场景模块职责重整](plans/PLAN-113-application-scene-boundaries.md)
+- [PLAN-114 测试分层与维护规则收敛](plans/PLAN-114-test-maintenance.md)
+- [PLAN-115 持久渲染场景与增量同步（实施与验收中）](plans/PLAN-115-persistent-render-scene.md)
+- [ADR-118 持久渲染场景、增量同步与帧视图边界](decisions/ADR-118-persistent-render-scene.md)
+- [ADR-117 应用装配、资产、运行世界与编辑文档边界](decisions/ADR-117-application-scene-boundaries.md)
+
+- [PLAN-113 编辑职责迁移记录](records/2026-11-11-plan113-editor-boundary.md)
+
+- [PLAN-113 资产批次迁移记录](records/2026-11-11-plan113-asset-batch.md)
+
+- [PLAN-113 World 所有权迁移记录](records/2026-11-11-plan113-world-owner.md)
+
+- [PLAN-116 强类型通知与独立日志系统](plans/PLAN-116-events-and-logging.md)
+- [ADR-119 对象级通知与独立结构化日志](decisions/ADR-119-events-and-logging.md)
+- [事件与日志适配核查](records/2026-11-11-event-log-feasibility.md)
+- [Render 整体设计复核](records/2026-11-11-render-design-review.md)
+- [Render 多视图接入核查](records/2026-11-12-render-multiview-feasibility.md)
+
+- [PLAN-117 功能命名空间收敛](plans/PLAN-117-domain-namespaces.md)
+- [PLAN-118 错误返回与内部契约收敛](plans/PLAN-118-error-contracts.md)
+- [PLAN-119 Engine 头文件、构建目标与测试组织整理](plans/PLAN-119-engine-build-test-layout.md)
+- [Files 后端与初始化迁移验收](records/2026-11-17-files-backend-initialization.md)
+- [ADR-123 Files 后端工厂与服务初始化](decisions/ADR-123-files-backend-initialization.md)
+- [ADR-122 窗口采集与输入语义边界](decisions/ADR-122-window-input-boundaries.md)
+- [ADR-120 领域命名空间](decisions/ADR-120-domain-namespaces.md)
+
+- [PLAN-120：平台 IPC 与反射协议消息](plans/PLAN-120-ipc-protocol-boundaries.md)
+- [ADR-124：平台 IPC 与宿主协议分离](decisions/ADR-124-ipc-protocol-boundaries.md)
+- [平台 IPC](reference/platform-ipc.md)
+
+- [PLAN-124：基础模块与构建归属](plans/PLAN-124-foundation-modules.md)
+- [PLAN-125：统一属性访问与类型操作](plans/PLAN-125-property-access.md)
+- [ADR-128：分层目录与完整领域构建目标](decisions/ADR-128-foundation-modules.md)
+
+- [PLAN-126：Application 生命周期、调度与宿主状态组合](plans/PLAN-126-application-scheduling.md)
+- [ADR-129：Application 调度与宿主状态组合](decisions/ADR-129-application-scheduling.md)
+
+- [PLAN-127：World 自有系统调度与宿主组合](plans/PLAN-127-world-system-scheduling.md)
+- [ADR-130：World 提供系统注册与更新入口](decisions/ADR-130-world-system-scheduling.md)
+
+- [PLAN-128：Editor、Runtime 与项目宿主业务归属](plans/PLAN-128-host-business-ownership.md)
+- [ADR-131：宿主会话与业务状态归属](decisions/ADR-131-host-business-ownership.md)
+
+- [PLAN-129：下一轮架构重构与遗留验收](plans/PLAN-129-next-architecture-baseline.md)

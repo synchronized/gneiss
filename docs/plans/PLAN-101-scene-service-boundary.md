@@ -1,0 +1,52 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# PLAN-101：场景生命周期与通用资源批次边界
+
+状态：已完成，Windows 编译及 46 项相关回归通过。日期：2026-11-05。归属：[DEV-052](DEV-052-architecture-cleanup.md)。
+架构依据：[ADR-106](../decisions/ADR-106-unified-asset-service.md)。
+
+## 目标与边界
+
+scene_service 只协调活动场景、结构准备、实例重载、视觉加载与退场。
+通用资源批次由 Application 私有的现有 resource_load_group 汇总，直接请求 asset_manager。
+场景自身使用独立的同类请求组；两组均不拥有 URI 缓存，不新建资产服务。
+宿主保留场景切换与编辑批次之间的互斥，避免异步编辑结果跨场景应用。
+
+不改 World/ECS，不改变场景同步实例化，不引入 GPU 等待或跨资源事务。
+Application 既有轮询适配保持行为；本轮值返回统一针对 scene_service。
+
+## 实施顺序
+
+- [x] 移出六个通用资源接口，迁移编辑器、IPC 与测试调用。
+- [x] 删除 scene_service 的执行器借用；保留实际用于统计的 Render 与进度通知。
+- [x] request_scene/activate 值返回；poll_scene/poll_reload 使用 result<optional<完成值>>，
+  外层错误表示调用失败，空值表示暂无完成结果，完成值携带异步工作结果。
+- [x] 验证关闭时请求观察者释放、场景切换互斥、独立取消及编辑器迟到结果处理。
+- [x] 完整编译、相关回归、格式与边界检查，记录结果并本地提交。
+
+## 验收与限制
+
+覆盖场景加载/取消/激活、结构重载、资源批次、编辑器资产/Prefab 编辑、撤销和保存、宿主关闭。
+不运行大场景、跨平台、远端 CI 或发布。请求编号只在所属请求组内有效，不跨组使用。
+
+实施结果见[验收记录](../records/2026-11-05-scene-service-boundary.md)。
+
+## 内部状态收尾（2026-11-06）
+
+- [x] load_task 直接持有 scene_instantiation_data，删除无共享使用者的 cpu_result 包装。
+- [x] 使用 progress.phase 判断准备阶段，删除重复 preparing 标记。
+- [x] 视觉队列、游标、请求关联信息、pending 和回执集中到私有 visual_load_state，
+  推进、取消及清理操作随状态收拢，不增加服务。
+- [x] 编译及场景加载、取消、失败、退场和编辑器等 23 项回归通过；见[收尾记录](../records/2026-11-06-scene-state-cleanup.md)。
+
+保持每次最多预留 64 项资源引用、同步实例化、显式激活和旧 World 退场。
+
+## 视觉依赖失败边界（2026-11-06）
+
+- [x] 结构重载使用稳定资源引用，不再等待视觉依赖加载成功；复用首次加载的视觉队列。
+- [x] 使用既有默认材质、槽位默认纹理和网格跳过机制；依赖失败保留诊断，已有材质更新失败保留旧内容。
+- [x] 结构完成与视觉完成分离，后续视觉项不因前一项失败而中断。
+- [x] 编译及 29 项相关回归通过（旧实例化失败断言更新后单独复测）；验证缺失资源、结构错误、资源身份、旧内容和关闭行为。
+
+不处理缺失 Prefab 或未知组件的数据保留。当前行为见[场景实例](../reference/scene-instance.md#来源重载与显式刷新)。

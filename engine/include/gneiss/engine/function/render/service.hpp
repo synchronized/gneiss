@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#pragma once
+
+#include <functional>
+#include <gneiss/engine/core/base/result.hpp>
+#include <gneiss/engine/core/tasks/wakeup_signal.hpp>
+#include <gneiss/engine/export.hpp>
+#include <gneiss/engine/function/render/capture_request.hpp>
+#include <gneiss/engine/function/render/commands.hpp>
+#include <gneiss/engine/function/render/frame_request.hpp>
+#include <gneiss/engine/function/render/frame_result.hpp>
+#include <gneiss/engine/function/render/pick_request.hpp>
+#include <gneiss/engine/function/render/queue_options.hpp>
+#include <gneiss/engine/function/render/render_resource_data.hpp>
+#include <gneiss/engine/platform/window/native_handle.hpp>
+#include <gneiss/engine/resource/texture/texture_view.hpp>
+#include <memory>
+#include <optional>
+#include <span>
+#include <vector>
+
+namespace gneiss::render {
+namespace detail {
+struct pick_readback;
+}
+struct memory_usage {
+  std::uint64_t logical_bytes{};
+  std::uint64_t cpu_data_bytes{};
+};
+
+/** 渲染提交与设备生命周期服务；所属线程调用，GPU 操作由内部执行器调度。
+ * 借用的日志队列必须覆盖 shutdown；宿主须先关闭本服务，再关闭窗口和平台。
+ * 实现固定在堆上，不允许复制或移动。 */
+class service final {
+public:
+  static constexpr std::uint64_t default_memory_limit = UINT64_C(4) * 1024U * 1024U * 1024U;
+  explicit GNEISS_ENGINE_API service(std::uint64_t memory_limit = default_memory_limit);
+  GNEISS_ENGINE_API ~service();
+  service(const service&) = delete;
+  service& operator=(const service&) = delete;
+  service(service&&) = delete;
+  service& operator=(service&&) = delete;
+  [[nodiscard]] GNEISS_ENGINE_API error
+  initialize(const gneiss::window::native_handle& window, window::surface_state surface,
+             std::span<const std::byte> environment_asset = {}, float environment_intensity = 1.0F,
+             float environment_rotation_radians = 0.0F, queue_options queues = {});
+  /** 异步提交已读取的环境字节；接受后执行器持有引用，调用方不等待 GPU。
+   * 队列满返回 not_ready；解析失败沿用内置环境，执行失败由正常帧完成分发返回。 */
+  /** 提交环境包；空 shared_ptr 显式选择内建环境，非空包须非空。not_ready 时由调用者重试。 */
+  [[nodiscard]] GNEISS_ENGINE_API error request_environment(
+      std::shared_ptr<const std::vector<std::byte>> bytes, float intensity, float rotation);
+  /** 排空并关闭设备及 CPU 场景/资源；即使返回历史执行错误，服务仍进入关闭状态。
+   * 可重复调用；关闭后的 RID 失效，已捕获的自有内容按原有引用生命周期释放。 */
+  [[nodiscard]] GNEISS_ENGINE_API error shutdown(device_stats& stats);
+  [[nodiscard]] GNEISS_ENGINE_API error finish_frames();
+  GNEISS_ENGINE_API void
+  set_completion_wakeup(std::shared_ptr<wakeup_signal> notification) noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API queue_stats query_performance_stats() const noexcept;
+  /** initialize 完成后读取；设备重建后重新获取。 */
+  [[nodiscard]] GNEISS_ENGINE_API texture_prepare_profile texture_profile() const noexcept;
+
+  /** CPU 持久场景；不需要初始化窗口或 GPU。初始化执行器后命令按序入队；未初始化时同步生效。 */
+  /** 创建 CPU 目标身份，GPU 表示首次绘制时建立；返回的 RID 由调用方负责销毁。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_target(target_description description);
+  /** 按序释放后端目标；队满返回 not_ready，身份保留供重试。成功后旧 RID 失效。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<void> destroy_target(rid target);
+  /** 所属线程查询目标身份是否仍有效，不表示 GPU 内容已生成。 */
+  [[nodiscard]] GNEISS_ENGINE_API bool is_target(rid target) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API result<target_description> describe_target(rid target) const;
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_scene();
+  [[nodiscard]] GNEISS_ENGINE_API result<void> submit(render::scene_commands&&);
+  /** 立即使场景 RID 失效，不受命令队列容量限制；在途任务保活内容直至消费完成。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<void> destroy_scene(rid scene);
+  /** 所属线程提交普通帧；内部处理完成回执和背压，not_ready 时保留请求供重试。
+   * 成功后消费请求，不代表 GPU 完成；UI 纹理与场景资源固定为不可变版本。
+   * 支持多个离屏视图和最多一个窗口视图；帧级 UI 只绘制到窗口。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<void> render(render::frame_request&& request);
+  /** 异步提交必达截图；多视图返回窗口合成结果，无窗口则 unsupported；失败不消费请求。
+   * capture_size 为零时使用目标尺寸；指定尺寸仅覆盖窗口合成截图，不修改窗口表面。
+   * 返回独立请求；无需领取帧完成记录。关闭时排空已接受请求，结果仍可领取。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<capture_request>
+  request_capture(render::frame_request&& request, target_description capture_size = {});
+
+  /** 指定相机与尺寸提交独立离屏拾取；不修改 View 的颜色目标。
+   * size 为物理像素尺寸，坐标以左上角为原点；越界返回 invalid_argument。
+   * 只拾取 Opaque/MASK。返回提交时的身份；取消不打断 GPU，关闭后仍可领取结果。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<pick_request>
+  request_pick(const view&, target_description size, std::uint32_t x, std::uint32_t y);
+
+  /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
+  GNEISS_ENGINE_API void close_resources() noexcept;
+  /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
+  [[nodiscard]] GNEISS_ENGINE_API render::memory_usage memory_usage() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::uint64_t available_memory_bytes() const noexcept;
+
+  [[nodiscard]] GNEISS_ENGINE_API bool is_valid() const noexcept;
+  /** 所属线程预留合法 RID；尚无 CPU 内容，不可直接绘制。由 replace_* 填充，destroy_* 取消。
+   * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> reserve_mesh();
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> reserve_texture();
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> reserve_material();
+  /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
+  [[nodiscard]] GNEISS_ENGINE_API error mesh_status(rid mesh) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API error texture_status(rid texture) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API error material_status(rid material) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_mesh(const mesh_view& desc);
+  /** 校验并接收拥有型网格，成功路径不再复制数组。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_mesh(mesh_data resource);
+  /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_prepared_mesh(mesh_data resource);
+  /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid>
+  create_prepared_mesh(std::shared_ptr<const mesh_data> resource);
+  [[nodiscard]] GNEISS_ENGINE_API result<void> replace_mesh(rid rid,
+                                                            std::shared_ptr<const mesh_data> data);
+  [[nodiscard]] GNEISS_ENGINE_API result<void>
+  replace_material(rid rid, std::shared_ptr<const material_data> data);
+  /** 校验并复制借用视图，返回自有 CPU 内容，不分配 RID。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const mesh_data>>
+  prepare_mesh_data(const mesh_view& desc);
+  [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const texture_data>>
+  prepare_texture_data(const texture_view& desc);
+  /** 校验并登记临时 CPU 数据，不分配 RID；任务和帧引用共同决定数据寿命。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const mesh_data>>
+  prepare_mesh_data(std::shared_ptr<const mesh_data> resource);
+  [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const material_data>>
+  prepare_material_data(const material_data& resource);
+  [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const texture_data>>
+  prepare_texture_data(texture_data resource);
+  /** 共享原 CPU 缓冲；校验和后端保活不复制像素或负载。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<std::shared_ptr<const texture_data>>
+  prepare_texture_data(std::shared_ptr<const texture_data> resource);
+  [[nodiscard]] GNEISS_ENGINE_API error destroy_mesh(rid mesh) noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_material(const material_data& value);
+  [[nodiscard]] GNEISS_ENGINE_API error destroy_material(rid material) noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_texture(const texture_view& desc);
+  /** 创建已经过容器校验的内部多 Mip Texture。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_texture(texture_data resource);
+  /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<rid> create_packaged_texture(texture_data resource);
+  [[nodiscard]] GNEISS_ENGINE_API error destroy_texture(rid texture) noexcept;
+  /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
+  [[nodiscard]] GNEISS_ENGINE_API result<void>
+  replace_texture(rid texture, std::shared_ptr<const texture_data> prepared);
+  [[nodiscard]] GNEISS_ENGINE_API const mesh_data* get_mesh(rid mesh) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API const material_data* get_material(rid material) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API const texture_data* get_texture(rid texture) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const mesh_data>
+  share_mesh(rid mesh) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const material_data>
+  share_material(rid material) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::shared_ptr<const texture_data>
+  share_texture(rid texture) const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API std::size_t live_resource_count() const noexcept;
+
+private:
+  result<void> dispatch_render_work(std::function<void()>, std::size_t bytes = 0,
+                                    std::weak_ptr<const void> payload = {});
+  result<std::uint64_t> submit_request(render::frame_request&, frame_policy,
+                                       std::shared_ptr<frame_image>,
+                                       target_description capture_size = {},
+                                       std::function<void(error)> completed = {},
+                                       std::shared_ptr<detail::pick_readback> pick = {});
+  template <typename Resource>
+  result<std::shared_ptr<const Resource>>
+  track(std::shared_ptr<const Resource> resource,
+        std::vector<std::weak_ptr<const Resource>>& history);
+  struct implementation;
+  std::unique_ptr<implementation> impl_;
+};
+} // namespace gneiss::render

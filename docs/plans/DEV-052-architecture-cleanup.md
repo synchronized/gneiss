@@ -1,0 +1,548 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# DEV-052：原生接口与模块职责整理实施计划
+
+## 状态
+
+2026-11-23：本版冻结范围已完成，见[版本归档](../versions/0.52.0.md)。未完成迁移及专项验收转入
+[PLAN-129](PLAN-129-next-architecture-baseline.md)，不勾选为完成。以下早期状态与表格作为历史保留。
+
+2026-11-09：PLAN-105、PLAN-106、PLAN-107 及本次三项收尾已完成。
+原生值返回全仓审计与完整版本平台验收尚未完成；具体剩余项以本文末尾清单为准。
+[PLAN-108](PLAN-108-meta-serialization-api.md) 的 Meta/序列化 API 收敛已完成；
+定向 CPU 与头文件验收见[最终记录](../records/2026-11-09-plan108-final-acceptance.md)，不代表版本平台验收完成。
+版本范围见 [VER-052](VER-052-0.52.0-architecture-cleanup.md)，本次证据见
+[Runtime/Editor 收尾记录](../records/2026-11-09-runtime-editor-boundary-cleanup.md)。
+
+新增 World/Scene 入口与归属收敛见 [PLAN-110](PLAN-110-world-scene-ownership.md)，当前开始实施。
+
+新增 Application 生命周期与调度收敛见 [PLAN-126](PLAN-126-application-scheduling.md)，
+2026-11-19 已完成本地实施、真实宿主迁移及共享/静态验收；不代表整个版本完成。
+
+## 本次三项收尾（已完成）
+
+- Application 的 create、request_scene、activate_scene 改为 result 拥有值，同步迁移宿主、示例与测试。
+- Runtime/Editor 加载与关闭边界审计完成：批次不再隐式推进共享管理器，删除可由拥有者推导的装配标记。
+- 剩余清单区分代码待办、验证缺口和后续独立能力，不把 PLAN-107 已完成内容重复列为缺口。
+
+默认构建及 43 项相关 CPU 回归通过；未执行 GPU、大场景、跨平台 CI 或远端发布。
+原地修改接口不机械迁移；关闭边界的保留理由见收尾记录。
+
+## 当前批次
+
+2026-11-08：[PLAN-106](PLAN-106-document-history-projection.md) 已完成局部文档历史与增量投影，
+验收范围和保留的恢复边界以该计划为准；这不表示 DEV-052 整个版本已完成。
+
+已完成容器视图按 sequence、associative、optional 分拆，并增加 reference_view，
+见[本批验收记录](../records/2026-11-04-meta-views.md)。
+迁移序列化和调用方，移除 instance 上的旧引用专用入口；借用、共享控制块及文件格式保持不变。
+验收覆盖空引用、只读目标、共享赋值、重置、类型不匹配、深层 JSON 和独立头编译。
+
+## 实施顺序
+
+### A52-01：建立现状与删除清单
+
+- 沿“文件读取 → CPU 解码 → 运行资源 → Scene/World → Editor”检查拥有、借用和关闭顺序。
+- 阅读实际调用方，列出重复转发、状态、值输出参数、实现头暴露及已失效的文档说明。
+- 将每项标记为待删除、待合并或保留并说明原因；不依据文件大小直接拆类。
+- 核对 AGENTS、当前 Guide/Reference 与 0.51 已发布行为；旧 Plan 仅增加必要的历史状态说明。
+- 交付一份有源码路径的审计记录和批次列表，作为后续改动依据。
+
+验收：每个拟修改入口能指出调用方、所有者和替换位置；已完成的 0.51 工作不重复立项。
+
+### A52-02：原生值返回与异步契约
+
+- 优先审查 Application 创建、场景请求/完成、资源请求/完成，再检查 World/Scene/Meta 的剩余接口。
+- 有自然成功值的接口优先使用 `result<T>`；查询不存在、尚未完成和操作失败分别明确，不增加含义重叠的布尔标记。
+- 对外请求编号、取消目标及完成消费规则保持一致；先核对现有契约，再决定是否需要统一表示。
+- 同批迁移调用方和测试，删除旧签名；不批量替换原地修改参数或失败诊断输出。
+
+验收：相关模块编译通过；成功、失败和未完成状态可区分，取消不会消费其他调用方结果。
+
+### A52-03：生命周期与业务协调归属
+
+- 核对 Resource Service 的在途请求、弱缓存、资源引用及退休队列的关系，删除经证实重复的状态。
+- 核对 Scene 实例、Prefab 绑定、捕获快照与编辑历史的资源保活；保持运行数据的单一权威来源。
+- 沿 `document_editing`、场景加载协调和宿主关闭链路检查重复推进/取消/清理。
+- Application 保留装配、循环和生命周期协调；已有领域所有者能承担的业务逻辑归还其所在模块。
+- 每一处移动都同步删除旧转发或说明其必要职责，不新增平行协调器。
+
+验收：小型场景切换、失败/取消、重复关闭、撤销重做、资源释放回归通过；不引入析构时阻塞推进任务。
+
+### A52-04：文件布局与编译依赖
+
+- 按前述职责整理 resource、function、runtime、editor、host 的文件归属。
+- 减少只需前置声明却包含实现头的依赖；按现有 CMake target 明确包含和链接传播。
+- 按已有命名规则整理，不另起第二套全仓命名标准；保持 `math`、`meta`、文件服务专用命名空间。
+- 扩展已有边界检查及必要反例；自有共享库导出不向调用方泄漏后端类型。
+
+验收：相关独立头检查、边界反例、共享/静态链接通过；无旧路径转发头和无用途占位目录。
+
+### A52-05：集中验收与收尾
+
+- 汇总每批删除项、保留理由和行为变化，更新当前接口及架构说明。
+- 运行场景、资源、Meta、文件、Editor/Runtime 的相关回归及小型图形工作流。
+- 检查 CPU/GPU 测试分类；有 GPU 环境验证窗口和像素用例，无 GPU 环境保留 CPU 覆盖。
+- 达到候选状态后按已获授权范围执行完整平台验证；发布前确认 MSVC/GCC/Clang、共享/静态及相关 Sanitizer 结果。
+- 记录未测范围及遗留风险；发布操作另按本版后续授权执行，不继承 0.51 授权。
+
+## 验证节奏
+
+开发期间每批先完成受影响模块编译和直接相关行为测试，不反复运行大场景或完整远端矩阵。
+涉及模板、导出或跨平台头文件的修改应尽早检查 MSVC 与 GCC/Clang 差异，避免发布时集中暴露。
+完整矩阵在候选形成后集中执行，纯验收文档更新不重复触发。
+测试命令以[构建指南](../guides/building.md)为准，不降低警告或原验收门槛。
+
+## 交付控制
+
+所有批次使用同一版本分支和聚焦本地提交。每批记录实际实现、验证及删除入口，
+不以“继续整理”为由无限扩大版本范围。审计若发现某项已充分收敛，记录证据后保留现状；
+若出现新的架构取舍，先更新本计划或 ADR，再实施相应变化。
+
+## GUID 空值与可选反射收敛
+
+已完成，见[本批验收记录](../records/2026-11-04-guid-parent-and-meta-optional.md)。
+
+按用户确认：完整对象 parent_uuid 使用 guid，nil 为根；部分修改使用现有属性路径或明确场景指令。
+删除 Meta optional 类别、视图、操作表及 JSON 分支；不禁止业务内部 std::optional。
+迁移源码、示例资产和生成脚本；后续按用户确认，GUID nil 的 JSON 表达统一为 null。验证 nil 往返、非零身份约束、
+缺失父节点/循环拒绝、Prefab 根约束以及重新挂接/撤销操作。
+
+GUID nil 的 JSON 表达调整已完成，见[验收记录](../records/2026-11-04-guid-json-null.md)。
+
+## 序列化重复逻辑收敛
+
+本批四项范围及状态：
+
+1. 已实现：Prefab 属性覆盖值复用 Meta 标量 JSON 编解码。带类型标签的 value
+   使用统一标量规则；GUID 标签为 `guid`，值为 UUID 字符串或 null，不保留旧 `type_id` 标签。
+   覆盖目标的 `type_guid` 身份键已在后续收敛为规范 UUID 字符串。
+2. 已完成：导入 SDK 链接 Engine，构造材质/场景/纹理描述并调用共享 codec，
+   删除手写 JSON 及重复编译的编码/摘要实现；见 [ADR-102](../decisions/ADR-102-importer-engine-codecs.md)。
+3. 已实现：Scene/Prefab 文档对象统一调用 `scene_codec.cpp` 的 `encode_object`，删除
+   文档写入过程重复的组件与 Prefab 覆盖编码；文档级身份和层级校验保留。
+4. 已完成评估，纹理 usage 与显式 codec 随导入器迁移，纹理反射迁移已实施，网格仍为评估方案。
+
+### 导入器依赖决策
+
+用户已确认直接链接 Engine，暂不抽取共享模块。导入只初始化 Meta，不启动 Application 或 GPU。
+验收：生成资产可由 Engine 读取，稳定 UUID、材质参数、组件和纹理语义正确，URI 正确转义，
+失败不产生部分正式输出。具体权衡以 ADR-102 为准。
+
+### 纹理与网格评估
+
+- `texture_description` 原先只有 URI 与色彩空间，本批已补齐 usage 保存及共享编码入口，
+  纹理字段已注册反射，字符串枚举通过 enum_name 标记保留。normal 必须使用 linear 的业务校验继续保留。
+- `mesh_decoder.cpp` 的 JSON 使用独立顶点/UV/法线数组，内存 mesh_data 的排列不同。
+  建议明确文件描述与运行载荷转换，反射负责字段读取，转换负责数组长度、三角形数量、
+  有限数和法线检查，不直接序列化运行数据的内存布局。
+- 纹理压缩、mip、二进制网格及固定字节布局继续使用专用 codec；不为减少 switch
+  强行迁移到通用反射。
+
+本批验证见[导入器共享 codec 验收记录](../records/2026-11-04-importer-engine-codecs.md)。
+前批覆盖值/对象编码的三项测试亦已通过；未执行大场景、远端 CI 或跨平台矩阵。
+
+### 三项序列化收敛验收
+
+构建工具 read_texture_settings 复用纹理 codec；纹理字段走反射和通用格式包装；Prefab 覆盖
+目标 GUID 使用 guid::parse/string，与其他身份字段统一。当前样例、夹具和格式参考同步迁移，
+旧 32 字符覆盖类型标识不保留兼容。详见[验收记录](../records/2026-11-04-texture-reflection-guid.md)。
+
+### 显式多态与组件引用迁移（已完成）
+
+决策见 [ADR-103](../decisions/ADR-103-inline-polymorphic-references.md)。
+
+1. Meta 提供 object 身份、polymorphic/base 注册和引用按值 JSON；删除自动对象表。
+2. 组件改为不可变基类 ref，Scene/Prefab、编辑器与 IPC 复用通用反射入口。
+3. 覆盖引用语义与类型安全测试，编译受影响目标，更新当前接口参考与验收记录。
+
+Windows Clang Debug 全目标构建及 26 项相关测试通过，见
+[验收记录](../records/2026-11-04-inline-polymorphic-references.md)。本批完成不表示整个 0.52 版本完成。
+
+### 组件数组 DOM 入口收敛
+
+已将 Scene 与 IPC 的组件数组读写统一到 description_codec 的内部适配入口。
+Meta 负责临时 vector<component_description> 的数组及多态内容，业务层校验非空和类型唯一后
+生成 component_descriptions。IPC 不再经过 JSON 字节中转；普通组件不再拆解重建类型信封。
+Prefab 组件覆盖仍含业务定位字段，保留提取信封的适配。
+
+object_description 的 components 整项绑定与 prefab 可选描述字段均已接入反射，见后续小节。
+覆盖指令继续保留专用 codec，不将文件协议处理混入通用字段遍历。
+
+本批仅完成共享入口及字段约束核查，验收见
+[记录](../records/2026-11-04-component-dom-codec.md)。
+
+### 非标量属性整项绑定与 components 注册（已完成）
+
+- getter 返回稳定 const T&，setter 接收完整 const T&，可返回 error 或 void。
+- 非标量绑定不开放可写地址或子元素视图。读取走 const 视图，整项赋值走 setter。
+- JSON 解码创建独立默认候选，完整解码成功后才调用 setter；setter 须保证失败不改变业务对象。
+- components 注册为向量属性，统一由 component_descriptions::replace 校验非空/唯一后替换。
+  普通对象 codec 删除手动组件数组读写，仅保留普通对象必需 components 与 prefab 互斥校验。
+- prefab 字段表达不在本批范围；保留其已有包装与覆盖冲突检查。
+
+验收覆盖容器与嵌套对象的成功替换、拒绝旁路修改、解码/校验失败保持原值、类型错误、
+Scene/Prefab 往返与编辑器撤销。受影响 Debug 目标编译及 18 项相关测试通过，见
+[验收记录](../records/2026-11-04-bound-object-properties.md)。未运行大场景或远端 CI。
+
+
+### 可选值反射恢复
+
+用户确认恢复 optional 的独立类别、操作表和借用视图，以支持真实的可选描述值。
+保持 parent_uuid 的 nil GUID 表达，不恢复可选父 ID，也不改变 ref 的所有权。
+实现范围为 Meta 类型访问和 JSON 往返；prefab 字段注册及覆盖指令适配仍是后续任务。
+API 与空值歧义处理见 [反射参考](../reference/reflection.md#可选值反射)。
+
+已完成基础能力与相关验证，见[验收记录](../records/2026-11-05-meta-optional.md)。
+
+
+### Prefab 引用字段反射接入
+
+已注册 prefab_reference_description 三个字段和 object_description.prefab optional 属性。
+覆盖指令保持专用 codec，URI、重复覆盖和结构/属性覆盖冲突集中在描述校验器。
+普通对象写 null，缺失或 null 都表示无 Prefab；编辑器嵌套模板检测同步识别空值。
+本批不包含 optional 面板控件或覆盖指令格式重设计。
+
+本批受影响目标编译和 6 项测试通过，见[验收记录](../records/2026-11-05-prefab-reference-reflection.md)。
+
+
+### 对象通用编解码与校验归位
+
+删除 object_description 的 encode_object、decode_object、parse_object 包装，使用现有
+serialization + validate 注册。对象校验只检查 UUID 非空和 Prefab/组件互斥；
+引用描述继续检查 URI 与覆盖冲突，层级规则保留场景整体校验。
+components 缺失使用空列表，保存始终输出，移除按 Prefab 存在性进行的字段省略。
+
+已完成，相关构建和 6 项测试通过，见[验收记录](../records/2026-11-05-object-reflected-codec.md)。
+
+
+### 材质与输入映射 codec 收敛
+
+删除 material_codec 与 action_map_codec 的头文件和实现，工具、编辑器与测试统一使用 Meta。
+资源层统一格式注册辅助替代两种资源各自的 encode/decode 转发，保留原格式约束及校验。
+构建清单、内部头文件白名单和相关边界检查同步移除已删除路径。
+
+已完成相关构建、8 项测试和分层检查，见[验收记录](../records/2026-11-05-resource-codec-consolidation.md)。
+
+
+### Scene/Prefab 格式包装统一
+
+用户确认允许版本错误码的小幅行为调整。采用统一正整数版本规则，删除重复场景/Prefab
+编解码与中间 decoded_object_document，整体校验独立为 scene_validation。
+清除无生产消费者的 Prefab dependencies 和 source_schema_version；复用已有运行时组件依赖收集。
+字符串调用迁移为通用 Meta 文本入口，统一序列化诊断。旧 prefab_instances 仍明确拒绝。
+
+已完成，Windows Clang Debug 全量构建、19 项相关测试与分层检查通过，见
+[验收记录](../records/2026-11-05-scene-prefab-codec-consolidation.md)。
+
+
+### Meta 默认注册表入口收敛
+
+补齐运行期类型视图、枚举及属性绑定查询的无 registry 入口，迁移 Meta 外部直接取表的业务调用。
+视图编解码复用已绑定注册表，内部递归与 codec 回调继续显式传递上下文。
+边界检查禁止业务源码直接调用 default_registry；注册表机制测试保留例外。
+验收覆盖默认表视图创建、隔离表编解码、场景与编辑器调用以及边界反例。
+
+已完成，全量编译、15 项相关测试与边界反例检查通过，见
+[验收记录](../records/2026-11-05-meta-registry-entrypoints.md)。
+
+
+### 组件集合序列反射
+
+component_descriptions 接入 sequence_traits，提供只读元素访问与整组校验替换。
+通用序列解码增加可选 replace 能力：解码候选 vector 后再提交，不开放集合可写元素。
+对象 components 改为直接成员注册；IPC 和 Prefab 覆盖使用通用视图 DOM 编解码，
+删除 read_components/write_components。验收覆盖多态往返、空项/重复项拒绝及失败保留旧值。
+
+已完成，全量编译、17 项相关测试和分层检查通过，见
+[验收记录](../records/2026-11-05-component-sequence-reflection.md)。
+
+
+### Prefab 组件覆盖反射
+
+按用户确认调整未发布格式：source_node_uuid、type_guid、added 均必填，删除使用 added: null。
+直接注册成员并保留局部校验，删除组件覆盖专用 codec；不提供旧格式兼容。
+已完成，Windows Clang Debug 构建、8 项相关测试及分层检查通过，见
+[验收记录](../records/2026-11-05-component-override-reflection.md)。
+
+### Variant 与 Prefab 属性覆盖
+
+已确认：为 std::variant 增加独立 ops/view，文件标签由显式 traits 配置，使用 $kind/$content。
+Prefab 属性覆盖直接注册 key/value，路径复用 variant；engine::value 保留既有基础值格式。
+删除重复属性覆盖 codec，迁移未发布格式，不提供旧格式兼容。
+验收覆盖标签往返、分支重排、非法标签、未配置标签、非默认构造分支、嵌套路径及场景/编辑器调用。
+
+已完成，构建与相关测试通过，见[验收记录](../records/2026-11-05-meta-variant.md)。
+
+### JSON 节点编解码收敛
+
+用户选择优先处理 JSON 中间转换。资源格式包装和 value 使用节点 codec，文件边界只解析/输出一次。
+保留原始格式、严格字段检查、校验与错误路径；字段遍历借用当前注册表和递归上下文。
+纹理独立文件入口复用节点字段访问；删除不再使用的 serialize_reflected 字节入口。
+验收覆盖独立注册表、嵌套回调深度、文件大小限制、格式头及资源与编辑器调用。
+本项不调整 value 注册归属或覆盖校验分层。
+
+已完成，构建与 21 项相关测试通过，见[验收记录](../records/2026-11-05-json-node-codecs.md)。
+
+### Meta JSON 适配边界
+
+按用户确认收回 value 注册及标签编解码，删除对外 detail 头。
+节点 codec 通过借用上下文遍历字段，IPC 通过明确的内部 JSON 适配入口调用；
+不新增 JSON DOM 抽象，不改变文件格式或递归校验规则。
+
+已完成，Windows Clang Debug 构建及 25 项相关测试通过，见
+[验收记录](../records/2026-11-05-meta-json-boundary.md)。
+
+### Value 对象强引用
+
+用户确认增加受约束的对象强引用分支，复用现有 ref 和 meta::object。
+已确认规则见 [ADR-104](../decisions/ADR-104-value-object-reference.md)。
+实施 value 存储及引用属性读写，保留标量快照和持久化边界；
+验收共享生命周期、类型检查、const 保护和原有序列化回归。
+
+已完成，Windows Clang Debug 构建及 28 项相关测试通过，见
+[验收记录](../records/2026-11-05-value-object-reference.md)。
+
+### Value 对象内容与 IPC 值统一
+
+用户确认对象引用可按内容编解码，接收端重建对象而非保留跨进程身份。
+复用 Meta 注册、递归上下文与校验；IPC 和编辑器直接使用 engine::value，
+删除重复载荷与值转换，保留已有标量编码并补充 vec2/vec4/object 标签。
+对象 ID、资源 URI、撤销快照仍维持各自边界。
+验收覆盖对象独立恢复、空引用、未知及不兼容类型、循环/深度拒绝和 IPC/编辑器回归。
+
+已完成，Windows Clang Debug 构建及 33 项相关测试通过，见
+[验收记录](../records/2026-11-05-value-object-wire.md)。
+
+### 属性编解码、访问与引用面板收敛
+
+用户确认同时完成三项：IPC 复用 Meta 的带标签值 codec；
+组件读取改为 result<value>，默认字段通过 instance 访问；
+引用面板展开与整项替换，组件历史显式保存内容快照。
+保留 Transform 存储与组件安装差异、旧 GUID 协议、const 保护和 Prefab 标量覆盖边界。
+验收覆盖无 Meta 初始化的标量 IPC、组件线程/失效错误、引用编辑及外部修改后的撤销重做。
+
+已完成，构建与相关测试通过，见
+[验收记录](../records/2026-11-05-property-value-unification.md)。
+
+### 序列化格式边界
+
+决策见 [ADR-105](../decisions/ADR-105-serialization-format-boundary.md)。
+
+- [x] 将 JSON 接口与实现迁入 serialization，显式区分文本与字节调用。
+- [x] 拆分格式绑定，明确 JSON 专用 codec，保留资源专用二进制入口。
+- [x] 抽取 reader/writer 与共享遍历，JSON 后端接入，保留节点适配。
+- [x] 编译、格式边界与原有序列化/IPC/编辑器回归。
+
+不新增二进制通用格式、不修改现有文件格式、不引入文件系统依赖。
+
+入口与绑定拆分已完成并通过 33 项相关回归，见 [阶段验收](../records/2026-11-05-json-format-boundary.md)。
+reader/writer 及共享遍历已完成，37 项相关测试通过，见 [共享遍历验收](../records/2026-11-05-serialization-traversal.md)。
+
+### 序列化 context-first 收敛
+
+- [x] 新增统一 context，封装注册表、深度配置及递归状态。
+- [x] 通用与 JSON 入口、节点/字节回调迁移 context-first，保留便捷重载。
+- [x] 删除 JSON 专用上下文和显式 registry 序列化重载，迁移调用点。
+- [x] 验证嵌套重入限制、失败复用、注册表不匹配和现有回归。
+
+不改变持久化格式，不新增通用二进制后端；决策见 [ADR-105](../decisions/ADR-105-serialization-format-boundary.md)。
+
+统一 context 已完成，构建与 37 项相关检查通过，见[验收记录](../records/2026-11-05-serialization-context.md)。
+
+### 删除类型上的 JSON 专用注册
+
+- [x] 将资源格式头、版本和文件大小限制移到资源文件读写入口，保持已有文件格式。
+- [x] 将 value 标签及对象内容编解码迁入通用 reader/writer，支持通用特殊类型回调。
+- [x] 删除 JSON 节点/字节注册、Meta 中 JSON 回调及重复后端扩展，迁移调用与测试。
+- [x] 验证普通对象无文件头、资源文件包装、通用 value、多态/循环/错误及相关回归。
+
+普通描述仍按反射字段遍历，文件包装只在文件边界启用；不新增二进制格式。
+
+已完成，Windows Clang Debug 构建及 54 项相关测试与边界检查通过，见
+[验收记录](../records/2026-11-05-serialization-codec-cleanup.md)。
+
+### Meta 与序列化类型归属整理
+
+- [x] 诊断和编解码绑定迁入 serialization，构造和继承能力归入 Meta object_ops。
+- [x] 分离类型基础定义、注册输入与查询视图，移动内建注册实现。
+- [x] 统一内部 JSON 命名空间、ops 前置声明与 variant 分支名称 traits。
+- [x] 编译并验证序列化、多态、资源文件及分层边界，保持文件格式与运行语义。
+
+已完成，构建及 55 项相关测试与边界检查通过，见
+[验收记录](../records/2026-11-05-meta-serialization-layout.md)。
+
+### Value 通用 variant 访问与持久化
+
+- [x] 保留用户调整的 value_kind 分组编号，消除对连续编号与存储下标相等的依赖。
+- [x] Value 通过 traits 接入 variant_ops，空分支与矩阵补齐通用访问和序列化。
+- [x] 统一 $kind/$content 格式，对象分支复用多态引用，删除旧 value codec 和 IPC GUID 兼容。
+- [x] 同步资源、样例、IPC 与测试；不读取旧格式，不新增兼容代码。
+
+已完成，构建与 56 项相关测试及检查通过，见
+[验收记录](../records/2026-11-05-value-variant.md)。
+
+### 序列化六项收敛
+
+已确认：普通类型分派统一使用 Meta 分类；IPC 直接嵌入值节点并采用标准 GUID 字符串；
+Mesh JSON 保留版本 3 文件布局，不增加兼容代码。
+
+- [x] JSON 与通用 reader 共用类型分派，保留对象工厂构造。
+- [x] IPC 直接使用通用值节点，仅保留协议约束。
+- [x] Mesh JSON 反射读取描述，独立校验并转换运行数据。
+- [x] Mesh 统一 asset_file 格式头，删除 asset_json.hpp。
+- [x] 数学值统一分量读取，保留类型、长度及范围校验。
+- [x] IPC GUID 改用标准字符串，更新调用端、测试与文档。
+
+验收：编译、序列化/资源/IPC/编辑器相关回归及内部头边界检查；不运行大型场景和远端 CI。
+
+已完成，构建与 56 项相关回归通过，见
+[验收记录](../records/2026-11-05-serialization-six-cleanups.md)。
+
+### 稳定属性地址与覆盖快照
+
+目标：目标身份与完整属性路径分离；持久化覆盖不随可变列表插删而静默错位。
+非目标：XPath 文本解析、数组差异合并、多同类型组件实例、任意 C++ 指针持久化。
+
+- [x] 引入 prefab_property_target，首属性并入 path；迁移调用、文件、样例和测试。
+- [x] 补齐独立序列化快照；无身份可变列表整体覆盖，禁止持久化位置下标。
+- [x] 序列可选身份查询接入已有 UUID 的场景对象列表，支持查找失败与重号诊断。
+- [x] 统一路径解析和编辑入口；map 使用现有字符串键，暂不扩展任意键类型。
+- [x] 验证插入、删除其他元素、排序不改变稳定目标；目标删除明确失败。
+
+路径使用结构化 property/index/key/element 步骤；展示字符串不作为存档身份。
+对象类别仍由 Scene 定位，Meta 仅处理字段和容器。现有紧凑 property/index 表示继续使用，
+不为单字段再增加包装类型。旧 Prefab 覆盖文件格式不兼容；失效覆盖保留在来源记录供修复。
+
+已完成，构建及 57 项相关回归通过，见
+[验收记录](../records/2026-11-05-stable-property-paths.md)。
+
+### 统一资产服务（已完成）
+
+按 [PLAN-100](PLAN-100-unified-asset-service.md) 合并资产管理拥有者、请求与最终资产索引，
+将场景依赖准备与运行实例化分离。Windows 编译及 36 项针对性回归通过，见
+[验收记录](../records/2026-11-05-unified-asset-service.md)。
+
+### 场景服务边界（已完成）
+
+按 [PLAN-101](PLAN-101-scene-service-boundary.md) 移出通用资源批次转发，
+删除执行器借用，统一场景请求与轮询结果。资产管理、场景实例化和宿主编辑互斥保持各自职责。
+
+### 资源对象与加载重设计（实现完成）
+
+按 [PLAN-102](PLAN-102-resource-object-loading.md) 建立五类资产与共享索引，
+[PLAN-107](PLAN-107-asset-model-loading-protocol.md) 完成依赖协议、快照与生命周期收尾；
+Windows 默认编译及相关 CPU 回归通过，完整版本平台矩阵仍待验收。
+
+执行器唤醒职责收敛见 [PLAN-103](PLAN-103-executor-wakeup.md)。
+
+## 结构化值与文档迁移
+
+[PLAN-104](PLAN-104-value-document-prefab-overrides.md) 本轮范围已完成：强类型场景记录、唯一编辑入口、组件实例 UUID、版本历史与 World 同步边界。
+默认构建及 81 项相关回归通过，见[验收记录](../records/2026-11-07-structured-value-editing.md)。
+精细增量投影已由 PLAN-106 完成；嵌套 Prefab 及精确历史内存预算仍为后续独立阶段，本项不代表 DEV-052 整个版本已完成或发布。
+
+## Game Object 运行模型（已完成）
+
+按 [PLAN-105](PLAN-105-game-object-runtime-model.md) 迁移组件身份归属、统一对象命名与运行存储，
+将 Prefab 覆盖移回文档与组合阶段；具体边界见 [ADR-110](../decisions/ADR-110-game-object-runtime-model.md)。
+
+PLAN-105 已完成统一实体存储、组件身份、共享组合/应用和持久父地址；删除运行 Prefab 绑定与作者捕获。
+PLAN-106 的文档历史及增量投影继续作为编辑路径。默认构建与相关回归见
+[最终验收记录](../records/2026-11-08-game-object-model-complete.md)。本次没有执行版本发布。
+
+## 收尾审计后的明确待办
+
+2026-11-18：以下为 0.52 的唯一跨计划剩余清单；子计划维护实现细节，路线图只链接本节。
+源码、历史验收和本轮验证分开记录，证据见[收尾审计](../records/2026-11-18-version052-closeout-audit.md)。
+
+### 已退出的旧待办
+
+- A52-01 / PLAN-118 P0–P4 本地范围已完成，见[错误契约验收](../records/2026-11-18-error-contract-final-acceptance.md)；跨平台与完整交付矩阵仍归 A52-05。
+
+- Application 旧 request_assets/poll_scene/poll_assets 已退出，当前为 load_assets 与内部推进。
+- World 的 entity_create/node_create/entity_get_local_transform 旧入口已退出，调用走 GameObject/SceneInstance。
+- PLAN-108、109、110、113、116、117、120 已完成各自本地范围，不重新列为“待实施”。
+- 根模块目录、include/src 分界、多数 CMake 目标归属、协议反射链已落地；不以旧未勾选项推断需要重新迁移。
+
+### 剩余工作（按优先级）
+
+2026-11-23 收口：A52-04 专项尾项及 A52-08 未完成迁移转入 [PLAN-129](PLAN-129-next-architecture-baseline.md)。
+以下表格保留冻结时的证据；当前行为缺陷、A52-05 候选验收及 A52-06 收尾已完成，
+最终结果以[发布验收](../records/2026-11-23-0.52-release-validation.md)为准。
+
+| 编号 | 范围 | 下一步与完成条件 |
+| --- | --- | --- |
+| A52-02 | PLAN-119 / PLAN-114 | 目录、构建目标、测试组织及本地 Windows 验收已收尾，见[验收记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)；后续随接口改动维护包含闭包和测试。PLAN-114 的重叠收尾由 PLAN-119 承接，不维护两份执行队列 |
+| A52-03 | 原生保留接口 | PLAN-126 已收敛：宿主使用 Render 的 request_capture；Application 的关闭推进为私有实现，统一由 run/step 驱动；环境由宿主资产请求加载。旧接口审计项退出，见 PLAN-126 |
+| A52-04 | PLAN-115 | asset-pixel 与 pbr-negative-scale 共享/静态均通过，见[像素复测](../records/2026-11-18-asset-pixel-async-fixture.md)。当前 Clang Debug GPU 全集 20/20 通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)。真实后端预算拒绝/重试、带帧关闭零存活计数及当前双视图回读已验证，见[压力验收](../records/2026-11-19-render-pressure-acceptance.md)。资源发布命令预算拒绝与重试也已通过共享/静态验证；连续纹理版本的真实 GPU 上传及像素可见性已通过共享/静态验证；剩余设备失败路径、高并发上传饱和与代表性预算测量；小场景数据不作为通用预算依据 |
+| A52-05 | 构建与交付验收 | 共享/静态 Clang Debug 仓内完整构建与安装已通过；静态包独立消费者及共享/静态已安装 Runtime 也已通过；MSVC Release 完整构建、CPU 213/213 与 GPU 20/20 已通过，见[本轮记录](../records/2026-11-18-gpu-msvc-build-acceptance.md)；Linux GCC/Clang、Web 和 MSVC Static 仍未验证 |
+| A52-07 | PLAN-127 | World 内部所有权、系统接口及场景查看器接入已完成本地验证；多 World 验收见 [PLAN-127](PLAN-127-world-system-scheduling.md) |
+| A52-08 | PLAN-128 | 2026-11-22 宿主业务归属整理实施中，P1 视口与 P2 Editor 会话提取已完成本地自动化范围，P3 已提取 Runtime 所有权与构建边界，业务调度仍在迁移；分阶段退出条件与验收见 [PLAN-128](PLAN-128-host-business-ownership.md)，不重开 PLAN-126/127 的已完成范围 |
+| A52-06 | 文档与版本收尾 | 完成以上范围后同步版本交付说明与限制，检查当前 Guide/Reference 的过时路径和行为；本次收尾已获完整发布授权，候选通过验收后统一执行 |
+
+本轮验证只关闭已取得证据的验证缺口，不自动完成上述代码审计和 GPU 工作。
+
+### 后续独立能力
+
+流送、嵌套 Prefab、精确历史内存预算及无 Render 的渲染资产创建不在本版本轮整理范围，
+不作为本批已实现能力，也不借审计扩展实现。
+
+## 新确认资产模型
+
+[PLAN-107](PLAN-107-asset-model-loading-protocol.md) 承接 PLAN-102 的依赖协议与资产内容边界，按
+[ADR-112](../decisions/ADR-112-asset-loading-protocol.md) 完成统一调度、依赖环检查、类型化入口和 CPU/后端析构分离。
+验证范围见[收尾记录](../records/2026-11-08-asset-loading-protocol-completion.md)。
+
+
+## 资产管理器实现所有权收敛
+
+本轮限定为内部封装整理，不更改 PLAN-107 的加载协议或增加缓存。
+
+- [x] resource_state 收敛为唯一 implementation；构造适配器作为 construction 成员归入其中。
+- [x] 归拢读取、任务调度、完成推进、回收与停止收尾，析构复用完整收尾入口。
+- [x] 删除 render_load_operation::advance 未使用的构造适配器参数。
+- [x] 运行资产缓存、依赖、重载、停止及内容发布的已有定向回归；6 项测试/边界检查通过。
+
+不新增只验证成员名称或 PImpl 布局的测试；接口与所有权见
+[资产参考](../reference/assets.md#管理器内部所有权)。CPU 与渲染装配操作统一另行评估。
+
+## World 内部封装收敛
+
+本轮保持 GameObject、SceneInstance 与 World 的外部接口及所有权不变。
+
+- [x] world_state 改为 World 私有 implementation；场景槽位限制为 World/SceneInstance 管理。
+- [x] 对象名称、变换和重挂接归入 game_object.cpp，删除 world_hierarchy 类及其常驻成员。
+- [x] 场景卸载一次收集成员 ID，覆盖对象子树和辅助实体。
+- [x] 变换测试迁移到正式对象 API；删除 Prefab 编解码测试中的重复层级运算检查。
+- [x] Windows Clang Debug 定向构建及 9 项回归通过，覆盖层级变换、场景卸载、组件、Prefab、渲染同步与头文件边界。
+
+本轮未执行 GPU 运行和跨平台/静态库完整矩阵，不作为版本发布验收。
+
+实现职责与调用边界见[场景树参考](../reference/scene-tree.md#内部实现归属)。
+
+## 场景借用句柄贯通
+
+- [x] 实例化回执、Runtime 加载/重载、编辑器会话及异步回执保存 scene_instance。
+- [x] apply_scene、编辑器投影和 adopt 移除重复 World 参数；句柄统一提供所属 World。
+- [x] scene_instance_id 保留于 World 内部存储及 id/borrow 身份边界；句柄仍不拥有场景。
+- [x] Windows Clang Debug 默认构建通过；21 项定向回归通过，覆盖实例化、跨 World、卸载失效、Runtime 重载和编辑器历史/保存。
+
+本轮未执行 GPU 画面与跨平台/静态库矩阵。场景句柄依旧要求 World 覆盖其使用期。
+
+接口和生命周期见[场景实例参考](../reference/scene-instance.md#运行期身份与所有权)。
+
+## 应用与场景边界收尾
+
+[PLAN-113](PLAN-113-application-scene-boundaries.md) 的实现与 Windows CPU 验收已完成，
+包括多场景隔离、宿主重载、编辑投影、取消/关闭及依赖边界。
+验证证据与迁移差异见[收尾记录](../records/2026-11-12-plan113-completion.md)。
+本轮不修改运行代码；版本 GPU、跨平台及共享/静态完整矩阵仍未完成。
+
+## Meta 整体值转换补充
+
+类型结构与整体值转换解耦见 [PLAN-121](PLAN-121-meta-value-conversion.md)，不改变默认 JSON 格式。
+
+内置与用户值类型的静态表示能力见 [PLAN-123](PLAN-123-static-representation.md)；
+原独立表方案见 PLAN-122 的历史记录。

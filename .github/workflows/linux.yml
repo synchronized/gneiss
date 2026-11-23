@@ -38,10 +38,10 @@ jobs:
         shell: bash
         run: |
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
-          emcmake cmake -S tests/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          emcmake cmake -S tests/engine/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
           cmake --build build/task-web
           google-chrome --version
-          python3 tests/task_web/run_browser.py --build build/task-web --browser "$(command -v google-chrome)"
+          python3 tests/engine/task_web/run_browser.py --build build/task-web --browser "$(command -v google-chrome)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -107,7 +107,15 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston-core.log"
             exit 1
           }
-          xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180
+          if ! xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180; then
+            # 保留失败，并为异步纹理加载的跨平台崩溃收集原生栈。
+            if ! command -v gdb >/dev/null; then
+              apt-get update && apt-get install -y gdb
+            fi
+            timeout --signal=INT --kill-after=10s 90s gdb --batch -ex run -ex 'thread apply all bt 20' --args \
+              "build/${{ steps.preset.outputs.name }}/bin/gneiss_texture_load_service_test" || true
+            exit 1
+          fi
           python3 -B scripts/performance/test_prepare_sponza.py
           python3 -B scripts/performance/test_validate_runtime_loop.py
       - name: 输出编译缓存统计
@@ -142,7 +150,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .cache/fetchcontent
-          key: linux-runtime-fetch-${{ hashFiles('cmake/*.cmake') }}
+          key: linux-runtime-fetch-${{ hashFiles('cmake/**/*.cmake') }}
       - name: 选择 preset
         id: preset
         shell: bash
@@ -242,7 +250,7 @@ jobs:
             -DGNEISS_ENABLE_SANITIZERS=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH
           cmake --build --preset linux-gcc-debug \
-            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_native_application_test \
+            --target gneiss_scene_viewer gneiss_scene_instance_test gneiss_native_application_test \
               gneiss_scene_load_application_test gneiss_scene_load_preparation_test \
               gneiss_scene_instantiation_test \
               gneiss_texture_load_service_test gneiss_render_asset_loader_test gneiss_prefab_runtime_instance_test
@@ -270,15 +278,15 @@ jobs:
           set +e
           device_failure_output=$(
             VK_ICD_FILENAMES="$RUNNER_TEMP/missing-vulkan-icd.json" \
-              "$PWD/build/linux-gcc-debug/bin/gneiss_stable_runtime_example" --smoke 2>&1
+              "$PWD/build/linux-gcc-debug/bin/gneiss_scene_viewer" --smoke 2>&1
           )
           device_failure_status=$?
           set -e
           printf '%s\n' "$device_failure_output"
           [[ "$device_failure_status" -ne 0 ]]
-          grep -F '阶段=创建 Application，结果=-5' <<<"$device_failure_output"
+          grep -F '阶段=场景查看器生命周期，结果=-5' <<<"$device_failure_output"
           ctest --preset linux-gcc-debug \
             -R '^gneiss\.(native-application|scene_instance|scene-load-application|scene-load-preparation|scene-instantiation|texture-load-service|render_asset_loader|prefab_binding)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \
             xvfb-run -a ctest --preset linux-gcc-debug \
-            -R '^gneiss\.stable_runtime_example$'
+            -R '^gneiss\.scene-viewer$'

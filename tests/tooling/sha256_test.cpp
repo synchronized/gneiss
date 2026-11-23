@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/sha256.hpp"
+#include "build/sha256.hpp"
 
 #include <algorithm>
 #include <array>
@@ -112,11 +112,11 @@ int main() try {
   for (const auto length : {0U, 1U, 55U, 56U, 63U, 64U, 65U, 119U, 120U, 128U, 257U}) {
     const std::string input(length, 'a');
     const auto data = std::as_bytes(std::span{input});
-    const auto expected = gneiss::engine::sha256(data);
+    const auto expected = gneiss::sha256(data);
     for (std::size_t split = 0U; split <= data.size(); ++split) {
-      gneiss::engine::sha256_builder builder;
+      gneiss::sha256_builder builder;
       builder.update(data.first(split));
-      if (builder.digest() != gneiss::engine::sha256(data.first(split))) {
+      if (builder.digest() != gneiss::sha256(data.first(split))) {
         return 13;
       }
       builder.update({});
@@ -126,7 +126,7 @@ int main() try {
       }
     }
   }
-  gneiss::engine::sha256_builder million;
+  gneiss::sha256_builder million;
   const std::string block(1000U, 'a');
   for (int index = 0; index < 1000; ++index) {
     million.update(std::as_bytes(std::span{block}));

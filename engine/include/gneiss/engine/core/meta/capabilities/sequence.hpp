@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#pragma once
+#include <gneiss/engine/core/meta/export.hpp>
+
+#include <gneiss/engine/core/meta/capabilities/container.hpp>
+
+namespace gneiss::meta::cap {
+/** 不依赖容器实例的类型能力；保活类型上下文，不复制能力数据。 */
+class sequence : public container<type_kind::sequence, basic_sequence_view> {
+public:
+  using container::container;
+  /** 下列查询要求有效能力视图。 */
+  [[nodiscard]] GNEISS_META_API bool is_fixed_size() const noexcept;
+  [[nodiscard]] GNEISS_META_API bool has_identity() const noexcept;
+  [[nodiscard]] GNEISS_META_API bool is_resizable() const noexcept;
+  [[nodiscard]] GNEISS_META_API bool supports_replacement() const noexcept;
+};
+}

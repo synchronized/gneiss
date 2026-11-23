@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/texture/texture_binary.hpp"
+#include <gneiss/engine/resource/texture/texture_binary.hpp>
 
 #include <granit/renderer/texture_asset.hpp>
 
@@ -27,7 +27,7 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
     return 1;
   }
   input.close();
-  auto binary = gneiss::engine::decode_texture_binary(bytes);
+  auto binary = gneiss::decode_texture_binary(bytes);
   if (!binary || binary->payload.empty()) {
     return 1;
   }

@@ -1,0 +1,420 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include <gneiss/engine/function/files/types.hpp>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/type_id.hpp>
+#include "function/asset/detail/load_operation.hpp"
+#include "function/asset/resource_cache.hpp"
+
+#include <array>
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <string>
+#include <vector>
+
+template <class T> struct test_asset final : gneiss::asset {
+  explicit test_asset(T v) : asset(gneiss::runtime_type_of<test_asset<T>>()), value(v) {}
+  T value;
+};
+template <class Loader>
+gneiss::error load_cached(
+    gneiss::resource_cache& cache, std::string_view uri, gneiss::type_id type,
+    Loader loader, std::shared_ptr<const gneiss::asset>& output,
+    std::shared_ptr<const gneiss::files::source_domain> source = {}, bool reload = false) {
+  auto loaded = cache.load(
+      uri, type,
+      [&]() -> gneiss::result<std::shared_ptr<const gneiss::asset>> {
+        std::shared_ptr<const gneiss::asset> value;
+        auto status = loader(value);
+        if (status.failed())
+          return status;
+        return value;
+      },
+      std::move(source), reload);
+  if (!loaded) {
+    output = {};
+    return loaded.error();
+  }
+  output = std::move(loaded->resource);
+  return gneiss::error::success;
+}
+int main() try {
+  {
+    using namespace gneiss;
+    auto work = std::make_shared<detail::load_operation>();
+    asset_request<int> request(work->observer);
+    auto ready = std::make_shared<detail::operation_queue<detail::load_operation>>();
+    detail::connect_operation(work, ready);
+    std::map<detail::load_operation*, std::shared_ptr<detail::load_operation>> active{
+        {work.get(), work}};
+    int resumed{};
+    const auto step = [&] {
+      detail::advance_load_operations(
+          active, *ready, [&](const auto&) { ++resumed; }, [](const auto&) {});
+    };
+    for (int frame = 0; frame < 16; ++frame)
+      step();
+    if (resumed != 0)
+      return 34; // 没有通知的等待项不能每帧恢复。
+    work->notify();
+    work->notify();
+    step();
+    step();
+    if (resumed != 1)
+      return 35;
+    request.cancel();
+    step();
+    if (!active.empty() || work->observer->status != error::invalid_state)
+      return 36;
+    ready.reset();
+    work->notify(); // 关闭后的迟到通知不能访问已销毁队列。
+  }
+
+  {
+    using namespace gneiss;
+    auto first = std::make_shared<detail::load_operation>();
+    auto appended = std::make_shared<detail::load_operation>();
+    auto abandoned = std::make_shared<detail::load_operation>();
+    asset_request<int> first_request(first->observer), appended_request(appended->observer);
+    auto record = std::make_shared<detail::asset_entry>();
+    abandoned->entry = record;
+    record->loading = abandoned;
+    std::map<detail::load_operation*, std::shared_ptr<detail::load_operation>> queue{
+        {first.get(), first}, {abandoned.get(), abandoned}};
+    auto ready = std::make_shared<detail::operation_queue<detail::load_operation>>();
+    detail::connect_operation(first, ready);
+    detail::connect_operation(abandoned, ready);
+    detail::connect_operation(appended, ready);
+    first->notify();
+    first->notify(); // 重复通知合并为一次恢复。
+    abandoned->notify();
+    int advanced{}, cancelled{};
+    detail::advance_load_operations(
+        queue, *ready,
+        [&](const auto& work) {
+          ++advanced;
+          queue.emplace(appended.get(), appended);
+          appended->notify(); // 本轮消费开始后提交的通知留到下一轮。
+          work->complete(error::success);
+        },
+        [&](const auto& work) {
+          if (work == abandoned)
+            ++cancelled;
+        });
+    if (advanced != 1 || cancelled != 1 || queue.size() != 1 || !queue.contains(appended.get()) ||
+        record->loading || abandoned->observer->status != error::invalid_state ||
+        appended_request.status() != error::not_ready)
+      return 32;
+    detail::advance_load_operations(
+        queue, *ready,
+        [&](const auto& work) {
+          ++advanced;
+          work->complete(error::io);
+        },
+        [&](const auto&) { ++cancelled; });
+    if (advanced != 2 || cancelled != 1 || !queue.empty() ||
+        appended_request.status() != error::io || first_request.status() != error::success)
+      return 33;
+  }
+  {
+    using namespace gneiss;
+    auto record = std::make_shared<detail::asset_entry>();
+    auto operation = std::make_shared<detail::load_operation>();
+    operation->entry = record;
+    record->loading = operation;
+    if (operation->complete(error::not_ready) || !operation->is_current())
+      return 28;
+    auto value = std::make_shared<const int>(42);
+    if (!operation->complete(error::success, {}, value, 16) || record->loading ||
+        operation->observer->value != value || operation->observer->source_bytes != 16 ||
+        operation->observer->diagnostic.error != error::success)
+      return 29;
+    operation->stop();
+    if (operation->complete(error::io) || operation->observer->status != error::success ||
+        operation->observer->value != value)
+      return 30;
+    auto stopped = std::make_shared<detail::load_operation>();
+    stopped->stop();
+    if (stopped->complete(error::success, {}, value) ||
+        stopped->observer->status != error::invalid_state || stopped->observer->value)
+      return 31;
+  }
+  {
+    using namespace gneiss;
+    auto record = std::make_shared<detail::asset_entry>();
+    auto first = std::make_shared<detail::load_operation>();
+    first->entry = record;
+    record->loading = first;
+    asset_request<int> subscriber(first->observer);
+    auto second_subscriber = subscriber;
+    if (!first->is_current() || !first->has_observers())
+      return 23;
+    subscriber.cancel();
+    if (!first->has_observers())
+      return 24;
+    second_subscriber.cancel();
+    if (first->has_observers())
+      return 25;
+    auto replacement = std::make_shared<detail::load_operation>();
+    replacement->entry = record;
+    record->loading = replacement;
+    first->stop();
+    if (first->is_current() || !replacement->is_current() || record->loading != replacement ||
+        first->observer->status != error::invalid_state)
+      return 26;
+    replacement->stop();
+    replacement->stop(); // 重复收尾不改变其他记录。
+    if (record->loading || replacement->is_current())
+      return 27;
+  }
+
+  {
+    using namespace gneiss;
+    resource_cache cache;
+    auto owner = std::make_shared<const test_asset<int>>(23);
+    {
+      auto loaded = cache.load("asset://owner", runtime_type_of<test_asset<int>>(),
+                               [&]() -> result<std::shared_ptr<const gneiss::asset>> {
+                                 return std::shared_ptr<const gneiss::asset>{owner};
+                               });
+      if (!loaded || loaded->resource.owner_before(owner) || owner.owner_before(loaded->resource))
+        return 18;
+    }
+    cache.release_unused();
+    if (cache.observe("asset://owner", runtime_type_of<test_asset<int>>()).lock() != owner)
+      return 19;
+    owner.reset();
+    if (!cache.observe("asset://owner", runtime_type_of<test_asset<int>>()).expired())
+      return 20;
+    cache.release_unused();
+    if (cache.size() != 0)
+      return 21;
+  }
+
+  {
+    using namespace gneiss;
+    resource_cache cache;
+    const detail::asset_key key{{}, "asset://loading", runtime_type_of<test_asset<int>>(), {}};
+    auto record = cache.acquire(key);
+    auto operation = std::make_shared<detail::load_operation>();
+    std::weak_ptr<detail::load_operation> lifetime = operation;
+    record->loading = std::move(operation);
+    cache.release_unused();
+    if (cache.acquire(key) != record || lifetime.expired())
+      return 14;
+    auto failed = cache.load(
+        "asset://loading", runtime_type_of<test_asset<int>>(),
+        []() -> result<std::shared_ptr<const gneiss::asset>> { return error::io; });
+    if (failed || cache.acquire(key) != record || lifetime.expired() || cache.size() != 0)
+      return 15;
+    cache.clear_loading();
+    if (!lifetime.expired())
+      return 16;
+    cache.release_unused();
+    if (cache.acquire(key) == record)
+      return 17;
+  }
+  {
+    using namespace gneiss;
+    resource_cache cache;
+    int calls = 0;
+    const auto decode = [&]() -> result<std::shared_ptr<const gneiss::asset>> {
+      ++calls;
+      return std::shared_ptr<const gneiss::asset>(
+          std::make_shared<const test_asset<int>>(42));
+    };
+    auto loaded = cache.load("asset://direct", runtime_type_of<test_asset<int>>(), decode);
+    if (!loaded || loaded->as<test_asset<int>>()->value != 42)
+      return 10;
+    auto wrong_type = cache.load(
+        "asset://direct", runtime_type_of<test_asset<int>>(),
+        []() -> result<std::shared_ptr<const asset>> {
+          return std::shared_ptr<const asset>{std::make_shared<const test_asset<float>>(1.0F)};
+        },
+        {}, true);
+    if (wrong_type || wrong_type.error() != error::invalid_argument ||
+        cache.lookup("asset://direct", runtime_type_of<test_asset<int>>())->resource !=
+            loaded->resource ||
+        loaded->as<test_asset<float>>())
+      return 22;
+    auto failed = cache.load(
+        "asset://direct", runtime_type_of<test_asset<int>>(),
+        []() -> result<std::shared_ptr<const gneiss::asset>> { return error::io; }, {},
+        true);
+    if (failed || failed.error() != error::io)
+      return 11;
+    auto cached = cache.load("asset://direct", runtime_type_of<test_asset<int>>(), decode);
+    if (!cached || cached->resource != loaded->resource || calls != 1)
+      return 12;
+  }
+  {
+    using namespace gneiss;
+    using gneiss::error;
+    resource_cache index;
+    auto source_a = std::make_shared<gneiss::files::source_domain>();
+    auto source_b = std::make_shared<gneiss::files::source_domain>();
+    std::shared_ptr<const gneiss::asset> a, b, c, again;
+    const auto integer = [](auto& output) {
+      output = std::make_shared<const test_asset<int>>(42);
+      return error::success;
+    };
+    const auto real = [](auto& output) {
+      output = std::make_shared<const test_asset<float>>(3.0F);
+      return error::success;
+    };
+    if (load_cached(index, "asset://same", gneiss::runtime_type_of<test_asset<int>>(),
+                    integer, a, source_a) != error::success ||
+        load_cached(index, "asset://same", gneiss::runtime_type_of<test_asset<float>>(),
+                    real, b, source_a) != error::success ||
+        load_cached(index, "asset://same", gneiss::runtime_type_of<test_asset<int>>(),
+                    integer, c, source_b) != error::success ||
+        load_cached(index, "asset://same", gneiss::runtime_type_of<test_asset<int>>(),
+                    integer, again, source_a) != error::success ||
+        index.size() != 3U || a != again || a == b || a == c ||
+        index.observe("asset://same", gneiss::runtime_type_of<test_asset<int>>(), source_a)
+                .lock()
+                .get() != a.get())
+      return 7;
+    auto held = std::static_pointer_cast<const test_asset<int>>(a);
+    a.reset();
+    b.reset();
+    c.reset();
+    again.reset();
+    index.release_unused();
+    if (index.size() != 1U || held->value != 42)
+      return 7;
+    held.reset();
+    if (!index.observe("asset://same", runtime_type_of<test_asset<int>>(), source_a).expired())
+      return 13;
+    index.release_unused();
+    if (index.size() != 0U)
+      return 7;
+  }
+
+  gneiss::resource_cache cache;
+  std::size_t load_count = 0;
+  auto loader = [&load_count](std::shared_ptr<const gneiss::asset>& resource) {
+    ++load_count;
+    resource = std::make_shared<test_asset<int>>(42);
+    return gneiss::error::success;
+  };
+  std::shared_ptr<const gneiss::asset> first;
+  std::shared_ptr<const gneiss::asset> second;
+  if (load_cached(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), loader,
+                  first) != gneiss::error::success ||
+      load_cached(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), loader,
+                  second) != gneiss::error::success ||
+      load_count != 1U || first != second || cache.size() != 1U) {
+    return 3;
+  }
+  auto reloader = [&load_count](std::shared_ptr<const gneiss::asset>& resource) {
+    ++load_count;
+    resource = std::make_shared<test_asset<int>>(84);
+    return gneiss::error::success;
+  };
+  if (load_cached(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), reloader, second, {},
+                  true) != gneiss::error::success ||
+      load_count != 2U || first == second ||
+      static_cast<const test_asset<int>*>(first.get())->value != 42 ||
+      static_cast<const test_asset<int>*>(second.get())->value != 84 || cache.size() != 1U) {
+    return 3;
+  }
+  std::shared_ptr<const gneiss::asset> failed_reload;
+  const auto failed_reloader = [](std::shared_ptr<const gneiss::asset>&) {
+    return gneiss::error::io;
+  };
+  if (load_cached(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), failed_reloader,
+                  failed_reload, {}, true) != gneiss::error::io ||
+      failed_reload ||
+      load_cached(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), loader,
+                  failed_reload) != gneiss::error::success ||
+      failed_reload != second || load_count != 2U) {
+    return 3;
+  }
+  // 抛异常与空结果都不能污染索引，重载失败仍可获取旧值。
+  const auto throwing = [](std::shared_ptr<const gneiss::asset>&) -> gneiss::error {
+    throw std::bad_alloc{};
+  };
+  const auto propagates = [&](auto&&... args) {
+    try {
+      (void)load_cached(std::forward<decltype(args)>(args)...);
+    } catch (const std::bad_alloc&) {
+      return true;
+    }
+    return false;
+  };
+  if (!propagates(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), throwing, failed_reload,
+                  std::shared_ptr<const gneiss::files::source_domain>{}, true) ||
+      load_cached(cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), loader,
+                  failed_reload) != gneiss::error::success ||
+      failed_reload != second)
+    return 8;
+  if (!propagates(cache, "asset://throws", gneiss::runtime_type_of<test_asset<int>>(),
+                  throwing, first) ||
+      cache.size() != 1U)
+    return 8;
+  const auto empty = [](std::shared_ptr<const gneiss::asset>&) {
+    return gneiss::error::success;
+  };
+  if (load_cached(cache, "asset://empty", gneiss::runtime_type_of<test_asset<int>>(), empty,
+                  first) != gneiss::error::internal ||
+      cache.size() != 1U)
+    return 8;
+  const auto recursive = [&](std::shared_ptr<const gneiss::asset>& output) {
+    // 回调提前写入对象仍未完成创建，不能绕过同键递归保护。
+    output = std::make_shared<test_asset<int>>(7);
+    decltype(first) nested;
+    if (load_cached(cache, "asset://recursive", gneiss::runtime_type_of<test_asset<int>>(),
+                    loader, nested) != gneiss::error::invalid_state)
+      return gneiss::error::internal;
+    cache.release_unused(); // 加载中的条目必须由当前调用保活。
+    return gneiss::error::success;
+  };
+  if (load_cached(cache, "asset://recursive", gneiss::runtime_type_of<test_asset<int>>(),
+                  recursive, first) != gneiss::error::success ||
+      cache.size() != 2U)
+    return 8;
+  first.reset();
+  second.reset();
+  failed_reload.reset();
+  cache.release_unused();
+  if (cache.size() != 0U) {
+    return 4;
+  }
+
+  std::size_t failure_count = 0;
+  auto failing_loader = [&failure_count](std::shared_ptr<const gneiss::asset>&) {
+    ++failure_count;
+    return gneiss::error::io;
+  };
+  if (load_cached(cache, "asset://models/broken.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), failing_loader,
+                  first) != gneiss::error::io ||
+      load_cached(cache, "asset://models/broken.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), failing_loader,
+                  first) != gneiss::error::io ||
+      failure_count != 2U || cache.size() != 0U) {
+    return 5;
+  }
+
+  gneiss::resource_cache other_cache;
+  if (load_cached(other_cache, "asset://models/triangle.mesh",
+                  gneiss::runtime_type_of<test_asset<int>>(), loader,
+                  first) != gneiss::error::success ||
+      load_count != 3U) {
+    return 6;
+  }
+  return 0;
+} catch (...) {
+  return 99;
+}

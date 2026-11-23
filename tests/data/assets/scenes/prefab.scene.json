@@ -6,7 +6,7 @@
     {
       "uuid": "30000000-0000-4000-8000-000000000011",
       "name": "Anchor",
-      "parent": null,
+      "parent": {"object":null,"source":null},
       "transform": {
         "translation": [
           0,
@@ -29,22 +29,31 @@
     },
     {
       "name": "Lamp Instance",
-      "parent": "30000000-0000-4000-8000-000000000011",
+      "parent": {"object":"30000000-0000-4000-8000-000000000011","source":null},
       "prefab": {
         "uri": "asset://prefabs/test.prefab.json",
         "overrides": [
           {
-            "source_node_uuid": "30000000-0000-4000-8000-000000000002",
-            "type_guid": "69644f20b2d24e488c7491f4f952ec2d",
-            "property_id": 1,
-            "value": {
-              "kind": "vec3",
-              "value": [
+            "key": {
+              "target": {
+                "source_node_uuid": "30000000-0000-4000-8000-000000000002",
+                "target_type_guid": "69644f20-b2d2-4e48-8c74-91f4f952ec2d","component_uuid":null
+              },
+              "path": [
+                {
+                  "$kind": "property",
+                  "$content": 1
+                }
+              ]
+            },
+            "operation":{"$kind":"set","$content":{"content":{
+              "$kind": "vec3",
+              "$content": [
                 3,
                 0,
                 0
               ]
-            }
+            }}}
           }
         ]
       },

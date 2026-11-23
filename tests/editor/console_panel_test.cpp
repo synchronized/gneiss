@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "panels/console_panel.hpp"
+#include "ui/panels/console_panel.hpp"
 
 #include <imgui.h>
 
@@ -39,13 +39,14 @@ bool verify_visible_state() {
   const auto next_session = model.begin_session();
   if (model.append_raw(session, "old").failed() ||
       model
-          .append_event(next_session,
-                        {
-                            .severity = static_cast<std::uint32_t>(gneiss::engine::level::error),
-                            .source = "game",
-                            .category = "asset",
-                            .message = "failed",
-                        })
+          .append_event(
+              next_session,
+              {
+                  .severity = static_cast<std::uint32_t>(gneiss::logging::level::error),
+                  .source = "game",
+                  .category = "asset",
+                  .message = "failed",
+              })
           .failed()) {
     return false;
   }
@@ -93,7 +94,7 @@ int main() try {
                      {
                          .running = true,
                          .attempted = true,
-                         .operation = gneiss::engine::error::io,
+                         .operation = gneiss::error::io,
                          .log_path = "borrowed/runtime.log",
                      },
                      actions);

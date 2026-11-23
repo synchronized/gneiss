@@ -5,15 +5,15 @@
 #include "../support/value_result.hpp"
 #include "documents/document_editing.hpp"
 #include "documents/editor_scene_loader.hpp"
-#include "engine/core/error.hpp"
-#include "engine/core/guid.hpp"
-#include "engine/core/meta/serialization.hpp"
-#include "engine/core/rid.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/function/scene/scene_instances.hpp"
-#include "engine/resource/builtin_resource_registration.hpp"
-#include "runtime/application.hpp"
 #include <fstream>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/base/guid.hpp>
+#include <gneiss/engine/core/base/rid.hpp>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/builtin_resource_registration.hpp>
 #include <iterator>
 
 namespace {
@@ -28,19 +28,22 @@ struct save_directory {
     std::filesystem::remove(path, error);
   }
 };
-bool save_codec_contract(gneiss::runtime::application& application) {
-  namespace e = gneiss::engine;
-  gneiss::engine::guid uuid;
+bool save_codec_contract(gneiss::app::application& application) {
+  namespace e = gneiss;
+  gneiss::guid uuid;
   if (gneiss::editor::make_editor_uuid(uuid).failed())
     return false;
   save_directory directory{std::filesystem::temp_directory_path() /
                            ("gneiss-save-" + uuid.string())};
   if (!std::filesystem::create_directory(directory.path))
     return false;
-  gneiss::editor::scene_document document;
-  if (document.create_empty(application, application.native_world()).failed())
+  auto created_world = gneiss::create_native();
+  if (!created_world)
     return false;
-  gneiss::scene_node_id node;
+  gneiss::editor::scene_edit_session document;
+  if (document.create_empty(application, created_world->get()).failed())
+    return false;
+  gneiss::entity_id node;
   if (document.create_node("保存节点", {}, node).failed())
     return false;
   e::math::transform local{};
@@ -48,11 +51,9 @@ bool save_codec_contract(gneiss::runtime::application& application) {
   if (document.set_local_transform(node, local).failed())
     return false;
   e::scene_description snapshot;
-  snapshot.uuid = *gneiss::engine::guid::parse("c2df6015-0d50-5e09-a7d1-14d5b9c0232e");
-  if (gneiss::test_support::assign_value(
-          application.scenes()->capture_description(gneiss::scene_instance_id{}), snapshot) !=
-          e::error::invalid_handle ||
-      snapshot.uuid != *gneiss::engine::guid::parse("c2df6015-0d50-5e09-a7d1-14d5b9c0232e"))
+  gneiss::editor::scene_edit_session closed;
+  auto invalid = closed.capture_content();
+  if (invalid || invalid.error() != e::error::invalid_state)
     return false;
   std::string saved;
   if (gneiss::test_support::save_document(document, directory.path, &saved,
@@ -60,12 +61,10 @@ bool save_codec_contract(gneiss::runtime::application& application) {
           .failed() ||
       document.is_dirty())
     return false;
-  gneiss::engine::meta::registry_ref registry;
-  gneiss::engine::meta::serialization_diagnostic diagnostic;
-  if (gneiss::test_support::assign_value(e::meta::default_registry(), registry).failed() ||
-      gneiss::test_support::assign_decoded(
-          gneiss::engine::meta::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
-              registry, std::as_bytes(std::span{saved.data(), saved.size()})),
+  gneiss::serialization::diagnostic diagnostic;
+  if (gneiss::test_support::assign_decoded(
+          gneiss::asset_file::deserialize<std::remove_cvref_t<decltype(snapshot)>>(
+              std::as_bytes(std::span{saved.data(), saved.size()})),
           snapshot, diagnostic)
           .failed() ||
       snapshot.objects.size() != 1 || snapshot.objects.front().name != "保存节点" ||
@@ -93,10 +92,9 @@ bool save_codec_contract(gneiss::runtime::application& application) {
 class pending_operation final : public gneiss::editor::editor_history_operation {
 public:
   explicit pending_operation(bool& cancelled) : cancelled_(cancelled) {}
-  gneiss::engine::error advance(bool& complete) noexcept override {
+  gneiss::error advance(bool& complete) noexcept override {
     complete = ++steps_ == 2;
-    return complete && cancelled_ ? gneiss::engine::error::invalid_state
-                                  : gneiss::engine::error::success;
+    return complete && cancelled_ ? gneiss::error::invalid_state : gneiss::error::success;
   }
   void cancel() noexcept override { cancelled_ = true; }
 
@@ -106,71 +104,73 @@ private:
 };
 class pending_command final : public gneiss::editor::editor_command {
 public:
-  pending_command(gneiss::editor::scene_document& document, bool& cancelled, bool& released)
+  pending_command(gneiss::editor::scene_edit_session& document, bool& cancelled, bool& released)
       : document_(document), cancelled_(cancelled), released_(released) {}
   ~pending_command() override { released_ = document_.is_open(); }
   std::string_view label() const noexcept override { return "关闭顺序验证"; }
-  gneiss::engine::error undo() noexcept override { return gneiss::engine::error::invalid_state; }
-  gneiss::engine::error redo() noexcept override { return gneiss::engine::error::invalid_state; }
-  gneiss::engine::error begin_history_operation(
+  gneiss::error undo() noexcept override { return gneiss::error::invalid_state; }
+  gneiss::error redo() noexcept override { return gneiss::error::invalid_state; }
+  gneiss::error begin_history_operation(
       bool, std::unique_ptr<gneiss::editor::editor_history_operation>& output) noexcept override {
     try {
       output = std::make_unique<pending_operation>(cancelled_);
     } catch (...) {
-      return gneiss::engine::error::out_of_memory;
+      return gneiss::error::out_of_memory;
     }
-    return gneiss::engine::error::success;
+    return gneiss::error::success;
   }
 
 private:
-  gneiss::editor::scene_document& document_;
+  gneiss::editor::scene_edit_session& document_;
   bool& cancelled_;
   bool& released_;
 };
 }
 int main() try {
-  if (gneiss::engine::initialize_meta().failed())
+  if (gneiss::initialize_meta().failed())
     return 99;
-  std::shared_ptr<gneiss::runtime::application> application;
-  if (gneiss::runtime::application::create({}, application) != gneiss::engine::error::success)
+  std::shared_ptr<gneiss::app::application> application;
+  if (gneiss::test_support::assign_value(gneiss::app::application::create({}), application) !=
+      gneiss::error::success)
     return 1;
   if (!save_codec_contract(*application))
     return 12;
+  auto created_world = gneiss::create_native();
+  if (!created_world)
+    return 1;
   bool cancelled = false;
   bool released_while_open = false;
   gneiss::editor::document_editing editing;
-  if (editing.create_empty(*application, application->native_world()).failed())
+  if (editing.create_empty(*application, created_world->get()).failed())
     return 2;
   const auto scene = editing.document().scene_handle();
   if (editing.history()
           .record(
               std::make_unique<pending_command>(editing.document(), cancelled, released_while_open))
           .failed() ||
-      editing.history().undo() != gneiss::engine::error::not_ready || !editing.active())
+      editing.history().undo() != gneiss::error::not_ready || !editing.active())
     return 3;
   // 拒绝关闭不能提前释放历史或场景；取消后仍需排空异步操作。
-  if (editing.close() != gneiss::engine::error::not_ready ||
-      editing.document().scene_handle() != scene || editing.history().size() != 1 ||
-      released_while_open)
+  if (editing.close() != gneiss::error::not_ready || editing.document().scene_handle() != scene ||
+      editing.history().size() != 1 || released_while_open)
     return 4;
   gneiss::editor::editor_scene_loader loader;
   gneiss::editor::editor_camera camera;
-  auto world = application->native_world();
+  auto world = created_world->get();
   bool changed = true;
-  if (editing.create_empty(*application, world) != gneiss::engine::error::not_ready ||
-      loader.request(*application, editing, "asset://scene.json") !=
-          gneiss::engine::error::not_ready ||
-      loader.active() || loader.advance(*application, editing, world, camera, changed).failed() ||
+  if (editing.create_empty(*application, world) != gneiss::error::not_ready ||
+      loader.request(*application, editing, "asset://scene.json") != gneiss::error::not_ready ||
+      loader.active() || loader.advance(*application, editing, *world, camera, changed).failed() ||
       changed || editing.document().scene_handle() != scene)
     return 8;
   editing.cancel(*application);
   editing.advance_cleanup(*application);
-  if (!cancelled || !editing.active() || editing.close() != gneiss::engine::error::not_ready)
+  if (!cancelled || !editing.active() || editing.close() != gneiss::error::not_ready)
     return 5;
   editing.advance_cleanup(*application);
-  if (editing.active() || editing.close() != gneiss::engine::error::success ||
-      !released_while_open || editing.document().is_open() || editing.history().size() != 0 ||
-      editing.close() != gneiss::engine::error::success)
+  if (editing.active() || editing.close() != gneiss::error::success || !released_while_open ||
+      editing.document().is_open() || editing.history().size() != 0 ||
+      editing.close() != gneiss::error::success)
     return 6;
   // 新建失败不能丢失可撤销历史；成功后先释放旧命令，再替换文档。
   if (editing.create_empty(*application, world).failed())
@@ -181,7 +181,7 @@ int main() try {
           .record(
               std::make_unique<pending_command>(editing.document(), cancelled, released_while_open))
           .failed() ||
-      editing.create_empty(*application, nullptr) != gneiss::engine::error::invalid_argument ||
+      editing.create_empty(*application, nullptr) != gneiss::error::invalid_argument ||
       editing.document().scene_handle() != original || !editing.history().can_undo() ||
       released_while_open)
     return 10;

@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
-#include "../support/movement_component.hpp"
-#include "commands/editor_command_history.hpp"
-#include "commands/prefab_authoring.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
+#include "../support/movement_editor.hpp"
+#include "documents/commands/editor_command_history.hpp"
+#include "documents/commands/prefab_authoring.hpp"
+#include "documents/components/component_registration.hpp"
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <cstdio>
 #include <fstream>
 #include <source_location>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -27,36 +30,45 @@ void write(const std::filesystem::path& path, std::string_view value) {
 int main() try {
   check(e::initialize_meta(register_movement_meta).ok());
   check(e::register_scene_component(operations()).ok());
+  check(gneiss::editor::register_component_editor(movement_editor()).ok());
   const auto id = [](std::uint8_t value) { return e::guid::from_bytes({89, value}); };
   e::prefab_description source;
   source.uuid = id(1);
   source.root_uuid = id(2);
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = id(2);
   root.name = "Source Root";
   source.objects.push_back(root);
   auto child = root;
   child.uuid = id(3);
-  child.parent_uuid = root.uuid;
+  child.parent.object = root.uuid;
   child.components.set(movement_description{});
-  child.components.set(*e::default_component_description(e::camera_description::type_guid));
+  child.components.set(
+      *gneiss::editor::default_component_description(e::camera_description::type_guid));
   source.objects.push_back(child);
   e::scene_description scene;
   scene.uuid = id(4);
-  e::object_description first;
+  e::game_object_description first;
   first.uuid = id(5);
   first.name = "Instance Root";
   first.transform.translation.x = 8;
   first.prefab.emplace();
   first.prefab->uri = "asset://prefabs/source.prefab.json";
   first.prefab->component_overrides.push_back(
-      {root.uuid, movement_description::type_guid, movement_description{.speed = 4}});
-  first.prefab->component_overrides.push_back({child.uuid, e::camera_description::type_guid, {}});
-  first.prefab->overrides.push_back({.key = {.source_node_uuid = child.uuid,
-                                             .type_guid = movement_description::type_guid,
-                                             .property_id = e::meta::property_id{3},
-                                             .path = {e::meta::property_id{1}}},
-                                     .value = e::value{6.0F}});
+      {root.uuid, movement_description::type_guid,
+       e::make_component_description(movement_description{4}), e::guid::generate()});
+  first.prefab->component_overrides.push_back(
+      {child.uuid,
+       e::camera_description::type_guid,
+       {},
+       child.components.identity(e::camera_description::type_guid)});
+  first.prefab->overrides.push_back(
+      {.key = {.target = {.source_node_uuid = child.uuid,
+                          .target_type_guid = movement_description::type_guid,
+                          .component_uuid =
+                              child.components.identity(movement_description::type_guid)},
+               .path = {e::property_id{3}, e::property_id{1}}},
+       .operation = e::value{6.0F}});
   scene.objects.push_back(first);
   auto second = first;
   second.uuid = id(6);
@@ -65,16 +77,17 @@ int main() try {
   scene.objects.push_back(second);
   auto own = root;
   own.uuid = id(7);
-  own.parent_uuid = first.uuid;
+  own.parent = {first.uuid, child.uuid};
   scene.objects.push_back(own);
-  const auto prefab_json = text(*e::encode_prefab(source));
-  const auto scene_json = text(*e::encode_scene(scene));
+  const auto prefab_json = text(*gneiss::asset_file::serialize_bytes(source));
+  const auto scene_json = text(*gneiss::asset_file::serialize_bytes(scene));
   auto entries = ed::describe_prefab_overrides(*first.prefab, source);
   check(entries && entries->size() == 3);
   check((*entries)[0].label.find("acceleration") != std::string::npos);
   const auto decode_changes = [](const auto& changes) {
     const auto& json = *changes.front().replacement;
-    return e::decode_scene(std::as_bytes(std::span{json.data(), json.size()}));
+    return gneiss::asset_file::deserialize<e::scene_description>(
+        std::as_bytes(std::span{json.data(), json.size()}));
   };
   auto restore_component =
       ed::prepare_restore_prefab_component(scene_json, "scenes/main.scene.json", first.uuid,
@@ -96,7 +109,7 @@ int main() try {
         restored->objects[0].prefab->component_overrides.empty());
   check(restored->objects[0].name == first.name &&
         restored->objects[0].transform.translation.x == 8);
-  check(restored->objects[2].parent_uuid == first.uuid);
+  check(restored->objects[2].parent.object == first.uuid);
   for (const auto& entry : *entries) {
     auto single =
         ed::prepare_restore_prefab(scene_json, "scenes/main.scene.json", first.uuid, &entry);
@@ -128,11 +141,11 @@ int main() try {
   check(ed::prepare_unpack_prefab(scene_json, prefab_json, unpack, changes, &diagnostic).ok());
   check(changes.size() == 1 && *changes[0].baseline == scene_json);
   const auto& unpacked_json = *changes[0].replacement;
-  auto unpacked =
-      e::decode_scene(std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
+  auto unpacked = gneiss::asset_file::deserialize<e::scene_description>(
+      std::as_bytes(std::span{unpacked_json.data(), unpacked_json.size()}));
   check(unpacked && unpacked->objects.size() == 4);
   auto find = [](auto& objects, e::guid uuid) -> auto& {
-    auto found = std::ranges::find(objects, uuid, &e::object_description::uuid);
+    auto found = std::ranges::find(objects, uuid, &e::game_object_description::uuid);
     check(found != objects.end());
     return *found;
   };
@@ -141,15 +154,15 @@ int main() try {
   check(!unpacked_root.prefab && unpacked_root.name == first.name &&
         unpacked_root.transform.translation.x == 8);
   check(unpacked_root.components.get<movement_description>()->speed == 4);
-  check(unpacked_child.parent_uuid == id(8) &&
+  check(unpacked_child.parent.object == id(8) &&
         !unpacked_child.components.get<e::camera_description>());
   check(unpacked_child.components.get<movement_description>()->settings.acceleration == 6);
-  check(find(unpacked->objects, own.uuid).parent_uuid == id(8));
+  check(find(unpacked->objects, own.uuid).parent == e::object_address{id(9), {}});
   check(find(unpacked->objects, second.uuid).prefab.has_value());
   ed::apply_prefab_author_plan plan;
   check(ed::prepare_apply_prefab(scene_json, prefab_json, apply, plan, &diagnostic).ok());
   check(plan.changes.size() == 2 && plan.affected_instance_uuids.size() == 2);
-  auto applied = e::decode_prefab(std::as_bytes(
+  auto applied = gneiss::asset_file::deserialize<e::prefab_description>(std::as_bytes(
       std::span{plan.changes[0].replacement->data(), plan.changes[0].replacement->size()}));
   check(applied && applied->objects[0].components.get<movement_description>()->speed == 4);
   check(applied->objects[0].name == root.name && applied->objects[0].transform.translation.x == 0);
@@ -158,25 +171,28 @@ int main() try {
   const auto successful_plan = plan;
   auto conflict = scene;
   conflict.objects[1].prefab->component_overrides.push_back(
-      {root.uuid, movement_description::type_guid, movement_description{}});
-  check(ed::prepare_apply_prefab(text(*e::encode_scene(conflict)), prefab_json, apply, plan,
-                                 &diagnostic) == e::error::invalid_state);
+      {root.uuid, movement_description::type_guid,
+       e::make_component_description(movement_description{}), e::guid::generate()});
+  check(ed::prepare_apply_prefab(text(*gneiss::asset_file::serialize_bytes(conflict)),
+                                 prefab_json, apply, plan, &diagnostic) == e::error::invalid_state);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos &&
         diagnostic.path.find(root.uuid.string()) != std::string::npos);
   conflict = scene;
   conflict.objects[1].prefab->overrides.push_back(
-      {.key = {.source_node_uuid = child.uuid,
-               .type_guid = e::camera_description::type_guid,
-               .property_id = e::meta::property_id{1},
-               .path = {e::meta::property_id{1}}},
-       .value = e::value{0.8F}});
-  check(ed::prepare_apply_prefab(text(*e::encode_scene(conflict)), prefab_json, apply, plan,
-                                 &diagnostic) == e::error::not_found);
+      {.key = {.target = {.source_node_uuid = child.uuid,
+                          .target_type_guid = e::camera_description::type_guid,
+                          .component_uuid =
+                              child.components.identity(e::camera_description::type_guid)},
+               .path = {e::property_id{1}, e::property_id{1}}},
+       .operation = e::value{0.8F}});
+  check(ed::prepare_apply_prefab(text(*gneiss::asset_file::serialize_bytes(conflict)),
+                                 prefab_json, apply, plan, &diagnostic) == e::error::not_found);
   check(plan.changes.empty() && diagnostic.path.find(second.uuid.string()) != std::string::npos);
   auto missing = source;
   missing.objects.pop_back();
-  check(ed::prepare_unpack_prefab(scene_json, text(*e::encode_prefab(missing)), unpack, changes,
-                                  &diagnostic)
+  check(ed::prepare_unpack_prefab(scene_json,
+                                  text(*gneiss::asset_file::serialize_bytes(missing)),
+                                  unpack, changes, &diagnostic)
             .failed() &&
         changes.empty());
   check(ed::prepare_unpack_prefab(scene_json, prefab_json, unpack, changes).ok());
@@ -200,10 +216,13 @@ int main() try {
   // 缺少来源网格时仅返回依赖清单；调用方补齐后才能采用，现有场景不变。
   auto needs_assets = before;
   auto mesh_source = std::make_shared<e::prefab_description>(source);
-  mesh_source->objects[0].components.set(e::mesh_renderer_description{
+  mesh_source->objects[0].components.set(e::mesh_component_description{
       "asset://meshes/missing.gneiss-mesh", "asset://materials/missing.material.json"});
-  needs_assets.description.prefabs.at(first.prefab->uri).resource =
-      e::prefab_asset_ref{mesh_source};
+  auto frozen_source = e::capture_prefab_record(*mesh_source);
+  check(frozen_source.has_value());
+  needs_assets.prefabs.at(first.prefab->uri).content = std::move(*frozen_source);
+  // 冻结后修改源内存不能改变历史版本。
+  mesh_source->objects[0].components.erase(e::mesh_component_description::type_guid);
   auto unresolved = ed::prepare_scene_document(needs_assets, *restore_all);
   check(unresolved && unresolved->missing.size() == 2 && unresolved->snapshot.assets.empty());
   check(bool(editing.document.find_prefab_root(first.uuid)));

@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "../support/async_editor_save.hpp"
-#include "commands/prefab_authoring.hpp"
-#include "engine/function/meta_registration.hpp"
-#include "engine/resource/scene/prefab_codec.hpp"
-#include "runtime/loading/scene_service.hpp"
+#include "documents/commands/prefab_authoring.hpp"
 #include <cstdio>
 #include <fstream>
+#include <gneiss/engine/core/serialization/json.hpp>
+#include <gneiss/engine/function/meta_registration.hpp>
+#include <gneiss/engine/resource/asset_file.hpp>
+#include <gneiss/engine/resource/scene/prefab_description.hpp>
 #include <source_location>
-namespace e = gneiss::engine;
+namespace e = gneiss;
 namespace ed = gneiss::editor;
 using namespace gneiss::test_support;
 void check(bool ok, std::source_location at = std::source_location::current()) {
@@ -48,30 +49,33 @@ void run(scenario mode) {
   e::prefab_description source;
   source.uuid = id(1);
   source.root_uuid = id(2);
-  e::object_description root;
+  e::game_object_description root;
   root.uuid = source.root_uuid;
   root.name = "Root";
-  root.components.set(e::mesh_renderer_description{
+  root.components.set(e::mesh_component_description{
       "asset://mesh.json",
       mode == scenario::failure ? "asset://missing.json" : "asset://material.json"});
   source.objects.push_back(root);
-  write(files.path / "source.prefab.json", text(*e::encode_prefab(source)));
+  write(files.path / "source.prefab.json", text(*gneiss::asset_file::serialize_bytes(source)));
   e::scene_description scene;
   scene.uuid = id(3);
-  e::object_description instance;
+  e::game_object_description instance;
   instance.uuid = id(4);
   instance.name = "Instance";
   instance.prefab.emplace();
   instance.prefab->uri = "asset://source.prefab.json";
   instance.prefab->component_overrides.push_back(
-      {root.uuid, e::mesh_renderer_description::type_guid, {}});
+      {root.uuid,
+       e::mesh_component_description::type_guid,
+       {},
+       root.components.identity(e::mesh_component_description::type_guid)});
   scene.objects.push_back(instance);
-  const auto json = text(*e::encode_scene(scene));
+  const auto json = text(*gneiss::asset_file::serialize_bytes(scene));
   write(files.path / "scene.json", json);
   author_scene editing;
   check(editing.open(files.path, "asset://scene.json"));
   auto changes = ed::prepare_restore_prefab_component(json, "scene.json", instance.uuid, root.uuid,
-                                                      e::mesh_renderer_description::type_guid);
+                                                      e::mesh_component_description::type_guid);
   check(bool(changes));
   ed::editor_command_history history;
   ed::scene_document_edit operation;
@@ -92,12 +96,15 @@ void run(scenario mode) {
               .rename_node(editing.document.find_prefab_root(instance.uuid)->node, "Changed")
               .ok());
   if (mode == scenario::world_modified) {
-    // 绕过文档的直接 World 写入，同样必须在提交前发现。
+    // 运行时变化不改变文档基线，也不能被下一次编辑带入保存内容。
     const auto node = editing.document.find_prefab_root(instance.uuid);
     check(bool(node));
     auto changed = node->local_transform;
     changed.translation.x = 17;
-    check(editing.application->native_world()->node_set_local_transform(node->node, changed).ok());
+    check(editing.world.get()
+              ->find(gneiss::entity_id{(node->node).get()})
+              .set_local_transform(changed)
+              .ok());
   }
   if (mode == scenario::closed || mode == scenario::switched)
     editing.document.close();
@@ -105,47 +112,64 @@ void run(scenario mode) {
     // 关闭文档后推进操作释放自身槽位，再启动新场景加载。
     check(operation.advance(*editing.application, editing.document, history) ==
           e::error::invalid_state);
-    gneiss::scene_instance_id replacement;
-    check(load_scene(*editing.application, "asset://scene.json", &replacement).ok());
-    check(editing.document
-              .adopt(*editing.application, editing.application->native_world(), replacement,
-                     "asset://scene.json")
+    check(open_document(editing.document, *editing.application, editing.world.get(),
+                        "asset://scene.json")
               .ok());
   }
   if (mode == scenario::cancelled)
     operation.cancel();
-  e::error status = e::error::not_ready;
+  // 首次推进立即采用合法描述，不驱动文件或资产完成队列。
+  e::error status = operation.advance(*editing.application, editing.document, history);
+  if (mode == scenario::success || mode == scenario::failure || mode == scenario::world_modified)
+    check(status.ok());
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (status == e::error::not_ready) {
     check(std::chrono::steady_clock::now() < deadline);
-    editing.application->advance_scene_load();
+    (void)editing.application->step();
     status = operation.advance(*editing.application, editing.document, history);
     std::this_thread::yield();
   }
   check(operation.advance(*editing.application, editing.document, history) == status);
-  if (mode == scenario::success) {
+  if (mode == scenario::success || mode == scenario::failure || mode == scenario::world_modified) {
     check(status.ok() && history.size() == 1 && redo_count == 1);
     auto node = editing.document.find_prefab_root(instance.uuid);
-    check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
-    // 文件变坏也不能影响历史重放：快照持有已加载资源。
+    check(node && editing.document.components(node->node)->get<e::mesh_component_description>());
+    auto snapshot = ed::capture_scene_document(*editing.application, editing.document);
+    check(snapshot && snapshot->assets.size() == 2);
+    std::string saved;
+    check(save_document(editing.document, files.path, &saved).ok());
+    check(!saved.empty());
+    if (mode == scenario::failure) {
+      auto missing = editing.application->assets().load(
+          e::render_resource_source{"asset://missing.json", e::render_resource_kind::material});
+      check(bool(missing));
+      while (missing->status() == e::error::not_ready) {
+        check(std::chrono::steady_clock::now() < deadline);
+        (void)editing.application->step();
+        std::this_thread::yield();
+      }
+      check(missing->status().failed());
+      check(bool(ed::capture_scene_document(*editing.application, editing.document)));
+      check(save_document(editing.document, files.path).ok());
+    }
+    // 文件变坏或资源加载失败也不能影响历史重放：快照保活资源身份。
     write(files.path / "mesh.json", "broken");
     write(files.path / "material.json", "broken");
-    check(history.undo().ok() && undo_count == 1);
+    check(history.undo().ok() && undo_count == 0);
     node = editing.document.find_prefab_root(instance.uuid);
-    check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
-    check(history.redo().ok() && redo_count == 2);
+    check(node && !editing.document.components(node->node)->get<e::mesh_component_description>());
+    check(history.redo().ok() && redo_count == 1);
     node = editing.document.find_prefab_root(instance.uuid);
-    check(node && editing.document.components(node->node)->get<e::mesh_renderer_description>());
+    check(node && editing.document.components(node->node)->get<e::mesh_component_description>());
   } else {
     check(status.failed() && history.size() == 0 && redo_count == 0 && undo_count == 0);
     if (mode == scenario::cancelled)
       check(status == e::error::cancelled);
-    if (mode == scenario::modified || mode == scenario::world_modified ||
-        mode == scenario::closed || mode == scenario::switched)
+    if (mode == scenario::modified || mode == scenario::closed || mode == scenario::switched)
       check(status == e::error::invalid_state);
     if (editing.document.is_open()) {
       const auto node = editing.document.find_prefab_root(instance.uuid);
-      check(node && !editing.document.components(node->node)->get<e::mesh_renderer_description>());
+      check(node && !editing.document.components(node->node)->get<e::mesh_component_description>());
       if (mode == scenario::modified)
         check(node->display_name == "Changed");
       if (mode == scenario::world_modified)
@@ -155,7 +179,7 @@ void run(scenario mode) {
     }
   }
   check(history.clear().ok());
-  // 取消、失败和成功都必须释放槽位；析构未完成操作也不残留请求。
+  // 文档恢复不占用加载组槽位；析构未采用的候选不影响后续请求。
   if (mode == scenario::cancelled) {
     {
       ed::scene_document_edit abandoned;
@@ -167,10 +191,9 @@ void run(scenario mode) {
   }
   const e::render_resource_source source_asset{"asset://material.json",
                                                e::render_resource_kind::material};
-  auto retry =
-      editing.application->scene_loading_service().prepare_assets({&source_asset, 1}, 7, true);
-  check(retry && retry->request != 0);
-  check(editing.application->scene_loading_service().discard_prepared_assets(retry->request).ok());
+  auto retry = editing.application->assets().load_batch({&source_asset, 1}, true);
+  check(retry && bool(*retry));
+  retry->reset();
   editing.document.close();
 }
 int main() try {

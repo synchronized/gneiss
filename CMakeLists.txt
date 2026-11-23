@@ -5,10 +5,17 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.51.0
+  VERSION 0.52.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
+
+# 依赖模块也会声明安装规则，必须在加载它们之前初始化安装目录。
+include(GNUInstallDirs)
+
+if(PROJECT_IS_TOP_LEVEL)
+  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+endif()
 
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 option(BUILD_SHARED_LIBS "构建共享库" ON)
@@ -18,10 +25,14 @@ option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_EDITOR "构建 Gneiss Editor" OFF)
 option(GNEISS_BUILD_RUNTIME "构建 Gneiss Runtime 宿主" OFF)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/targets"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies"
+)
 include(gneiss_utility)
 include(profiling)
 include(granit)
+include(libassert)
 gneiss_resolve_granit_runtime()
 if(GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   gneiss_resolve_granit_tools()
@@ -34,16 +45,7 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT E
   gneiss_resolve_libuv()
 endif()
 include(glm)
-include(internal_interfaces)
-add_subdirectory(src)
-target_sources(gneiss_engine PRIVATE
-  src/runtime/loading/action_map_application.cpp)
-if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
-  add_subdirectory(tests/integration/assets)
-endif()
-install(FILES "${PROJECT_SOURCE_DIR}/3rd/granit-example-assets-LICENSE"
-              "${PROJECT_SOURCE_DIR}/3rd/caors-core-values-LICENSE"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses")
+add_subdirectory(engine)
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)
   gneiss_resolve_bc7enc()
@@ -51,17 +53,14 @@ if(GNEISS_BUILD_TOOLS)
   gneiss_resolve_fastgltf()
   include(mikktspace)
   gneiss_resolve_mikktspace()
-  add_subdirectory(src/tooling)
-  add_subdirectory(apps/assetc)
-  if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
-    add_subdirectory(tests/tooling)
-  endif()
+  add_subdirectory(tooling)
 endif()
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
-  add_subdirectory(src/host/common)
+  add_subdirectory(project)
+  add_subdirectory(protocol)
 endif()
 if(GNEISS_BUILD_RUNTIME)
-  add_subdirectory(src/host/runtime)
+  add_subdirectory(runtime)
 endif()
 if(GNEISS_BUILD_EDITOR)
   include(editor_fonts)
@@ -70,110 +69,11 @@ if(GNEISS_BUILD_EDITOR)
   gneiss_resolve_imgui()
   include(imguizmo)
   gneiss_resolve_imguizmo()
-  add_subdirectory(src/editor)
-  add_subdirectory(src/host/editor)
+  add_subdirectory(editor)
 endif()
 
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-if(EMSCRIPTEN)
-  install(FILES "${PROJECT_SOURCE_DIR}/src/engine/platform/files/browser/fetch_stream.js"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/js")
-  target_link_options(gneiss_engine INTERFACE
-    "$<INSTALL_INTERFACE:SHELL:--js-library \"$<INSTALL_PREFIX>/${CMAKE_INSTALL_DATADIR}/gneiss/js/fetch_stream.js\">")
-endif()
+include("${PROJECT_SOURCE_DIR}/cmake/package/install.cmake")
 
-
-if(DEFINED GNEISS_LIBUV_SOURCE_DIR)
-  install(
-    FILES "${GNEISS_LIBUV_SOURCE_DIR}/LICENSE"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
-    RENAME libuv-LICENSE
-  )
-endif()
-
-set(GNEISS_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/gneiss")
-configure_package_config_file(
-  "${PROJECT_SOURCE_DIR}/cmake/gneissConfig.cmake.in"
-  "${PROJECT_BINARY_DIR}/gneissConfig.cmake"
-  INSTALL_DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
-  PATH_VARS CMAKE_INSTALL_BINDIR CMAKE_INSTALL_LIBDIR
-)
-write_basic_package_version_file(
-  "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"
-  VERSION "${PROJECT_VERSION}"
-  COMPATIBILITY SameMajorVersion
-)
-install(
-  TARGETS gneiss_engine
-  EXPORT gneissTargets
-  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-)
-install(
-  FILES
-    "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
-)
-install(
-  FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/materials"
-)
-if(TARGET gneiss_runtime)
-  install(
-    TARGETS gneiss_runtime
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-  )
-  foreach(
-    granit_runtime_target
-    IN ITEMS granit::granit granit::window granit::render_pipeline
-  )
-    if(TARGET ${granit_runtime_target})
-      get_target_property(granit_runtime_type ${granit_runtime_target} TYPE)
-      if(granit_runtime_type STREQUAL "SHARED_LIBRARY" OR
-         granit_runtime_type STREQUAL "MODULE_LIBRARY")
-        if(WIN32)
-          set(granit_runtime_destination "${CMAKE_INSTALL_BINDIR}")
-        else()
-          set(granit_runtime_destination "${CMAKE_INSTALL_LIBDIR}")
-        endif()
-        install(
-          FILES "$<TARGET_FILE:${granit_runtime_target}>"
-          DESTINATION "${granit_runtime_destination}"
-        )
-      endif()
-    endif()
-  endforeach()
-endif()
-install(
-  EXPORT gneissTargets
-  FILE gneissTargets.cmake
-  NAMESPACE gneiss::
-  DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
-)
-install(
-  FILES
-    "${PROJECT_BINARY_DIR}/gneissConfig.cmake"
-    "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"
-  DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
-)
-install(
-  FILES LICENSE CHANGELOG.md THIRD_PARTY_NOTICES.md
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss"
-)
-install(
-  DIRECTORY "${PROJECT_SOURCE_DIR}/templates/game/"
-  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/templates/game"
-)
-install(FILES 3rd/entt/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
-        RENAME EnTT-LICENSE)
-install(FILES 3rd/yyjson/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
-        RENAME yyjson-LICENSE)
-install(FILES 3rd/libspng/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
-        RENAME libspng-LICENSE)
-install(FILES 3rd/miniz/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
-        RENAME miniz-LICENSE)
 if(GNEISS_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
@@ -181,5 +81,3 @@ endif()
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_subdirectory(tests)
 endif()
-
-install(FILES "${GNEISS_GLM_SOURCE_DIR}/copying.txt" DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses" RENAME GLM-LICENSE)

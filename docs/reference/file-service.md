@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-内部原生入口位于 `src/engine/platform/files/file_service.hpp`，命名空间为 `gneiss::engine::files`。
+内部原生入口位于 `engine/include/gneiss/engine/function/files/service.hpp`，命名空间为 `gneiss::files`。
 当前实现 Platform 服务核心、内存后端、独立 libuv 桌面后端和 Fetch/MEMFS/IDBFS 浏览器后端。
 Application 已直接装配后端；普通 CPU、网格和纹理加载统一使用文件服务。
 旧 VFS、同步准备器和迁移适配器已删除；文件完成后才提交 CPU 解码任务。
@@ -22,10 +22,29 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 - 服务复制 URI，按值接收写缓冲；完成结果拥有字节，调用方可将其移动到解码任务。
 - 后端可能内联完成，但用户回调始终延迟到服务分发。
 
+## 创建与初始化
+
+工厂声明位于 `function/files/backends/{memory,native,fetch,browser}.hpp`，只暴露配置和
+`create_backend_xxx` 函数，返回 `shared_ptr<backend>`；具体类定义位于 cpp。工厂不执行 I/O，
+保留配置参数检查的异常语义，分配失败正常传播。后端异步准备由 initialize 完成。
+
+先 mount 配置，再 service.initialize(callback)。初始化开始后挂载冻结；同一后端在多个挂载、
+reader/writer 中只初始化一次。初始化成功通知分发前，I/O 返回 invalid_state；来源身份查询
+仍可使用。服务不允许重复初始化或失败后重试，每个后端由一个服务初始化并驱动。
+
+initialize 返回失败则不回调，返回成功则由 dispatch_completions 通知最终结果；无后端和内联
+完成也不会立即调用用户回调。初始化不占文件请求额度，但通知占一个分发预算。失败等待所有
+已接受工作收尾再通知；shutdown 期间先通知初始化 cancelled，再完成关闭。析构可放弃通知。
+
+Native 仍要求执行器活到请求收尾；Browser 持久化恢复异步完成，写入仍需显式 flush。
+不要直接对已交给服务的后端再次 initialize。设计依据见
+[ADR-123](../decisions/ADR-123-files-backend-initialization.md)。
+
 ## 操作与限额
 
 | 接口 | 当前语义 |
 | --- | --- |
+| initialize | 冻结挂载并去重初始化后端，最终状态通过完成分发通知 |
 | read | 有界整文件读取；省略 read_options 使用服务 max_file_bytes，显式 max_bytes 必须大于零且不超过服务上限 |
 | read_range | 精确范围，允许 EOF 处零长度，越界失败 |
 | write | 单文件安全写入，replace 替换、create_new 拒绝覆盖；持久化另见后端约定 |
@@ -33,7 +52,7 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 | list | 当前目录分页，不递归、不合并后端、不保证快照 |
 | flush | 仅接受精确挂载点，调用唯一写后端的持久化能力 |
 | cancel | 尽力取消观察结果，不回滚写入、不保证中止实际 I/O |
-| dispatch_completions | 非阻塞推进后端并按回调数量预算分发 |
+| dispatch_completions | 非阻塞推进后端并按就绪项预算分发 |
 | shutdown | 拒绝新请求并收尾已有请求，最终通过分发通知关闭 |
 
 默认最多 64 个未分发请求，整读/范围读/写入单次最多 16 MiB，列举每页最多 1024 项。
@@ -42,7 +61,10 @@ Application 已直接装配后端；普通 CPU、网格和纹理加载统一使�
 写入按缓冲大小预留；单请求超总预算返回 invalid_argument，并发预算不足返回 not_ready。
 取消请求须等待后端收尾才释放预算，已完成未分发的字节继续占用；在调用用户回调前释放预留。
 该预算覆盖服务的字节负载，不包括消费者接收后的数据、目录扫描元数据和平台内部复制。
-分发预算只限制用户回调数量，不是精确 CPU 时间预算。内存后端复制字节仍有成本。
+后端完成后将请求 ID 加入所属服务的就绪队列，分发不再遍历全部未完成请求。
+队列按完成通知入队顺序消费；分发开始后新产生的完成通知留到下次，包含内联完成的回退来源。
+分发预算限制本轮就绪项数量，因此用户回调不超过预算；回退处理也占用一个就绪项。
+这不是精确 CPU 时间预算。后端事件泵仍按平台需要驱动，内存后端复制字节仍有成本。
 
 ## 分块读取
 
@@ -61,7 +83,7 @@ read_next 最多接受一个在途块，消费者再次请求才继续，无隐�
 来源打开后的取消立即关闭 reader，并通过服务分发终态。
 服务关闭也关闭暂停中的流。
 
-私有桥接位于 `src/engine/platform/files/browser/fetch_stream.js`，CMake 自动以
+私有桥接位于 `engine/src/function/files/backends/detail/fetch_stream.js`，CMake 自动以
 `--js-library` 链接；安装包携带该链接依赖，应用无需单独加载 JS。普通整读和范围读仍使用 Emscripten Fetch。
 
 ## 路由与路径
@@ -69,11 +91,11 @@ read_next 最多接受一个在途块，消费者再次请求才继续，无隐�
 挂载前缀以 `/` 结尾，例如 `asset://`、`asset://textures/`、`user://`。
 scheme 仅允许小写英文字母；路径须有效 UTF-8，拒绝控制字符、反斜杠、百分号编码、查询、片段、
 冒号、`.`、`..` 和空路径段。挂载根与目录允许尾部 `/`。
-首次接受请求后冻结挂载；最长前缀决定挂载，读取链只在 not_found 时继续。
+初始化开始后冻结挂载；最长前缀决定挂载，读取链只在 not_found 时继续。
 write/flush 只选择唯一 writer；缺少 writer 时提交返回 unsupported。
-Application 的 asset:// 默认只读；Editor 通过 application_configuration::writable_assets 显式启用
+Application 的 asset:// 默认只读；Editor 通过 app::configuration::writable_assets 显式启用
 本地写入后端。远程 Fetch 后端仍不支持写入。
-`application_configuration::user_root` 非空时额外挂载独立可写 `user://`；原生目录由宿主提前准备，
+`app::configuration::user_root` 非空时额外挂载独立可写 `user://`；原生目录由宿主提前准备，
 与 asset:// 共用文件服务及 I/O 执行器。布局只向 user:// 写入，不污染资产目录。
 Emscripten 本地路径使用 existing FS 后端；该配置不自动创建 IDBFS 挂载或承诺持久化。
 
@@ -85,7 +107,8 @@ Emscripten 本地路径使用 existing FS 后端；该配置不自动创建 IDBF
 
 提交失败清空请求 ID，不回调；接受成功返回非零 ID，错误通过终态回调报告。
 未知挂载属于提交失败；已接受后后端缺失文件、能力不足、I/O 错误属于完成结果。
-失败结果不返回部分字节。回调需不抛异常，可提交或取消其他请求，但不能递归分发或销毁服务。
+失败结果不返回部分字节。回调可提交或取消其他请求，但不能递归分发或销毁服务。意外异常不转换为文件错误；
+内部投递向调用方传播，libuv/浏览器的 C 回调边界就地致命处理，禁止跨 C 栈传播。
 本轮回调中新提交的请求留到下次分发。
 
 ID 在进程内单调分配、不重用，服务只接受自己仍持有的 ID。
@@ -138,7 +161,7 @@ Application 主循环及显式场景/资产轮询入口共用同一宿主推进�
 
 文件服务每个挂载具有稳定来源域，`resolve_source` 仅查询身份。
 来源标记为 Platform 的 `files::source_domain`，不拥有后端或 GPU 资源。
-asset_manager 仅接受文件服务注入；find_loaded<T> 只查询已完成缓存，未命中返回 not_found，
+asset_manager 仅接受文件服务注入；find<T> 只查询已完成缓存，未命中返回 not_found，
 失败保持输出，不读盘或提交任务。旧 VFS 构造、同步加载与迁移适配器已删除。
 
 桌面启用 libuv 的构建中，Application 即使使用协作式 CPU 调度也配置异步 I/O loop。
@@ -193,3 +216,15 @@ node tests/integration/assets/run_browser_files.cjs <测试.js路径> <浏览器
 
 脚本需要支持原生 fetch/WebSocket 的 Node，使用随机本地端口和产物目录内独立浏览器配置。
 测试配置保留在产物目录以便排查，不使用个人浏览器配置。
+
+
+## 原生 I/O 执行器
+
+原生后端借用 `gneiss::io::executor`（`platform/io/executor.hpp`）。宿主负责启动执行器，
+然后创建后端、配置挂载并初始化文件服务。关闭时先等待文件服务收尾、释放后端，再停止执行器。
+执行器不拥有文件服务，也不承担文件路径、挂载或资源加载语义。
+
+`io::executor` 属于 `gneiss_io` 目标，提供 `start()`、`post()`、`stop()`、`is_running()`。
+任务在专用 I/O 线程执行；只有 `post()` 允许并发提交，其余操作由调用方外部同步。
+停止会拒绝新任务并等待在途工作收尾，不能从执行器线程停止或销毁自身。
+libuv 循环访问和错误转换仅供实现使用，位于 `src/platform/io/detail`，不通过该目标传播私有目录。

@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/core/error.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
-#include "runtime/application.hpp"
+#include "../../support/value_result.hpp"
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/engine/core/tasks/scheduler.hpp>
+#include <gneiss/engine/function/application/application.hpp>
+#include <gneiss/engine/function/asset/asset_manager.hpp>
+#include <gneiss/engine/function/input/service.hpp>
+#include <gneiss/engine/resource/environment.hpp>
+#include <gneiss/engine/resource/input/action_map.hpp>
 #ifdef GNEISS_TEST_NATIVE_WINDOW
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -25,21 +30,31 @@ void check(bool value, const char* message) {
 void close_pending_window(const char* assets) {
   using namespace gneiss;
   using namespace std::chrono_literals;
-  gneiss::engine::task_scheduler scheduler({.workers = 1});
-  runtime::application_configuration config;
+  gneiss::tasks::scheduler scheduler({.workers = 1});
+  app::configuration config;
   config.asset_root = assets;
+  config.executor = &scheduler;
   config.enable_window = true;
   config.window.visible = false;
   config.window.title = "Gneiss Asset pending close test";
   unsigned updates = 0;
-  config.callbacks.update = [&](const auto&) {
-    ++updates;
-    return gneiss::engine::error::success;
-  };
-  std::shared_ptr<runtime::application> app;
-  check(runtime::application::create(config, app) == gneiss::engine::error::success,
+  std::shared_ptr<app::application> app;
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
+            gneiss::error::success,
         "window create");
-  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success, "window attach");
+
+  // 窗口关闭策略由宿主 system 决定，使用与 Runtime 相同的实际事件入口。
+  app->add_system(gneiss::app::stage::events, "test.close",
+                  [&](const gneiss::app::event_context& events) {
+                    if (events.close_requested())
+                      app->request_exit();
+                  });
+  app->add_system(gneiss::app::stage::update, "test.update", [&](const auto&) {
+    ++updates;
+    return gneiss::error::success;
+  });
+  check(app->step().ok(), "start services");
+  const auto updates_before_close = updates;
   std::promise<void> release, entered;
   auto future = release.get_future().share();
   auto started = entered.get_future();
@@ -51,29 +66,32 @@ void close_pending_window(const char* assets) {
   };
   {
     unblock guard{release};
-    gneiss::engine::task_handle handle;
+    gneiss::tasks::handle handle;
     check(scheduler.submit(
               {.name = "test-input-gate", .scope = scope},
               [future, &entered](const auto&) {
                 entered.set_value();
                 future.wait();
-                return gneiss::engine::task_outcome{};
+                return gneiss::tasks::outcome{};
               },
-              handle) == gneiss::engine::submit_result::success,
+              handle) == gneiss::tasks::submit_result::success,
           "gate submit");
     check(started.wait_for(5s) == std::future_status::ready, "gate started");
-    check(app->begin_action_map("asset://input/default.input-map.json") ==
-              gneiss::engine::error::success,
-          "pending window input");
-    check(app->action_map_status() == gneiss::engine::error::not_ready, "input remains pending");
+    auto request = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
+    check(request.ok(), "pending window input");
+    check(request->status() == gneiss::error::not_ready, "input remains pending");
+    auto environment =
+        app->assets().load<gneiss::environment>("asset://input/default.input-map.json");
+    check(environment && environment->status() == error::not_ready, "environment remains pending");
+    environment->cancel();
+    check(!*environment, "host cancels environment before close");
     const auto window = FindWindowW(nullptr, L"Gneiss Asset pending close test");
     check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
-    check(app->run(1) == gneiss::engine::error::success && updates == 0,
-          "close handled before game update");
-    check(app->action_map_status() == gneiss::engine::error::not_ready,
-          "close did not wait for input");
+    check(app->step().ok() && updates == updates_before_close, "close handled before game update");
+    check(!app->accepts_requests(), "close rejects new input requests");
   }
-  check(app->shutdown() == gneiss::engine::error::success, "close drains input");
+  app->request_exit();
+  check(app->run().ok(), "close drains input");
   check(scheduler.close_scope(scope), "close test scope");
   const auto stats = scheduler.stats();
   check(stats.waiting == 0 && stats.running == 0 && stats.retained == 0, "no remaining tasks");
@@ -82,10 +100,10 @@ void close_pending_window(const char* assets) {
 void run(const char* assets, bool cooperative) {
   using namespace gneiss;
   using namespace std::chrono_literals;
-  gneiss::engine::task_scheduler scheduler(
-      {.workers = 1,
-       .mode = cooperative ? gneiss::engine::execution_mode::cooperative
-                           : gneiss::engine::execution_mode::thread_pool});
+  gneiss::tasks::scheduler scheduler({.workers = 1,
+                                      .mode = cooperative
+                                                  ? gneiss::tasks::execution_mode::cooperative
+                                                  : gneiss::tasks::execution_mode::thread_pool});
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-asset-application-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -100,136 +118,147 @@ void run(const char* assets, bool cooperative) {
     }
   } guard{root};
   const auto root_text = root.generic_string();
-  runtime::application_configuration config;
+  app::configuration config;
   config.asset_root = root_text;
-  std::shared_ptr<runtime::application> app;
+  config.executor = &scheduler;
+  std::shared_ptr<app::application> app;
   unsigned frames = 0;
-  bool seen_ready = false;
-  config.callbacks.update = [&](const auto&) {
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
+            gneiss::error::success,
+        "create");
+
+  app->add_system(gneiss::app::stage::update, "test.update", [&](const auto&) {
     ++frames;
-    if (app->action_map_status() == gneiss::engine::error::success) {
-      gneiss::engine::action_id id;
-      check(app->find_action("move_horizontal", id) == gneiss::engine::error::success,
-            "ready before update");
-      seen_ready = true;
-    }
-    return gneiss::engine::error::success;
-  };
-  check(runtime::application::create(config, app) == gneiss::engine::error::success, "create");
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::not_ready,
-        "requires executor");
-  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success, "attach");
+    return gneiss::error::success;
+  });
+  check(app->step().ok(), "start services");
 #if !GNEISS_TEST_TASK_THREADS && !defined(__EMSCRIPTEN__)
   // 未配置真实异步后端的平台不能恢复旧同步回退；浏览器内存后端则验证完整加载流程。
-  check(app->begin_action_map("asset://input/default.input-map.json").ok(),
-        "unsupported backend request");
-  for (unsigned i = 0; i < 8 && app->action_map_status() == engine::error::not_ready; ++i)
-    check(app->run(1).ok(), "unsupported backend completion");
-  check(app->action_map_status() == engine::error::unsupported, "no synchronous async fallback");
-  check(app->shutdown().ok(), "unsupported backend shutdown");
+  auto unsupported =
+      app->assets().reload<input::action_map>("asset://input/default.input-map.json");
+  check(unsupported.ok(), "unsupported backend request");
+  for (unsigned i = 0; i < 8 && unsupported->status() == gneiss::error::not_ready; ++i)
+    check(app->step().ok(), "unsupported backend completion");
+  check(unsupported->status() == gneiss::error::unsupported, "no synchronous async fallback");
+  app->request_exit();
+  check(app->run().ok(), "unsupported backend shutdown");
   return;
 #endif
-  const auto wait = [&] {
+  const auto wait = [&](const auto& request) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     do {
       if (cooperative)
-        check(scheduler.run_ready().status == gneiss::engine::drive_status::success, "drive");
-      check(app->run(1) == gneiss::engine::error::success, "run");
+        check(scheduler.run_ready().status == gneiss::tasks::drive_status::success, "drive");
+      check(app->step().ok(), "run");
       check(std::chrono::steady_clock::now() < deadline, "timeout");
 #if GNEISS_TEST_TASK_THREADS
       std::this_thread::sleep_for(1ms);
 #endif
-    } while (app->action_map_status() == gneiss::engine::error::not_ready);
+    } while (request.status() == gneiss::error::not_ready);
   };
   const auto close = [&] {
-    check(app->request_shutdown().ok(), "request staged shutdown");
+    app->request_exit();
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     for (;;) {
       if (cooperative)
-        check(scheduler.run_ready().status == engine::drive_status::success, "close drive");
-      const auto status = app->advance_shutdown();
-      if (status != engine::error::not_ready) {
-        check(status.ok(), "staged shutdown complete");
+        check(scheduler.run_ready().status == gneiss::tasks::drive_status::success, "close drive");
+      const auto status = app->step();
+      check(status.ok(), "staged shutdown progress");
+      if (*status == gneiss::app::lifecycle::stopped)
         break;
-      }
       check(std::chrono::steady_clock::now() < deadline, "close timeout");
 #if GNEISS_TEST_TASK_THREADS
       std::this_thread::sleep_for(1ms);
 #endif
     }
   };
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::success,
-        "begin");
-  check(app->action_map_status() == gneiss::engine::error::not_ready, "admission only");
-  wait();
-  check(app->action_map_status() == gneiss::engine::error::success && frames > 0 && seen_ready,
-        "applied");
+  const auto environment_file = root / "environment.bin";
+  std::ofstream(environment_file, std::ios::binary) << "first";
+  auto environment_request = app->assets().load<gneiss::environment>("asset://environment.bin");
+  check(environment_request.ok(), "environment request");
+  wait(*environment_request);
+  auto environment = environment_request->take();
+  check(environment.ok(), "environment loaded");
+  auto snapshot = (*environment)->snapshot();
+  check(snapshot && snapshot->size() == 5, "environment immutable bytes");
+  std::ofstream(environment_file, std::ios::binary) << "second";
+  auto reloaded = app->assets().reload<gneiss::environment>("asset://environment.bin");
+  check(reloaded.ok(), "environment reload");
+  wait(*reloaded);
+  auto replacement = reloaded->take();
+  check(replacement && *replacement == *environment && snapshot->size() == 5 &&
+            (*environment)->snapshot()->size() == 6,
+        "environment identity and old snapshot");
+  std::ofstream(environment_file, std::ios::binary).close();
+  auto empty_environment = app->assets().reload<gneiss::environment>("asset://environment.bin");
+  check(empty_environment.ok(), "empty environment admitted");
+  wait(*empty_environment);
+  check(empty_environment->status() == error::invalid_argument &&
+            (*environment)->snapshot()->size() == 6,
+        "invalid environment preserves content");
+  std::filesystem::resize_file(environment_file, 64U * 1024U * 1024U + 1U);
+  auto oversized_environment = app->assets().reload<gneiss::environment>("asset://environment.bin");
+  check(oversized_environment.ok(), "oversized environment admitted");
+  wait(*oversized_environment);
+  check(oversized_environment->status().failed() && (*environment)->snapshot()->size() == 6,
+        "environment source limit");
+
+  auto request = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
+  check(request.ok(), "begin");
+  wait(*request);
+  auto loaded = request->take();
+  check(loaded.ok() && frames > 0, "loaded while application advances");
+  input::action_id absent;
+  check(app->input().find_action("move_horizontal", absent) != error::success,
+        "loading does not implicitly apply input");
+  check(app->input().replace_action_map(*(*loaded)->snapshot()).ok(), "host applies input");
   {
     std::ofstream oversized(root / "input/oversized.json", std::ios::binary);
-    oversized << std::string(gneiss::engine::maximum_action_map_bytes + 1, ' ');
+    oversized << std::string(gneiss::input::maximum_action_map_bytes + 1, ' ');
   }
-  check(app->begin_action_map("asset://input/oversized.json") == gneiss::engine::error::success,
-        "async oversized request admitted");
-  wait();
-  check(app->action_map_status() == gneiss::engine::error::invalid_argument,
-        "async document limit");
-  gneiss::engine::action_id original;
-  check(app->find_action("move_horizontal", original) == gneiss::engine::error::success,
+  auto oversized = app->assets().reload<input::action_map>("asset://input/oversized.json");
+  check(oversized.ok(), "async oversized request admitted");
+  wait(*oversized);
+  check(oversized->status() == error::invalid_argument, "async document limit");
+  gneiss::input::action_id original;
+  check(app->input().find_action("move_horizontal", original) == gneiss::error::success,
         "original action");
   {
     std::ofstream invalid(file);
     invalid << "{}";
   }
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::success,
-        "reload");
-  wait();
-  check(app->action_map_status() != gneiss::engine::error::success, "invalid reload failed");
-  gneiss::engine::action_id retained;
-  check(app->find_action("move_horizontal", retained) == gneiss::engine::error::success &&
+  auto invalid = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
+  check(invalid.ok(), "reload");
+  wait(*invalid);
+  check(!invalid->take(), "invalid reload failed");
+  gneiss::input::action_id retained;
+  check(app->input().find_action("move_horizontal", retained) == gneiss::error::success &&
             retained == original,
         "failure preserves action identity");
-  check(app->begin_action_map("asset://input/missing.json") == gneiss::engine::error::success,
-        "cancel begin");
-  check(app->cancel_action_map() == gneiss::engine::error::success, "cancel");
-  wait();
-  check(app->action_map_status() == gneiss::engine::error::invalid_state, "cancel stays cancelled");
+  auto cancelled = app->assets().reload<input::action_map>("asset://input/missing.json");
+  check(cancelled.ok(), "cancel begin");
+  cancelled->cancel();
+  check(!*cancelled, "host releases request");
   std::filesystem::copy_file(std::filesystem::path(assets) / "input/default.input-map.json", file,
                              std::filesystem::copy_options::overwrite_existing);
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::success,
-        "begin before replacement");
-  check(app->begin_action_map("asset://input/default.input-map.json").ok(),
-        "new request replaces observer");
-  wait();
-  check(app->action_map_status().ok(), "new async request applied");
-#if GNEISS_TEST_TASK_THREADS
-  gneiss::engine::error cross_thread = gneiss::engine::error::success;
-  std::thread other(
-      [&] { cross_thread = app->begin_action_map("asset://input/default.input-map.json"); });
-  other.join();
-  check(cross_thread == gneiss::engine::error::invalid_state, "owner thread enforced");
-#endif
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::success,
-        "shutdown begin");
+  auto pending = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
+  check(pending.ok(), "shutdown begin");
   close();
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::invalid_state,
-        "shutdown rejects requests");
+  check(!app->accepts_requests(), "shutdown rejects requests");
   // 资产管理器关闭只排空自身 scope，不能关闭借用的宿主调度器。
   app.reset();
-  check(runtime::application::create(config, app) == gneiss::engine::error::success,
+  check(gneiss::test_support::assign_value(app::application::create(config), app) ==
+            gneiss::error::success,
         "recreate application");
-  check(app->attach_task_executor(scheduler) == gneiss::engine::error::success, "reuse executor");
-  check(app->begin_action_map("asset://input/default.input-map.json") ==
-            gneiss::engine::error::success,
-        "new owner begins input");
-  wait();
-  check(app->action_map_status() == gneiss::engine::error::success,
-        "new owner independently applies input");
+
+  check(app->step().ok(), "restart services");
+  auto reopened = app->assets().reload<input::action_map>("asset://input/default.input-map.json");
+  check(reopened.ok(), "new owner begins input");
+  wait(*reopened);
+  auto reopened_map = reopened->take();
+  check(reopened_map.ok(), "new owner independently loads input");
+  check(app->input().replace_action_map(*(*reopened_map)->snapshot()).ok(),
+        "new owner applies input");
   close();
 }
 }

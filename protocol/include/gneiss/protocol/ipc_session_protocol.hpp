@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_SESSION_IPC_SESSION_PROTOCOL_H_
+#define GNEISS_APPS_COMMON_IPC_DOMAINS_SESSION_IPC_SESSION_PROTOCOL_H_
+
+#include <gneiss/engine/core/base/error.hpp>
+#include <gneiss/protocol/message.hpp>
+
+#include <chrono>
+#include <cstdint>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace gneiss::host {
+
+inline constexpr std::uint16_t ipc_session_domain_version = 2U;
+inline constexpr std::size_t ipc_session_max_payload_size = std::size_t{64U} * 1024U;
+
+enum class ipc_session_operation : std::uint16_t {
+  hello = 1U,
+  heartbeat = 2U,
+  protocol_error = 3U,
+  shutdown_complete = 4U,
+};
+
+/** 使用调用方提供的单调时钟时间点判定会话超时。 */
+class ipc_timeout_tracker final {
+public:
+  using clock = std::chrono::steady_clock;
+
+  explicit ipc_timeout_tracker(clock::duration timeout) noexcept;
+  void reset(clock::time_point now) noexcept;
+  [[nodiscard]] bool expired(clock::time_point now) const noexcept;
+
+private:
+  clock::duration timeout_;
+  clock::time_point last_observed_{};
+};
+
+struct ipc_session_hello final {
+  std::string token;
+  std::vector<gneiss::protocol::domain_capability> domains;
+};
+
+struct ipc_session_heartbeat final {
+  std::uint64_t nonce = 0U;
+};
+
+struct ipc_session_error final {
+  std::int32_t code = 0;
+  std::string message;
+};
+
+struct ipc_session_shutdown final {
+  std::int32_t exit_code = 0;
+};
+
+extern const protocol::message_descriptor<ipc_session_hello> session_hello, session_accepted;
+extern const protocol::message_descriptor<ipc_session_heartbeat> session_ping, session_pong;
+extern const protocol::message_descriptor<ipc_session_error> session_editor_error,
+    session_runtime_error;
+extern const protocol::message_descriptor<ipc_session_shutdown> session_shutdown;
+
+/** 校验 Hello 令牌并按请求顺序协商双方均支持的域版本。 */
+[[nodiscard]] gneiss::error
+negotiate_ipc_session_hello(const ipc_session_hello& request, std::string_view expected_token,
+                            std::span<const gneiss::protocol::domain_capability> supported_domains,
+                            ipc_session_hello& acknowledgment);
+
+/** 返回 Session 域的固定方向与消息语义规则。 */
+[[nodiscard]] std::span<const gneiss::protocol::operation_descriptor>
+ipc_session_operations() noexcept;
+
+} // namespace gneiss::host
+
+#endif

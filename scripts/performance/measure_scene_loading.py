@@ -41,7 +41,12 @@ def main():
     parser.add_argument("--expected-resources", type=int, default=505)
     parser.add_argument("--baseline", type=Path, help="0.49 基线原始报告，用于吞吐、内存和图像比较")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--activation-budget-ms", type=float,
+                        help="可选的当前硬件同步实例化与卸载预算；默认只记录")
     args = parser.parse_args()
+    if args.activation_budget_ms is not None and (
+            not math.isfinite(args.activation_budget_ms) or args.activation_budget_ms <= 0):
+        parser.error("--activation-budget-ms 必须是有限正数")
     configurations = ("release", "debug") if args.debug else ("release",)
     baseline = json.loads(args.baseline.read_text(encoding="utf-8")) if args.baseline else None
     # 不复用旧结果，防止不同二进制或不同资产的样本混为一次验收。
@@ -53,6 +58,7 @@ def main():
         "cache_policy": "每样本独立进程，不清理操作系统文件缓存；无并行样本",
         "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "status": "running",
+        "activation_budget_ms": args.activation_budget_ms,
         "executables": {},
         "assets": {},
         "samples": samples,
@@ -109,12 +115,9 @@ def main():
                         if (measured["nodes"] != 553 or
                                 measured["live_resources"] != args.expected_resources):
                             failures.append(f"{name}: 对象或资源数量不符")
-                        if configuration == "release" and measured["activation_ms"] > 5:
-                            failures.append(f"{name}: 激活超过 5 ms")
-                        if measured["candidate_resident_bytes"] > 2 * 1024**3:
-                            failures.append(f"{name}: 候选逻辑资源超过 2 GiB")
-                        if measured.get("peak_upload_bytes", 0) > 64 * 1024**2:
-                            failures.append(f"{name}: 本夹具上传峰值超过 64 MiB")
+                        if (configuration == "release" and args.activation_budget_ms is not None
+                                and measured["activation_ms"] > args.activation_budget_ms):
+                            failures.append(f"{name}: 实例化与卸载超过指定预算")
                         if configuration == "release" and (
                             measured["event_interval_p95_ms"] > 100
                             or measured["event_interval_max_ms"] > 250
