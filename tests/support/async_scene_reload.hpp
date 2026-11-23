@@ -62,10 +62,10 @@ reload_scene_for_test(app::application& app, gneiss::tasks::scheduler& tasks,
         if (std::chrono::steady_clock::now() >= deadline)
           return gneiss::error::internal;
         (void)tasks.run_ready();
-        const auto frame = app.step();
-        if (!frame)
-          return frame.error();
-        if (*frame == app::lifecycle::stopping || *frame == app::lifecycle::stopped)
+        const auto visual_frame = app.step();
+        if (!visual_frame)
+          return visual_frame.error();
+        if (*visual_frame == app::lifecycle::stopping || *visual_frame == app::lifecycle::stopped)
           return error::cancelled;
         if (const auto advanced = loader.advance(); advanced.failed())
           return advanced;
