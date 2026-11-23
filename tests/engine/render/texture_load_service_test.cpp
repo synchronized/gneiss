@@ -494,8 +494,9 @@ void independent_loads(gneiss::tasks::execution_mode mode) {
   source->pixel(std::byte{42});
   test_support::fixture_files files;
   check(files.mount("asset://", source).ok());
-  asset_manager manager(test_support::test_files(files));
+  // Asset Manager 的关闭回收仍借用 Render，须先销毁管理器。
   gneiss::render::service render;
+  asset_manager manager(test_support::test_files(files));
   auto& service = manager;
   // 配置与 Render 绑定顺序不影响加载，且两者都不能在停止后重新装配。
   if (mode == gneiss::tasks::execution_mode::cooperative) {
