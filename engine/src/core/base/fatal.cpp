@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include <gneiss/engine/core/base/error.hpp>
 #include <cstdlib>
 #include <exception>
+#include <gneiss/engine/core/base/error.hpp>
 #include <new>
 #ifdef _WIN32
 #include <io.h>
@@ -21,7 +21,9 @@ namespace gneiss {
 #ifdef _WIN32
   (void)_write(2, message, static_cast<unsigned int>(size));
 #else
-  (void)::write(STDERR_FILENO, message, size);
+  // 致命路径只尽力输出，写入失败也直接退出，不递归报告错误。
+  if (::write(STDERR_FILENO, message, size) < 0)
+    std::_Exit(EXIT_FAILURE);
 #endif
   // 不触发崩溃对话框，不运行 atexit/析构，也不试图保存用户文档。
   std::_Exit(EXIT_FAILURE);

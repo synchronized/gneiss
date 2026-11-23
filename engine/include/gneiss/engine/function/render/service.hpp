@@ -91,7 +91,7 @@ public:
   /** 仅关闭 CPU 资源入口；设备关闭由 shutdown 完成。所属线程调用。 */
   GNEISS_ENGINE_API void close_resources() noexcept;
   /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
-  [[nodiscard]] GNEISS_ENGINE_API memory_usage memory_usage() const noexcept;
+  [[nodiscard]] GNEISS_ENGINE_API render::memory_usage memory_usage() const noexcept;
   [[nodiscard]] GNEISS_ENGINE_API std::uint64_t available_memory_bytes() const noexcept;
 
   [[nodiscard]] GNEISS_ENGINE_API bool is_valid() const noexcept;

@@ -724,3 +724,5 @@
 
 - [PLAN-128：Editor、Runtime 与项目宿主业务归属](plans/PLAN-128-host-business-ownership.md)
 - [ADR-131：宿主会话与业务状态归属](decisions/ADR-131-host-business-ownership.md)
+
+- [PLAN-129：下一轮架构重构与遗留验收](plans/PLAN-129-next-architecture-baseline.md)

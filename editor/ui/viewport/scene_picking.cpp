@@ -15,7 +15,7 @@ void scene_picking::queue(const scene_edit_session& session, rid target,
   if (!session.is_open() || !extent.width || !extent.height || !std::isfinite(uv.x) ||
       !std::isfinite(uv.y) || uv.x < 0 || uv.y < 0 || uv.x >= 1 || uv.y >= 1)
     return;
-  pending_.emplace();
+  pending_.emplace(pending{});
   auto& click = *pending_;
   click.document = session.current_version().stamp();
   click.selection = session.selection();

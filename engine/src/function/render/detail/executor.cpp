@@ -41,7 +41,7 @@ struct threaded_render_executor::state final {
   struct queued_task final {
     task_kind kind{task_kind::frame};
     std::uint64_t sequence{};
-    frame_policy frame_policy{frame_policy::replaceable};
+    render::frame_policy frame_policy{render::frame_policy::replaceable};
     frame_packet packet;
     render_frame_prepare prepare;
     std::function<void(error)> completed{};
