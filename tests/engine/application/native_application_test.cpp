@@ -41,7 +41,8 @@ void test_loop_callback_exceptions() {
       if (startup)
         throw std::runtime_error("启动失败");
     });
-    app->add_system(app::stage::update, "throw", [] { throw std::runtime_error("更新失败"); });
+    app->add_system(app::stage::update, "throw",
+                    []() -> error { throw std::runtime_error("更新失败"); });
     app->on_stop("release", [&] {
       check(acquired);
       acquired = false;

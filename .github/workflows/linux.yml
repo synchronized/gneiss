@@ -284,7 +284,7 @@ jobs:
           set -e
           printf '%s\n' "$device_failure_output"
           [[ "$device_failure_status" -ne 0 ]]
-          grep -F '阶段=创建 Application，结果=-5' <<<"$device_failure_output"
+          grep -F '阶段=场景查看器生命周期，结果=-5' <<<"$device_failure_output"
           ctest --preset linux-gcc-debug \
             -R '^gneiss\.(native-application|scene_instance|scene-load-application|scene-load-preparation|scene-instantiation|texture-load-service|render_asset_loader|prefab_binding)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \

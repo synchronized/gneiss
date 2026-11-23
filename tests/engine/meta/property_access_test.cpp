@@ -94,17 +94,17 @@ int main(int argc, char** argv) try {
   const gneiss::meta::property_ops field_of_view{.access = &gneiss::meta::detail::ops_of<float>(),
                                                  .read_construct = get_field_of_view,
                                                  .write = set_field_of_view};
-  const gneiss::meta::property_ops label{.access = &gneiss::meta::detail::ops_of<std::string>(),
-                                         .read_construct = get_label,
-                                         .write = {}};
-  std::array bindings{field_of_view, label,
+  const gneiss::meta::property_ops label_ops{.access = &gneiss::meta::detail::ops_of<std::string>(),
+                                             .read_construct = get_label,
+                                             .write = {}};
+  std::array bindings{field_of_view, label_ops,
                       gneiss::meta::property_ops{.access = &gneiss::meta::detail::ops_of<float>(),
                                                  .read_construct = get_malformed}};
   bindings[1].write = set_field_of_view;
   if (gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields}, bindings) !=
       error::invalid_argument)
     return 2;
-  bindings[1] = label;
+  bindings[1] = label_ops;
   // 上次提交失败不留下部分类型；相同身份可以完整重试。
   if (gneiss::meta::register_type(registry, {camera_type, {}, 1, "camera", fields}, bindings)
           .failed() ||

@@ -2,13 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 
+#include <gneiss/engine/core/base/error.hpp>
 #include <gneiss/engine/core/meta/capabilities/container.hpp>
 #include <gneiss/engine/core/meta/property.hpp>
 #include <gneiss/engine/core/meta/registry.hpp>
+#include <gneiss/engine/core/meta/resolve.hpp>
 #include <gneiss/engine/core/meta/type.hpp>
 #include <gneiss/engine/core/serialization/diagnostic.hpp>
-#include <gneiss/engine/core/base/error.hpp>
-#include <gneiss/engine/core/meta/resolve.hpp>
 
 #include <functional>
 #include <optional>
@@ -103,16 +103,19 @@ inline result<reference_policy> reference_policy_for(const meta::type& reference
   const auto* policy = target.extension<reference_policy>();
   return policy ? *policy : reference_policy{};
 }
+namespace detail {
+template <auto Validate, class T> diagnostic validate_object(const void* object) {
+  auto status = std::invoke(Validate, *static_cast<const T*>(object));
+  if constexpr (std::is_same_v<decltype(status), error>)
+    return {.error = status};
+  else
+    return status;
+}
+} // namespace detail
 /** 与 Meta 注册器 extend 配合；按注册对象类型生成校验适配。 */
 template <auto Validate>
 inline constexpr auto validation = []<class T>() -> result<validation_policy> {
-  return validation_policy{[](const void* object) -> diagnostic {
-    auto status = std::invoke(Validate, *static_cast<const T*>(object));
-    if constexpr (std::is_same_v<decltype(status), error>)
-      return {.error = status};
-    else
-      return status;
-  }};
+  return validation_policy{&detail::validate_object<Validate, T>};
 };
 /** 类型安全特殊 codec 适配；两个方向均为空或重复登记在 commit 失败。 */
 template <auto Encode, auto Decode>

@@ -987,6 +987,8 @@ struct alignas(128) computed_record {
   static inline int live = 0;
   int first = 1;
   int second = 2;
+  // 显式填满对齐存储，仍验证过对齐临时对象的生命周期。
+  std::byte padding[128 - 2 * sizeof(int)]{};
   computed_record() { ++live; }
   computed_record(const computed_record& other) : first(other.first), second(other.second) {
     ++live;

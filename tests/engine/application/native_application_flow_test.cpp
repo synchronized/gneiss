@@ -133,8 +133,9 @@ void state_systems() {
     (*exiting)->request_exit();
     check((*exiting)->request_state(flow::playing).error() == error::cancelled);
   });
-  (*exiting)->on_update(flow::loading, "must_not_run", [&] { check(false); });
-  check((*exiting)->run().ok());
+  unsigned unexpected_updates{};
+  (*exiting)->on_update(flow::loading, "must_not_run", [&] { ++unexpected_updates; });
+  check((*exiting)->run().ok() && unexpected_updates == 0);
 }
 void host_shutdown() {
   std::string order;

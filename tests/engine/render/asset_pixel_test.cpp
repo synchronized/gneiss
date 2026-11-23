@@ -707,11 +707,11 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
     render::scene_commands commands{.scene = *render_scene, .entries = {}};
     std::uint64_t key{};
     for (auto object : scene.objects()) {
-      if (const auto* mesh = object.try_component<mesh_component>()) {
+      if (const auto* component = object.try_component<mesh_component>()) {
         commands.entries.push_back(
             render::create_instance{{++key},
-                                    {.mesh = resource_handle(mesh->mesh),
-                                     .material = resource_handle(mesh->material),
+                                    {.mesh = resource_handle(component->mesh),
+                                     .material = resource_handle(component->material),
                                      .world_matrix = object.world_matrix(),
                                      .casts_shadows = false}});
       }
