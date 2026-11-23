@@ -77,6 +77,8 @@
 
 ## 版本归档
 
+- [0.52.0 版本归档](versions/0.52.0.md)
+
 - [版本索引](versions/README.md)
 - [0.49.0：大场景加载响应性与生命周期稳定性](versions/0.49.0.md)
 - [0.48.0：C++ SDK 可读性与调用一致性](versions/0.48.0.md)
@@ -296,6 +298,8 @@
 - [ADR-080：撤销完整公共 SDK，保留游戏模块协议](decisions/ADR-080-minimal-game-module-api.md)
 
 ## 实施与验收记录
+
+- [0.52 发布验收](records/2026-11-23-0.52-release-validation.md)
 
 - [CAORS 输入资源加载到 InputService 生效闭环](records/2026-10-20-caors-input-application.md)
 
