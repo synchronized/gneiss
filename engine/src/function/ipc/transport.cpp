@@ -46,7 +46,7 @@ struct transport::implementation final {
   uv_tcp_t stream{};
   uv_connect_t connect_request{};
   std::array<char, 64U * 1024U> read_buffer{};
-  envelope_decoder envelope_decoder;
+  ipc::envelope_decoder envelope_decoder;
   mutable std::mutex event_mutex;
   std::deque<transport_event> events;
   std::size_t event_capacity;
@@ -62,8 +62,8 @@ struct transport::implementation final {
   bool is_stopping = false;
 
   bool is_low_priority(const transport_event& event) const noexcept {
-    return event.type == transport_event_type::envelope_received &&
-           is_discardable && is_discardable(event.envelope);
+    return event.type == transport_event_type::envelope_received && is_discardable &&
+           is_discardable(event.envelope);
   }
 
   void emit(transport_event event) {
@@ -75,7 +75,8 @@ struct transport::implementation final {
       }
       if (events.size() >= event_capacity) {
         // 可丢弃消息不能挤掉普通消息，分类由本地配置决定。
-        const auto discardable = std::ranges::find_if(events, [this](const auto& value) { return is_low_priority(value); });
+        const auto discardable = std::ranges::find_if(
+            events, [this](const auto& value) { return is_low_priority(value); });
         if (!is_low_priority(event) && discardable != events.end()) {
           events.erase(discardable);
         } else if (event.type == transport_event_type::envelope_received) {
@@ -155,8 +156,9 @@ struct transport::implementation final {
       return;
     }
     if (count < 0) {
-      const auto operation =
-          count == UV_EOF ? error::success : gneiss::io::detail::from_uv_status(static_cast<int>(count));
+      const auto operation = count == UV_EOF
+                                 ? error::success
+                                 : gneiss::io::detail::from_uv_status(static_cast<int>(count));
       if (!self->is_stopping) {
         self->emit_status(transport_event_type::disconnected, operation);
       }
@@ -192,7 +194,8 @@ struct transport::implementation final {
     }
     if (self->stream_initialized) {
       auto* rejected = new rejected_connection;
-      const auto initialized = gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &rejected->stream));
+      const auto initialized =
+          gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &rejected->stream));
       if (initialized.failed()) {
         delete rejected;
         self->emit_status(transport_event_type::error, initialized);
@@ -206,15 +209,16 @@ struct transport::implementation final {
       return;
     }
 
-    const auto initialized = gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &self->stream));
+    const auto initialized =
+        gneiss::io::detail::from_uv_status(uv_tcp_init(server->loop, &self->stream));
     if (initialized != error::success) {
       self->emit_status(transport_event_type::error, initialized);
       return;
     }
     self->stream_initialized = true;
     self->stream.data = self;
-    const auto accepted =
-        gneiss::io::detail::from_uv_status(uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
+    const auto accepted = gneiss::io::detail::from_uv_status(
+        uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
     if (accepted != error::success) {
       self->emit_status(transport_event_type::error, accepted);
       self->close_stream();
@@ -254,7 +258,8 @@ struct transport::implementation final {
     auto* write = static_cast<write_request*>(request->data);
     write->owner->pending_writes.fetch_sub(1U, std::memory_order_release);
     if (status < 0 && !write->owner->is_stopping) {
-      write->owner->emit_status(transport_event_type::error, gneiss::io::detail::from_uv_status(status));
+      write->owner->emit_status(transport_event_type::error,
+                                gneiss::io::detail::from_uv_status(status));
     }
     delete write;
   } catch (...) {
@@ -294,8 +299,8 @@ struct transport::implementation final {
     } while (!pending_writes.compare_exchange_weak(pending, pending + 1U, std::memory_order_acq_rel,
                                                    std::memory_order_relaxed));
 
-    const auto operation =
-        io::detail::uv_loop_access::post(executor, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
+    const auto operation = io::detail::uv_loop_access::post(
+        executor, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
           state->write(std::move(data));
         });
     if (operation != error::success) {
@@ -318,8 +323,10 @@ struct transport::implementation final {
   }
 };
 
-transport::transport(std::size_t event_capacity, std::size_t write_capacity, message_classifier classifier)
-    : implementation_(std::make_unique<implementation>(event_capacity, write_capacity, classifier)) {}
+transport::transport(std::size_t event_capacity, std::size_t write_capacity,
+                     message_classifier classifier)
+    : implementation_(
+          std::make_unique<implementation>(event_capacity, write_capacity, classifier)) {}
 
 transport::~transport() {
   if (implementation_) {
@@ -332,8 +339,7 @@ error transport::start_server() {
       implementation_->write_capacity == 0U) {
     return error::invalid_argument;
   }
-  if (implementation_->current_state.load(std::memory_order_acquire) !=
-      transport_state::stopped) {
+  if (implementation_->current_state.load(std::memory_order_acquire) != transport_state::stopped) {
     return error::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::server);
@@ -345,43 +351,44 @@ error transport::start_server() {
   {
     auto completion = std::make_shared<std::promise<error>>();
     auto completed = completion->get_future();
-    operation = io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
-                                                                 completion](uv_loop_t* loop) {
-      auto current = gneiss::io::detail::from_uv_status(uv_tcp_init(loop, &state->listener));
-      if (current == error::success) {
-        state->listener_initialized = true;
-        state->listener.data = state;
-        sockaddr_in address{};
-        current = gneiss::io::detail::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
-        if (current == error::success) {
-          current = gneiss::io::detail::from_uv_status(
-              uv_tcp_bind(&state->listener, reinterpret_cast<const sockaddr*>(&address), 0U));
-        }
-        if (current == error::success) {
-          current = gneiss::io::detail::from_uv_status(uv_listen(
-              reinterpret_cast<uv_stream_t*>(&state->listener), 1, implementation::on_connection));
-        }
-        if (current == error::success) {
-          sockaddr_in local{};
-          int length = sizeof(local);
-          current = gneiss::io::detail::from_uv_status(
-              uv_tcp_getsockname(&state->listener, reinterpret_cast<sockaddr*>(&local), &length));
+    operation = io::detail::uv_loop_access::post(
+        implementation_->executor, [state = implementation_.get(), completion](uv_loop_t* loop) {
+          auto current = gneiss::io::detail::from_uv_status(uv_tcp_init(loop, &state->listener));
           if (current == error::success) {
-            state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
-            state->current_state.store(transport_state::listening, std::memory_order_release);
-            state->emit_status(transport_event_type::listening);
+            state->listener_initialized = true;
+            state->listener.data = state;
+            sockaddr_in address{};
+            current = gneiss::io::detail::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
+            if (current == error::success) {
+              current = gneiss::io::detail::from_uv_status(
+                  uv_tcp_bind(&state->listener, reinterpret_cast<const sockaddr*>(&address), 0U));
+            }
+            if (current == error::success) {
+              current = gneiss::io::detail::from_uv_status(
+                  uv_listen(reinterpret_cast<uv_stream_t*>(&state->listener), 1,
+                            implementation::on_connection));
+            }
+            if (current == error::success) {
+              sockaddr_in local{};
+              int length = sizeof(local);
+              current = gneiss::io::detail::from_uv_status(uv_tcp_getsockname(
+                  &state->listener, reinterpret_cast<sockaddr*>(&local), &length));
+              if (current == error::success) {
+                state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
+                state->current_state.store(transport_state::listening, std::memory_order_release);
+                state->emit_status(transport_event_type::listening);
+              }
+            }
           }
-        }
-      }
-      if (current != error::success) {
-        state->current_state.store(transport_state::failed, std::memory_order_release);
-        state->emit_status(transport_event_type::error, current);
-        if (state->listener_initialized) {
-          uv_close(reinterpret_cast<uv_handle_t*>(&state->listener), nullptr);
-        }
-      }
-      completion->set_value(current);
-    });
+          if (current != error::success) {
+            state->current_state.store(transport_state::failed, std::memory_order_release);
+            state->emit_status(transport_event_type::error, current);
+            if (state->listener_initialized) {
+              uv_close(reinterpret_cast<uv_handle_t*>(&state->listener), nullptr);
+            }
+          }
+          completion->set_value(current);
+        });
     if (operation == error::success) {
       operation = completed.get();
     }
@@ -399,8 +406,7 @@ error transport::start_client(const ipc::endpoint& endpoint) {
       endpoint.port == 0U) {
     return error::invalid_argument;
   }
-  if (implementation_->current_state.load(std::memory_order_acquire) !=
-      transport_state::stopped) {
+  if (implementation_->current_state.load(std::memory_order_acquire) != transport_state::stopped) {
     return error::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::client);
@@ -412,32 +418,32 @@ error transport::start_client(const ipc::endpoint& endpoint) {
   {
     auto completion = std::make_shared<std::promise<error>>();
     auto completed = completion->get_future();
-    operation = io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get(),
-                                                                 endpoint,
-                                                                 completion](uv_loop_t* loop) {
-      auto current = gneiss::io::detail::from_uv_status(uv_tcp_init(loop, &state->stream));
-      if (current == error::success) {
-        state->stream_initialized = true;
-        state->stream.data = state;
-        state->connect_request.data = state;
-        sockaddr_in address{};
-        current =
-            gneiss::io::detail::from_uv_status(uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
-        if (current == error::success) {
-          current = gneiss::io::detail::from_uv_status(uv_tcp_connect(
-              &state->connect_request, &state->stream, reinterpret_cast<const sockaddr*>(&address),
-              implementation::on_connect));
-        }
-      }
-      if (current == error::success) {
-        state->current_state.store(transport_state::connecting, std::memory_order_release);
-      } else {
-        state->current_state.store(transport_state::failed, std::memory_order_release);
-        state->emit_status(transport_event_type::error, current);
-        state->close_stream();
-      }
-      completion->set_value(current);
-    });
+    operation = io::detail::uv_loop_access::post(
+        implementation_->executor,
+        [state = implementation_.get(), endpoint, completion](uv_loop_t* loop) {
+          auto current = gneiss::io::detail::from_uv_status(uv_tcp_init(loop, &state->stream));
+          if (current == error::success) {
+            state->stream_initialized = true;
+            state->stream.data = state;
+            state->connect_request.data = state;
+            sockaddr_in address{};
+            current = gneiss::io::detail::from_uv_status(
+                uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
+            if (current == error::success) {
+              current = gneiss::io::detail::from_uv_status(uv_tcp_connect(
+                  &state->connect_request, &state->stream,
+                  reinterpret_cast<const sockaddr*>(&address), implementation::on_connect));
+            }
+          }
+          if (current == error::success) {
+            state->current_state.store(transport_state::connecting, std::memory_order_release);
+          } else {
+            state->current_state.store(transport_state::failed, std::memory_order_release);
+            state->emit_status(transport_event_type::error, current);
+            state->close_stream();
+          }
+          completion->set_value(current);
+        });
     if (operation == error::success) {
       operation = completed.get();
     }
@@ -458,7 +464,8 @@ error transport::send(const envelope& envelope) {
   const auto operation = encode_envelope(envelope, encoded);
   return operation == error::success
              ? implementation_->enqueue(std::move(encoded),
-                                        implementation_->is_discardable && implementation_->is_discardable(envelope))
+                                        implementation_->is_discardable &&
+                                            implementation_->is_discardable(envelope))
              : operation;
 }
 
@@ -471,8 +478,8 @@ error transport::stop() {
     return error::not_ready;
   }
   implementation_->current_state.store(transport_state::stopping, std::memory_order_release);
-  auto operation =
-      io::detail::uv_loop_access::post(implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
+  auto operation = io::detail::uv_loop_access::post(
+      implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
         state->is_stopping = true;
         state->close_stream();
         if (state->listener_initialized &&
@@ -491,8 +498,7 @@ error transport::stop() {
   return operation;
 }
 
-std::size_t transport::drain_events(std::vector<transport_event>& output,
-                                       std::size_t max_count) {
+std::size_t transport::drain_events(std::vector<transport_event>& output, std::size_t max_count) {
   if (!implementation_ || max_count == 0U) {
     return 0U;
   }

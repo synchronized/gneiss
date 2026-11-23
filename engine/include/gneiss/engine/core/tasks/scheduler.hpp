@@ -109,7 +109,7 @@ struct scheduler_stats {
 };
 
 /** 宿主注入的内部执行入口；无独立状态。跨共享库时通过宿主虚调用保持唯一池和线程上下文。 */
-class executor {
+class GNEISS_TASKS_TYPE_API executor {
 public:
   using function = std::function<outcome(const context&)>;
   virtual ~executor() = default;
@@ -131,7 +131,7 @@ public:
 /// 内部调度器；无线程构建仅允许所属宿主线程访问，启用线程时提交、查询和取消线程安全。
 /// poll/close_scope 回收结果后句柄失效；已提交依赖仍持有前置终态。
 /// stop 和析构由宿主线程串行调用；不得从自身任务销毁调度器。服务须在调度器之前销毁。
-class scheduler final : public executor {
+class GNEISS_TASKS_TYPE_API scheduler final : public executor {
 public:
   using function = std::function<outcome(const context&)>;
   GNEISS_TASKS_API explicit scheduler(scheduler_options options = {});

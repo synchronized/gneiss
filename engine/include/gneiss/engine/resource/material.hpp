@@ -23,7 +23,7 @@ struct material_content {
 };
 /** 稳定运行身份，与 material_data 的 CPU 内容寿命分离。CPU 对象随最后强引用释放，只有后端 RID
  * 延迟回收。 */
-class material final : public asset {
+class GNEISS_RESOURCE_TYPE_API material final : public asset {
 public:
   GNEISS_RESOURCE_API ~material();
   /** 所属线程只读参数与依赖；更新通过 Loader/Render 受控入口执行。 */

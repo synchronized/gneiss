@@ -40,7 +40,7 @@ enum class transport_event_type : std::uint8_t {
 struct transport_event final {
   transport_event_type type = transport_event_type::error;
   error operation = error::success;
-  envelope envelope;
+  ipc::envelope envelope;
 };
 
 /** 本地策略在发送与接收线程调用，须为线程安全的纯函数，不借用外部状态。 */
@@ -59,13 +59,13 @@ public:
   transport& operator=(const transport&) = delete;
 
   [[nodiscard]] error start_server();
-  [[nodiscard]] error start_client(const endpoint& endpoint);
+  [[nodiscard]] error start_client(const ipc::endpoint& endpoint);
   [[nodiscard]] error send(const envelope& envelope);
   [[nodiscard]] error stop();
 
   [[nodiscard]] std::size_t drain_events(std::vector<transport_event>& output,
                                          std::size_t max_count = 64U);
-  [[nodiscard]] endpoint endpoint() const;
+  [[nodiscard]] ipc::endpoint endpoint() const;
   [[nodiscard]] transport_state state() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;
   [[nodiscard]] std::size_t pending_write_count() const noexcept;

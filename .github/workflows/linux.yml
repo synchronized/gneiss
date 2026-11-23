@@ -107,7 +107,15 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston-core.log"
             exit 1
           }
-          xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180
+          if ! xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180; then
+            # 保留失败，并为异步纹理加载的跨平台崩溃收集原生栈。
+            if ! command -v gdb >/dev/null; then
+              apt-get update && apt-get install -y gdb
+            fi
+            timeout --signal=INT --kill-after=10s 90s gdb --batch -ex run -ex 'thread apply all bt 20' --args \
+              "build/${{ steps.preset.outputs.name }}/bin/gneiss_texture_load_service_test" || true
+            exit 1
+          fi
           python3 -B scripts/performance/test_prepare_sponza.py
           python3 -B scripts/performance/test_validate_runtime_loop.py
       - name: 输出编译缓存统计

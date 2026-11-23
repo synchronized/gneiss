@@ -16,3 +16,10 @@
 #else
 #define GNEISS_TASKS_API
 #endif
+
+// ELF/Mach-O 跨库多态类型需要可见 RTTI；Windows 保留逐成员导出，避免导出 STL 私有成员。
+#if !defined(_WIN32) && !defined(__CYGWIN__)
+#define GNEISS_TASKS_TYPE_API GNEISS_TASKS_API
+#else
+#define GNEISS_TASKS_TYPE_API
+#endif

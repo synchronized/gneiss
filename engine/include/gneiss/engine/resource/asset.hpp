@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
+#include <gneiss/engine/resource/export.hpp>
 #include <gneiss/engine/core/base/type_id.hpp>
 #include <gneiss/engine/resource/asset_identity.hpp>
 #include <gneiss/engine/resource/asset_ref.hpp>
 namespace gneiss {
 /** 逻辑资产身份；内容就绪状态由加载请求报告，非空引用不代表加载成功。
  * 共享既有 ref 控制块，析构线程策略仍由创建者指定。 */
-class asset {
+class GNEISS_RESOURCE_TYPE_API asset {
 public:
   virtual ~asset() = default;
   asset(const asset&) = delete;

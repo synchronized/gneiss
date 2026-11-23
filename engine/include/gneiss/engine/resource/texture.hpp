@@ -28,7 +28,7 @@ struct texture_metadata {
 
 /** 稳定运行身份，与 texture_data 的 CPU 内容寿命分离。CPU 对象随最后强引用释放，只有后端 RID
  * 延迟回收。 */
-class texture final : public asset {
+class GNEISS_RESOURCE_TYPE_API texture final : public asset {
 public:
   GNEISS_RESOURCE_API ~texture();
   /** 所属线程查询轻量信息；未加载时为空，内容保留不可变 CPU 快照。 */

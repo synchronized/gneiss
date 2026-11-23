@@ -16,3 +16,10 @@
 #else
 #define GNEISS_RESOURCE_API
 #endif
+
+// ELF/Mach-O 跨库多态类型需要可见 RTTI；Windows 保留逐成员导出，避免导出 STL 私有成员。
+#if !defined(_WIN32) && !defined(__CYGWIN__)
+#define GNEISS_RESOURCE_TYPE_API GNEISS_RESOURCE_API
+#else
+#define GNEISS_RESOURCE_TYPE_API
+#endif

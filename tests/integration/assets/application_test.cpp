@@ -43,6 +43,12 @@ void close_pending_window(const char* assets) {
             gneiss::error::success,
         "window create");
 
+  // 窗口关闭策略由宿主 system 决定，使用与 Runtime 相同的实际事件入口。
+  app->add_system(gneiss::app::stage::events, "test.close",
+                  [&](const gneiss::app::event_context& events) {
+                    if (events.close_requested())
+                      app->request_exit();
+                  });
   app->add_system(gneiss::app::stage::update, "test.update", [&](const auto&) {
     ++updates;
     return gneiss::error::success;
