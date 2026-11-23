@@ -18,6 +18,9 @@ result<void> session::initialize() {
   loader_.emplace(application_, *world_);
   return {};
 }
+result<void> session::update(const frame_time& time, bool paused) {
+  return paused ? result<void>{} : world_->update(time);
+}
 result<void> session::synchronize() {
   world_->flush_changes();
   return binding_->synchronize();

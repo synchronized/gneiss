@@ -5,10 +5,11 @@
 
 ## 状态
 
-2026-11-22：实施中。P1 代码迁移与本地定向验收完成，手工高 DPI/连续交互待验收；P2 代码迁移与本地自动化范围已完成，P3 正在实施，Runtime 会话所有权与构建边界已提取；P4 待实施。
+2026-11-23：按阶段成果收尾，剩余范围转入 [PLAN-129](PLAN-129-next-architecture-baseline.md)，不标记原全部目标完成。
+历史实施状态（2026-11-22）：P1 代码迁移与本地定向验收完成，手工高 DPI/连续交互待验收；P2 代码迁移与本地自动化范围已完成，P3 正在实施，Runtime 会话所有权与构建边界已提取；P4 待实施。
 证据见 [P1 验收记录](../records/2026-11-22-editor-viewport-extraction.md)及
 [P2 验收记录](../records/2026-11-22-editor-session-extraction.md)。
-属于 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，不包含远端操作或发布。
+属于 [0.52 架构整理](VER-052-0.52.0-architecture-cleanup.md)，版本发布由 VER-052 统一验收。
 长期边界见 [ADR-131](../decisions/ADR-131-host-business-ownership.md)。
 
 ## 背景与目标
@@ -146,7 +147,8 @@ Editor 与 Runtime 业务分别归 gneiss::editor、gneiss::runtime；宿主入�
   runtime::session 已拥有 World、渲染绑定和加载器；同步与视图汇总由会话执行。
   场景、资产重载和检查实现已移入 gneiss_runtime_host，gneiss_runtime_ipc 仅保留通信处理。
   loading() 暂向宿主提供借用：协议适配、重载回调和检查状态仍在入口，迁入会话业务接口后删除该过渡入口。
-  暂停/恢复命令的实际业务消费仍需核对并接入，不能以 IPC 命令测试代替运行行为验收。
+  本次版本收尾接入 Runtime 游戏系统更新与暂停门控；加载、通信、渲染不随游戏暂停。
+  协议解耦和其他业务归属迁移转入 PLAN-129，不继续扩大 0.52 改动范围。
   本阶段记录见 [Runtime 会话所有权验收](../records/2026-11-22-runtime-session-ownership.md)。
   退出条件：独立运行及 Editor 启动、暂停、恢复、停止都通过；IPC 不拥有游戏 World。
 - [ ] P4：整理工作区、目录、命名空间和 CMake 目标。同步迁移测试与文档。

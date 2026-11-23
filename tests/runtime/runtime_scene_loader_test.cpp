@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "scene/runtime_scene_loader.hpp"
+#include "session.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -54,10 +54,15 @@ void run() {
   auto app = *created;
   check(app->step().ok());
 
-  auto created_world = gneiss::create_native();
-  check(bool(created_world));
-  auto world = std::move(*created_world);
-  host::runtime_scene_loader loader(*app, *world);
+  runtime::session session(*app);
+  check(bool(session.initialize()));
+  auto* world = &session.world();
+  auto& loader = session.loading();
+  unsigned updates{};
+  world->add_system("test.simulation", [&](gneiss::world&, const frame_time&) { ++updates; });
+  check(bool(session.update({}, false)) && updates == 1);
+  check(bool(session.update({}, true)) && updates == 1);
+  check(bool(session.update({}, false)) && updates == 2);
   gneiss::ref<host::scene_reload_state> source;
   loader.after_activate = [&](const auto& completion) {
     source = completion.reload_state;
@@ -67,6 +72,8 @@ void run() {
     (void)scheduler.run_ready();
     check(app->step().ok());
     check(loader.advance().ok());
+    // 加载期间暂停游戏系统，加载仍应完成。
+    check(bool(session.update({}, true)) && updates == 2);
   };
   const auto drain = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -80,7 +87,7 @@ void run() {
   check(loader.request({.session = 1, .revision = 1, .uri = uri}, 1).ok());
   drain();
   check(source && loader.last_result().ok());
-  check(source->instance.owner() == world.get());
+  check(source->instance.owner() == world);
   const auto reload = [&](std::string_view target, bool prefab) {
     check(loader.reload(source, target, prefab).ok());
     check(loader.reload(source, target, prefab) == gneiss::error::not_ready);

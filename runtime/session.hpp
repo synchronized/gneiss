@@ -17,6 +17,8 @@ public:
   result<void> initialize();
   gneiss::world& world() const { return *world_; }
   host::runtime_scene_loader& loading() { return *loader_; }
+  /** 暂停只跳过游戏系统；共享服务、加载和渲染仍由宿主正常推进。 */
+  result<void> update(const frame_time& time, bool paused);
   result<void> synchronize();
   result<void> append_views(render::frame_request&) const;
   /** 解除加载回调并放弃请求；不销毁 World，外部借用仍可清理。 */

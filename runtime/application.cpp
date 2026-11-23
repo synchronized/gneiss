@@ -650,6 +650,13 @@ private:
       gneiss::app::stage::update, "runtime.scene",
       [&](const gneiss::frame_time& time) { return advance_runtime_scene(context, time); });
   application->add_system(
+      gneiss::app::stage::update, "runtime.simulate", [&](const gneiss::frame_time& time) {
+        // 使用本轮通信处理后的最终状态，连续 pause/resume 不受动作布尔值顺序影响。
+        const bool paused = context.ipc_session && context.ipc_session->state() !=
+                                                       gneiss::host::runtime_ipc_state::running;
+        return session.update(time, paused);
+      });
+  application->add_system(
       gneiss::app::stage::update, "runtime.report",
       [&](const gneiss::frame_time& time) { return report_runtime(context, time); });
   log.write({.severity = gneiss::logging::level::info,
